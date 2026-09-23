@@ -1,0 +1,124 @@
+/* Program definition — imported from Week2_Running_Log.xlsx */
+export const PROGRAM = {
+  push: { name: "Push", detail: "Chest + Triceps", exercises: [
+    { n: "Incline Barbell / Smith Press", sets: 4, reps: [6,10], rest: 120, cue: "Lead with upper chest, not shoulders. 3 sec down." },
+    { n: "Flat DB Press", sets: 3, reps: [8,12], rest: 90, cue: "Slow eccentric. Squeeze at top like touching elbows together." },
+    { n: "Machine Pec Dec", sets: 3, reps: [10,15], rest: 90, cue: "Your best MMC lift. Elbows at shoulder height. Squeeze 1 sec at centre." },
+    { n: "Cable Fly (Low to High)", sets: 3, reps: [12,15], rest: 60, cue: "Hug a barrel. Arc upward, squeeze knuckles at top." },
+    { n: "Tricep Pushdown (Rope)", sets: 3, reps: [10,15], rest: 60, cue: "Elbows glued to sides. Spread the rope at the bottom." },
+    { n: "Overhead Tricep Extension", sets: 3, reps: [10,15], rest: 60, cue: "Full stretch at top is the point. Targets the long head." },
+  ]},
+  pull: { name: "Pull", detail: "Back + Biceps", exercises: [
+    { n: "Lat Pulldown (Wide Grip)", sets: 4, reps: [8,12], rest: 120, cue: "Shoulders down and back first. Lead with elbows. Feel lats, not biceps." },
+    { n: "Seated Cable Row (Close Grip)", sets: 3, reps: [8,12], rest: 90, cue: "Elbow to hip pocket. Pause and squeeze. Chest tall." },
+    { n: "Seated Row (Machine)", sets: 3, reps: [10,12], rest: 90, cue: "Full hang at the bottom — let the lat stretch. Drive the elbow up." },
+    { n: "Straight-Arm Pulldown", sets: 3, reps: [12,15], rest: 60, cue: "Lower lat priority. Slight forward lean, arms locked, sweep to thighs." },
+    { n: "Face Pulls", sets: 3, reps: [15,20], rest: 60, cue: "Pull to forehead, elbows high. Slow and controlled." },
+    { n: "Seated DB Curl", sets: 3, reps: [10,12], rest: 60, cue: "Zero swinging. Squeeze at top, slow down." },
+    { n: "Hammer Curl", sets: 3, reps: [10,12], rest: 60, cue: "Neutral grip hits brachialis — arm thickness." },
+  ]},
+  legs: { name: "Legs", detail: "Quads + Hams + Glutes", exercises: [
+    { n: "Leg Press (Heavy)", sets: 4, reps: [8,12], rest: 120, cue: "Feet shoulder-width, mid-platform. Knees to 90°. Chase weight." },
+    { n: "Romanian Deadlift", sets: 3, reps: [10,12], rest: 120, cue: "Hinge at hips, push hips BACK until hams stretch. Bar close to legs." },
+    { n: "Bulgarian Split Squat", sets: 3, reps: [8,10], rest: 90, cue: "Rear foot on bench. Front knee tracks over toes." },
+    { n: "Leg Extension", sets: 3, reps: [12,15], rest: 60, cue: "Pause 1 sec at top, squeeze the quad. Don't let it crash." },
+    { n: "Leg Curl", sets: 3, reps: [12,15], rest: 60, cue: "Curl all the way, pause at peak. Hams love full ROM." },
+    { n: "Leg Adduction", sets: 2, reps: [15,20], rest: 60, cue: "Squeeze at close. Slow return. No momentum." },
+  ]},
+  shoulders: { name: "Shoulders", detail: "Delts + Arms", exercises: [
+    { n: "Seated DB Shoulder Press", sets: 4, reps: [8,12], rest: 90, cue: "Don't lock out — keep tension. Lower to 90°. Brace core." },
+    { n: "Lateral Raise (Cable)", sets: 4, reps: [12,20], rest: 60, cue: "Most important for width. Lead with elbows, hold 0.5 sec. No shrug." },
+    { n: "Rear Delt Fly", sets: 3, reps: [15,20], rest: 60, cue: "Elbows slightly bent, arc wide. Squeeze blades at the end." },
+    { n: "Upright Row (Cable)", sets: 3, reps: [12,15], rest: 60, cue: "Pull to chin, elbows lead. Don't go heavy — feel side delts." },
+    { n: "Incline DB Curl", sets: 3, reps: [10,12], rest: 60, cue: "Sit at 45°, arms hang straight down. Full stretch = max growth." },
+    { n: "Skull Crushers", sets: 3, reps: [10,12], rest: 60, cue: "Lower slowly beside your head — 3 sec. Elbows fixed." },
+  ]},
+};
+export const DAYS = ["push", "pull", "legs", "shoulders"];
+
+/* Searchable library for adding lifts. Defaults are starting points — edit on add. */
+export const LIBRARY = [
+  // Chest
+  { n: "Flat Barbell Bench Press", g: "Chest", sets: 4, reps: [6,10], rest: 120 },
+  { n: "Incline DB Press", g: "Chest", sets: 3, reps: [8,12], rest: 90 },
+  { n: "Decline Press", g: "Chest", sets: 3, reps: [8,12], rest: 90 },
+  { n: "Cable Fly (High to Low)", g: "Chest", sets: 3, reps: [12,15], rest: 60 },
+  { n: "Cable Crossover", g: "Chest", sets: 3, reps: [12,15], rest: 60 },
+  { n: "Chest Press (Machine)", g: "Chest", sets: 3, reps: [8,12], rest: 90 },
+  { n: "Dips (Chest Lean)", g: "Chest", sets: 3, reps: [8,12], rest: 90 },
+  { n: "Push-Up", g: "Chest", sets: 3, reps: [12,20], rest: 60 },
+  // Back
+  { n: "Pull-Up", g: "Back", sets: 4, reps: [6,10], rest: 120 },
+  { n: "Chin-Up", g: "Back", sets: 3, reps: [6,10], rest: 120 },
+  { n: "Barbell Row", g: "Back", sets: 4, reps: [8,10], rest: 120 },
+  { n: "Single-Arm DB Row", g: "Back", sets: 3, reps: [8,12], rest: 90 },
+  { n: "T-Bar Row", g: "Back", sets: 3, reps: [8,12], rest: 90 },
+  { n: "Chest-Supported Row", g: "Back", sets: 3, reps: [10,12], rest: 90 },
+  { n: "Lat Pulldown (Neutral Grip)", g: "Back", sets: 3, reps: [8,12], rest: 90 },
+  { n: "Lat Pulldown (Underhand)", g: "Back", sets: 3, reps: [8,12], rest: 90 },
+  { n: "Straight-Arm Pulldown", g: "Back", sets: 3, reps: [12,15], rest: 60 },
+  { n: "Pullover (Cable or DB)", g: "Back", sets: 3, reps: [10,15], rest: 60 },
+  { n: "Shrugs", g: "Back", sets: 3, reps: [10,15], rest: 60 },
+  { n: "Deadlift", g: "Back", sets: 3, reps: [4,6], rest: 180 },
+  // Shoulders
+  { n: "Overhead Press (Barbell)", g: "Shoulders", sets: 4, reps: [6,10], rest: 120 },
+  { n: "Arnold Press", g: "Shoulders", sets: 3, reps: [8,12], rest: 90 },
+  { n: "Lateral Raise (DB)", g: "Shoulders", sets: 4, reps: [12,20], rest: 60 },
+  { n: "Lateral Raise (Machine)", g: "Shoulders", sets: 3, reps: [12,20], rest: 60 },
+  { n: "Front Raise", g: "Shoulders", sets: 3, reps: [12,15], rest: 60 },
+  { n: "Reverse Pec Dec", g: "Shoulders", sets: 3, reps: [15,20], rest: 60 },
+  { n: "Cable Y-Raise", g: "Shoulders", sets: 3, reps: [12,15], rest: 60 },
+  // Arms
+  { n: "Barbell Curl", g: "Arms", sets: 3, reps: [8,12], rest: 60 },
+  { n: "EZ-Bar Curl", g: "Arms", sets: 3, reps: [8,12], rest: 60 },
+  { n: "Preacher Curl", g: "Arms", sets: 3, reps: [10,12], rest: 60 },
+  { n: "Cable Curl", g: "Arms", sets: 3, reps: [10,15], rest: 60 },
+  { n: "Concentration Curl", g: "Arms", sets: 3, reps: [10,12], rest: 60 },
+  { n: "Reverse Curl", g: "Arms", sets: 3, reps: [12,15], rest: 60 },
+  { n: "Close-Grip Bench Press", g: "Arms", sets: 3, reps: [8,10], rest: 90 },
+  { n: "Tricep Pushdown (Bar)", g: "Arms", sets: 3, reps: [10,15], rest: 60 },
+  { n: "Single-Arm Cable Extension", g: "Arms", sets: 3, reps: [12,15], rest: 60 },
+  { n: "Dips (Upright)", g: "Arms", sets: 3, reps: [8,12], rest: 90 },
+  { n: "Wrist Curl", g: "Arms", sets: 3, reps: [15,20], rest: 45 },
+  // Legs
+  { n: "Back Squat", g: "Legs", sets: 4, reps: [6,10], rest: 180 },
+  { n: "Front Squat", g: "Legs", sets: 3, reps: [6,10], rest: 150 },
+  { n: "Hack Squat", g: "Legs", sets: 3, reps: [8,12], rest: 120 },
+  { n: "Goblet Squat", g: "Legs", sets: 3, reps: [10,15], rest: 90 },
+  { n: "Walking Lunge", g: "Legs", sets: 3, reps: [10,12], rest: 90 },
+  { n: "Step-Up", g: "Legs", sets: 3, reps: [10,12], rest: 90 },
+  { n: "Hip Thrust", g: "Legs", sets: 3, reps: [8,12], rest: 120 },
+  { n: "Good Morning", g: "Legs", sets: 3, reps: [10,12], rest: 90 },
+  { n: "Seated Leg Curl", g: "Legs", sets: 3, reps: [12,15], rest: 60 },
+  { n: "Lying Leg Curl", g: "Legs", sets: 3, reps: [12,15], rest: 60 },
+  { n: "Nordic Curl", g: "Legs", sets: 3, reps: [6,10], rest: 90 },
+  { n: "Leg Abduction", g: "Legs", sets: 3, reps: [15,20], rest: 60 },
+  { n: "Standing Calf Raise", g: "Legs", sets: 4, reps: [12,20], rest: 60 },
+  { n: "Seated Calf Raise", g: "Legs", sets: 3, reps: [15,20], rest: 60 },
+  // Core
+  { n: "Cable Crunch", g: "Core", sets: 3, reps: [12,20], rest: 60 },
+  { n: "Hanging Leg Raise", g: "Core", sets: 3, reps: [10,15], rest: 60 },
+  { n: "Plank", g: "Core", sets: 3, reps: [30,60], rest: 60 },
+  { n: "Ab Wheel Rollout", g: "Core", sets: 3, reps: [8,12], rest: 60 },
+  { n: "Pallof Press", g: "Core", sets: 3, reps: [12,15], rest: 60 },
+  { n: "Russian Twist", g: "Core", sets: 3, reps: [15,20], rest: 45 },
+];
+
+/* Historical import — Weeks 1 & 2 from the spreadsheet */
+export const IMPORTED = [
+  { d: "pull", w: 1, s: { "Lat Pulldown (Wide Grip)": [[100,14],[110,9],[110,9],[110,11]], "Seated Row (Machine)": [[60,13],[60,10],[60,9]], "Face Pulls": [[50,15],[50,9],[50,14],[50,12]], "Seated DB Curl": [[50,8],[50,6]], "Hammer Curl": [[20,9],[20,8],[20,9]] }},
+  { d: "legs", w: 1, s: { "Leg Press (Heavy)": [[90,6],[90,6],[90,5]], "Bulgarian Split Squat": [[0,12],[0,12],[0,12]], "Leg Adduction": [[120,15],[120,17]] }},
+  { d: "shoulders", w: 1, s: { "Seated DB Shoulder Press": [[30,8],[30,6],[30,8],[30,6]], "Lateral Raise (Cable)": [[20,14],[20,9],[15,10],[15,11]], "Rear Delt Fly": [[55,8],[55,8],[55,6]], "Upright Row (Cable)": [[60,10],[60,9],[60,9],[55,9]], "Incline DB Curl": [[20,13],[20,7],[20,5],[20,5]] }},
+  { d: "push", w: 2, s: { "Incline Barbell / Smith Press": [[25,6],[25,7],[25,6],[25,5]], "Flat DB Press": [[35,10],[35,5],[35,6],[35,6]], "Machine Pec Dec": [[80,12],[80,5],[80,6],[70,6]], "Cable Fly (Low to High)": [[25,10],[25,9],[25,8],[25,8]], "Tricep Pushdown (Rope)": [[80,7],[80,7],[80,7],[80,5]] }},
+  { d: "pull", w: 2, s: { "Lat Pulldown (Wide Grip)": [[110,8],[110,8],[110,8],[100,6]], "Seated Cable Row (Close Grip)": [[95,12],[95,10],[95,9],[95,8]], "Seated Row (Machine)": [[70,11],[80,8],[80,8],[70,12]], "Face Pulls": [[50,9],[50,10],[50,9]], "Seated DB Curl": [[25,8],[20,5],[20,3],[20,6]], "Hammer Curl": [[25,6],[25,5],[20,5]] }},
+  { d: "legs", w: 2, s: { "Leg Press (Heavy)": [[90,8],[90,8],[90,7],[90,5]], "Romanian Deadlift": [[60,10],[60,8],[60,10]], "Leg Extension": [[100,8],[100,10],[100,10],[100,9]], "Leg Adduction": [[70,13],[70,9],[70,9]] }},
+  { d: "shoulders", w: 2, s: { "Seated DB Shoulder Press": [[30,12],[30,8],[30,8],[30,6]], "Lateral Raise (Cable)": [[10,7],[10,6],[10,6],[10,5]], "Rear Delt Fly": [[50,8],[55,8],[55,8],[55,8]], "Upright Row (Cable)": [[60,8],[60,8],[60,8],[60,8]], "Incline DB Curl": [[20,12],[20,9],[20,5],[20,5]], "Skull Crushers": [[30,15],[30,10],[30,10]] }},
+];
+
+/* Each day wears an IWF competition-plate color. Color identifies the day only — never good/bad. */
+export const PLATES = {
+  push: { kg: 25, short: "Push" },
+  pull: { kg: 20, short: "Pull" },
+  legs: { kg: 15, short: "Legs" },
+  shoulders: { kg: 10, short: "Shldr" },
+};
