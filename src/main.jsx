@@ -5,6 +5,10 @@ import ReactDOM from "react-dom/client";
 import App from "./App.jsx";
 import AuthGate from "./Auth.jsx";
 
+// iOS Safari ignores user-scalable=no; block pinch-zoom so it behaves like a native app.
+["gesturestart", "gesturechange"].forEach((t) => document.addEventListener(t, (e) => e.preventDefault(), { passive: false }));
+document.addEventListener("touchmove", (e) => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
+
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
     <AuthGate>
