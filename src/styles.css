@@ -579,13 +579,36 @@ button.coach-card:active { transform: translateY(3px); box-shadow: 0 2px 0 var(-
 .weigh-skip:active { transform: scale(0.9); }
 
 /* PRs: a bold sunset beam rides the rim (BorderBeam md), plus a PR stamp. */
-.pr-beam { border-radius: var(--r); }
-.pr-beam:has(> .done-row) { border-radius: 18px; margin-top: 6px; }
-.pr-beam > .done-row { margin-top: 0; }
-.lift-row.is-pr, .done-row.is-pr { background: color-mix(in srgb, var(--stamp-bg) 45%, var(--surface)); }
+/* Bolder than BorderBeam's free settings allow (a 1px line): a 2.5px gold light that circles the
+   row, plus a breathing glow. Reduced motion (global rule) freezes it into a solid gold ring. */
+@property --pr-spin { syntax: "<angle>"; inherits: false; initial-value: 0deg; }
+.pr-rim { position: relative; isolation: isolate; background: color-mix(in srgb, var(--stamp-bg) 45%, var(--surface)); box-shadow: 0 0 0 0 rgba(255, 178, 62, 0), 0 0 0 rgba(255, 138, 43, 0); animation: pr-breathe 2.4s ease-in-out infinite; }
+.pr-rim::before { content: ""; position: absolute; inset: 0; z-index: 1; padding: 2.5px; border-radius: inherit; pointer-events: none;
+  background: conic-gradient(from var(--pr-spin), #FFB23E, #FF6A2B 18%, #FFE7A3 30%, #FFB23E 42%, color-mix(in srgb, #FFB23E 35%, transparent) 60%, color-mix(in srgb, #FFB23E 35%, transparent) 88%, #FFB23E);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); mask-composite: exclude;
+  animation: pr-spin 2.4s linear infinite; }
+@keyframes pr-spin { to { --pr-spin: 360deg; } }
+@keyframes pr-breathe { 50% { box-shadow: 0 0 0 1px rgba(255, 178, 62, .3), 0 0 14px rgba(255, 138, 43, .45); } }
 .lift-row .pr-stamp { height: 20px; padding: 0 7px; font-size: 11px; margin-right: 7px; vertical-align: 2px; }
 
 /* Earned a weight increase: the target badge turns solid so it reads as an instruction. */
 .target.up { background: var(--day); color: var(--on-day); }
 .target.up::before { content: "↑"; font-weight: 900; }
 .card-row .v.up { background: var(--day); color: var(--on-day); }
+
+/* A coach-proposed program change: stays inert until Apply. */
+.proposal { align-self: stretch; margin: 0 4px; padding: 12px 14px; border-radius: 20px; background: var(--surface); border: 2px solid color-mix(in srgb, var(--c, var(--ink)) 55%, var(--rule)); display: flex; flex-direction: column; gap: 8px; font-size: 14px; }
+.proposal-head { display: flex; align-items: center; gap: 6px; font-weight: 800; }
+.proposal ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; font-weight: 600; line-height: 1.35; }
+.proposal-skip { margin: 0; font-size: 13px; color: var(--mute); font-weight: 600; }
+.proposal-actions { display: flex; gap: 8px; }
+.proposal-actions .btn { flex: 1; min-height: 44px; font-size: 15px; }
+.proposal.applied { border-color: var(--rule); }
+.proposal.dismissed { opacity: .6; border-color: var(--rule); }
+.proposal.dismissed ul { text-decoration: line-through; }
+.proposal-undo { align-self: flex-start; font-weight: 800; font-size: 13.5px; color: var(--ink); text-decoration: underline; padding: 4px 0; }
+
+/* iOS keyboards are translucent: a solid ground just below the sheet wrap (where the keyboard
+   sits) hides the page underneath instead of letting it bleed through. */
+.sheet-wrap::after { content: ""; position: absolute; left: 0; right: 0; top: 100%; height: 100lvh; background: var(--bg); pointer-events: none; }

@@ -149,7 +149,13 @@ export default function App() {
   if (loadFailed) return <LoadError onRetry={load} />;
   if (!ready) return <Boot />;
 
-  const common = { sessions, program, drafts, weighins, prefs, setPref, name, go, back, notify, onWeighin: logWeighin };
+  // A coach's program edit the lifter confirmed in chat. Returns an undo that restores the program as it was.
+  const applyCoachProgram = (next) => {
+    const before = program;
+    setProgram(next);
+    return () => setProgram(before);
+  };
+  const common = { sessions, program, drafts, weighins, prefs, setPref, name, go, back, notify, onWeighin: logWeighin, onProgramChange: applyCoachProgram };
   let view;
   switch (route.name) {
     case "session": {

@@ -1,6 +1,7 @@
 import { supabase } from "../supabase-client.js";
 import { COACHES, coachFor } from "../data/coaches.js";
 import { DAYS, isCardio } from "../data/program.js";
+import { describeProgram } from "./programChange.js";
 import { fmtSet, liftSeries, trend, num, fmtW, bestSet, bodyweightSeries, byDateDesc, daysBetween, today, nextDayAfter, readyToIncrease } from "./util.js";
 
 /** A compact, plain-text picture of the lifter for the coach: their lifts, recent bests, trends, bodyweight. */
@@ -39,6 +40,8 @@ export function buildContext({ coach, sessions, program, weighins }) {
     const f = bw[0], l = bw[bw.length - 1];
     lines.push(`Bodyweight: ${num(l.bw)} lb on ${l.date}` + (bw.length > 1 ? ` (${num(l.bw - f.bw)} lb since ${f.date})` : "") + ".");
   }
+  // Every day's lifts with their plan, so the coach can propose edits by exact day key and name.
+  lines.push("Program (day key (name): lift sets x rep range, rest):", describeProgram(program));
   return lines.join("\n");
 }
 
@@ -46,6 +49,7 @@ export function buildContext({ coach, sessions, program, weighins }) {
  * Streams a coach reply. Calls onText with the text so far. Throws an Error whose `kind` is
  * "offline" | "auth" | "unavailable" | "busy" so the chat can answer in the coach's voice.
  */
+const PROPOSAL_MARK = "\u001E"; // must match api/coach.js
 const withName = (context, first) => (first ? `Lifter's first name: ${first}.\n${context}` : context);
 
 export async function askCoach({ coach, messages, context, onText, signal }) {
@@ -69,14 +73,18 @@ export async function askCoach({ coach, messages, context, onText, signal }) {
 
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
-  let text = "";
+  let raw = "";
   for (;;) {
     const { done, value } = await reader.read();
     if (done) break;
-    text += decoder.decode(value, { stream: true });
-    onText(text);
+    raw += decoder.decode(value, { stream: true });
+    onText(raw.split(PROPOSAL_MARK)[0]);
   }
+  // Text first, then each proposed program change on its own line after the mark.
+  const [text, ...rest] = raw.split(PROPOSAL_MARK);
+  const proposals = rest.map((line) => { try { return JSON.parse(line.trim()).changes; } catch { return null; } })
+    .filter((c) => Array.isArray(c) && c.length);
   // Free-tier limits end the stream early with nothing in it.
-  if (!text.trim()) throw Object.assign(new Error("busy"), { kind: "busy" });
-  return text;
+  if (!text.trim() && !proposals.length) throw Object.assign(new Error("busy"), { kind: "busy" });
+  return { text, changes: proposals.flat() };
 }

@@ -12,15 +12,26 @@ function useVisibleViewport(wrap) {
     const vv = window.visualViewport;
     const el = wrap.current;
     if (!vv || !el) return;
+    // Newer iOS shrinks innerHeight along with the visual viewport, so the height gap alone can
+    // miss the keyboard. On touch screens a focused text field inside the sheet means it's up.
+    const touch = window.matchMedia("(pointer: coarse)").matches;
+    const typing = () => touch && el.contains(document.activeElement) && /^(INPUT|TEXTAREA)$/.test(document.activeElement.tagName);
     const fit = () => {
       el.style.setProperty("--vv-top", `${vv.offsetTop}px`);
       el.style.setProperty("--vv-h", `${vv.height}px`);
-      el.toggleAttribute("data-kb", window.innerHeight - vv.height > 120);
+      el.toggleAttribute("data-kb", window.innerHeight - vv.height > 120 || typing());
     };
+    // focusout fires before focus lands elsewhere; wait a tick so moving between fields doesn't flicker.
+    const blur = () => setTimeout(fit, 0);
     fit();
     vv.addEventListener("resize", fit);
     vv.addEventListener("scroll", fit);
-    return () => { vv.removeEventListener("resize", fit); vv.removeEventListener("scroll", fit); };
+    el.addEventListener("focusin", fit);
+    el.addEventListener("focusout", blur);
+    return () => {
+      vv.removeEventListener("resize", fit); vv.removeEventListener("scroll", fit);
+      el.removeEventListener("focusin", fit); el.removeEventListener("focusout", blur);
+    };
   }, [wrap]);
 }
 

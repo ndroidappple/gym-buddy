@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowUp } from "lucide-react";
+import { ArrowUp, Check, ListChecks } from "lucide-react";
 import { BorderBeam } from "border-beam";
 import { ThinkingOrb } from "thinking-orbs";
 import { Sheet } from "./ui.jsx";
@@ -7,6 +7,7 @@ import Coach from "./Coach.jsx";
 import { COACHES, coachFor } from "../data/coaches.js";
 import { DAYS } from "../data/program.js";
 import { askCoach, buildContext } from "../lib/coachChat.js";
+import { applyChanges } from "../lib/programChange.js";
 import { useReducedMotion } from "../lib/motion.js";
 import { useTheme } from "../lib/theme.js";
 
@@ -20,9 +21,11 @@ const TROUBLE = {
 
 /** Chat with one coach. Answers stream in; the coach looks locked in while thinking and fired up when it lands.
     `exercise` is the lift the chat was opened from, so the first suggestion is about that lift. */
-export default function CoachChat({ coach, exercise, sessions, program, weighins, onClose }) {
+export default function CoachChat({ coach, exercise, sessions, program, weighins, onProgramChange, onClose }) {
   const c = COACHES[coach];
-  const [messages, setMessages] = useState([]); // {role, content, trouble?}
+  // {role, content, trouble?, changes?, preview?: {lines, errors}, decision?: "applied" | "dismissed"}
+  const [messages, setMessages] = useState([]);
+  const undos = useRef({}); // message index -> undo for an applied program change
   const [draft, setDraft] = useState("");
   const [status, setStatus] = useState("idle"); // idle | thinking | streaming | answered
   const busy = status === "thinking" || status === "streaming";
@@ -56,25 +59,31 @@ export default function CoachChat({ coach, exercise, sessions, program, weighins
     return [
       lift ? `What's a great mental cue for ${lift}?` : `What's a good ${c.group.toLowerCase()} lift to add?`,
       `How was my last ${c.group.toLowerCase()} work?`,
-      "What should I focus on today?",
+      // Opened mid-workout (from a lift) the day's focus matters; from Meet your coaches, the program does.
+      exercise || !onProgramChange ? "What should I focus on today?" : `Adjust my program's ${c.group.toLowerCase()} work`,
     ];
-  }, [program, coach, c.group, exercise]);
+  }, [program, coach, c.group, exercise, onProgramChange]);
 
   const send = async (text) => {
     const q = text.trim();
     if (!q || busy) return;
-    const history = [...messages.filter((m) => !m.trouble), { role: "user", content: q }];
+    // The model sees what it proposed earlier and whether the lifter took it.
+    const noteFor = (m) => (m.preview?.lines.length ? ` [Proposed: ${m.preview.lines.join("; ")}. Lifter ${m.decision === "applied" ? "applied it" : m.decision === "dismissed" ? "said no" : "hasn't decided"}.]` : "");
+    const history = [...messages.filter((m) => !m.trouble).map((m) => ({ role: m.role, content: m.content + noteFor(m) })), { role: "user", content: q }];
     setMessages([...messages, { role: "user", content: q }, { role: "assistant", content: "" }]);
     setDraft("");
     setStatus("thinking");
     abort.current = new AbortController();
     const put = (patch) => setMessages((ms) => { const c2 = [...ms]; c2[c2.length - 1] = { ...c2[c2.length - 1], ...patch }; return c2; });
     try {
-      await askCoach({
+      const { text: reply, changes } = await askCoach({
         coach, messages: history, signal: abort.current.signal,
         context: buildContext({ coach, sessions, program, weighins }),
         onText: (t) => { setStatus("streaming"); put({ content: t }); },
       });
+      if (changes.length && onProgramChange) {
+        put({ content: reply.trim() || "Here's the change I'd make.", changes, preview: applyChanges(program, changes) });
+      }
       setStatus("answered");
     } catch (e) {
       if (e.name === "AbortError") return;
@@ -82,6 +91,16 @@ export default function CoachChat({ coach, exercise, sessions, program, weighins
       setStatus("idle");
     }
   };
+
+  const decide = (i, decision) => setMessages((ms) => ms.map((m, j) => (j === i ? { ...m, decision } : m)));
+  const apply = (i) => {
+    // Re-check against the program as it is now; the lifter may have edited it since the proposal.
+    const r = applyChanges(program, messages[i].changes);
+    if (!r.lines.length) return;
+    undos.current[i] = onProgramChange(r.program);
+    decide(i, "applied");
+  };
+  const undo = (i) => { undos.current[i]?.(); delete undos.current[i]; decide(i, "dismissed"); };
 
   const mood = status === "thinking" ? "focused" : status === "answered" ? "hyped" : "idle";
 
@@ -99,15 +118,19 @@ export default function CoachChat({ coach, exercise, sessions, program, weighins
             </div>
           )}
           {messages.map((m, i) => (
-            <p key={i} className={m.role === "user" ? "chat-me" : "coach-bubble"}>
-              {m.content || (
-                // Fades in only after a beat, so a fast reply never flashes an orb.
-                <span className="chat-wait">
-                  <ThinkingOrb state="breathing" size={20} theme={theme} aria-hidden="true" />
-                  {c.name} is thinking…
-                </span>
-              )}
-            </p>
+            <React.Fragment key={i}>
+              <p className={m.role === "user" ? "chat-me" : "coach-bubble"}>
+                {m.content || (
+                  // Fades in only after a beat, so a fast reply never flashes an orb.
+                  <span className="chat-wait">
+                    <ThinkingOrb state="breathing" size={20} theme={theme} aria-hidden="true" />
+                    {c.name} is thinking…
+                  </span>
+                )}
+              </p>
+              {m.preview && <Proposal preview={m.preview} decision={m.decision}
+                onApply={() => apply(i)} onDismiss={() => decide(i, "dismissed")} onUndo={() => undo(i)} />}
+            </React.Fragment>
           ))}
         </div>
         {/* Line beam from send until the answer finishes; the line type ignores reduced motion, so gate it here. */}
@@ -123,5 +146,25 @@ export default function CoachChat({ coach, exercise, sessions, program, weighins
         <p className="chat-note">Answers use your logged sets. AI can be wrong. Not medical advice.</p>
       </div>
     </Sheet>
+  );
+}
+
+/** A coach's proposed program edit. Nothing is saved until the lifter taps Apply; Undo puts it back. */
+function Proposal({ preview, decision, onApply, onDismiss, onUndo }) {
+  const { lines, errors } = preview;
+  return (
+    <div className={"proposal" + (decision ? ` ${decision}` : "")} role="group" aria-label="Proposed program change">
+      <span className="proposal-head"><ListChecks size={16} strokeWidth={2.6} aria-hidden="true" />
+        {decision === "applied" ? "Program updated" : decision === "dismissed" ? "Not applied" : "Proposed program change"}</span>
+      {lines.length > 0 && <ul>{lines.map((l) => <li key={l}>{l}</li>)}</ul>}
+      {errors.length > 0 && <p className="proposal-skip">{lines.length ? "Skipped: " : "Couldn't apply: "}{errors.join(" ")}</p>}
+      {!decision && lines.length > 0 && (
+        <div className="proposal-actions">
+          <button type="button" className="btn btn-day" onClick={onApply}><Check size={17} strokeWidth={3} aria-hidden="true" /> Apply</button>
+          <button type="button" className="btn btn-ghost" onClick={onDismiss}>No thanks</button>
+        </div>
+      )}
+      {decision === "applied" && <button type="button" className="proposal-undo" onClick={onUndo}>Undo</button>}
+    </div>
   );
 }
