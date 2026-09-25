@@ -55,23 +55,33 @@ function Shape({ type, ...p }) {
   }
 }
 
-/* A jointed arm: shoulder → upper arm → elbow → forearm → fist. Rotations ease, so flexing reads as motion. */
-function Arm({ side, pose, color, shade }) {
+/* A jointed arm: shoulder → upper arm → elbow → forearm → fist. Rotations ease, so flexing reads as motion.
+   Drawn twice: a thick stroke pass in a deep tone gives one clean outline around the whole arm (no seams at
+   the joints), then the fill pass sits on top. The outline keeps arms readable where they cross the body. */
+function Arm({ side, pose, color, shade, ink }) {
   const flex = pose === "flex";
-  // Shoulder at (20,58); elbow at (20,74). Flexed: upper arm out to the side, forearm up. Down: hands at the hips.
-  const shoulder = flex ? 96 : 20, elbow = flex ? 102 : -14;
+  // Shoulder at (20,58); elbow at (20,74). Flexed: upper arm out to the side, forearm up.
+  // Down: angled out so the hands sit clear of the body instead of on top of it.
+  const shoulder = flex ? 96 : 32, elbow = flex ? 102 : -22;
+  const parts = (p, bicep) => (
+    <g className="cz-joint" style={{ transform: `translate(20px, 58px) rotate(${shoulder}deg) translate(-20px, -58px)` }}>
+      <rect x="14.5" y="56" width="11" height="21" rx="5.5" {...p} />
+      <circle className="cz-bicep" cx="16" cy="67" r="7.5" {...p} style={{ transform: `scale(${flex ? 1 : 0.3})` }} />
+      <g className="cz-joint" style={{ transform: `translate(20px, 75px) rotate(${elbow}deg) translate(-20px, -75px)` }}>
+        <rect x="15" y="73" width="10" height="16" rx="5" {...p} />
+        <circle cx="20" cy="91" r="7.5" {...p} />
+        {bicep && <>
+          <path d="M16 90 Q20 94 24 90" stroke={shade} strokeWidth="1.6" fill="none" strokeLinecap="round" />
+          <circle cx="17.5" cy="88" r="2" fill="#fff" opacity=".35" />
+        </>}
+      </g>
+    </g>
+  );
   return (
     <g transform={side > 0 ? "translate(100 0) scale(-1 1)" : undefined}>
       {/* Pivots are written into the transform (not transform-origin) so they stay right inside the rotated shoulder. */}
-      <g className="cz-joint" style={{ transform: `translate(20px, 58px) rotate(${shoulder}deg) translate(-20px, -58px)` }}>
-        <rect x="14.5" y="56" width="11" height="21" rx="5.5" fill={color} />
-        <circle className="cz-bicep" cx="16" cy="67" r="7.5" fill={color} style={{ transform: `scale(${flex ? 1 : 0.3})` }} />
-        <g className="cz-joint" style={{ transform: `translate(20px, 75px) rotate(${elbow}deg) translate(-20px, -75px)` }}>
-          <rect x="15" y="73" width="10" height="16" rx="5" fill={color} />
-          <circle cx="20" cy="91" r="7.5" fill={color} />
-          <path d="M16 90 Q20 94 24 90" stroke={shade} strokeWidth="1.6" fill="none" strokeLinecap="round" />
-        </g>
-      </g>
+      {parts({ fill: ink, stroke: ink, strokeWidth: 5, strokeLinejoin: "round" }, false)}
+      {parts({ fill: color }, true)}
     </g>
   );
 }
@@ -187,7 +197,8 @@ export default function Coach({ id = "tank", mood = "idle", size = 64, still = f
   const pupils = useRef([]);
   const delay = useRef(`${(-Math.random() * 5).toFixed(2)}s`).current;
   const shade = tone(c.color, -0.22);
-  const arm = tone(c.color, -0.12);
+  const arm = tone(c.color, -0.1);
+  const armInk = tone(c.color, -0.5);
 
   // Eyes follow the finger while it's nearby and recent; otherwise the idle wander takes over.
   useEffect(() => {
@@ -249,8 +260,8 @@ export default function Coach({ id = "tank", mood = "idle", size = 64, still = f
           <ellipse cx="30" cy="27" rx="11" ry="6" fill="#fff" opacity=".28" transform="rotate(-30 30 27)" />
         </g>
         {/* Arms sit in front of the body so a flex reads clearly; flexed fists rise beside the head, clear of the face. */}
-        <Arm side={-1} pose={f.arms} color={arm} shade={shade} />
-        <Arm side={1} pose={f.arms} color={arm} shade={shade} />
+        <Arm side={-1} pose={f.arms} color={arm} shade={shade} ink={armInk} />
+        <Arm side={1} pose={f.arms} color={arm} shade={shade} ink={armInk} />
 
         <Gear coach={c} />
 
