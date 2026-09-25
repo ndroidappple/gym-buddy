@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { ChevronLeft, Check, Plus, Minus, Trash2 } from "lucide-react";
 import { BorderBeam } from "border-beam";
-import { fmtSet, uid, e1rm, fmtW, today, shortDate, mmss, byDateDesc, priorSessions, allTimeBest, bestSet, vibrate } from "../lib/util.js";
+import { fmtSet, uid, e1rm, fmtW, today, shortDate, mmss, byDateDesc, priorSessions, allTimeBest, bestSet, vibrate, readyToIncrease } from "../lib/util.js";
 import { primeAudio, chime } from "../lib/sound.js";
 import { Sheet, ConfirmSheet, ExercisePicker } from "../components/ui.jsx";
 import Coach, { MOODS } from "../components/Coach.jsx";
@@ -66,6 +66,9 @@ export default function Session({ day, existing, draft, sessions, program, weigh
     }
     if (prev) return prev.map((s) => ({ w: String(s.w), r: String(s.r), rir: s.rir != null ? String(s.rir) : "", done: true, saved: true }));
     const ref = lastFor(ex.n)?.sets[ex.n] || [];
+    // Earned a weight increase last time: every set starts at the new weight, reps start fresh.
+    const bump = readyToIncrease(ex, ref);
+    if (bump) return Array.from({ length: ex.sets }, () => ({ w: String(bump.to), r: "", rir: "", done: false }));
     const count = Math.max(ex.sets, ref.length);
     const lastW = ref.length ? String(ref[ref.length - 1].w) : "";
     return Array.from({ length: count }, (_, i) => ({
@@ -93,6 +96,22 @@ export default function Session({ day, existing, draft, sessions, program, weigh
   const isPending = (n) => !skipped.includes(n) && (grid[n] || []).some((r) => !r.done);
   const [focus, setFocus] = useState(() => (existing ? null : exercises.find((e) => isPending(e.n))?.n ?? null));
   const [activeIdx, setActiveIdx] = useState(null);
+  // Remember which card just closed so it can animate shut, then glide the newly opened card into view.
+  const prevFocus = useRef(focus);
+  const closed = useRef(null);
+  if (prevFocus.current !== focus) { closed.current = prevFocus.current; prevFocus.current = focus; }
+  const reducedMotion = useReducedMotion();
+  useEffect(() => {
+    if (!focus) return;
+    const id = requestAnimationFrame(() => {
+      const el = document.querySelector("section.ex");
+      if (!el) return;
+      const { top, bottom } = el.getBoundingClientRect();
+      // Only move the page when the card starts under the header or runs well past the fold.
+      if (top < 90 || bottom > innerHeight * 0.95) el.scrollIntoView({ behavior: reducedMotion ? "auto" : "smooth", block: "start" });
+    });
+    return () => cancelAnimationFrame(id);
+  }, [focus]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const active = exercises.filter((e) => !skipped.includes(e.n));
   const totalSlots = active.reduce((a, e) => a + (grid[e.n]?.length || 0), 0);
@@ -206,6 +225,10 @@ export default function Session({ day, existing, draft, sessions, program, weigh
       if (nx >= 0 && !hasVal(rows[nx].w)) rows[nx] = { ...rows[nx], w: row.w };
       return { ...g, [ex.n]: rows };
     });
+    // Finishing the planned sets at the top of the rep range earns more weight next time.
+    const doneNow = grid[ex.n].map((r, j) => (j === i ? { ...r, done: true } : r)).filter((r) => r.done && hasVal(r.w) && hasVal(r.r));
+    const earned = doneNow.length >= ex.sets && readyToIncrease(ex, doneNow.map((r) => ({ w: +r.w, r: +r.r })));
+    if (earned) notify(`${ex.n}: ${earned.sets} × ${earned.reps} done. Go up to ${fmtW(earned.to)} lb next time.`);
     if (!startedAt) setStartedAt(Date.now());
     setFlash({ ex: ex.n, i });
     vibrate(pr ? [40, 60, 40, 60, 80] : 20);
@@ -273,7 +296,7 @@ export default function Session({ day, existing, draft, sessions, program, weigh
     onFinish({ id: uid(), day, date, bw: bw !== "" ? parseFloat(bw) : null, note: note.trim() || null, sets, startedAt: startedAt || Date.now(), finishedAt: Date.now() });
   };
 
-  const metaBits = [shortDate(date), bw !== "" ? `${bw} lb bw` : null, note.trim() ? "note" : null].filter(Boolean);
+  const metaBits = [shortDate(date), bw !== "" ? `${bw} lb bodyweight` : null, note.trim() ? "note" : null].filter(Boolean);
 
   return (
     <main className="screen" data-day={day}>
@@ -298,7 +321,7 @@ export default function Session({ day, existing, draft, sessions, program, weigh
           if (focus === ex.n) {
             const pendingIdx = activeIdx != null && rows[activeIdx] && !rows[activeIdx].done ? activeIdx : rows.findIndex((r) => !r.done);
             return (
-              <ExerciseCard key={ex.n} ex={ex} rows={rows} target={target} targetDate={last?.date}
+              <ExerciseCard key={ex.n} ex={ex} rows={rows} target={target} targetDate={last?.date} bump={readyToIncrease(ex, last?.sets[ex.n])}
                 refSets={last?.sets[ex.n] || []} activeIdx={pendingIdx} flash={flash?.ex === ex.n ? flash.i : null}
                 mood={reaction?.ex === ex.n ? reaction.mood : resting ? "resting" : editing ? "focused" : "idle"}
                 onEdit={(i, patch) => { setRow(ex.n, i, patch); setEditing(true); }} onLog={(i) => logSet(ex, i)}
@@ -308,7 +331,7 @@ export default function Session({ day, existing, draft, sessions, program, weigh
                 showRir={prefs.rir} onAsk={() => setChat({ coach: coachFor(ex.n), exercise: ex.n })} onCollapse={() => setFocus(null)} />
             );
           }
-          return <Collapsed key={ex.n} ex={ex} rows={rows} target={target} skipped={skipped.includes(ex.n)}
+          return <Collapsed key={ex.n} ex={ex} rows={rows} target={target} skipped={skipped.includes(ex.n)} justClosed={closed.current === ex.n}
             onOpen={() => { if (skipped.includes(ex.n)) setSkipped((s) => s.filter((x) => x !== ex.n)); setFocus(ex.n); setActiveIdx(null); }} />;
         })}
 
@@ -364,7 +387,7 @@ export default function Session({ day, existing, draft, sessions, program, weigh
   );
 }
 
-function Collapsed({ ex, rows, target, skipped, onOpen }) {
+function Collapsed({ ex, rows, target, skipped, justClosed, onOpen }) {
   const done = rows.filter((r) => r.done);
   const complete = rows.length > 0 && done.length === rows.length;
   const prs = done.filter((r) => r.pr).length;
@@ -373,10 +396,10 @@ function Collapsed({ ex, rows, target, skipped, onOpen }) {
   let sub;
   if (skipped) sub = "Skipped today · tap to add back";
   else if (cardio) sub = done.length ? done.map((r) => fmtSet({ min: +r.min, mi: hasVal(r.mi) ? +r.mi : null })).join(" + ") : `Cardio · ${ex.reps[0]}–${ex.reps[1]} min`;
-  else if (complete) sub = `${done.length} sets · best ${fmtW(best.w)} × ${best.r}`;
-  else sub = `${done.length}/${rows.length} sets${target ? ` · beat ${fmtW(target.w)} × ${target.r}` : ""}`;
+  else if (complete) sub = `${done.length} sets · top set ${fmtW(best.w)} × ${best.r}`;
+  else sub = `${done.length}/${rows.length} sets${target ? ` · to beat ${fmtW(target.w)} × ${target.r}` : ""}`;
   return (
-    <button className={"ex-collapsed" + (skipped ? " skipped" : complete ? "" : " pending")} onClick={onOpen}>
+    <button className={"ex-collapsed" + (skipped ? " skipped" : complete ? "" : " pending") + (justClosed ? " just-closed" : "")} onClick={onOpen}>
       <SetRing done={done.length} total={rows.length} skipped={skipped} />
       <span className="name">{ex.n}{ex.today && <span className="ex-tag">today</span>}<span className="sub">{sub}</span></span>
       {prs > 0 && !skipped && <span className="stamp">PR{prs > 1 ? ` ×${prs}` : ""}</span>}
@@ -398,13 +421,19 @@ function SetRing({ done, total, skipped }) {
   );
 }
 
-function ExerciseCard({ ex, showRir, rows, target, targetDate, refSets, activeIdx, flash, mood, onAsk, onEdit, onLog, onPick, onReopen, onAddSet, onRemoveSet, onSkip, skipLabel, onCollapse }) {
+function ExerciseCard({ ex, showRir, rows, target, targetDate, bump, refSets, activeIdx, flash, mood, onAsk, onEdit, onLog, onPick, onReopen, onAddSet, onRemoveSet, onSkip, skipLabel, onCollapse }) {
   const id = coachFor(ex.n);
   const coach = COACHES[id];
-  // Calm moods read the form cue; reactions say their own line.
-  const line = (mood === "idle" || mood === "focused") && ex.cue ? ex.cue : MOODS[mood].line;
+  // Calm moods read the form cue; reactions say their own line. Until the first set is logged,
+  // a lift that earned more weight gets the coach telling you to go up instead.
+  const calm = mood === "idle" || mood === "focused";
+  const goUp = bump && calm && !rows.some((r) => r.done);
+  const line = goUp ? `You hit ${bump.sets} × ${bump.reps} at ${fmtW(bump.from)} lb. Go up to ${fmtW(bump.to)} today.`
+    : calm && ex.cue ? ex.cue : MOODS[mood].line;
   const cardio = isCardio(ex.n);
   const lastEntry = cardio ? refSets[0] : null;
+  const reduced = useReducedMotion();
+  const theme = useTheme();
   return (
     <section className="ex" aria-label={ex.n}>
       {/* Comic layout: the bubble's tail points down at the coach who says it. */}
@@ -423,6 +452,7 @@ function ExerciseCard({ ex, showRir, rows, target, targetDate, refSets, activeId
         </button>
         {cardio
           ? lastEntry && <span className="target" title={`Last time, ${shortDate(targetDate)}`}>Beat {fmtSet(lastEntry)}</span>
+          : bump ? <span className="target up" title={`All ${bump.sets} sets hit ${bump.reps} on ${shortDate(targetDate)}`}>Go up · {fmtW(bump.to)} lb</span>
           : target && <span className="target" title={`Best set on ${shortDate(targetDate)}`}>Beat {fmtW(target.w)} × {target.r}</span>}
       </div>
       {!(cardio ? lastEntry : target) && <p className="target-none">First time logging this one. Today sets the baseline.</p>}
@@ -441,14 +471,16 @@ function ExerciseCard({ ex, showRir, rows, target, targetDate, refSets, activeId
             );
           }
           if (r.done) {
-            return (
-              <button key={i} className="done-row" onClick={() => onReopen(i)} aria-label={`Set ${i + 1}: ${fmtW(+r.w)} by ${r.r}${r.pr ? ", personal record" : ""}. Tap to edit.`}>
+            const row = (
+              <button key={i} className={"done-row" + (r.pr ? " is-pr" : "")} onClick={() => onReopen(i)} aria-label={`Set ${i + 1}: ${fmtW(+r.w)} by ${r.r}${r.pr ? ", personal record" : ""}. Tap to edit.`}>
                 <span className="n">{i + 1}</span>
                 <span className="w">{fmtW(+r.w)} × {r.r}{r.pr ? <span className={"stamp" + (flash === i ? " hit" : "")}>PR</span> : r.beat ? <span className="beat-mark">▲ beat</span> : null}</span>
                 <span className="small muted">{showRir && hasVal(r.rir) ? `RIR ${r.rir}` : ""}</span>
                 <span className={"ck" + (flash === i ? " fill" : "")} aria-hidden="true"><Check size={18} strokeWidth={3} /></span>
               </button>
             );
+            // PR sets get the bold travelling rim (the rest timer uses the quieter line beam).
+            return r.pr ? <BorderBeam key={i} size="md" colorVariant="sunset" theme={theme} active={!reduced} className="pr-beam">{row}</BorderBeam> : row;
           }
           if (i === activeIdx && cardio) {
             return <CardioSet key={i} i={i} ex={ex} row={r} last={refSets[i]} canRemove={rows.length > 1}
@@ -462,7 +494,7 @@ function ExerciseCard({ ex, showRir, rows, target, targetDate, refSets, activeId
             <button key={i} className="pending-row" onClick={() => onPick(i)} aria-label={`${cardio ? "Entry" : "Set"} ${i + 1}, not logged. Tap to enter.`}>
               <span>{i + 1}</span>
               <span>{cardio ? `${hasVal(r.min) ? r.min : "—"} min` : `${hasVal(r.w) ? fmtW(+r.w) : "—"} × ${hasVal(r.r) ? r.r : "—"}`}</span>
-              <span>{refSets[i] ? `last ${cardio ? fmtSet(refSets[i]) : `${fmtW(refSets[i].w)} × ${refSets[i].r}`}` : ""}</span>
+              <span>{refSets[i] ? `last time ${cardio ? fmtSet(refSets[i]) : `${fmtW(refSets[i].w)} × ${refSets[i].r}`}` : ""}</span>
             </button>
           );
         })}
@@ -491,7 +523,7 @@ function CardioSet({ i, ex, row, last, canRemove, onEdit, onLog, onRemove }) {
       <div className="steppers">
         <Stepper id={`min-${i}`} label="Minutes" unit="min" value={row.min} mode="decimal" placeholder={`${ex.reps[0]}–${ex.reps[1]}`}
           onChange={(v) => onEdit({ min: v })} onDec={() => bump("min", -5, 0)} onInc={() => bump("min", 5, 0)} step="5 minutes" />
-        <Stepper id={`mi-${i}`} label="Distance" unit="miles" value={row.mi} mode="decimal" placeholder="opt."
+        <Stepper id={`mi-${i}`} label="Distance" unit="miles" value={row.mi} mode="decimal" placeholder="optional"
           onChange={(v) => onEdit({ mi: v })} onDec={() => bump("mi", -0.1, 1)} onInc={() => bump("mi", 0.1, 1)} step="a tenth of a mile" />
       </div>
       <button className="btn btn-day" onClick={onLog} disabled={!hasVal(row.min)}>{hasVal(row.min) ? "Log cardio" : "Enter minutes"}</button>

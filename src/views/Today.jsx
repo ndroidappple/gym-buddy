@@ -1,11 +1,11 @@
 import React, { useMemo, useState } from "react";
 import { InfoButton, Sheet } from "../components/ui.jsx";
 import { Scale, ArrowLeftRight, Check, X } from "lucide-react";
-import { DAYS, PLATES } from "../data/program.js";
+import { DAYS } from "../data/program.js";
 import { href } from "../lib/router.js";
 import { COACHES, coachesFor } from "../data/coaches.js";
 import Coach from "../components/Coach.jsx";
-import { byDateDesc, bestSet, fmtW, num, shortDate, weekDates, today, nextDayAfter, bodyweightSeries, daysBetween, plural } from "../lib/util.js";
+import { byDateDesc, bestSet, fmtW, num, shortDate, weekDates, today, nextDayAfter, bodyweightSeries, daysBetween, plural, readyToIncrease } from "../lib/util.js";
 
 export default function Today({ name, sessions, program, drafts, weighins, onWeighin }) {
   const sorted = useMemo(() => [...sessions].sort(byDateDesc), [sessions]);
@@ -40,11 +40,12 @@ export default function Today({ name, sessions, program, drafts, weighins, onWei
     return mins.length ? Math.round(mins.reduce((a, m) => a + m, 0) / mins.length) : null;
   }, [sessions, day]);
 
+  // Lifts that earned more weight lead the list; the rest show last time's best set to beat.
   const targets = useMemo(() => p.exercises.map((ex) => {
     const prior = sorted.find((s) => s.sets[ex.n]?.length);
     const best = prior && bestSet(prior.sets[ex.n]);
-    return best ? { n: ex.n, best } : null;
-  }).filter(Boolean).slice(0, 3), [p, sorted]);
+    return best ? { n: ex.n, best, bump: readyToIncrease(ex, prior.sets[ex.n]) } : null;
+  }).filter(Boolean).sort((a, b) => !!b.bump - !!a.bump).slice(0, 3), [p, sorted]);
 
   const week = weekDates();
   const byDate = useMemo(() => {
@@ -68,7 +69,7 @@ export default function Today({ name, sessions, program, drafts, weighins, onWei
         </div>
         <a className="coach-link" href="#/coaches" aria-label="Meet your coaches">
           {/* 5+ days away and the lead coach misses you. */}
-          <Coach id={lead} mood={daysOff != null && daysOff >= 5 ? "sleepy" : "idle"} size={40} decorative />
+          <Coach id={lead} mood={daysOff != null && daysOff >= 5 ? "sleepy" : "idle"} size={38} badge decorative />
         </a>
         <InfoButton screen="today" />
       </header>
@@ -85,7 +86,7 @@ export default function Today({ name, sessions, program, drafts, weighins, onWei
           </div>
           <div className="hero-text">
             <span className={"hero-day" + (p.name.length > 6 ? " long" : "")}>{p.name}</span>
-            <span className="hero-meta">{p.detail}{lastOfDay ? ` · last ${shortDate(lastOfDay.date)}` : ""}</span>
+            <span className="hero-meta">{p.detail}{lastOfDay ? ` · last done ${shortDate(lastOfDay.date)}` : ""}</span>
           </div>
           <div className="hero-pills">
             <span className="pill">{plural(p.exercises.length, "lift")}</span>
@@ -93,7 +94,7 @@ export default function Today({ name, sessions, program, drafts, weighins, onWei
             {usualMins && <span className="pill">~{usualMins} min</span>}
           </div>
           <div className="hero-coaches">
-            <span className="coach-stack">{crew.slice(0, 3).map((id) => <span key={id} className="coach-chip"><Coach id={id} size={34} still decorative /></span>)}</span>
+            <span className="coach-stack">{crew.slice(0, 3).map((id) => <span key={id} className="coach-chip"><Coach id={id} size={32} still badge decorative /></span>)}</span>
             <span>{onDeck} {crew.length === 1 ? "is" : "are"} on deck</span>
           </div>
           <a className="btn hero-cta" href={href("session", day)}>{draft ? `Resume ${p.name}` : "Start lifting"}</a>
@@ -117,12 +118,14 @@ export default function Today({ name, sessions, program, drafts, weighins, onWei
 
         {targets.length > 0 && (
           <section className="section">
-            <h2 className="lbl">Beat these</h2>
+            <h2 className="lbl">Beat these today</h2>
             <div className="card-list">
               {targets.map((x) => (
                 <a key={x.n} className="card-row" href={href("lift", x.n)}>
                   <span className="name">{x.n}</span>
-                  <span className="v">{fmtW(x.best.w)} × {x.best.r}</span>
+                  {x.bump
+                    ? <span className="v up" aria-label={`Go up to ${fmtW(x.bump.to)} pounds`}>↑ {fmtW(x.bump.to)} lb</span>
+                    : <span className="v">{fmtW(x.best.w)} × {x.best.r}</span>}
                 </a>
               ))}
             </div>
@@ -130,7 +133,7 @@ export default function Today({ name, sessions, program, drafts, weighins, onWei
         )}
 
         <section className="section">
-          <div className="section-head"><h2 className="lbl">This week</h2><span className="lbl">{doneThisWeek} of 4</span></div>
+          <div className="section-head"><h2 className="lbl">This week</h2><span className="lbl">{doneThisWeek} of 4 workouts</span></div>
           <div className="week">
             {week.map((d) => {
               const dd = byDate[d];
@@ -146,14 +149,14 @@ export default function Today({ name, sessions, program, drafts, weighins, onWei
         </section>
 
         <section className="section">
-          <h2 className="lbl">Or train</h2>
+          <h2 className="lbl">Or train another day</h2>
           <div className="others">
             {DAYS.filter((d) => d !== day).map((d) => {
               const last = sorted.find((s) => s.day === d);
               return (
                 <a key={d} className="other" data-day={d} href={href("session", d)}>
-                  <b><span className="dot" aria-hidden="true" />{PLATES[d].short}</b>
-                  <span>{drafts[d] ? "In progress" : last ? shortDate(last.date) : "Not yet"}</span>
+                  <b><span className="dot" aria-hidden="true" />{program[d].name}</b>
+                  <span>{drafts[d] ? "In progress" : last ? `Last done ${shortDate(last.date)}` : "Not done yet"}</span>
                 </a>
               );
             })}

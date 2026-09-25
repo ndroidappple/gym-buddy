@@ -106,12 +106,13 @@ const TABS = [
   { key: "settings", label: "Settings", Icon: Gear },
 ];
 
-/* Tab bar. Switches on finger-down, not on release, and you can slide a finger along it: the
-   pill follows the finger and each tab you cross opens as you pass it. Tab switches replace the
+/* Tab bar. Switches on finger-down, not on release: a tap snaps the pill to the nearest tab. Hold
+   (or clearly slide) and the pill follows the finger, opening each tab you cross. Tab switches replace the
    history entry, so the back gesture never replays a string of tab taps.
    The active tab gets a wider column so its label has room inside the pill. Tab geometry is
    computed from the bar's width (not measured) so the pill lands right while the columns animate. */
 const TAB_PAD = 7, TAB_GAP = 4, ACTIVE_FR = 2; // keep in sync with .tabbar padding and gap
+const HOLD_MS = 200, DRAG_SLOP = 12; // hold time / finger travel (px) before the pill follows the finger
 function tabGeometry(navW, idx) {
   const unit = (navW - 2 * TAB_PAD - TAB_GAP * (TABS.length - 1)) / (TABS.length - 1 + ACTIVE_FR);
   let left = TAB_PAD;
@@ -144,18 +145,33 @@ export function TabBar({ active, onSelect }) {
   };
   const pick = (key) => { if (key !== active) { onSelect(key); vibrate(6); } };
 
+  // A tap snaps the pill to the tab under the finger. Free dragging starts only after a short
+  // hold, or once the finger clearly travels, so a slightly wobbly tap never drags the pill.
+  const press = useRef(null); // { startX, x, timer } while a finger is down
+  const relX = (clientX) => clientX - nav.current.getBoundingClientRect().left;
+  const startDrag = () => { const p = press.current; if (!p) return; clearTimeout(p.timer); p.dragging = true; setDrag(relX(p.x)); vibrate(4); };
   const down = (e) => {
     if (e.button > 0) return;
     nav.current.setPointerCapture(e.pointerId);
-    setDrag(e.clientX - nav.current.getBoundingClientRect().left);
+    if (press.current) clearTimeout(press.current.timer);
+    press.current = { id: e.pointerId, startX: e.clientX, x: e.clientX, dragging: false, timer: setTimeout(startDrag, HOLD_MS) };
     pick(keyAt(e.clientX));
   };
   const move = (e) => {
-    if (drag == null) return;
-    setDrag(e.clientX - nav.current.getBoundingClientRect().left);
+    const p = press.current;
+    if (!p || e.pointerId !== p.id) return; // ignore other fingers and a hovering mouse
+    p.x = e.clientX;
+    if (!p.dragging) { if (Math.abs(e.clientX - p.startX) < DRAG_SLOP) return; startDrag(); }
+    setDrag(relX(e.clientX));
     pick(keyAt(e.clientX));
   };
-  const up = () => setDrag(null);
+  const up = (e) => {
+    if (!press.current || e.pointerId !== press.current.id) return;
+    clearTimeout(press.current.timer);
+    press.current = null;
+    setDrag(null);
+  };
+  useEffect(() => () => { if (press.current) clearTimeout(press.current.timer); }, []);
 
   const g = geo?.[idx];
   const w = g?.width || 0;
@@ -188,7 +204,7 @@ export function Boot() {
 }
 
 export function Trend({ pct }) {
-  if (pct == null) return <span className="trend flat">new</span>;
+  if (pct == null) return <span className="trend flat">baseline</span>;
   if (Math.abs(pct) < 1) return <span className="trend flat">— {Math.abs(pct).toFixed(1)}%</span>;
   return <span className={"trend" + (pct < 0 ? " flat" : "")}>{pct > 0 ? "▲" : "▼"} {Math.abs(pct).toFixed(1)}%</span>;
 }
@@ -277,7 +293,7 @@ export function ExercisePicker({ title, sub, existingNames, onPick, onClose }) {
         <label className="field"><span className="lbl">Exercise name</span>
           <input id="custom-name" className="input" value={custom.n} onChange={set("n")} placeholder="e.g. Smith Machine Row" /></label>
         <div className="grid-4">
-          {[["sets", "Sets"], ["min", "Rep low"], ["max", "Rep high"], ["rest", "Rest s"]].map(([k, l]) => (
+          {[["sets", "Sets"], ["min", "Min reps"], ["max", "Max reps"], ["rest", "Rest (sec)"]].map(([k, l]) => (
             <label key={k} className="field"><span className="lbl">{l}</span>
               <input id={`custom-${k}`} className="input tn" type="number" inputMode="numeric" value={custom[k]} onChange={set(k)} /></label>
           ))}

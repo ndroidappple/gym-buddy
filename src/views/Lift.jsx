@@ -6,7 +6,7 @@ import { liftSeries, trend, repPRs, num, fmtW, fmtSet, cardioTotals, compact, sh
 import { InfoButton, LineChart, Trend } from "../components/ui.jsx";
 
 const METRICS = [
-  { key: "orm", label: "e1RM", fmt: num },
+  { key: "orm", label: "Est. max", fmt: num },
   { key: "top", label: "Top set", fmt: num },
   { key: "vol", label: "Volume", fmt: compact },
 ];

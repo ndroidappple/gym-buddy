@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { PROGRAM, DAYS } from "./data/program.js";
+import { refreshCues } from "./data/cues.js";
 import { useRoute, href } from "./lib/router.js";
 import { Toast, TabBar, Boot, LoadError, SyncNote } from "./components/ui.jsx";
 import { loadState, createSaver } from "./lib/store.js";
@@ -39,7 +40,7 @@ export default function App() {
       const { data, offline } = await loadState();
       // A confirmed-empty account is a new user: start with no history.
       setSessions(data?.sessions || []);
-      setProgram(data?.program || PROGRAM);
+      setProgram(data?.program ? refreshCues(data.program) : PROGRAM);
       setDrafts(data?.drafts || {});
       setWeighins(data?.weighins || []);
       setPrefs({ ...DEFAULT_PREFS, ...data?.prefs });
