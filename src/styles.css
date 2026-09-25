@@ -96,11 +96,15 @@ p { margin: 0; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
 .app { max-width: 560px; margin: 0 auto; min-height: 100dvh; position: relative; }
-.screen { min-height: 100dvh; display: flex; flex-direction: column; animation: view-in 260ms cubic-bezier(.16, 1, .3, 1); }
+/* The screen itself only fades: a transform here would drag fixed children (the rest dock) with it.
+   The rise lives on the content blocks below. */
+.screen { min-height: 100dvh; display: flex; flex-direction: column; animation: screen-in 220ms ease-out; }
+@keyframes screen-in { from { opacity: .45; } }
 /* Screens settle in rather than fade up from nothing: visible and tappable from the first frame. */
 @keyframes view-in { from { opacity: .3; transform: translateY(18px); } }
 /* The first blocks on a screen cascade in 30 ms apart (150 ms at most). Each starts visible and tappable. */
-.screen > .body > :nth-child(-n+6):not(.ex) { animation: view-in 300ms cubic-bezier(.16, 1, .3, 1) both; }
+.screen > .body > :nth-child(-n+6):not(.ex), .screen > .top > * { animation: view-in 300ms cubic-bezier(.16, 1, .3, 1) both; }
+.screen > .top > * { animation-duration: 220ms; }
 .screen > .body > :nth-child(2):not(.ex) { animation-delay: 30ms; }
 .screen > .body > :nth-child(3):not(.ex) { animation-delay: 60ms; }
 .screen > .body > :nth-child(4):not(.ex) { animation-delay: 90ms; }
@@ -134,9 +138,13 @@ p { margin: 0; }
 .top-title[data-day]::before { content: ""; width: 12px; height: 12px; border-radius: 50%; background: var(--day); flex-shrink: 0; }
 .spacer { flex: 1; }
 
-.tabbar { position: fixed; bottom: calc(14px + var(--safe-b)); left: 16px; right: 16px; max-width: 528px; margin: 0 auto; z-index: 20; display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; padding: 7px; border-radius: 34px; background: var(--dock); box-shadow: 0 6px 0 var(--lip); }
-.tab { display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 54px; font-size: 13px; font-weight: 700; color: var(--dock-mute); text-decoration: none; border-radius: 27px; transition: background 150ms, color 150ms; }
-.tab[aria-current="page"] { color: var(--ink); background: var(--bg); }
+.tabbar { position: fixed; bottom: calc(14px + var(--safe-b)); left: 16px; right: 16px; max-width: 528px; margin: 0 auto; z-index: 20; touch-action: none; -webkit-user-select: none; user-select: none; display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; padding: 7px; border-radius: 34px; background: var(--dock); box-shadow: 0 6px 0 var(--lip); }
+.tab { position: relative; z-index: 1; display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 54px; font-size: 13px; font-weight: 700; color: var(--dock-mute); text-decoration: none; border-radius: 27px; -webkit-touch-callout: none; transition: color 120ms; }
+.tab[aria-current="page"] { color: var(--ink); }
+/* The pill slides between tabs with a little overshoot; while a finger drags it tracks the finger exactly. */
+.tab-pill { position: absolute; left: 0; top: 7px; bottom: 7px; border-radius: 27px; background: var(--bg); transition: transform 260ms cubic-bezier(.3, 1.35, .5, 1), width 200ms ease; }
+.tabbar.dragging .tab-pill { transition: none; transform-origin: center; }
+.tabbar.dragging .tab-pill { box-shadow: 0 0 0 3px color-mix(in srgb, var(--ink) 12%, transparent); }
 .tab:not([aria-current="page"]) .tab-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
 
 /* ═══════════════ CONTROLS ═══════════════ */

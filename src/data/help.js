@@ -2,7 +2,7 @@
 export const HELP = {
   today: {
     title: "Today",
-    sub: "Your starting point each time you open IRONLOG.",
+    sub: "Your starting point each time you open GymBuddy.",
     points: [
       "The big button starts the next day in your rotation, or picks up a session you left mid-way.",
       "Your week shows which days you trained, coloured by the day's plate.",
@@ -41,11 +41,11 @@ export const HELP = {
   },
   settings: {
     title: "Settings",
-    sub: "Make IRONLOG yours.",
+    sub: "Make GymBuddy yours.",
     points: [
       "Program: change the lifts, sets, reps, rest and cues for each day.",
       "Display: dark mode, and whether to rate reps in reserve (RIR) on each set.",
-      "Home screen: pick an app icon and see how to add IRONLOG to your home screen.",
+      "Home screen: pick an app icon and see how to add GymBuddy to your home screen.",
       "Data: export everything as CSV or JSON.",
     ],
   },

@@ -42,7 +42,7 @@ export default function AuthGate({ children }) {
   return (
     <main className="auth" data-day="push">
       <div className="boot" style={{ minHeight: 0, justifyItems: "start" }} aria-hidden="true"><div className="plates"><i /><i /><i /><i /></div></div>
-      <h1>Iron<br />log</h1>
+      <h1>Gym<br />Buddy</h1>
       {state === "sent" ? (
         <div className="section" role="status" style={{ gap: 14 }}>
           <p style={{ fontSize: 18 }}>We emailed <b>{email}</b>. Enter the code from the email here{standalone ? "" : ", or tap the link in it on this device"}.</p>

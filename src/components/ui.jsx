@@ -1,7 +1,8 @@
-import React, { useEffect, useRef, useState, useMemo } from "react";
+import React, { useEffect, useLayoutEffect, useRef, useState, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { X, Home, CalendarDays, TrendingUp, Settings as Gear, Plus, Info } from "lucide-react";
 import { HELP } from "../data/help.js";
+import { vibrate } from "../lib/util.js";
 import { LIBRARY, specLine } from "../data/program.js";
 
 /* iOS lays the keyboard over the page instead of resizing it. The sheet follows the visible
@@ -105,11 +106,55 @@ const TABS = [
   { key: "settings", label: "Settings", Icon: Gear },
 ];
 
-export function TabBar({ active }) {
+/* Tab bar. Switches on finger-down, not on release, and you can slide a finger along it: the
+   pill follows the finger and each tab you cross opens as you pass it. Tab switches replace the
+   history entry, so the back gesture never replays a string of tab taps. */
+export function TabBar({ active, onSelect }) {
+  const nav = useRef(null);
+  const tabs = useRef([]);
+  const [geo, setGeo] = useState(null); // [{ left, width }] per tab
+  const [drag, setDrag] = useState(null); // pill centre x while a finger is down
+  const idx = Math.max(0, TABS.findIndex((t) => t.key === active));
+
+  useLayoutEffect(() => {
+    const measure = () => setGeo(tabs.current.map((el) => ({ left: el.offsetLeft, width: el.offsetWidth })));
+    measure();
+    addEventListener("resize", measure);
+    return () => removeEventListener("resize", measure);
+  }, []);
+
+  const keyAt = (x) => {
+    const r = nav.current.getBoundingClientRect();
+    const i = Math.min(TABS.length - 1, Math.max(0, Math.floor(((x - r.left) / r.width) * TABS.length)));
+    return TABS[i].key;
+  };
+  const pick = (key) => { if (key !== active) { onSelect(key); vibrate(6); } };
+
+  const down = (e) => {
+    if (e.button > 0) return;
+    nav.current.setPointerCapture(e.pointerId);
+    setDrag(e.clientX - nav.current.getBoundingClientRect().left);
+    pick(keyAt(e.clientX));
+  };
+  const move = (e) => {
+    if (drag == null) return;
+    setDrag(e.clientX - nav.current.getBoundingClientRect().left);
+    pick(keyAt(e.clientX));
+  };
+  const up = () => setDrag(null);
+
+  const g = geo?.[idx];
+  const w = g?.width || 0;
+  const maxX = geo ? geo[geo.length - 1].left : 0;
+  const x = drag != null && geo ? Math.min(maxX, Math.max(geo[0].left, drag - w / 2)) : g?.left || 0;
   return (
-    <nav className="tabbar" aria-label="Main">
-      {TABS.map(({ key, label, Icon }) => (
-        <a key={key} className="tab" href={`#/${key}`} aria-current={active === key ? "page" : undefined}>
+    <nav className={"tabbar" + (drag != null ? " dragging" : "")} aria-label="Main" ref={nav}
+      onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up} onLostPointerCapture={up}>
+      {g && <span className="tab-pill" aria-hidden="true" style={{ width: w, transform: `translateX(${x}px)` }} />}
+      {TABS.map(({ key, label, Icon }, i) => (
+        <a key={key} ref={(el) => { tabs.current[i] = el; }} className="tab" href={`#/${key}`} aria-current={active === key ? "page" : undefined}
+          // Pointer input already switched on press; this handles keyboard activation only.
+          onClick={(e) => { e.preventDefault(); if (e.detail === 0) pick(key); }}>
           <Icon size={21} strokeWidth={2.4} aria-hidden="true" />
           <span className="tab-label">{label}</span>
         </a>
@@ -120,9 +165,9 @@ export function TabBar({ active }) {
 
 export function Boot() {
   return (
-    <div className="boot" role="status" aria-label="Loading IRONLOG">
+    <div className="boot" role="status" aria-label="Loading GymBuddy">
       <div className="plates" aria-hidden="true"><i /><i /><i /><i /></div>
-      <div className="wordmark">IRONLOG</div>
+      <div className="wordmark">GymBuddy</div>
     </div>
   );
 }
@@ -265,7 +310,7 @@ export function ExercisePicker({ title, sub, existingNames, onPick, onClose }) {
 export function LoadError({ onRetry }) {
   return (
     <main className="boot" role="alert">
-      <div className="wordmark">IRONLOG</div>
+      <div className="wordmark">GymBuddy</div>
       <p className="muted" style={{ maxWidth: 280, textAlign: "center" }}>Couldn't load your log. Check your connection and try again. Nothing has been changed.</p>
       <button className="btn btn-ink" style={{ width: "auto" }} onClick={onRetry}>Try again</button>
     </main>

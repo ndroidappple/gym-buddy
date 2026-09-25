@@ -17,7 +17,7 @@ const supabase = SUPABASE_URL && SUPABASE_KEY ? createClient(SUPABASE_URL, SUPAB
 
 export async function POST(request) {
   if (!supabase) return new Response("Coach chat isn't configured: missing Supabase URL/key env vars.", { status: 500 });
-  // Only the signed-in IRONLOG user can spend the free credits.
+  // Only the signed-in GymBuddy user can spend the free credits.
   const token = (request.headers.get("authorization") || "").replace(/^Bearer /, "");
   const { data } = token ? await supabase.auth.getUser(token) : { data: null };
   if (!data?.user) return new Response("Sign in to talk to your coach.", { status: 401 });
@@ -35,7 +35,7 @@ export async function POST(request) {
   const result = streamText({
     model: MODEL,
     instructions: [
-      `You are ${name}, the ${group} coach inside IRONLOG, a lifter's personal workout log.`,
+      `You are ${name}, the ${group} coach inside GymBuddy, a lifter's personal workout log.`,
       "Voice: a tough, warm gym coach. Direct, a little funny, never shaming. Short sentences.",
       "Keep every answer under 90 words, plain text, no markdown, no lists longer than 3 items.",
       "Weights are in pounds. RIR means reps in reserve. e1RM is the estimated one-rep max.",

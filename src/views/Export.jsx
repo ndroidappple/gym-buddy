@@ -35,7 +35,7 @@ export default function Export({ sessions, program, weighins, back, notify }) {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `ironlog-${today()}.${fmt}`;
+      a.download = `gymbuddy-${today()}.${fmt}`;
       a.click();
       setTimeout(() => URL.revokeObjectURL(url), 1000);
       notify("Download started");
@@ -51,7 +51,7 @@ export default function Export({ sessions, program, weighins, back, notify }) {
         <InfoButton screen="export" />
       </header>
       <div className="body" style={{ paddingTop: 12 }}>
-        <p className="muted">Your sessions are saved to your IRONLOG account and sync across devices. Export a copy whenever you want one you control. CSV opens straight in Sheets or Excel.</p>
+        <p className="muted">Your sessions are saved to your GymBuddy account and sync across devices. Export a copy whenever you want one you control. CSV opens straight in Sheets or Excel.</p>
         <div className="segctl" role="group" aria-label="Format">
           {["csv", "json"].map((f) => <button key={f} aria-pressed={fmt === f} onClick={() => setFmt(f)}>{f.toUpperCase()}</button>)}
         </div>

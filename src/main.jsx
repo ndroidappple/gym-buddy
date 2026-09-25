@@ -13,6 +13,8 @@ applySavedIcon();
 
 // iOS Safari ignores user-scalable=no; block pinch-zoom so it behaves like a native app.
 ["gesturestart", "gesturechange"].forEach((t) => document.addEventListener(t, (e) => e.preventDefault(), { passive: false }));
+// iOS only shows :active press styles when the page listens for touches.
+document.addEventListener("touchstart", () => {}, { passive: true });
 document.addEventListener("touchmove", (e) => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
 
 ReactDOM.createRoot(document.getElementById("root")).render(

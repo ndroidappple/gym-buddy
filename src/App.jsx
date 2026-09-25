@@ -180,11 +180,12 @@ export default function App() {
   }
 
   const showTabs = TAB_VIEWS.includes(route.name);
+  const selectTab = (key) => go(href(key), { replace: true });
   const activeTab = route.name === "lift" ? "progress" : route.name;
   return (
     <div className="app">
       {view}
-      {showTabs && <TabBar active={activeTab} />}
+      {showTabs && <TabBar active={activeTab} onSelect={selectTab} />}
       {sync === "offline" && <SyncNote raised={showTabs} />}
       <NamePrompt onName={setName} />
       <Toast toast={toast} onDismiss={() => setToast(null)} raised={route.name === "session"} />

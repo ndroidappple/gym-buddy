@@ -1,6 +1,6 @@
 {
-  "name": "IRONLOG",
-  "short_name": "IRONLOG",
+  "name": "GymBuddy",
+  "short_name": "GymBuddy",
   "description": "Hypertrophy training log",
   "start_url": "/#/today",
   "scope": "/",

@@ -49,7 +49,7 @@ export default function Settings({ program, sessions, prefs, setPref }) {
             </button>
             <button className="list-row" onClick={() => setSheet("install")}>
               <Smartphone size={18} aria-hidden="true" />
-              <span className="name">Add IRONLOG to your home screen<span className="sub">Opens full screen, like an app.</span></span>
+              <span className="name">Add GymBuddy to your home screen<span className="sub">Opens full screen, like an app.</span></span>
               <ChevronRight size={18} aria-hidden="true" className="muted" />
             </button>
           </div>
@@ -81,7 +81,7 @@ export default function Settings({ program, sessions, prefs, setPref }) {
       </div>
 
       {sheet === "icon" && (
-        <Sheet title="App icon" sub="Pick the icon IRONLOG gets on your home screen." onClose={() => setSheet(null)} labelledBy="icon-title">
+        <Sheet title="App icon" sub="Pick the icon GymBuddy gets on your home screen." onClose={() => setSheet(null)} labelledBy="icon-title">
           <div className="icon-grid" role="radiogroup" aria-label="App icon">
             {ICONS.map((i) => (
               <button key={i.id} role="radio" aria-checked={prefs.icon === i.id} className="icon-choice" onClick={() => setPref("icon", i.id)}>
@@ -90,7 +90,7 @@ export default function Settings({ program, sessions, prefs, setPref }) {
               </button>
             ))}
           </div>
-          <p className="note-box">Your phone keeps the icon IRONLOG was added with. To switch it, remove IRONLOG from your home screen, then add it again.</p>
+          <p className="note-box">Your phone keeps the icon GymBuddy was added with. To switch it, remove GymBuddy from your home screen, then add it again.</p>
           <button className="btn btn-ghost" onClick={() => setSheet("install")}>How to add it again</button>
         </Sheet>
       )}
@@ -125,17 +125,17 @@ function InstallSheet({ onClose }) {
         [null, <>Open <b>{location.host}</b> in <b>Safari</b> and sign in with the same email.</>],
         [Share, <>Tap the <b>Share</b> button in the toolbar.</>],
         [SquarePlus, <>Scroll down and tap <b>Add to Home Screen</b>.</>],
-        [null, <>Tap <b>Add</b>. IRONLOG now opens full screen, like an app.</>],
+        [null, <>Tap <b>Add</b>. GymBuddy now opens full screen, like an app.</>],
       ];
   return (
     <Sheet title="Add to your home screen" sub={ios || !android ? "On iPhone, in Safari" : "On Android, in Chrome"} onClose={onClose} labelledBy="install-title">
-      {installed && <p className="note-box">You're in the home screen app now. To add it again, open IRONLOG in {android ? "Chrome" : "Safari"} first.</p>}
+      {installed && <p className="note-box">You're in the home screen app now. To add it again, open GymBuddy in {android ? "Chrome" : "Safari"} first.</p>}
       <ol className="steps">
         {steps.map(([I, text], n) => (
           <li key={n}><span className="step-n">{n + 1}</span><span className="step-text">{text}</span>{I && <I size={20} aria-hidden="true" className="muted" />}</li>
         ))}
       </ol>
-      <p className="note-box">Changing the icon? First press and hold IRONLOG on your home screen, tap <b>Remove App</b>, then <b>Delete from Home Screen</b>. Your sessions stay saved to your account.</p>
+      <p className="note-box">Changing the icon? First press and hold GymBuddy on your home screen, tap <b>Remove App</b>, then <b>Delete from Home Screen</b>. Your sessions stay saved to your account.</p>
       <button className="btn btn-ink" onClick={onClose}>Got it</button>
     </Sheet>
   );
