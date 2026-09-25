@@ -435,13 +435,14 @@ function ExerciseCard({ ex, showRir, rows, target, targetDate, bump, refSets, ac
   return (
     <section className="ex" aria-label={ex.n}>
       {/* Comic layout: the bubble's tail points down at the coach who says it. */}
+      {/* One row: the coach, their line (the bubble's tail points at them), and Ask. Kept tight so
+          the whole card fits on a phone screen mid-set. */}
       <div className="ex-coach" style={{ "--c": coach.color }}>
-        <p className="coach-bubble says-down" aria-live="polite">{line}</p>
-        <div className="ex-coach-row">
-          <Coach id={id} mood={mood} size={60} />
-          <span className="who"><b>{coach.name}</b>{coach.group} coach</span>
-          <button className="ask-btn" onClick={onAsk}><MessageCircle size={15} strokeWidth={2.6} aria-hidden="true" /> Ask {coach.name}</button>
-        </div>
+        <Coach id={id} mood={mood} size={52} />
+        <p className="coach-bubble" aria-live="polite">{line}</p>
+        <button className="ask-btn compact" onClick={onAsk} aria-label={`Ask ${coach.name}, your ${coach.group.toLowerCase()} coach`}>
+          <MessageCircle size={18} strokeWidth={2.6} aria-hidden="true" /><span>Ask</span>
+        </button>
       </div>
       <div className="ex-head">
         <button style={{ flex: 1, textAlign: "left", minWidth: 0 }} onClick={onCollapse} aria-label={`${ex.n}, collapse`}>
@@ -516,6 +517,7 @@ function CardioSet({ i, ex, row, last, canRemove, onEdit, onLog, onRemove }) {
       <div className="set-head">
         <span>{i ? `Interval ${i + 1}` : "Today"}</span><span className="spacer" />
         {last && <span className="lbl">last time {fmtSet(last)}</span>}
+        {canRemove && <button className="set-remove" onClick={onRemove} aria-label="Remove this interval"><Trash2 size={16} strokeWidth={2.4} /></button>}
       </div>
       <div className="steppers">
         <Stepper id={`min-${i}`} label="Minutes" unit="min" value={row.min} mode="decimal" placeholder={`${ex.reps[0]}–${ex.reps[1]}`}
@@ -524,7 +526,6 @@ function CardioSet({ i, ex, row, last, canRemove, onEdit, onLog, onRemove }) {
           onChange={(v) => onEdit({ mi: v })} onDec={() => bump("mi", -0.1, 1)} onInc={() => bump("mi", 0.1, 1)} step="a tenth of a mile" />
       </div>
       <button className="btn btn-day" onClick={onLog} disabled={!hasVal(row.min)}>{hasVal(row.min) ? "Log cardio" : "Enter minutes"}</button>
-      {canRemove && <button className="btn-quiet" onClick={onRemove}>Remove this interval</button>}
     </div>
   );
 }
@@ -541,6 +542,7 @@ function ActiveSet({ i, ex, showRir, row, last, canRemove, onEdit, onLog, onRemo
       <div className="set-head">
         <span>Set {i + 1}</span><span className="spacer" />
         {last && <span className="lbl">last time {fmtW(last.w)} × {last.r}</span>}
+        {canRemove && <button className="set-remove" onClick={onRemove} aria-label="Remove this set"><Trash2 size={16} strokeWidth={2.4} /></button>}
       </div>
       <div className="steppers">
         <Stepper id={`w-${i}`} label="Weight" unit={row.w === "0" ? "bodyweight" : "lb"} value={row.w} mode="decimal"
@@ -557,7 +559,6 @@ function ActiveSet({ i, ex, showRir, row, last, canRemove, onEdit, onLog, onRemo
         </div>
       )}
       <button className="btn btn-day" onClick={onLog} disabled={!ready}>{ready ? "Log set" : "Enter weight and reps"}</button>
-      {canRemove && <button className="btn-quiet" onClick={onRemove}>Remove this set</button>}
     </div>
   );
 }
