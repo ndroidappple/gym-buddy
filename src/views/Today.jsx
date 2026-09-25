@@ -5,6 +5,7 @@ import { DAYS, CUSTOM, activeDays } from "../data/program.js";
 import { href } from "../lib/router.js";
 import { COACHES, coachesFor } from "../data/coaches.js";
 import SetupCard from "../components/SetupCard.jsx";
+import { weighInEvery, phaseStatus, statusLine, PHASE_TYPES } from "../lib/phase.js";
 import Coach from "../components/Coach.jsx";
 import { byDateDesc, bestSet, fmtW, num, shortDate, weekDates, today, nextDayAfter, bodyweightSeries, daysBetween, plural, readyToIncrease } from "../lib/util.js";
 
@@ -123,7 +124,8 @@ export default function Today({ name, sessions, program, drafts, weighins, prefs
 
         {sessions.length > 0 && <SetupCard prefs={prefs} />}
 
-        <WeighIn sessions={sessions} weighins={weighins} onSave={onWeighin} />
+        <WeighIn sessions={sessions} weighins={weighins} onSave={onWeighin} phase={prefs?.phase} />
+        {prefs?.phase && <PhaseLine phase={prefs.phase} sessions={sessions} weighins={weighins} />}
 
         {targets.length > 0 && (
           <section className="section">
@@ -178,22 +180,30 @@ export default function Today({ name, sessions, program, drafts, weighins, prefs
 
 /** Weekly nudge: shows when the last bodyweight (weigh-in or session) is 7+ days old, or there is none. */
 const PICK_KEY = "ironlog-today-pick";
-const SKIP_KEY = "ironlog-weigh-skip"; // holds the Monday of the week the weigh-in was skipped
+const SKIP_KEY = "ironlog-weigh-skip"; // the Monday of the skipped week, or "d:<date>" for a skip during a phase
 function loadPick() {
   try { return JSON.parse(localStorage.getItem(PICK_KEY)) || null; } catch { return null; }
 }
 
-function WeighIn({ sessions, weighins, onSave }) {
+function WeighIn({ sessions, weighins, onSave, phase }) {
   const series = useMemo(() => bodyweightSeries(sessions, weighins), [sessions, weighins]);
   const last = series[series.length - 1];
   const t = today();
   const [bw, setBw] = useState("");
-  // ✕ skips the weigh-in until next Monday.
+  // Weekly normally; every few days during a bulk or cut (never daily, though daily logging works).
+  const every = weighInEvery(phase);
+  // ✕ skips until next Monday, or for a couple of days during a phase.
   const week = weekDates()[0];
-  const [skipped, setSkipped] = useState(() => { try { return localStorage.getItem(SKIP_KEY) === week; } catch { return false; } });
-  if (skipped || (last && daysBetween(last.date, t) < 7)) return null;
+  const skipMark = phase ? `d:${t}` : week;
+  const [skipped, setSkipped] = useState(() => {
+    try {
+      const v = localStorage.getItem(SKIP_KEY);
+      return v === week || (!!phase && !!v?.startsWith("d:") && daysBetween(v.slice(2), t) < 2);
+    } catch { return false; }
+  });
+  if (skipped || (last && daysBetween(last.date, t) < every)) return null;
   const skip = () => {
-    try { localStorage.setItem(SKIP_KEY, week); } catch {}
+    try { localStorage.setItem(SKIP_KEY, skipMark); } catch {}
     setSkipped(true);
   };
 
@@ -221,5 +231,16 @@ function WeighIn({ sessions, weighins, onSave }) {
       <button type="submit" className="btn weigh-save" disabled={!valid}>Save</button>
       <button type="button" className="weigh-skip" onClick={skip} aria-label="Skip this week's weigh-in"><X size={14} strokeWidth={3} aria-hidden="true" /></button>
     </form>
+  );
+}
+
+/** One quiet line about the bulk or cut; the detail lives on Progress. */
+function PhaseLine({ phase, sessions, weighins }) {
+  const s = phaseStatus(phase, sessions, weighins);
+  return (
+    <a className="card phase-line" href={href("progress")}>
+      <b>{PHASE_TYPES[phase.type].label} · week {s.week} of {s.weeks}</b>
+      <span>{statusLine(phase, s)}</span>
+    </a>
   );
 }

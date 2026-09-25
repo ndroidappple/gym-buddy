@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from "react";
-import { ChevronRight, Download, LogOut, Moon, Gauge, Smartphone, Share, SquarePlus, EllipsisVertical, Check, Sparkles } from "lucide-react";
+import { ChevronRight, Download, LogOut, Moon, Gauge, Smartphone, Share, SquarePlus, EllipsisVertical, Check, Sparkles, Scale } from "lucide-react";
 import { Sheet, InfoButton } from "../components/ui.jsx";
 import { ICONS, iconSrc } from "../lib/icons.js";
 import { DAYS } from "../data/program.js";
 import { href } from "../lib/router.js";
+import { shortDate } from "../lib/util.js";
 import { supabase } from "../supabase-client.js";
 
 export default function Settings({ program, sessions, prefs, setPref }) {
@@ -26,6 +27,12 @@ export default function Settings({ program, sessions, prefs, setPref }) {
                 <ChevronRight size={18} aria-hidden="true" className="muted" />
               </a>
             ))}
+            {/* Phases live on Progress; this is the side door. */}
+            <a className="list-row" href={href("progress", "phase")}>
+              <Scale size={18} aria-hidden="true" />
+              <span className="name">Bulk or cut phase<span className="sub">{prefs.phase ? `${prefs.phase.type === "cut" ? "Cut" : "Bulk"} to ${prefs.phase.target} lb · ends ${shortDate(prefs.phase.end)}` : "Set a short-term bodyweight goal."}</span></span>
+              <ChevronRight size={18} aria-hidden="true" className="muted" />
+            </a>
             {/* Clears setup progress only; the program changes again only if the lifter confirms in the chats. */}
             <a className="list-row" href={href("coaches", "tank")}
               onClick={() => { setPref("profile", { ...prefs.profile, doneAt: null }); setPref("coachSetup", {}); }}>

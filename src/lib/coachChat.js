@@ -3,11 +3,17 @@ import { COACHES, coachFor } from "../data/coaches.js";
 import { isCardio, activeDays } from "../data/program.js";
 import { describeProgram } from "./programChange.js";
 import { GOALS } from "./setup.js";
+import { PHASE_TYPES, phaseStatus, statusLine } from "./phase.js";
 import { fmtSet, liftSeries, trend, num, fmtW, bestSet, bodyweightSeries, byDateDesc, daysBetween, today, nextDayAfter, readyToIncrease } from "./util.js";
 
 /** A compact, plain-text picture of the lifter for the coach: their lifts, recent bests, trends, bodyweight. */
-export function buildContext({ coach, sessions, program, weighins, profile }) {
+export function buildContext({ coach, sessions, program, weighins, profile, phase }) {
   const lines = [];
+  // A bulk or cut in progress, with the pace read from the weigh-in trend.
+  if (phase) {
+    const s = phaseStatus(phase, sessions, weighins);
+    lines.push(`Current phase: ${PHASE_TYPES[phase.type].label}, week ${s.week} of ${s.weeks}, ${phase.startWeight} -> ${phase.target} lb (planned ${phase.rate} lb/week, ends ${phase.end}). Status: ${statusLine(phase, s)} Advise on food for pace; keep heavy lifts heavy on a cut.`);
+  }
   // What the lifter told Tank at setup.
   if (profile?.doneAt) {
     const goals = (profile.goals || []).map((g) => GOALS.find((x) => x.id === g)?.label).filter(Boolean);

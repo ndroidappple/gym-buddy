@@ -1,14 +1,26 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import { Scale } from "lucide-react";
 import { isCardio, activeDays } from "../data/program.js";
 import { href } from "../lib/router.js";
 import { liftSeries, trend, num, shortDate, bodyweightSeries, daysBetween, today } from "../lib/util.js";
 import { InfoButton, Sparkline, Trend } from "../components/ui.jsx";
+import PhaseCard from "../components/PhaseCard.jsx";
+import PhaseSheet from "../components/PhaseSheet.jsx";
 
 /* A lift is "on a PR" when its latest session beat every earlier one (not its first) in the last two weeks. */
 const PR_DAYS = 14;
 
-export default function Progress({ sessions, program, weighins }) {
+export default function Progress({ sessions, program, weighins, prefs, setPref, notify, onWeighin, onProgramChange, openPhase }) {
+  const [starting, setStarting] = useState(!!openPhase && !prefs?.phase);
+  const phase = prefs?.phase || null;
+  const updatePhase = (patch) => setPref("phase", { ...phase, ...patch });
+  // Ending files the phase (with its recap) under phaseHistory; Undo puts it back.
+  const endPhase = (recap) => {
+    const before = { phase, history: prefs.phaseHistory || [] };
+    setPref("phaseHistory", [...before.history, { ...phase, endedAt: Date.now(), recap }]);
+    setPref("phase", null);
+    notify?.(recap ? "Phase complete" : "Phase ended", () => { setPref("phase", before.phase); setPref("phaseHistory", before.history); });
+  };
   const groups = useMemo(() => {
     const seen = new Set();
     const out = activeDays(program).map((d) => {
@@ -44,7 +56,18 @@ export default function Progress({ sessions, program, weighins }) {
         <InfoButton screen="progress" />
       </header>
       <div className="body">
-        <Bodyweight series={bw} />
+        <PhaseCard phase={phase} sessions={sessions} weighins={weighins} program={program}
+          onStart={() => setStarting(true)} onLog={onWeighin} onUpdate={updatePhase} onEnd={endPhase} onProgramChange={onProgramChange} />
+        <Bodyweight series={bw} phase={phase} />
+        {starting && (
+          <PhaseSheet lastWeight={bw[bw.length - 1]?.bw} onClose={() => setStarting(false)}
+            onStart={(p) => {
+              setPref("phase", p);
+              // The phase starts from today's weight; log it so the chart and pace begin there.
+              if (!weighins.some((w) => w.date === p.start && w.bw === p.startWeight)) onWeighin(p.start, p.startWeight);
+              setStarting(false);
+            }} />
+        )}
 
         {groups.map((g) => (g.logged.length || g.unlogged.length) ? (
           <section key={g.name} className="section" data-day={g.day || undefined}>
@@ -76,7 +99,8 @@ export default function Progress({ sessions, program, weighins }) {
 }
 
 /* Weigh-ins and session bodyweight together. The card is a way in, not a verdict: the change is shown, never colored. */
-function Bodyweight({ series }) {
+function Bodyweight({ series, phase }) {
+  if (phase) return <PhaseChart series={series} phase={phase} />;
   if (series.length < 2) {
     return (
       <div className="card bw-empty">
@@ -109,6 +133,38 @@ function Bodyweight({ series }) {
         <circle cx={pts[pts.length - 1][0]} cy={pts[pts.length - 1][1]} r="7" fill="#FFFFFF" />
       </svg>
       <div className="ends"><span style={{ flex: 1 }}>{shortDate(first.date)}</span><span>{shortDate(last.date)}</span></div>
+    </section>
+  );
+}
+
+/* During a bulk or cut the chart runs on dates across the whole phase: weigh-ins as dots, and a
+   dashed line from the start weight to the target so "on pace" is something you can see. */
+function PhaseChart({ series, phase }) {
+  const from = !series[0] || phase.start < series[0].date ? phase.start : series[0].date;
+  const to = phase.end;
+  const pts = series.filter((x) => x.date >= from && x.date <= to);
+  const last = pts[pts.length - 1] || { bw: phase.startWeight, date: phase.start };
+  const vals = [...pts.map((x) => x.bw), phase.startWeight, phase.target];
+  const lo = Math.min(...vals) - 0.5, hi = Math.max(...vals) + 0.5, span = hi - lo || 1;
+  const W = 326, H = 96, total = Math.max(1, daysBetween(from, to));
+  const X = (d) => 6 + (daysBetween(from, d) / total) * (W - 14);
+  const Y = (bw) => 8 + (1 - (bw - lo) / span) * (H - 16);
+  return (
+    <section className="bw-card" aria-label={`Bodyweight ${num(last.bw)} pounds. Target ${num(phase.target)} by ${shortDate(phase.end)}.`}>
+      <div className="top-row">
+        <div style={{ display: "flex", flexDirection: "column", flex: 1 }}>
+          <span className="lbl">Bodyweight</span>
+          <span className="big">{num(last.bw)} <small>lb</small></span>
+        </div>
+        <span className="pill">Target {num(phase.target)}</span>
+      </div>
+      <svg viewBox={`0 0 ${W} ${H}`} aria-hidden="true">
+        <line x1={X(phase.start)} y1={Y(phase.startWeight)} x2={X(phase.end)} y2={Y(phase.target)} stroke="#FFFFFF" strokeOpacity=".55" strokeWidth="2.5" strokeDasharray="5 6" strokeLinecap="round" />
+        <circle cx={X(phase.end)} cy={Y(phase.target)} r="5" fill="none" stroke="#FFFFFF" strokeWidth="2.5" />
+        {pts.length > 1 && <polyline points={pts.map((x) => `${X(x.date)},${Y(x.bw)}`).join(" ")} fill="none" stroke="#FFFFFF" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />}
+        {pts.map((x, i) => <circle key={x.date} cx={X(x.date)} cy={Y(x.bw)} r={i === pts.length - 1 ? 7 : 4} fill={i === pts.length - 1 ? "#FFFFFF" : "var(--accent)"} stroke="#FFFFFF" strokeWidth="2.5" />)}
+      </svg>
+      <div className="ends"><span style={{ flex: 1 }}>{shortDate(from)}</span><span>Target {shortDate(to)}</span></div>
     </section>
   );
 }

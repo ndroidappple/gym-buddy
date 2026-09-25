@@ -137,3 +137,13 @@ export const coachesLeft = (setup = {}) => COACH_ORDER.filter((id) => !setup[id]
 export const needsSetup = (prefs, id) => !prefs?.coachSetup?.[id] || (id === "tank" && !prefs?.profile?.doneAt);
 /** The next coach to meet, or null when everyone is set up. */
 export const nextCoachToMeet = (prefs) => (needsSetup(prefs, "tank") ? "tank" : COACH_ORDER.find((id) => needsSetup(prefs, id)) || null);
+
+/** Adds the 10-15 min incline-walk finisher to the end of every active day without cardio. Returns { program, lines }. */
+export function addFinisher(program) {
+  let next = program;
+  for (const d of activeDays(program)) {
+    if (program[d].exercises.some((e) => isCardio(e.n))) continue;
+    next = { ...next, [d]: { ...next[d], exercises: [...next[d].exercises, { ...lib(FINISHER), sets: 1, reps: [10, 15], finisher: true }] } };
+  }
+  return { program: next, lines: next === program ? [] : ["A 10–15 min incline walk at the end of each day."] };
+}
