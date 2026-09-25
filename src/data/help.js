@@ -25,6 +25,7 @@ export const HELP = {
     sub: "Every workout you've logged.",
     points: [
       "Each card shows your sets, total weight lifted and any PRs.",
+      "Tap the calendar icon for a month view: dots mark workout days, tap a day to see it.",
       "Tap the pencil to fix a mistake.",
     ],
   },

@@ -1,12 +1,16 @@
 import React, { useMemo, useState } from "react";
 import { InfoButton } from "../components/ui.jsx";
-import { Pencil } from "lucide-react";
+import { Pencil, CalendarDays, List, ChevronLeft, ChevronRight } from "lucide-react";
 import { DAYS, CUSTOM } from "../data/program.js";
 import { href } from "../lib/router.js";
-import { fmtSet, byDateDesc, longDate, fmtW, compact, sessionVolume, sessionSetCount, plural, priorSessions, allTimeBest, bestE1rm, e1rm, num } from "../lib/util.js";
+import { fmtSet, byDateDesc, longDate, compact, sessionVolume, sessionSetCount, plural, priorSessions, allTimeBest, bestE1rm, e1rm, num, today, iso } from "../lib/util.js";
+
+const VIEW_KEY = "ironlog-history-view"; // "list" | "calendar", per device
 
 export default function History({ sessions, program }) {
   const [filter, setFilter] = useState(null);
+  const [view, setView] = useState(() => { try { return localStorage.getItem(VIEW_KEY) || "list"; } catch { return "list"; } });
+  const pickView = (v) => { setView(v); try { localStorage.setItem(VIEW_KEY, v); } catch {} };
   const sorted = useMemo(() => [...sessions].sort(byDateDesc), [sessions]);
   const shown = filter ? sorted.filter((s) => s.day === filter) : sorted;
 
@@ -28,9 +32,18 @@ export default function History({ sessions, program }) {
     return m;
   }, [sessions]);
 
+  const calendar = view === "calendar";
   return (
     <main className="screen has-tabs">
-      <header className="top"><h1 className="page-title">History</h1><span className="spacer" /><span className="mono small muted">{sessions.length} sessions</span><InfoButton screen="history" /></header>
+      <header className="top">
+        <h1 className="page-title">History</h1><span className="spacer" />
+        <span className="mono small muted">{sessions.length} sessions</span>
+        <button className="icon-btn" onClick={() => pickView(calendar ? "list" : "calendar")} aria-pressed={calendar}
+          aria-label={calendar ? "Show as a list" : "Show as a calendar"}>
+          {calendar ? <List size={20} strokeWidth={2.4} /> : <CalendarDays size={20} strokeWidth={2.4} />}
+        </button>
+        <InfoButton screen="history" />
+      </header>
       <div className="body">
         <div className="filters" role="group" aria-label="Filter by day">
           <button className="chip" aria-pressed={!filter} onClick={() => setFilter(null)}>All</button>
@@ -41,42 +54,113 @@ export default function History({ sessions, program }) {
           ))}
         </div>
 
-        {shown.length === 0 && <p className="muted">No {filter ? program[filter].name : ""} sessions logged yet.</p>}
-
-        {shown.map((s) => (
-          <article key={s.id} className="hist" data-day={s.day}>
-            <div className="hist-head">
-              <div style={{ flex: 1 }}>
-                <h2 className="hist-date">{longDate(s.date)}</h2>
-                <div className="hist-meta">
-                  {program[s.day].name} · {plural(sessionSetCount(s), "set")} · {compact(sessionVolume(s))} lb lifted{s.bw != null && ` · ${s.bw} lb bodyweight`}
-                </div>
-              </div>
-              {Object.keys(prs[s.id]).length > 0 && <span className="stamp">PR{Object.keys(prs[s.id]).length > 1 ? ` ×${Object.keys(prs[s.id]).length}` : ""}</span>}
-              <a className="icon-btn" href={href("session", s.day, s.id)} aria-label={`Edit ${program[s.day].name} session on ${longDate(s.date)}`}><Pencil size={17} /></a>
-            </div>
-            {s.note && <p className="hist-note">{s.note}</p>}
-            <div>
-              {Object.entries(s.sets).map(([n, sets]) => {
-                const pr = prs[s.id][n];
-                return (
-                  <a key={n} className={"hist-line" + (pr ? " is-pr" : "")} href={href("lift", n)} style={{ color: "inherit", textDecoration: "none" }}>
-                    <span className="name">
-                      {pr && <span className="stamp pr-stamp">PR</span>}{n}
-                      {pr && <span className="pr-note">New best est. max {num(pr.now)} lb · was {num(pr.was)}</span>}
-                    </span>
-                    <span className="sets">
-                      {sets.map((x, i) => (
-                        <React.Fragment key={i}>{i > 0 && "  "}<span className={i === pr?.idx ? "pr-set" : undefined}>{fmtSet(x)}</span></React.Fragment>
-                      ))}
-                    </span>
-                  </a>
-                );
-              })}
-            </div>
-          </article>
-        ))}
+        {calendar
+          ? <MonthCalendar sessions={shown} program={program} prs={prs} />
+          : (
+            <>
+              {shown.length === 0 && <p className="muted">No {filter ? program[filter].name : ""} sessions logged yet.</p>}
+              {shown.map((s) => <HistCard key={s.id} s={s} program={program} prs={prs} />)}
+            </>
+          )}
       </div>
     </main>
+  );
+}
+
+/* A month grid (Monday first, like Today's week) with a dot per workout in that day's colour.
+   Tapping a day shows its workouts below, as the same cards the list uses. */
+function MonthCalendar({ sessions, program, prs }) {
+  const byDate = useMemo(() => {
+    const m = {};
+    sessions.forEach((s) => { (m[s.date] ||= []).push(s); });
+    return m;
+  }, [sessions]);
+  const latest = sessions[0]?.date; // sessions arrive newest first
+  const [picked, setPicked] = useState(latest || today());
+  const [month, setMonth] = useState(() => (latest || today()).slice(0, 7)); // "YYYY-MM"
+
+  const [y, m] = month.split("-").map(Number);
+  const first = new Date(y, m - 1, 1, 12);
+  const lead = (first.getDay() + 6) % 7; // blanks before the 1st, Monday-first
+  const daysIn = new Date(y, m, 0).getDate();
+  const cells = [...Array(lead).fill(null), ...Array.from({ length: daysIn }, (_, i) => iso(new Date(y, m - 1, i + 1, 12)))];
+  const shift = (n) => { const d = new Date(y, m - 1 + n, 1, 12); setMonth(iso(d).slice(0, 7)); };
+  const t = today();
+  const count = cells.filter((d) => d && byDate[d]).length;
+  const weekdays = Array.from({ length: 7 }, (_, i) => new Date(2024, 0, 1 + i).toLocaleDateString(undefined, { weekday: "narrow" }));
+
+  return (
+    <>
+      <section className="card cal" aria-label="Workout calendar">
+        <div className="cal-head">
+          <button className="icon-btn" onClick={() => shift(-1)} aria-label="Previous month"><ChevronLeft size={20} /></button>
+          <div className="cal-title">
+            <b>{first.toLocaleDateString(undefined, { month: "long", year: "numeric" })}</b>
+            <span>{plural(count, "workout day")}</span>
+          </div>
+          <button className="icon-btn" onClick={() => shift(1)} aria-label="Next month" disabled={month >= t.slice(0, 7)}><ChevronRight size={20} /></button>
+        </div>
+        <div className="cal-grid" role="grid">
+          {weekdays.map((w, i) => <span key={i} className="cal-wd" aria-hidden="true">{w}</span>)}
+          {cells.map((d, i) => {
+            if (!d) return <span key={`b${i}`} />;
+            const day = byDate[d] || [];
+            const label = `${longDate(d)}${day.length ? `: ${day.map((s) => program[s.day].name).join(", ")}` : ", no workout"}`;
+            return (
+              <button key={d} type="button" className={"cal-day" + (d === t ? " is-today" : "") + (d === picked ? " is-picked" : "") + (day.length ? " has" : "")}
+                aria-label={label} aria-pressed={d === picked} disabled={d > t} onClick={() => setPicked(d)}>
+                <span className="cal-num">{Number(d.slice(8))}</span>
+                <span className="cal-dots" aria-hidden="true">
+                  {day.slice(0, 3).map((s) => <i key={s.id} data-day={s.day} />)}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </section>
+
+      {(byDate[picked] || []).length
+        ? byDate[picked].map((s) => <HistCard key={s.id} s={s} program={program} prs={prs} />)
+        : <p className="muted cal-none">No workout logged on {longDate(picked)}.</p>}
+    </>
+  );
+}
+
+/** One logged workout: sets, volume, PRs (with the record set and what it beat) and an edit link. */
+function HistCard({ s, program, prs }) {
+  const hits = prs[s.id] || {};
+  const n = Object.keys(hits).length;
+  return (
+    <article className="hist" data-day={s.day}>
+      <div className="hist-head">
+        <div style={{ flex: 1 }}>
+          <h2 className="hist-date">{longDate(s.date)}</h2>
+          <div className="hist-meta">
+            {program[s.day].name} · {plural(sessionSetCount(s), "set")}{sessionVolume(s) > 0 && ` · ${compact(sessionVolume(s))} lb lifted`}{s.bw != null && ` · ${s.bw} lb bodyweight`}
+          </div>
+        </div>
+        {n > 0 && <span className="stamp">PR{n > 1 ? ` ×${n}` : ""}</span>}
+        <a className="icon-btn" href={href("session", s.day, s.id)} aria-label={`Edit ${program[s.day].name} session on ${longDate(s.date)}`}><Pencil size={17} /></a>
+      </div>
+      {s.note && <p className="hist-note">{s.note}</p>}
+      <div>
+        {Object.entries(s.sets).map(([name, sets]) => {
+          const pr = hits[name];
+          return (
+            <a key={name} className={"hist-line" + (pr ? " is-pr" : "")} href={href("lift", name)} style={{ color: "inherit", textDecoration: "none" }}>
+              <span className="name">
+                {pr && <span className="stamp pr-stamp">PR</span>}{name}
+                {pr && <span className="pr-note">New best est. max {num(pr.now)} lb · was {num(pr.was)}</span>}
+              </span>
+              <span className="sets">
+                {sets.map((x, i) => (
+                  <React.Fragment key={i}>{i > 0 && "  "}<span className={i === pr?.idx ? "pr-set" : undefined}>{fmtSet(x)}</span></React.Fragment>
+                ))}
+              </span>
+            </a>
+          );
+        })}
+      </div>
+    </article>
   );
 }
