@@ -15,9 +15,9 @@ import { supabase } from "./supabase-client.js";
 
 if (typeof window !== "undefined" && !window.storage) {
   async function currentUserId() {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    // getSession reads the stored session, so it works offline (getUser needs the network).
+    const { data } = await supabase.auth.getSession();
+    const user = data.session?.user;
     if (!user) throw new Error("ironlog storage: no signed-in user");
     return user.id;
   }
@@ -31,7 +31,8 @@ if (typeof window !== "undefined" && !window.storage) {
         .eq("user_id", user_id)
         .eq("key", key)
         .maybeSingle();
-      if (error || !data) return null;
+      if (error) throw error; // a failed read must never look like "no data yet"
+      if (!data) return null;
       return { key, value: data.value, shared: false };
     },
 

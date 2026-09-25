@@ -17,7 +17,6 @@ export default function Session({ day, existing, draft, sessions, program, back,
   const [timer, setTimer] = useState(() => (draft?.timer?.endsAt > Date.now() ? draft.timer : null));
   const [sheet, setSheet] = useState(null); // "picker" | "details" | "delete"
   const [openCue, setOpenCue] = useState(null);
-  const [status, setStatus] = useState("idle");
   const [flash, setFlash] = useState(null); // {ex, i} — the set that was just logged
 
   /* The moment this session sits at, for "what came before". */
@@ -93,7 +92,6 @@ export default function Session({ day, existing, draft, sessions, program, back,
   useEffect(() => {
     if (firstRun.current) { firstRun.current = false; return; }
     if (!existing && !dirty) return;
-    setStatus("saving");
     const t = setTimeout(() => {
       if (existing) {
         const sets = collectSets();
@@ -101,16 +99,9 @@ export default function Session({ day, existing, draft, sessions, program, back,
       } else {
         onSaveDraft(day, { grid, date, bw, note, extras, skipped, timer, startedAt });
       }
-      setStatus("saved");
     }, 500);
     return () => clearTimeout(t);
   }, [grid, date, bw, note, extras, skipped, timer, startedAt]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    if (status !== "saved") return;
-    const t = setTimeout(() => setStatus("idle"), 1800);
-    return () => clearTimeout(t);
-  }, [status]);
 
   /* ── keep the screen awake while training ── */
   useEffect(() => {
@@ -222,7 +213,7 @@ export default function Session({ day, existing, draft, sessions, program, back,
           <h1 className="top-title" data-day={day}>{dayProgram.name}</h1>
           <span className="spacer" />
           <span className="mono small muted tn" aria-live="polite">
-            {status === "saving" ? "Saving…" : status === "saved" ? "Saved" : `${doneSlots} / ${totalSlots} sets`}
+            {`${doneSlots} / ${totalSlots} sets`}
           </span>
           {existing && <button className="icon-btn" onClick={() => setSheet("delete")} aria-label="Delete session"><Trash2 size={18} /></button>}
         </header>

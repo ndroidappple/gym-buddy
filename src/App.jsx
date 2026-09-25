@@ -2,7 +2,8 @@ import React, { useState, useEffect, useCallback, useRef } from "react";
 import { PROGRAM, DAYS } from "./data/program.js";
 import { seedSessions } from "./lib/util.js";
 import { useRoute, href } from "./lib/router.js";
-import { Toast, TabBar, Boot } from "./components/ui.jsx";
+import { Toast, TabBar, Boot, LoadError, SyncNote } from "./components/ui.jsx";
+import { loadState, createSaver } from "./lib/store.js";
 import Today from "./views/Today.jsx";
 import Session from "./views/Session.jsx";
 import Summary from "./views/Summary.jsx";
@@ -13,34 +14,51 @@ import Settings from "./views/Settings.jsx";
 import ProgramEditor from "./views/ProgramEditor.jsx";
 import Export from "./views/Export.jsx";
 
-const STORE_KEY = "ironlog-v2";
 const TAB_VIEWS = ["today", "history", "progress", "settings", "lift"];
 
 export default function App() {
   const [ready, setReady] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [sync, setSync] = useState("synced"); // synced | pending | offline
   const [sessions, setSessions] = useState([]);
   const [program, setProgram] = useState(PROGRAM);
   const [drafts, setDrafts] = useState({});
   const [toast, setToast] = useState(null);
   const { route, go, back } = useRoute();
 
-  useEffect(() => {
-    (async () => {
-      let s = null;
-      try {
-        const r = await window.storage.get(STORE_KEY);
-        if (r?.value) s = JSON.parse(r.value);
-      } catch {}
-      setSessions(s?.sessions || seedSessions());
-      setProgram(s?.program || PROGRAM);
-      setDrafts(s?.drafts || {});
+  const load = useCallback(async () => {
+    setLoadFailed(false);
+    try {
+      const { data, offline } = await loadState();
+      // Seed only when the account is confirmed empty — never after a failed read.
+      setSessions(data ? data.sessions : seedSessions());
+      setProgram(data?.program || PROGRAM);
+      setDrafts(data?.drafts || {});
+      if (offline) setSync("offline");
       setReady(true);
-    })();
+    } catch {
+      setLoadFailed(true);
+    }
   }, []);
+  useEffect(() => { load(); }, [load]);
+
+  const saver = useRef(null);
+  if (!saver.current) saver.current = createSaver(setSync);
 
   useEffect(() => {
-    if (ready) window.storage.set(STORE_KEY, JSON.stringify({ sessions, program, drafts })).catch(() => {});
+    if (ready) saver.current.save({ sessions, program, drafts });
   }, [sessions, program, drafts, ready]);
+
+  /* Retry unsynced changes when the connection comes back, the app returns to the foreground, or every 30 s. */
+  useEffect(() => {
+    if (sync !== "offline") return;
+    const retry = () => saver.current.retry();
+    const onVis = () => { if (document.visibilityState === "visible") retry(); };
+    addEventListener("online", retry);
+    document.addEventListener("visibilitychange", onVis);
+    const id = setInterval(retry, 30000);
+    return () => { removeEventListener("online", retry); document.removeEventListener("visibilitychange", onVis); clearInterval(id); };
+  }, [sync]);
 
   useEffect(() => {
     if (!toast) return;
@@ -106,6 +124,7 @@ export default function App() {
     },
   };
 
+  if (loadFailed) return <LoadError onRetry={load} />;
   if (!ready) return <Boot />;
 
   const common = { sessions, program, drafts, go, back, notify };
@@ -143,6 +162,7 @@ export default function App() {
     <div className="app">
       {view}
       {showTabs && <TabBar active={activeTab} />}
+      {sync === "offline" && <SyncNote raised={showTabs} />}
       <Toast toast={toast} onDismiss={() => setToast(null)} raised={route.name === "session"} />
     </div>
   );

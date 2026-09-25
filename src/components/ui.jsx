@@ -218,3 +218,23 @@ export function ExercisePicker({ title, sub, existingNames, onPick, onClose }) {
     </Sheet>
   );
 }
+
+/** Shown when the account can't be reached on launch and this phone has no copy yet. */
+export function LoadError({ onRetry }) {
+  return (
+    <main className="boot" role="alert">
+      <div className="wordmark">IRONLOG</div>
+      <p className="muted" style={{ maxWidth: 280, textAlign: "center" }}>Couldn't load your log. Check your connection and try again. Nothing has been changed.</p>
+      <button className="btn btn-ink" style={{ width: "auto" }} onClick={onRetry}>Try again</button>
+    </main>
+  );
+}
+
+/** Persistent note while changes are saved on this phone but not yet in the account. */
+export function SyncNote({ raised }) {
+  return (
+    <div className={"sync-note" + (raised ? " raised" : "")} role="status">
+      Offline · saved on this phone, will sync when you're back online
+    </div>
+  );
+}
