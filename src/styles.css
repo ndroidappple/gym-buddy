@@ -281,6 +281,13 @@ button.chip { min-height: 38px; padding: 0 14px; border: 2px solid var(--rule); 
 .other:active { transform: translateY(3px); box-shadow: 0 2px 0 var(--lip); }
 .other b { font-size: 17px; font-weight: 800; display: flex; align-items: center; gap: 7px; }
 .other span { font-size: 13px; color: var(--mute); font-weight: 600; }
+.other { min-width: 0; }
+.other b .other-name { font-size: inherit; color: inherit; font-weight: inherit; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rename-row { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 62px; padding: 10px 14px; border-radius: var(--r); background: var(--surface); box-shadow: 0 3px 0 var(--lip); text-align: left; }
+.rename-row:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--lip); }
+.rename-row .name { flex: 1; min-width: 0; font-weight: 800; font-size: 17px; }
+.rename-row .sub { display: block; font-size: 13.5px; font-weight: 600; color: var(--mute); }
+.rename-hint { display: inline-flex; align-items: center; gap: 5px; font-size: 13px; font-weight: 800; color: var(--day-ink, var(--ink)); }
 .weigh { display: flex; align-items: center; gap: 10px; padding: 12px 12px 12px 14px; }
 .weigh-icon { width: 44px; height: 44px; border-radius: 16px; display: grid; place-items: center; background: color-mix(in srgb, var(--accent) 16%, var(--surface)); color: var(--accent); flex-shrink: 0; }
 .weigh-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }

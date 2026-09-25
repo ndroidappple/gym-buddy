@@ -139,10 +139,16 @@ export default function App() {
       if (j < 0 || j >= xs.length) return xs;
       const c = [...xs]; [c[i], c[j]] = [c[j], c[i]]; return c;
     }),
+    rename: (day, { name, detail }) => {
+      const before = program[day];
+      setProgram((p) => ({ ...p, [day]: { ...p[day], name, detail } }));
+      notify(`Renamed to ${name}`, () => setProgram((p) => ({ ...p, [day]: { ...p[day], name: before.name, detail: before.detail } })));
+    },
+    // Restores the lifts; a name the user chose stays.
     restore: (day) => {
       const before = program[day];
-      setProgram((p) => ({ ...p, [day]: PROGRAM[day] }));
-      notify(`${PROGRAM[day].name} restored to defaults`, () => setProgram((p) => ({ ...p, [day]: before })));
+      setProgram((p) => ({ ...p, [day]: { ...PROGRAM[day], name: before.name, detail: before.detail } }));
+      notify(`${before.name} restored to its original lifts`, () => setProgram((p) => ({ ...p, [day]: before })));
     },
   };
 

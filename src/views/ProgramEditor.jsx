@@ -1,6 +1,6 @@
 import React, { useState } from "react";
-import { ChevronLeft, ChevronUp, ChevronDown, Trash2, Plus } from "lucide-react";
-import { InfoButton, ExercisePicker, ConfirmSheet } from "../components/ui.jsx";
+import { ChevronLeft, ChevronUp, ChevronDown, Trash2, Plus, Pencil } from "lucide-react";
+import { InfoButton, ExercisePicker, ConfirmSheet, Sheet } from "../components/ui.jsx";
 import { isCardio, specLine } from "../data/program.js";
 
 export default function ProgramEditor({ day, program, back, ops }) {
@@ -18,6 +18,11 @@ export default function ProgramEditor({ day, program, back, ops }) {
         <InfoButton screen="program" />
       </header>
       <div className="body" style={{ paddingTop: 12 }}>
+        <button className="rename-row" onClick={() => setSheet("rename")} aria-label={`Rename ${p.name}`}>
+          <span className="dot" aria-hidden="true" />
+          <span className="name">{p.name}<span className="sub">{p.detail}</span></span>
+          <span className="rename-hint"><Pencil size={15} strokeWidth={2.6} aria-hidden="true" /> Rename</span>
+        </button>
         <p className="small muted">Changes apply to future {p.name} sessions. Past sessions keep what you logged.</p>
         <div>
           {p.exercises.map((ex, i) => (
@@ -43,6 +48,7 @@ export default function ProgramEditor({ day, program, back, ops }) {
           existingNames={p.exercises.map((e) => e.n)} onClose={() => setSheet(null)}
           onPick={(ex) => { ops.add(day, ex); setSheet(null); }} />
       )}
+      {sheet === "rename" && <RenameSheet p={p} onClose={() => setSheet(null)} onSave={(v) => { ops.rename(day, v); setSheet(null); }} />}
       {sheet === "restore" && (
         <ConfirmSheet title={`Restore ${p.name}?`} body={`${p.name} goes back to its original lifts, sets and rest times. Other days are not changed.`}
           confirm="Restore" onClose={() => setSheet(null)} onConfirm={() => ops.restore(day)} />
@@ -77,5 +83,27 @@ function EditLift({ ex, onChange, onRemove }) {
           onBlur={(e) => onChange({ cue: e.target.value.trim() })} /></label>
       <button className="btn-quiet danger" onClick={onRemove} style={{ alignSelf: "flex-start" }}><Trash2 size={16} aria-hidden="true" style={{ verticalAlign: -3 }} /> Remove from program</button>
     </div>
+  );
+}
+
+/* Name and focus line for a day. The plate colour stays: it still identifies the day. */
+function RenameSheet({ p, onClose, onSave }) {
+  const [name, setName] = useState(p.name);
+  const [detail, setDetail] = useState(p.detail || "");
+  const clean = (v) => v.trim().replace(/\s+/g, " ");
+  const valid = clean(name).length > 0;
+  return (
+    <Sheet title="Rename this day" sub="Shows on Today, in your sessions and in History." onClose={onClose} labelledBy="rename-title">
+      <form onSubmit={(e) => { e.preventDefault(); if (valid) onSave({ name: clean(name), detail: clean(detail) }); }} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        <label className="field"><span className="lbl">Name</span>
+          <input id="day-name" className="input" value={name} maxLength={24} autoCapitalize="words" enterKeyHint="next" onChange={(e) => setName(e.target.value)} placeholder="e.g. Chest Day" /></label>
+        <label className="field"><span className="lbl">Focus (optional)</span>
+          <input id="day-detail" className="input" value={detail} maxLength={40} autoCapitalize="words" enterKeyHint="done" onChange={(e) => setDetail(e.target.value)} placeholder="e.g. Chest + Triceps" /></label>
+        <div className="btn-row">
+          <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>
+          <button type="submit" className="btn btn-ink" disabled={!valid}>Save</button>
+        </div>
+      </form>
+    </Sheet>
   );
 }

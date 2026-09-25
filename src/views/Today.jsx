@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { InfoButton } from "../components/ui.jsx";
 import { Scale } from "lucide-react";
-import { DAYS, PLATES } from "../data/program.js";
+import { DAYS, PLATES, PROGRAM } from "../data/program.js";
 import { href } from "../lib/router.js";
 import { COACHES, coachesFor } from "../data/coaches.js";
 import Coach from "../components/Coach.jsx";
@@ -120,7 +120,7 @@ export default function Today({ name, sessions, program, drafts, weighins, onWei
               const last = sorted.find((s) => s.day === d);
               return (
                 <a key={d} className="other" data-day={d} href={href("session", d)}>
-                  <b><span className="dot" aria-hidden="true" />{PLATES[d].short}</b>
+                  <b><span className="dot" aria-hidden="true" /><span className="other-name">{program[d].name === PROGRAM[d].name ? PLATES[d].short : program[d].name}</span></b>
                   <span>{drafts[d] ? "In progress" : last ? shortDate(last.date) : "Not yet"}</span>
                 </a>
               );

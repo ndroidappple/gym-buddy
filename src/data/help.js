@@ -53,6 +53,7 @@ export const HELP = {
     title: "Edit a day",
     sub: "The lifts this day starts with.",
     points: [
+      "Tap the name at the top to rename this day and its focus line.",
       "Tap a lift to change its sets, rep range, rest time and form cue.",
       "Use the arrows to reorder, or add lifts and cardio from the library.",
       "Changes apply to future sessions; past sessions stay as logged.",
