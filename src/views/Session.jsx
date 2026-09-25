@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
-import { ChevronLeft, Check, Plus, Minus, Trash2, Timer } from "lucide-react";
+import { ChevronLeft, Check, Plus, Minus, Trash2 } from "lucide-react";
+import { BorderBeam } from "border-beam";
 import { uid, e1rm, fmtW, today, shortDate, mmss, byDateDesc, priorSessions, allTimeBest, bestSet, vibrate } from "../lib/util.js";
 import { primeAudio, chime } from "../lib/sound.js";
 import { Sheet, ConfirmSheet, ExercisePicker } from "../components/ui.jsx";
@@ -217,17 +218,12 @@ export default function Session({ day, existing, draft, sessions, program, back,
           </span>
           {existing && <button className="icon-btn" onClick={() => setSheet("delete")} aria-label="Delete session"><Trash2 size={18} /></button>}
         </header>
-        <div className="seg" role="progressbar" aria-label="Sets completed" aria-valuemin={0} aria-valuemax={totalSlots} aria-valuenow={doneSlots}>
-          {Array.from({ length: Math.min(totalSlots, 40) }, (_, i) => <i key={i} className={i < Math.round((doneSlots / (totalSlots || 1)) * Math.min(totalSlots, 40)) ? "d" : ""} />)}
+        <div className="progress" role="progressbar" aria-label="Sets completed" aria-valuemin={0} aria-valuemax={totalSlots} aria-valuenow={doneSlots}>
+          <i style={{ width: `${totalSlots ? (doneSlots / totalSlots) * 100 : 0}%` }} />
         </div>
       </div>
 
       <div className="body" style={{ gap: 10 }}>
-        <button className="meta-chip" onClick={() => setSheet("details")}>
-          <span className="spacer"><b>{metaBits[0]}</b>{metaBits.slice(1).map((b) => ` · ${b}`)}</span>
-          <span>{bw === "" ? "Add bodyweight" : "Edit"}</span>
-        </button>
-
         {exercises.map((ex) => {
           const rows = grid[ex.n] || [];
           const last = lastFor(ex.n);
@@ -251,23 +247,25 @@ export default function Session({ day, existing, draft, sessions, program, back,
 
         <button className="btn btn-ghost" onClick={() => setSheet("picker")}><Plus size={18} aria-hidden="true" /> Add a lift for today</button>
 
-        <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 12 }}>
+        <div className="finish">
+          <button className="meta-chip" onClick={() => setSheet("details")}>
+            <span className="spacer"><b>{metaBits[0]}</b>{metaBits.slice(1).map((b) => ` · ${b}`)}</span>
+            <span>{bw === "" ? "Add bodyweight" : "Edit"}</span>
+          </button>
+
           {existing ? (
             <>
               <button className="btn btn-day" onClick={() => back()}><Check size={20} strokeWidth={3} aria-hidden="true" /> Done editing</button>
-              <p className="small muted" style={{ textAlign: "center" }}>Changes save as you go.</p>
             </>
           ) : (
             <>
               <button className="btn btn-day" onClick={finish} disabled={!doneSlots}>Finish · {doneSlots}/{totalSlots} sets</button>
-              <p className="small muted" style={{ textAlign: "center" }}>
-                {doneSlots ? "Progress saves as you go. Close anytime and pick up where you left off." : "Log at least one set to finish."}
-              </p>
+              {!doneSlots && <p className="small muted" style={{ textAlign: "center" }}>Log at least one set to finish.</p>}
               {dirty && <button className="btn-quiet danger" onClick={() => { onDiscardDraft(day); back(); }}>Discard this session</button>}
             </>
           )}
         </div>
-        <div style={{ height: timer ? 150 : 16 }} />
+        <div style={{ height: timer ? 120 : 16 }} />
       </div>
 
       {timer && <RestDock timer={timer} setTimer={setTimer} />}
@@ -309,7 +307,7 @@ function Collapsed({ ex, rows, target, skipped, onOpen }) {
   else sub = `${done.length}/${rows.length} sets${target ? ` · beat ${fmtW(target.w)} × ${target.r}` : ""}`;
   return (
     <button className={"ex-collapsed" + (skipped ? " skipped" : complete ? "" : " pending")} onClick={onOpen}>
-      {complete && !skipped ? <span className="mini-ck" aria-hidden="true"><Check size={16} strokeWidth={3} /></span> : null}
+      {complete && !skipped ? <span className="mini-ck" aria-hidden="true"><Check size={16} strokeWidth={3} /></span> : <span className="mini-ring" aria-hidden="true" />}
       <span className="name">{ex.n}{ex.today && <span className="ex-tag">today</span>}<span className="sub">{sub}</span></span>
       {prs > 0 && !skipped && <span className="stamp">PR{prs > 1 ? ` ×${prs}` : ""}</span>}
     </button>
@@ -403,14 +401,16 @@ function ActiveSet({ i, ex, row, last, canRemove, onEdit, onLog, onRemove }) {
 function Stepper({ id, label, unit, value, mode, placeholder, onChange, onDec, onInc, step }) {
   return (
     <div className="stepper">
-      <button onClick={onDec} aria-label={`${label} down ${step}`}><Minus size={20} /></button>
       <label htmlFor={id}>
         <span className="sr-only">{label}</span>
         <input id={id} type="number" inputMode={mode} value={value} placeholder={placeholder}
           onChange={(e) => onChange(e.target.value)} onFocus={(e) => e.target.select()} />
         <span className="u">{unit}</span>
       </label>
-      <button onClick={onInc} aria-label={`${label} up ${step}`}><Plus size={20} /></button>
+      <div className="stepper-btns">
+        <button onClick={onDec} aria-label={`${label} down ${step}`}><Minus size={20} /></button>
+        <button onClick={onInc} aria-label={`${label} up ${step}`}><Plus size={20} /></button>
+      </div>
     </div>
   );
 }
@@ -430,21 +430,35 @@ function RestDock({ timer, setTimer }) {
   }, [over]);
   const pct = Math.min(100, ((timer.total - left) / timer.total) * 100);
   const adjust = (d) => setTimer((t) => ({ ...t, endsAt: Math.max(Date.now(), t.endsAt + d * 1000), total: Math.max(15, t.total + d) }));
+  const reduced = useReducedMotion();
+  const C = 2 * Math.PI * 24;
   return (
-    <div className={"rest" + (over ? " over" : "")} role="timer" aria-label="Rest timer">
-      <div className="trk" aria-hidden="true"><i style={{ width: `${pct}%` }} /></div>
-      <div style={{ display: "flex", alignItems: "center" }}>
-        <span className="lbl"><Timer size={13} aria-hidden="true" style={{ verticalAlign: -2 }} /> {over ? "Rest over · next set" : "Rest"}</span>
-        <span className="spacer" />
-        <span className="mono small" style={{ opacity: 0.75 }}>of {mmss(timer.total)}</span>
-      </div>
-      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        <span className="clock" aria-live={over ? "assertive" : "off"}>{over ? "Go" : mmss(left)}</span>
-        <span className="spacer" />
+    // Line beam runs only while resting (a 60–120 s wait); the line type ignores reduced motion, so gate it here.
+    <BorderBeam size="line" theme="auto" active={!over && !reduced} className="rest-wrap">
+      <div className={"rest" + (over ? " over" : "")} role="timer" aria-label="Rest timer">
+        <svg className="ring" viewBox="0 0 56 56" aria-hidden="true">
+          <circle cx="28" cy="28" r="24" className="ring-trk" />
+          <circle cx="28" cy="28" r="24" className="ring-val" strokeDasharray={C} strokeDashoffset={C * (1 - pct / 100)} transform="rotate(-90 28 28)" />
+        </svg>
+        <div className="rest-text">
+          <span className="lbl">{over ? "Rest over · next set" : `Rest · of ${mmss(timer.total)}`}</span>
+          <span className="clock" aria-live={over ? "assertive" : "off"}>{over ? "Go" : mmss(left)}</span>
+        </div>
         {!over && <button className="rb" onClick={() => adjust(-15)} aria-label="Remove 15 seconds">−15</button>}
         {!over && <button className="rb" onClick={() => adjust(15)} aria-label="Add 15 seconds">+15</button>}
-        <button className="rb" onClick={() => setTimer(null)}>{over ? "Dismiss" : "Skip"}</button>
+        <button className="rb primary" onClick={() => setTimer(null)}>{over ? "Dismiss" : "Skip"}</button>
       </div>
-    </div>
+    </BorderBeam>
   );
+}
+
+function useReducedMotion() {
+  const [reduced, setReduced] = useState(() => window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+  useEffect(() => {
+    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const on = (e) => setReduced(e.matches);
+    mq.addEventListener("change", on);
+    return () => mq.removeEventListener("change", on);
+  }, []);
+  return reduced;
 }

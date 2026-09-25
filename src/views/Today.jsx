@@ -1,4 +1,6 @@
 import React, { useMemo, useState } from "react";
+import { ArrowRight } from "lucide-react";
+import { BorderBeam } from "border-beam";
 import { DAYS, PLATES } from "../data/program.js";
 import { href } from "../lib/router.js";
 import { byDateDesc, bestSet, fmtW, num, shortDate, weekDates, today, nextDayAfter, bodyweightSeries, daysBetween, plural } from "../lib/util.js";
@@ -12,6 +14,14 @@ export default function Today({ sessions, program, drafts, weighins, onWeighin }
   const lastOfDay = sorted.find((s) => s.day === day);
 
   const setsLogged = draft ? Object.values(draft.grid || {}).reduce((a, rows) => a + rows.filter((r) => r.done).length, 0) : 0;
+  const plannedSets = p.exercises.reduce((a, e) => a + e.sets, 0);
+
+  /* Typical length of this day, from sessions with both start and finish times. */
+  const usualMins = useMemo(() => {
+    const mins = sessions.filter((s) => s.day === day && s.startedAt && s.finishedAt)
+      .map((s) => (s.finishedAt - s.startedAt) / 60000).filter((m) => m >= 5 && m <= 240);
+    return mins.length ? Math.round(mins.reduce((a, m) => a + m, 0) / mins.length) : null;
+  }, [sessions, day]);
 
   const targets = useMemo(() => p.exercises.map((ex) => {
     const prior = sorted.find((s) => s.sets[ex.n]?.length);
@@ -27,37 +37,44 @@ export default function Today({ sessions, program, drafts, weighins, onWeighin }
   }, [sessions]);
   const doneThisWeek = week.filter((d) => byDate[d]).length;
 
+  const status = draft
+    ? `${plural(setsLogged, "set")} logged so far`
+    : [lastOfDay ? `Last ${p.name.toLowerCase()} ${shortDate(lastOfDay.date)}` : "Not logged yet", usualMins && `usually ${usualMins} min`].filter(Boolean).join(" · ");
+
   return (
     <main className="screen has-tabs">
-      <header className="top">
-        <h1 className="wordmark">IRONLOG</h1>
-        <span className="spacer" />
-        <span className="chip">Day {DAYS.indexOf(day) + 1} of 4</span>
+      <header className="top today-top">
+        <div className="today-head">
+          <span className="lbl">{new Date(t + "T12:00:00").toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}</span>
+          <h1 className="wordmark">IRONLOG</h1>
+        </div>
       </header>
 
       <div className="body" data-day={day}>
-        <section className="hero" aria-label={draft ? `${p.name} in progress` : `Up next: ${p.name}`}>
-          <div className="disk" aria-hidden="true"><span className="kg">{PLATES[day].kg}</span><span className="kgb">{p.name.toUpperCase()}</span></div>
+        <section className="hero-card" aria-label={draft ? `${p.name} in progress` : `Up next: ${p.name}`}>
+          <Plate kg={PLATES[day].kg} />
           <div className="hero-text">
-            <span className="lbl">{draft ? "In progress" : "Up next"}</span>
-            <span className="hero-day">{p.name}</span>
-            <span className="muted small">
-              {p.detail} · {p.exercises.length} lifts<br />
-              {draft ? `${setsLogged} sets logged so far` : lastOfDay ? `Last done ${shortDate(lastOfDay.date)}` : "Not logged yet"}
-            </span>
+            <span className="lbl day-lbl">{draft ? "In progress" : "Up next"}</span>
+            <span className={"hero-day" + (p.name.length > 6 ? " long" : "")}>{p.name}</span>
+            <span className="hero-meta">{p.detail} · {plural(p.exercises.length, "lift")} · {plannedSets} sets<br />{status}</span>
           </div>
+          {/* The one primary action breathes softly; pulse types stop themselves under reduced motion. */}
+          <BorderBeam size="pulse-inner" colorVariant="mono" theme="auto" strength={0.8}>
+            <a className="btn btn-day hero-cta" href={href("session", day)}>
+              {draft ? `Resume ${p.name}` : `Start ${p.name}`}
+              <ArrowRight size={20} strokeWidth={2.6} aria-hidden="true" />
+            </a>
+          </BorderBeam>
         </section>
-
-        <a className="btn btn-day" href={href("session", day)}>{draft ? `Resume ${p.name}` : `Start ${p.name}`}</a>
 
         <WeighIn sessions={sessions} weighins={weighins} onSave={onWeighin} />
 
         {targets.length > 0 && (
           <section className="section">
-            <h2 className="lbl">Beat these</h2>
-            <div className="rows">
+            <div className="section-head"><h2 className="lbl">Beat these</h2><span className="small muted">best set last time</span></div>
+            <div className="card-list">
               {targets.map((x) => (
-                <a key={x.n} href={href("lift", x.n)} style={{ color: "inherit", textDecoration: "none" }}>
+                <a key={x.n} className="card-row" href={href("lift", x.n)}>
                   <span className="name">{x.n}</span>
                   <span className="v">{fmtW(x.best.w)} × {x.best.r}</span>
                 </a>
@@ -88,7 +105,7 @@ export default function Today({ sessions, program, drafts, weighins, onWeighin }
             {DAYS.filter((d) => d !== day).map((d) => {
               const last = sorted.find((s) => s.day === d);
               return (
-                <a key={d} className="other" data-day={d} href={href("session", d)} style={{ color: "inherit", textDecoration: "none" }}>
+                <a key={d} className="other" data-day={d} href={href("session", d)}>
                   <b><span className="dot" aria-hidden="true" />{PLATES[d].short}</b>
                   <span>{drafts[d] ? "In progress" : last ? shortDate(last.date) : "Not yet"}</span>
                 </a>
@@ -98,6 +115,20 @@ export default function Today({ sessions, program, drafts, weighins, onWeighin }
         </section>
       </div>
     </main>
+  );
+}
+
+/** Competition plate in the day's colour, bleeding off the hero card's corner. */
+function Plate({ kg }) {
+  return (
+    <svg className="hero-plate" viewBox="0 0 210 210" aria-hidden="true">
+      <circle cx="105" cy="105" r="100" style={{ fill: "var(--day)" }} />
+      <circle cx="105" cy="105" r="92" style={{ fill: "none", stroke: "color-mix(in srgb, var(--day) 55%, #000)", strokeWidth: 3 }} />
+      <circle cx="105" cy="105" r="70" style={{ fill: "none", stroke: "color-mix(in srgb, var(--day) 78%, #000)", strokeWidth: 1.5 }} />
+      <circle cx="105" cy="105" r="30" style={{ fill: "color-mix(in srgb, var(--day) 85%, #000)" }} />
+      <circle cx="105" cy="105" r="19" style={{ fill: "var(--surface)" }} />
+      <text x="105" y="186" textAnchor="middle" style={{ fill: "var(--on-day)", fontFamily: "var(--display)", fontWeight: 900, fontSize: 20, letterSpacing: 1 }}>{kg}</text>
+    </svg>
   );
 }
 
