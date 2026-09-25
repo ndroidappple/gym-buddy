@@ -16,7 +16,11 @@ const TROUBLE = {
   offline: "Can't reach me without a connection. Log your sets, ask me when you're back online.",
   auth: "Lost track of who you are. Sign in again and ask me.",
   unavailable: "Coach chat runs on the deployed app, not this dev server.",
-  busy: "Catching my breath. Free-tier limit, give me a minute and ask again.",
+  // A real 429 from the free tier's per-model limit: it clears on its own after a short wait.
+  rate: "Too many questions too fast for the free tier. Give me a minute, then ask again.",
+  // The reply came back blank twice in a row (already retried once, quietly).
+  empty: "Lost my train of thought there. Ask me that again.",
+  busy: "Couldn't get an answer through. Ask me again in a moment.",
 };
 
 /** Chat with one coach. Answers stream in; the coach looks locked in while thinking and fired up when it lands.
@@ -75,12 +79,14 @@ export default function CoachChat({ coach, exercise, starter, sessions, program,
     setStatus("thinking");
     abort.current = new AbortController();
     const put = (patch) => setMessages((ms) => { const c2 = [...ms]; c2[c2.length - 1] = { ...c2[c2.length - 1], ...patch }; return c2; });
+    const ask = () => askCoach({
+      coach, messages: history, signal: abort.current.signal,
+      context: buildContext({ coach, sessions, program, weighins, profile, phase }),
+      onText: (t) => { setStatus("streaming"); put({ content: t }); },
+    });
     try {
-      const { text: reply, changes } = await askCoach({
-        coach, messages: history, signal: abort.current.signal,
-        context: buildContext({ coach, sessions, program, weighins, profile, phase }),
-        onText: (t) => { setStatus("streaming"); put({ content: t }); },
-      });
+      // A blank reply is usually a one-off (the model ran long thinking); ask once more before saying so.
+      const { text: reply, changes } = await ask().catch((e) => (e.kind === "empty" ? ask() : Promise.reject(e)));
       if (changes.length && onProgramChange) {
         put({ content: reply.trim() || "Here's the change I'd make.", changes, preview: applyChanges(program, changes) });
       }

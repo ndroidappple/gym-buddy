@@ -59,7 +59,7 @@ export function buildContext({ coach, sessions, program, weighins, profile, phas
 
 /**
  * Streams a coach reply. Calls onText with the text so far. Throws an Error whose `kind` is
- * "offline" | "auth" | "unavailable" | "busy" so the chat can answer in the coach's voice.
+ * "offline" | "auth" | "unavailable" | "rate" | "empty" | "busy" so the chat can answer in the coach's voice.
  */
 const PROPOSAL_MARK = "\u001E"; // must match api/coach.js
 const withName = (context, first) => (first ? `Lifter's first name: ${first}.\n${context}` : context);
@@ -93,10 +93,15 @@ export async function askCoach({ coach, messages, context, onText, signal }) {
     onText(raw.split(PROPOSAL_MARK)[0]);
   }
   // Text first, then each proposed program change on its own line after the mark.
+  // Text first, then records after the mark: program-change proposals, and a final status when the
+  // reply failed or came back empty ("rate" = a real 429, "empty" = nothing written, "error").
   const [text, ...rest] = raw.split(PROPOSAL_MARK);
-  const proposals = rest.map((line) => { try { return JSON.parse(line.trim()).changes; } catch { return null; } })
-    .filter((c) => Array.isArray(c) && c.length);
-  // Free-tier limits end the stream early with nothing in it.
-  if (!text.trim() && !proposals.length) throw Object.assign(new Error("busy"), { kind: "busy" });
+  const records = rest.map((line) => { try { return JSON.parse(line.trim()); } catch { return null; } }).filter(Boolean);
+  const proposals = records.map((r) => r.changes).filter((c) => Array.isArray(c) && c.length);
+  const status = records.find((r) => r.status)?.status;
+  if (!text.trim() && !proposals.length) {
+    const kind = status === "rate" ? "rate" : status === "error" ? "busy" : "empty";
+    throw Object.assign(new Error(kind), { kind });
+  }
   return { text, changes: proposals.flat() };
 }
