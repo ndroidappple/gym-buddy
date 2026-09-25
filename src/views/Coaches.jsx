@@ -7,7 +7,7 @@ import { plural } from "../lib/util.js";
 import Coach from "../components/Coach.jsx";
 import CoachChat from "../components/CoachChat.jsx";
 
-export default function Coaches({ program, sessions, weighins, back }) {
+export default function Coaches({ program, sessions, weighins, back, onProgramChange }) {
   const [chat, setChat] = useState(null);
   const counts = useMemo(() => {
     const m = {};
@@ -38,7 +38,7 @@ export default function Coaches({ program, sessions, weighins, back }) {
           ))}
         </div>
       </div>
-      {chat && <CoachChat coach={chat} sessions={sessions} program={program} weighins={weighins} onClose={() => setChat(null)} />}
+      {chat && <CoachChat coach={chat} sessions={sessions} program={program} weighins={weighins} onProgramChange={onProgramChange} onClose={() => setChat(null)} />}
     </main>
   );
 }
