@@ -649,3 +649,9 @@ button.coach-card:active { transform: translateY(3px); box-shadow: 0 2px 0 var(-
 .setup-card-text span { font-size: 13.5px; color: var(--mute); font-weight: 600; }
 .set-remove { width: 32px; height: 32px; margin: -6px -6px -6px 6px; display: grid; place-items: center; border-radius: 50%; color: var(--mute); }
 .set-remove:active { background: var(--surface); }
+
+/* History: the record set and what it beat, on the lift that set it. */
+.hist-line .name .pr-stamp { height: 20px; padding: 0 7px; font-size: 11px; margin-right: 7px; vertical-align: 1px; }
+.pr-note { display: block; font-size: 12.5px; font-weight: 700; color: #D98A12; margin-top: 3px; }
+:root[data-theme="dark"] .pr-note { color: #FFB23E; }
+.pr-set { color: var(--ink); font-weight: 800; background: color-mix(in srgb, #FFB23E 28%, transparent); border-radius: 6px; padding: 1px 5px; }
