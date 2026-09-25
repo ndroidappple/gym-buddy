@@ -61,15 +61,15 @@ function EditLift({ ex, onChange, onRemove }) {
     <div className="prog-edit">
       {isCardio(ex.n) ? (
         <div className="grid-2">
-          {numField("min", "Minutes low", ex.reps[0], (v) => ({ reps: [v, Math.max(v, ex.reps[1])] }))}
-          {numField("max", "Minutes high", ex.reps[1], (v) => ({ reps: [Math.min(v, ex.reps[0]), v] }))}
+          {numField("min", "Min minutes", ex.reps[0], (v) => ({ reps: [v, Math.max(v, ex.reps[1])] }))}
+          {numField("max", "Max minutes", ex.reps[1], (v) => ({ reps: [Math.min(v, ex.reps[0]), v] }))}
         </div>
       ) : (
         <div className="grid-4">
           {numField("sets", "Sets", ex.sets, (v) => ({ sets: v }))}
-          {numField("min", "Rep low", ex.reps[0], (v) => ({ reps: [v, Math.max(v, ex.reps[1])] }))}
-          {numField("max", "Rep high", ex.reps[1], (v) => ({ reps: [Math.min(v, ex.reps[0]), v] }))}
-          {numField("rest", "Rest s", ex.rest, (v) => ({ rest: Math.max(15, v) }))}
+          {numField("min", "Min reps", ex.reps[0], (v) => ({ reps: [v, Math.max(v, ex.reps[1])] }))}
+          {numField("max", "Max reps", ex.reps[1], (v) => ({ reps: [Math.min(v, ex.reps[0]), v] }))}
+          {numField("rest", "Rest (sec)", ex.rest, (v) => ({ rest: Math.max(15, v) }))}
         </div>
       )}
       <label className="field"><span className="lbl">Cue</span>

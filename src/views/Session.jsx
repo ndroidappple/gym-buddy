@@ -289,7 +289,7 @@ export default function Session({ day, existing, draft, sessions, program, weigh
     onFinish({ id: uid(), day, date, bw: bw !== "" ? parseFloat(bw) : null, note: note.trim() || null, sets, startedAt: startedAt || Date.now(), finishedAt: Date.now() });
   };
 
-  const metaBits = [shortDate(date), bw !== "" ? `${bw} lb bw` : null, note.trim() ? "note" : null].filter(Boolean);
+  const metaBits = [shortDate(date), bw !== "" ? `${bw} lb bodyweight` : null, note.trim() ? "note" : null].filter(Boolean);
 
   return (
     <main className="screen" data-day={day}>
@@ -389,8 +389,8 @@ function Collapsed({ ex, rows, target, skipped, justClosed, onOpen }) {
   let sub;
   if (skipped) sub = "Skipped today · tap to add back";
   else if (cardio) sub = done.length ? done.map((r) => fmtSet({ min: +r.min, mi: hasVal(r.mi) ? +r.mi : null })).join(" + ") : `Cardio · ${ex.reps[0]}–${ex.reps[1]} min`;
-  else if (complete) sub = `${done.length} sets · best ${fmtW(best.w)} × ${best.r}`;
-  else sub = `${done.length}/${rows.length} sets${target ? ` · beat ${fmtW(target.w)} × ${target.r}` : ""}`;
+  else if (complete) sub = `${done.length} sets · top set ${fmtW(best.w)} × ${best.r}`;
+  else sub = `${done.length}/${rows.length} sets${target ? ` · to beat ${fmtW(target.w)} × ${target.r}` : ""}`;
   return (
     <button className={"ex-collapsed" + (skipped ? " skipped" : complete ? "" : " pending") + (justClosed ? " just-closed" : "")} onClick={onOpen}>
       <SetRing done={done.length} total={rows.length} skipped={skipped} />
@@ -482,7 +482,7 @@ function ExerciseCard({ ex, showRir, rows, target, targetDate, refSets, activeId
             <button key={i} className="pending-row" onClick={() => onPick(i)} aria-label={`${cardio ? "Entry" : "Set"} ${i + 1}, not logged. Tap to enter.`}>
               <span>{i + 1}</span>
               <span>{cardio ? `${hasVal(r.min) ? r.min : "—"} min` : `${hasVal(r.w) ? fmtW(+r.w) : "—"} × ${hasVal(r.r) ? r.r : "—"}`}</span>
-              <span>{refSets[i] ? `last ${cardio ? fmtSet(refSets[i]) : `${fmtW(refSets[i].w)} × ${refSets[i].r}`}` : ""}</span>
+              <span>{refSets[i] ? `last time ${cardio ? fmtSet(refSets[i]) : `${fmtW(refSets[i].w)} × ${refSets[i].r}`}` : ""}</span>
             </button>
           );
         })}
@@ -511,7 +511,7 @@ function CardioSet({ i, ex, row, last, canRemove, onEdit, onLog, onRemove }) {
       <div className="steppers">
         <Stepper id={`min-${i}`} label="Minutes" unit="min" value={row.min} mode="decimal" placeholder={`${ex.reps[0]}–${ex.reps[1]}`}
           onChange={(v) => onEdit({ min: v })} onDec={() => bump("min", -5, 0)} onInc={() => bump("min", 5, 0)} step="5 minutes" />
-        <Stepper id={`mi-${i}`} label="Distance" unit="miles" value={row.mi} mode="decimal" placeholder="opt."
+        <Stepper id={`mi-${i}`} label="Distance" unit="miles" value={row.mi} mode="decimal" placeholder="optional"
           onChange={(v) => onEdit({ mi: v })} onDec={() => bump("mi", -0.1, 1)} onInc={() => bump("mi", 0.1, 1)} step="a tenth of a mile" />
       </div>
       <button className="btn btn-day" onClick={onLog} disabled={!hasVal(row.min)}>{hasVal(row.min) ? "Log cardio" : "Enter minutes"}</button>

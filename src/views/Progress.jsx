@@ -59,7 +59,7 @@ export default function Progress({ sessions, program, weighins }) {
                 const row = (
                   <a key={r.n} className={"lift-row" + (r.pr ? " is-pr" : "")} href={href("lift", r.n)}>
                     <span className="name">{r.pr && <span className="stamp pr-stamp">PR</span>}{r.n}
-                      <span className="sub">e1RM {num(r.best)} · {r.vals.length} session{r.vals.length > 1 ? "s" : ""}</span>
+                      <span className="sub">Est. max {num(r.best)} lb · {r.vals.length} session{r.vals.length > 1 ? "s" : ""}</span>
                     </span>
                     <Sparkline values={r.vals} />
                     <Trend pct={r.pct} />

@@ -67,7 +67,7 @@ export default function Summary({ session, sessions, program, go, onUpdate }) {
             {r.records.map((x) => (
               <a key={x.n} className="rec" href={href("lift", x.n)}>
                 <PrBadge />
-                <span className="rec-text"><span className="n">{x.n}</span><span className="m">e1RM {num(x.score)} · ▲ {x.pct.toFixed(1)}%</span></span>
+                <span className="rec-text"><span className="n">{x.n}</span><span className="m">Est. max {num(x.score)} lb · ▲ {x.pct.toFixed(1)}%</span></span>
                 <span className="v">{fmtW(x.best.w)} × {x.best.r}</span>
               </a>
             ))}
@@ -85,7 +85,7 @@ export default function Summary({ session, sessions, program, go, onUpdate }) {
             ))}
           </Group>
         )}
-        {r.baseline.length > 0 && <Group title="New baselines">{r.baseline.map((x) => <Plain key={x.n} x={x} mark="first log" />)}</Group>}
+        {r.baseline.length > 0 && <Group title="First time logged">{r.baseline.map((x) => <Plain key={x.n} x={x} mark="baseline set" />)}</Group>}
 
         <label className="field">
           <span className="lbl">Note</span>
@@ -166,7 +166,7 @@ function Group({ title, children }) {
 function Plain({ x, mark }) {
   return (
     <a className="rec plain" href={href("lift", x.n)}>
-      <span className="rec-text"><span className="n">{x.n}</span><span className="m">{fmtW(x.best.w)} × {x.best.r} · e1RM {num(e1rm(x.best.w, x.best.r))}</span></span>
+      <span className="rec-text"><span className="n">{x.n}</span><span className="m">{fmtW(x.best.w)} × {x.best.r} · Est. max {num(e1rm(x.best.w, x.best.r))} lb</span></span>
       <span className="trend flat">{mark}</span>
     </a>
   );

@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { InfoButton, Sheet } from "../components/ui.jsx";
 import { Scale, ArrowLeftRight, Check, X } from "lucide-react";
-import { DAYS, PLATES } from "../data/program.js";
+import { DAYS } from "../data/program.js";
 import { href } from "../lib/router.js";
 import { COACHES, coachesFor } from "../data/coaches.js";
 import Coach from "../components/Coach.jsx";
@@ -85,7 +85,7 @@ export default function Today({ name, sessions, program, drafts, weighins, onWei
           </div>
           <div className="hero-text">
             <span className={"hero-day" + (p.name.length > 6 ? " long" : "")}>{p.name}</span>
-            <span className="hero-meta">{p.detail}{lastOfDay ? ` · last ${shortDate(lastOfDay.date)}` : ""}</span>
+            <span className="hero-meta">{p.detail}{lastOfDay ? ` · last done ${shortDate(lastOfDay.date)}` : ""}</span>
           </div>
           <div className="hero-pills">
             <span className="pill">{plural(p.exercises.length, "lift")}</span>
@@ -117,7 +117,7 @@ export default function Today({ name, sessions, program, drafts, weighins, onWei
 
         {targets.length > 0 && (
           <section className="section">
-            <h2 className="lbl">Beat these</h2>
+            <h2 className="lbl">Beat these today</h2>
             <div className="card-list">
               {targets.map((x) => (
                 <a key={x.n} className="card-row" href={href("lift", x.n)}>
@@ -130,7 +130,7 @@ export default function Today({ name, sessions, program, drafts, weighins, onWei
         )}
 
         <section className="section">
-          <div className="section-head"><h2 className="lbl">This week</h2><span className="lbl">{doneThisWeek} of 4</span></div>
+          <div className="section-head"><h2 className="lbl">This week</h2><span className="lbl">{doneThisWeek} of 4 workouts</span></div>
           <div className="week">
             {week.map((d) => {
               const dd = byDate[d];
@@ -146,14 +146,14 @@ export default function Today({ name, sessions, program, drafts, weighins, onWei
         </section>
 
         <section className="section">
-          <h2 className="lbl">Or train</h2>
+          <h2 className="lbl">Or train another day</h2>
           <div className="others">
             {DAYS.filter((d) => d !== day).map((d) => {
               const last = sorted.find((s) => s.day === d);
               return (
                 <a key={d} className="other" data-day={d} href={href("session", d)}>
-                  <b><span className="dot" aria-hidden="true" />{PLATES[d].short}</b>
-                  <span>{drafts[d] ? "In progress" : last ? shortDate(last.date) : "Not yet"}</span>
+                  <b><span className="dot" aria-hidden="true" />{program[d].name}</b>
+                  <span>{drafts[d] ? "In progress" : last ? `Last done ${shortDate(last.date)}` : "Not done yet"}</span>
                 </a>
               );
             })}

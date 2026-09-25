@@ -204,7 +204,7 @@ export function Boot() {
 }
 
 export function Trend({ pct }) {
-  if (pct == null) return <span className="trend flat">new</span>;
+  if (pct == null) return <span className="trend flat">baseline</span>;
   if (Math.abs(pct) < 1) return <span className="trend flat">— {Math.abs(pct).toFixed(1)}%</span>;
   return <span className={"trend" + (pct < 0 ? " flat" : "")}>{pct > 0 ? "▲" : "▼"} {Math.abs(pct).toFixed(1)}%</span>;
 }
@@ -293,7 +293,7 @@ export function ExercisePicker({ title, sub, existingNames, onPick, onClose }) {
         <label className="field"><span className="lbl">Exercise name</span>
           <input id="custom-name" className="input" value={custom.n} onChange={set("n")} placeholder="e.g. Smith Machine Row" /></label>
         <div className="grid-4">
-          {[["sets", "Sets"], ["min", "Rep low"], ["max", "Rep high"], ["rest", "Rest s"]].map(([k, l]) => (
+          {[["sets", "Sets"], ["min", "Min reps"], ["max", "Max reps"], ["rest", "Rest (sec)"]].map(([k, l]) => (
             <label key={k} className="field"><span className="lbl">{l}</span>
               <input id={`custom-${k}`} className="input tn" type="number" inputMode="numeric" value={custom[k]} onChange={set(k)} /></label>
           ))}

@@ -40,7 +40,7 @@ export default function History({ sessions, program }) {
               <div style={{ flex: 1 }}>
                 <h2 className="hist-date">{longDate(s.date)}</h2>
                 <div className="hist-meta">
-                  {program[s.day].name} · {plural(sessionSetCount(s), "set")} · {compact(sessionVolume(s))} lb{s.bw != null && ` · ${s.bw} bw`}
+                  {program[s.day].name} · {plural(sessionSetCount(s), "set")} · {compact(sessionVolume(s))} lb lifted{s.bw != null && ` · ${s.bw} lb bodyweight`}
                 </div>
               </div>
               {prCount[s.id] > 0 && <span className="stamp">PR{prCount[s.id] > 1 ? ` ×${prCount[s.id]}` : ""}</span>}
