@@ -104,17 +104,6 @@ export const LIBRARY = [
   { n: "Russian Twist", g: "Core", sets: 3, reps: [15,20], rest: 45 },
 ];
 
-/* Historical import — Weeks 1 & 2 from the spreadsheet */
-export const IMPORTED = [
-  { d: "pull", w: 1, s: { "Lat Pulldown (Wide Grip)": [[100,14],[110,9],[110,9],[110,11]], "Seated Row (Machine)": [[60,13],[60,10],[60,9]], "Face Pulls": [[50,15],[50,9],[50,14],[50,12]], "Seated DB Curl": [[50,8],[50,6]], "Hammer Curl": [[20,9],[20,8],[20,9]] }},
-  { d: "legs", w: 1, s: { "Leg Press (Heavy)": [[90,6],[90,6],[90,5]], "Bulgarian Split Squat": [[0,12],[0,12],[0,12]], "Leg Adduction": [[120,15],[120,17]] }},
-  { d: "shoulders", w: 1, s: { "Seated DB Shoulder Press": [[30,8],[30,6],[30,8],[30,6]], "Lateral Raise (Cable)": [[20,14],[20,9],[15,10],[15,11]], "Rear Delt Fly": [[55,8],[55,8],[55,6]], "Upright Row (Cable)": [[60,10],[60,9],[60,9],[55,9]], "Incline DB Curl": [[20,13],[20,7],[20,5],[20,5]] }},
-  { d: "push", w: 2, s: { "Incline Barbell / Smith Press": [[25,6],[25,7],[25,6],[25,5]], "Flat DB Press": [[35,10],[35,5],[35,6],[35,6]], "Machine Pec Dec": [[80,12],[80,5],[80,6],[70,6]], "Cable Fly (Low to High)": [[25,10],[25,9],[25,8],[25,8]], "Tricep Pushdown (Rope)": [[80,7],[80,7],[80,7],[80,5]] }},
-  { d: "pull", w: 2, s: { "Lat Pulldown (Wide Grip)": [[110,8],[110,8],[110,8],[100,6]], "Seated Cable Row (Close Grip)": [[95,12],[95,10],[95,9],[95,8]], "Seated Row (Machine)": [[70,11],[80,8],[80,8],[70,12]], "Face Pulls": [[50,9],[50,10],[50,9]], "Seated DB Curl": [[25,8],[20,5],[20,3],[20,6]], "Hammer Curl": [[25,6],[25,5],[20,5]] }},
-  { d: "legs", w: 2, s: { "Leg Press (Heavy)": [[90,8],[90,8],[90,7],[90,5]], "Romanian Deadlift": [[60,10],[60,8],[60,10]], "Leg Extension": [[100,8],[100,10],[100,10],[100,9]], "Leg Adduction": [[70,13],[70,9],[70,9]] }},
-  { d: "shoulders", w: 2, s: { "Seated DB Shoulder Press": [[30,12],[30,8],[30,8],[30,6]], "Lateral Raise (Cable)": [[10,7],[10,6],[10,6],[10,5]], "Rear Delt Fly": [[50,8],[55,8],[55,8],[55,8]], "Upright Row (Cable)": [[60,8],[60,8],[60,8],[60,8]], "Incline DB Curl": [[20,12],[20,9],[20,5],[20,5]], "Skull Crushers": [[30,15],[30,10],[30,10]] }},
-];
-
 /* Each day wears an IWF competition-plate color. Color identifies the day only — never good/bad. */
 export const PLATES = {
   push: { kg: 25, short: "Push" },
