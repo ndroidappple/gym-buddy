@@ -93,6 +93,22 @@ export default function Session({ day, existing, draft, sessions, program, weigh
   const isPending = (n) => !skipped.includes(n) && (grid[n] || []).some((r) => !r.done);
   const [focus, setFocus] = useState(() => (existing ? null : exercises.find((e) => isPending(e.n))?.n ?? null));
   const [activeIdx, setActiveIdx] = useState(null);
+  // Remember which card just closed so it can animate shut, then glide the newly opened card into view.
+  const prevFocus = useRef(focus);
+  const closed = useRef(null);
+  if (prevFocus.current !== focus) { closed.current = prevFocus.current; prevFocus.current = focus; }
+  const reducedMotion = useReducedMotion();
+  useEffect(() => {
+    if (!focus) return;
+    const id = requestAnimationFrame(() => {
+      const el = document.querySelector("section.ex");
+      if (!el) return;
+      const { top, bottom } = el.getBoundingClientRect();
+      // Only move the page when the card starts under the header or runs well past the fold.
+      if (top < 90 || bottom > innerHeight * 0.95) el.scrollIntoView({ behavior: reducedMotion ? "auto" : "smooth", block: "start" });
+    });
+    return () => cancelAnimationFrame(id);
+  }, [focus]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const active = exercises.filter((e) => !skipped.includes(e.n));
   const totalSlots = active.reduce((a, e) => a + (grid[e.n]?.length || 0), 0);
@@ -308,7 +324,7 @@ export default function Session({ day, existing, draft, sessions, program, weigh
                 showRir={prefs.rir} onAsk={() => setChat({ coach: coachFor(ex.n), exercise: ex.n })} onCollapse={() => setFocus(null)} />
             );
           }
-          return <Collapsed key={ex.n} ex={ex} rows={rows} target={target} skipped={skipped.includes(ex.n)}
+          return <Collapsed key={ex.n} ex={ex} rows={rows} target={target} skipped={skipped.includes(ex.n)} justClosed={closed.current === ex.n}
             onOpen={() => { if (skipped.includes(ex.n)) setSkipped((s) => s.filter((x) => x !== ex.n)); setFocus(ex.n); setActiveIdx(null); }} />;
         })}
 
@@ -364,7 +380,7 @@ export default function Session({ day, existing, draft, sessions, program, weigh
   );
 }
 
-function Collapsed({ ex, rows, target, skipped, onOpen }) {
+function Collapsed({ ex, rows, target, skipped, justClosed, onOpen }) {
   const done = rows.filter((r) => r.done);
   const complete = rows.length > 0 && done.length === rows.length;
   const prs = done.filter((r) => r.pr).length;
@@ -376,7 +392,7 @@ function Collapsed({ ex, rows, target, skipped, onOpen }) {
   else if (complete) sub = `${done.length} sets · best ${fmtW(best.w)} × ${best.r}`;
   else sub = `${done.length}/${rows.length} sets${target ? ` · beat ${fmtW(target.w)} × ${target.r}` : ""}`;
   return (
-    <button className={"ex-collapsed" + (skipped ? " skipped" : complete ? "" : " pending")} onClick={onOpen}>
+    <button className={"ex-collapsed" + (skipped ? " skipped" : complete ? "" : " pending") + (justClosed ? " just-closed" : "")} onClick={onOpen}>
       <SetRing done={done.length} total={rows.length} skipped={skipped} />
       <span className="name">{ex.n}{ex.today && <span className="ex-tag">today</span>}<span className="sub">{sub}</span></span>
       {prs > 0 && !skipped && <span className="stamp">PR{prs > 1 ? ` ×${prs}` : ""}</span>}
@@ -405,6 +421,8 @@ function ExerciseCard({ ex, showRir, rows, target, targetDate, refSets, activeId
   const line = (mood === "idle" || mood === "focused") && ex.cue ? ex.cue : MOODS[mood].line;
   const cardio = isCardio(ex.n);
   const lastEntry = cardio ? refSets[0] : null;
+  const reduced = useReducedMotion();
+  const theme = useTheme();
   return (
     <section className="ex" aria-label={ex.n}>
       {/* Comic layout: the bubble's tail points down at the coach who says it. */}
@@ -441,14 +459,16 @@ function ExerciseCard({ ex, showRir, rows, target, targetDate, refSets, activeId
             );
           }
           if (r.done) {
-            return (
-              <button key={i} className="done-row" onClick={() => onReopen(i)} aria-label={`Set ${i + 1}: ${fmtW(+r.w)} by ${r.r}${r.pr ? ", personal record" : ""}. Tap to edit.`}>
+            const row = (
+              <button key={i} className={"done-row" + (r.pr ? " is-pr" : "")} onClick={() => onReopen(i)} aria-label={`Set ${i + 1}: ${fmtW(+r.w)} by ${r.r}${r.pr ? ", personal record" : ""}. Tap to edit.`}>
                 <span className="n">{i + 1}</span>
                 <span className="w">{fmtW(+r.w)} × {r.r}{r.pr ? <span className={"stamp" + (flash === i ? " hit" : "")}>PR</span> : r.beat ? <span className="beat-mark">▲ beat</span> : null}</span>
                 <span className="small muted">{showRir && hasVal(r.rir) ? `RIR ${r.rir}` : ""}</span>
                 <span className={"ck" + (flash === i ? " fill" : "")} aria-hidden="true"><Check size={18} strokeWidth={3} /></span>
               </button>
             );
+            // PR sets get the bold travelling rim (the rest timer uses the quieter line beam).
+            return r.pr ? <BorderBeam key={i} size="md" colorVariant="sunset" theme={theme} active={!reduced} className="pr-beam">{row}</BorderBeam> : row;
           }
           if (i === activeIdx && cardio) {
             return <CardioSet key={i} i={i} ex={ex} row={r} last={refSets[i]} canRemove={rows.length > 1}
