@@ -263,7 +263,7 @@ button.chip { min-height: 38px; padding: 0 14px; border: 2px solid var(--rule); 
 .hero-pills { display: flex; gap: 6px; flex-wrap: wrap; }
 .hero-pills .pill { background: #FFFFFF; color: var(--day-lip); }
 .hero-coaches { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 14px; }
-.coach-chip { width: 44px; height: 44px; border-radius: 50%; background: #FFFFFF; display: grid; place-items: center; padding-top: 2px; }
+.coach-chip { width: 44px; height: 44px; border-radius: 50%; background: #FFFFFF; display: grid; place-items: center; }
 .hero-cta { background: #FFFFFF; color: var(--day-lip); box-shadow: 0 5px 0 color-mix(in srgb, var(--day-lip) 80%, #000); font-size: 20px; min-height: 60px; border-radius: 22px; }
 .hero-cta:active:not(:disabled) { box-shadow: 0 2px 0 color-mix(in srgb, var(--day-lip) 80%, #000); }
 .card-list { display: flex; flex-direction: column; padding: 6px; overflow: hidden; }

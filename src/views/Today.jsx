@@ -68,7 +68,7 @@ export default function Today({ name, sessions, program, drafts, weighins, onWei
         </div>
         <a className="coach-link" href="#/coaches" aria-label="Meet your coaches">
           {/* 5+ days away and the lead coach misses you. */}
-          <Coach id={lead} mood={daysOff != null && daysOff >= 5 ? "sleepy" : "idle"} size={40} decorative />
+          <Coach id={lead} mood={daysOff != null && daysOff >= 5 ? "sleepy" : "idle"} size={38} badge decorative />
         </a>
         <InfoButton screen="today" />
       </header>
@@ -93,7 +93,7 @@ export default function Today({ name, sessions, program, drafts, weighins, onWei
             {usualMins && <span className="pill">~{usualMins} min</span>}
           </div>
           <div className="hero-coaches">
-            <span className="coach-stack">{crew.slice(0, 3).map((id) => <span key={id} className="coach-chip"><Coach id={id} size={34} still decorative /></span>)}</span>
+            <span className="coach-stack">{crew.slice(0, 3).map((id) => <span key={id} className="coach-chip"><Coach id={id} size={32} still badge decorative /></span>)}</span>
             <span>{onDeck} {crew.length === 1 ? "is" : "are"} on deck</span>
           </div>
           <a className="btn hero-cta" href={href("session", day)}>{draft ? `Resume ${p.name}` : "Start lifting"}</a>

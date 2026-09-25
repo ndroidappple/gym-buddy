@@ -178,8 +178,15 @@ if (typeof window !== "undefined") {
  * A coach. `mood` is one of MOOD_ORDER. `still` holds the pose (use in lists): the face still shows the mood,
  * the eyes still blink. Pass `decorative` when the coach's name is already shown as text beside it.
  */
-export default function Coach({ id = "tank", mood = "idle", size = 64, still = false, decorative = false, className = "" }) {
+/* Centre of each coach's idle artwork in viewBox units (measured). The full viewBox leaves headroom
+   for hats and effects, so the body sits low; `badge` crops a square around the body instead. */
+const BADGE_CENTER = { tank: [48.4, 52.8], wings: [50, 59.3], boulder: [50, 57.8], piston: [50, 54], brick: [50, 58.3], dash: [50, 60.1] };
+const BADGE_SPAN = 112;
+
+export default function Coach({ id = "tank", mood = "idle", size = 64, still = false, decorative = false, badge = false, className = "" }) {
   const c = COACHES[id] || COACHES.tank;
+  const [bx, by] = BADGE_CENTER[id] || BADGE_CENTER.tank;
+  const viewBox = badge ? `${bx - BADGE_SPAN / 2} ${by - BADGE_SPAN / 2} ${BADGE_SPAN} ${BADGE_SPAN}` : "-12 -24 124 132";
   const [poke, setPoke] = useState(false);
   const f = FACE[poke ? "hyped" : mood] || FACE.idle;
   const uid = useId().replace(/[^a-zA-Z0-9]/g, "");
@@ -218,7 +225,7 @@ export default function Coach({ id = "tank", mood = "idle", size = 64, still = f
   const lookDown = f.down ? "translate(0px, 2px)" : "";
 
   return (
-    <svg ref={svg} viewBox="-12 -24 124 132" width={size} height={Math.round((size * 132) / 124)}
+    <svg ref={svg} viewBox={viewBox} width={size} height={badge ? size : Math.round((size * 132) / 124)}
       className={`coach${still ? " coach-still" : ""}${poke ? " coach-poked" : ""} ${className}`} style={{ "--d": delay }}
       onPointerDown={decorative ? undefined : () => setPoke(true)} {...a11y}>
       <defs>
