@@ -1,4 +1,4 @@
-import { LIBRARY, isCardio } from "../data/program.js";
+import { LIBRARY, isCardio, DAYS, activeDays } from "../data/program.js";
 import { CUES } from "../data/cues.js";
 
 /* Program changes a coach proposes in chat. Nothing here touches saved data: applyChanges returns
@@ -27,8 +27,8 @@ const spec = (ex) => `${ex.sets} × ${ex.reps[0]}–${ex.reps[1]}${isCardio(ex.n
 
 /** Resolves "push", "Push" or a renamed day's name to its key. */
 function dayKey(program, day) {
-  if (program[day]) return day;
-  return Object.keys(program).find((k) => same(k, day) || same(program[k].name, day)) || null;
+  const keys = DAYS.filter((k) => program[k]); // never the custom workout
+  return keys.find((k) => same(k, day) || same(program[k].name, day)) || null;
 }
 
 function withSpec(base, c) {
@@ -89,7 +89,7 @@ export function applyChanges(program, changes) {
 
 /** One line per day, for the coach's context: day key, name, and each lift's plan. */
 export function describeProgram(program) {
-  return Object.entries(program).map(([k, d]) =>
+  return activeDays(program).map((k) => [k, program[k]]).map(([k, d]) =>
     `${k} (${d.name}): ${d.exercises.map((e) => `${e.n} ${e.sets}x${e.reps[0]}-${e.reps[1]}${isCardio(e.n) ? "min" : ""} ${e.rest}s`).join("; ")}`,
   ).join("\n");
 }

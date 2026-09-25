@@ -5,7 +5,7 @@ export const HELP = {
     title: "Today",
     sub: "What to train next.",
     points: [
-      "Start lifting opens the next day in your rotation. Tap Change to train a different day.",
+      "Start lifting opens the next day in your rotation. Tap Change to train a different day or a custom workout.",
       "Beat these are your best sets from last time. Top one of them today.",
       "The dots show which days you trained this week.",
       "Weigh in once a week for your bodyweight chart, or tap ✕ to skip until Monday.",
@@ -77,8 +77,9 @@ export const HELP = {
     title: "Coaches",
     sub: "One coach for each muscle group.",
     points: [
+      "Say hi to each coach once to shape your plan: Tank sets your goals and training days, then each coach lets you pick their lifts.",
       "Your coach shows up on each lift with a cue and reacts to your sets.",
-      "Tap a coach to ask a question. Answers use your logged workouts.",
+      "Tap a coach to ask a question or change your program. Nothing changes until you tap Apply.",
     ],
   },
 };

@@ -22,6 +22,7 @@
   --pull: #4C8DFF;  --on-pull: #FFFFFF;  --pull-ink: #2563D9;  --pull-lip: #2F6FE0;
   --legs: #FFC53D;  --on-legs: #1C1A22;  --legs-ink: #8A6400;  --legs-lip: #D9A21F;
   --shoulders: #2EC27E; --on-shoulders: #FFFFFF; --shoulders-ink: #1B8A56; --shoulders-lip: #1F9C63;
+  --custom: #8C7BF2; --on-custom: #FFFFFF; --custom-ink: #5F4ED0; --custom-lip: #6554D8;
   --stamp: #8A6400;
   --stamp-bg: #FFF1C2;
   --danger: #D63A31;
@@ -58,7 +59,7 @@
   --on-dock: #F3F0EA;
   --dock-mute: #8C8794;
 
-  --push-ink: #FF8A84; --pull-ink: #86B2FF; --legs-ink: #FFC53D; --shoulders-ink: #4FD69A;
+  --push-ink: #FF8A84; --pull-ink: #86B2FF; --legs-ink: #FFC53D; --shoulders-ink: #4FD69A; --custom-ink: #B6A9FF;
   --push-lip: #B8342F; --pull-lip: #2757C2; --legs-lip: #B8861A; --shoulders-lip: #178050;
   --stamp: #FFC53D;
   --stamp-bg: #3A3016;
@@ -72,6 +73,7 @@
 [data-day="pull"] { --day: var(--pull); --on-day: var(--on-pull); --day-ink: var(--pull-ink); --day-lip: var(--pull-lip); }
 [data-day="legs"] { --day: var(--legs); --on-day: var(--on-legs); --day-ink: var(--legs-ink); --day-lip: var(--legs-lip); }
 [data-day="shoulders"] { --day: var(--shoulders); --on-day: var(--on-shoulders); --day-ink: var(--shoulders-ink); --day-lip: var(--shoulders-lip); }
+[data-day="custom"] { --day: var(--custom); --on-day: var(--on-custom); --day-ink: var(--custom-ink); --day-lip: var(--custom-lip); }
 
 /* ═══════════════ BASE ═══════════════ */
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -612,3 +614,37 @@ button.coach-card:active { transform: translateY(3px); box-shadow: 0 2px 0 var(-
 /* iOS keyboards are translucent: a solid ground just below the sheet wrap (where the keyboard
    sits) hides the page underneath instead of letting it bleed through. */
 .sheet-wrap::after { content: ""; position: absolute; left: 0; right: 0; top: 100%; height: 100lvh; background: var(--bg); pointer-events: none; }
+
+/* ═══════════════ SETUP CHAT ═══════════════ */
+.setup-choices { display: flex; flex-wrap: wrap; gap: 8px; padding: 0 4px; }
+.setup-choices .chip { min-height: 42px; padding: 8px 16px; font-size: 14.5px; }
+.setup-choices .setup-day { min-width: 56px; justify-content: center; font-size: 17px; font-weight: 800; }
+.setup-actions { flex: none; display: flex; gap: 8px; }
+.setup-actions > .btn { flex: 1; min-height: 50px; }
+.setup-actions > .chat-input { flex: 1; }
+.setup-weight { flex: 1; min-width: 0; height: 40px; border: 0; background: none; padding: 0 10px; font-size: 17px; font-weight: 700; }
+.setup-weight:focus { outline: none; }
+.setup-skip { font-size: 13px; font-weight: 800; }
+.setup-lifts { gap: 2px; }
+.setup-lift { display: flex; align-items: center; gap: 12px; min-height: 46px; padding: 4px 2px; font-weight: 700; border-top: 2px solid var(--rule); }
+.setup-lift:first-child { border-top: 0; }
+.setup-lift input { width: 22px; height: 22px; accent-color: var(--c, var(--ink)); flex: none; }
+.setup-lift span { display: flex; flex-direction: column; line-height: 1.25; }
+.setup-lift small { font-size: 12.5px; color: var(--mute); font-weight: 600; }
+.setup-add { display: flex; align-items: center; gap: 8px; min-height: 44px; font-weight: 800; color: var(--ink); border-top: 2px solid var(--rule); }
+
+/* Setup nudges: the next coach to meet glows gold; unmet coaches wear a badge. */
+.coach-card { position: relative; }
+.coach-card.next-up { box-shadow: 0 0 0 3px #FFB23E, 0 4px 0 var(--lip); }
+.say-hi { position: absolute; top: 8px; right: 8px; padding: 3px 9px; border-radius: 999px; font-size: 11.5px; font-weight: 800; background: var(--surface-2); color: var(--ink); }
+.coach-card.next-up .say-hi { background: #FFB23E; color: #3A2400; }
+.welcome { gap: 14px; }
+.welcome p { font-size: 15.5px; font-weight: 600; line-height: 1.4; color: var(--mute); }
+.welcome-crew { display: flex; justify-content: center; padding: 6px 0 2px; }
+.welcome-crew .coach-chip { width: 50px; height: 50px; margin-left: -8px; box-shadow: 0 0 0 3px var(--bg); animation: pop 380ms calc(var(--i) * 70ms) cubic-bezier(.2, 1.4, .4, 1) both; }
+.welcome-crew .coach-chip:first-child { margin-left: 0; }
+.setup-card { display: flex; align-items: center; gap: 12px; padding: 12px 14px; color: var(--ink); text-decoration: none; }
+.setup-card .coach-chip { flex: none; width: 48px; height: 48px; }
+.setup-card-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.setup-card-text b { font-weight: 800; }
+.setup-card-text span { font-size: 13.5px; color: var(--mute); font-weight: 600; }

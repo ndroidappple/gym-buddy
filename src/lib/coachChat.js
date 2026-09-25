@@ -1,18 +1,24 @@
 import { supabase } from "../supabase-client.js";
 import { COACHES, coachFor } from "../data/coaches.js";
-import { DAYS, isCardio } from "../data/program.js";
+import { isCardio, activeDays } from "../data/program.js";
 import { describeProgram } from "./programChange.js";
+import { GOALS } from "./setup.js";
 import { fmtSet, liftSeries, trend, num, fmtW, bestSet, bodyweightSeries, byDateDesc, daysBetween, today, nextDayAfter, readyToIncrease } from "./util.js";
 
 /** A compact, plain-text picture of the lifter for the coach: their lifts, recent bests, trends, bodyweight. */
-export function buildContext({ coach, sessions, program, weighins }) {
+export function buildContext({ coach, sessions, program, weighins, profile }) {
   const lines = [];
+  // What the lifter told Tank at setup.
+  if (profile?.doneAt) {
+    const goals = (profile.goals || []).map((g) => GOALS.find((x) => x.id === g)?.label).filter(Boolean);
+    lines.push(`Goals: ${goals.join(", ") || "not given"}. Trains about ${profile.days || "?"} days a week (flexible).` + (profile.note ? ` Lifter's note: ${profile.note}` : ""));
+  }
   const sorted = [...sessions].sort(byDateDesc);
   if (sorted[0]) lines.push(`Last workout: ${program[sorted[0].day]?.name || sorted[0].day}, ${daysBetween(sorted[0].date, today())} days ago.`);
-  lines.push(`Next up: ${program[nextDayAfter(sessions)].name}. Program: ${DAYS.map((d) => `${program[d].name} (${program[d].detail})`).join(", ")}.`);
+  lines.push(`Next up: ${program[nextDayAfter(sessions, program)].name}. Program: ${activeDays(program).map((d) => `${program[d].name} (${program[d].detail})`).join(", ")}.`);
 
-  const lifts = [...new Set(DAYS.flatMap((d) => program[d].exercises.map((e) => e.n)))];
-  const plan = Object.fromEntries(DAYS.flatMap((d) => program[d].exercises.map((e) => [e.n, e])));
+  const lifts = [...new Set(activeDays(program).flatMap((d) => program[d].exercises.map((e) => e.n)))];
+  const plan = Object.fromEntries(activeDays(program).flatMap((d) => program[d].exercises.map((e) => [e.n, e])));
   const mine = lifts.filter((n) => coachFor(n) === coach);
   const describe = (n) => {
     if (isCardio(n)) {

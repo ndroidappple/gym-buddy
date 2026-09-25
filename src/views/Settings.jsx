@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { ChevronRight, Download, LogOut, Moon, Gauge, Smartphone, Share, SquarePlus, EllipsisVertical, Check } from "lucide-react";
+import { ChevronRight, Download, LogOut, Moon, Gauge, Smartphone, Share, SquarePlus, EllipsisVertical, Check, Sparkles } from "lucide-react";
 import { Sheet, InfoButton } from "../components/ui.jsx";
 import { ICONS, iconSrc } from "../lib/icons.js";
 import { DAYS } from "../data/program.js";
@@ -22,10 +22,17 @@ export default function Settings({ program, sessions, prefs, setPref }) {
             {DAYS.map((d) => (
               <a key={d} className="list-row" href={href("settings", "program", d)} data-day={d}>
                 <span className="dot" aria-hidden="true" />
-                <span className="name">{program[d].name}<span className="sub">{program[d].detail} · {program[d].exercises.length} lifts</span></span>
+                <span className="name">{program[d].name}<span className="sub">{program[d].off ? "Not in your rotation" : `${program[d].detail} · ${program[d].exercises.length} lifts`}</span></span>
                 <ChevronRight size={18} aria-hidden="true" className="muted" />
               </a>
             ))}
+            {/* Clears setup progress only; the program changes again only if the lifter confirms in the chats. */}
+            <a className="list-row" href={href("coaches", "tank")}
+              onClick={() => { setPref("profile", { ...prefs.profile, doneAt: null }); setPref("coachSetup", {}); }}>
+              <Sparkles size={18} aria-hidden="true" />
+              <span className="name">Redo setup with your coaches<span className="sub">Goals, training days and the lifts each coach runs.</span></span>
+              <ChevronRight size={18} aria-hidden="true" className="muted" />
+            </a>
           </div>
         </section>
 

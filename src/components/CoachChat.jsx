@@ -5,7 +5,7 @@ import { ThinkingOrb } from "thinking-orbs";
 import { Sheet } from "./ui.jsx";
 import Coach from "./Coach.jsx";
 import { COACHES, coachFor } from "../data/coaches.js";
-import { DAYS } from "../data/program.js";
+import { activeDays } from "../data/program.js";
 import { askCoach, buildContext } from "../lib/coachChat.js";
 import { applyChanges } from "../lib/programChange.js";
 import { useReducedMotion } from "../lib/motion.js";
@@ -21,7 +21,7 @@ const TROUBLE = {
 
 /** Chat with one coach. Answers stream in; the coach looks locked in while thinking and fired up when it lands.
     `exercise` is the lift the chat was opened from, so the first suggestion is about that lift. */
-export default function CoachChat({ coach, exercise, sessions, program, weighins, onProgramChange, onClose }) {
+export default function CoachChat({ coach, exercise, starter, sessions, program, weighins, profile, onProgramChange, onClose }) {
   const c = COACHES[coach];
   // {role, content, trouble?, changes?, preview?: {lines, errors}, decision?: "applied" | "dismissed"}
   const [messages, setMessages] = useState([]);
@@ -54,7 +54,7 @@ export default function CoachChat({ coach, exercise, sessions, program, weighins
   }, [status]);
 
   const suggestions = useMemo(() => {
-    const mine = DAYS.flatMap((d) => program[d].exercises.map((e) => e.n)).filter((n) => coachFor(n) === coach);
+    const mine = activeDays(program).flatMap((d) => program[d].exercises.map((e) => e.n)).filter((n) => coachFor(n) === coach);
     const lift = exercise || mine[0];
     return [
       lift ? `What's a great mental cue for ${lift}?` : `What's a good ${c.group.toLowerCase()} lift to add?`,
@@ -78,7 +78,7 @@ export default function CoachChat({ coach, exercise, sessions, program, weighins
     try {
       const { text: reply, changes } = await askCoach({
         coach, messages: history, signal: abort.current.signal,
-        context: buildContext({ coach, sessions, program, weighins }),
+        context: buildContext({ coach, sessions, program, weighins, profile }),
         onText: (t) => { setStatus("streaming"); put({ content: t }); },
       });
       if (changes.length && onProgramChange) {
@@ -101,6 +101,12 @@ export default function CoachChat({ coach, exercise, sessions, program, weighins
     decide(i, "applied");
   };
   const undo = (i) => { undos.current[i]?.(); delete undos.current[i]; decide(i, "dismissed"); };
+
+  // Handed a first question (e.g. Tank reading the setup note): ask it as soon as the chat opens.
+  const asked = useRef(false);
+  useEffect(() => {
+    if (starter && !asked.current) { asked.current = true; send(starter); }
+  }, [starter]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const mood = status === "thinking" ? "focused" : status === "answered" ? "hyped" : "idle";
 

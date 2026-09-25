@@ -5,7 +5,7 @@ import Coach from "./Coach.jsx";
 
 /* Asks for a first name once per account, right after sign-in. The answer (or a "Not now")
    lives in the Supabase user's metadata, so it follows the email to every device. */
-export default function NamePrompt({ onName }) {
+export default function NamePrompt({ onName, onSettled }) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [saving, setSaving] = useState(false);
@@ -14,14 +14,16 @@ export default function NamePrompt({ onName }) {
     supabase.auth.getUser().then(({ data }) => {
       const meta = data.user?.user_metadata || {};
       if (meta.first_name) onName(meta.first_name);
-      else if (data.user && !meta.name_asked) setOpen(true);
+      if (!meta.first_name && data.user && !meta.name_asked) setOpen(true);
+      else onSettled?.(); // nothing to ask: whatever comes next (the welcome) can show
     });
-  }, [onName]);
+  }, [onName, onSettled]);
 
   const finish = async (first) => {
     setSaving(true);
     setOpen(false);
     if (first) onName(first);
+    onSettled?.();
     // Saved even when skipped, so the question never comes back.
     await supabase.auth.updateUser({ data: first ? { first_name: first, name_asked: true } : { name_asked: true } }).catch(() => {});
   };

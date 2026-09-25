@@ -78,6 +78,23 @@ function Arm({ side, pose, color, shade }) {
 
 /* Each coach's headgear is drawn to its own outline, so it sits on the head instead of floating across it. */
 const SHINE = { fill: "#fff", opacity: 0.45 };
+
+/* Each coach's brow, drawn for the left eye around its centre with P(dx, dy); negative dx is the outer
+   end. `line` = stroke-only width, `square` = hard ends, `tilt` = resting angle, `dy` = height. */
+const BROWS = {
+  // Tank: a heavy slab, set low and a touch tough.
+  tank: { tilt: -6, d: (P) => `M ${P(-10.5, -3.2)} L ${P(6.5, -1.8)} L ${P(6.5, 3.8)} L ${P(-10.5, 2.6)} Z` },
+  // Wings: a swept wing, thick at the inside and tapering up and out like a feather.
+  wings: { tilt: -7, dy: 1.6, d: (P) => `M ${P(7, -1.2)} Q ${P(-2, -2)} ${P(-10.5, -3.6)} Q ${P(-3, 1.6)} ${P(7, 2.6)} Z` },
+  // Boulder: chunky rounded rocks with a lumpy top.
+  boulder: { tilt: -3, dy: 1.2, d: (P) => `M ${P(-9, 1.8)} Q ${P(-10, -2)} ${P(-5.5, -2.6)} Q ${P(-2.5, -4.6)} ${P(1.5, -3.2)} Q ${P(5.5, -4.2)} ${P(7.8, -1.2)} Q ${P(9.4, 1.8)} ${P(5, 2.6)} L ${P(-5.5, 2.8)} Q ${P(-9, 3)} ${P(-9, 1.8)} Z` },
+  // Piston: flat machined bars with square ends.
+  piston: { square: true, d: (P) => `M ${P(-8.5, -1.6)} L ${P(6.5, -1.6)} L ${P(6.5, 1.8)} L ${P(-8.5, 1.8)} Z` },
+  // Brick: two short, square blocks, like bricks.
+  brick: { square: true, tilt: -3, d: (P) => `M ${P(-8.5, -2.6)} L ${P(5, -2.6)} L ${P(5, 2.8)} L ${P(-8.5, 2.8)} Z` },
+  // Dash: short, sporty dashes set high.
+  dash: { line: 5, dy: -2, tilt: 6, d: (P) => `M ${P(-5.5, 0.5)} L ${P(4.5, -1)}` },
+};
 function Gear({ coach }) {
   switch (coach.body) {
     case "clover": // Tank: red lifting sweatband on the top lobe, tails flapping off the right.
@@ -292,11 +309,18 @@ export default function Coach({ id = "tank", mood = "idle", size = 64, still = f
           <path d="M34 54 L46 54" /><path d="M54 54 L66 54" />
         </g>
 
-        {/* Brows: [lift, tilt]. Positive tilt raises the inner ends (worried); negative lowers them (tough). */}
-        {eyeX.map((x, i) => (
-          <rect key={x} className="cz-brow" x={x - 8.5} y="37.5" width="17" height="6" rx="3" fill={INK}
-            style={{ transform: `translateY(${f.brow[0]}px) rotate(${(i ? -1 : 1) * f.brow[1]}deg)`, transformOrigin: `${x}px 40.5px` }} />
-        ))}
+        {/* Brows: [lift, tilt] from the mood. Positive tilt lowers the inner ends (tough); negative raises
+            them (soft). Each coach has their own brow shape and resting angle; the right brow mirrors the left. */}
+        {eyeX.map((x, i) => {
+          const b = BROWS[id] || BROWS.tank;
+          const side = i ? -1 : 1; // shapes are drawn for the left brow: negative dx is the outer end
+          const P = (dx, dy) => `${x + side * dx} ${40.5 + (b.dy || 0) + dy}`;
+          return (
+            <path key={x} className="cz-brow" d={b.d(P)} fill={b.line ? "none" : INK} stroke={INK}
+              strokeWidth={b.line || 1.4} strokeLinecap={b.square ? "butt" : "round"} strokeLinejoin={b.square ? "miter" : "round"}
+              style={{ transform: `translateY(${f.brow[0]}px) rotate(${side * (f.brow[1] + (b.tilt || 0))}deg)`, transformOrigin: `${x}px 40.5px` }} />
+          );
+        })}
 
         {Object.entries(MOUTHS).map(([k, el]) => (
           <g key={k} className="cz-mouth" style={{ opacity: f.mouth === k ? 1 : 0, transform: `scale(${f.mouth === k ? 1 : 0.5})` }}>{el}</g>

@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { PROGRAM, DAYS } from "./data/program.js";
-import { refreshCues } from "./data/cues.js";
+import { PROGRAM, DAYS, CUSTOM, normalizeProgram } from "./data/program.js";
 import { useRoute, href } from "./lib/router.js";
 import { Toast, TabBar, Boot, LoadError, SyncNote } from "./components/ui.jsx";
 import { loadState, createSaver } from "./lib/store.js";
 import { DEFAULT_PREFS } from "./lib/prefs.js";
+import { today } from "./lib/util.js";
 import { applyIcon } from "./lib/icons.js";
 import { applyTheme } from "./lib/theme.js";
 import Today from "./views/Today.jsx";
@@ -18,6 +18,7 @@ import ProgramEditor from "./views/ProgramEditor.jsx";
 import Export from "./views/Export.jsx";
 import Coaches from "./views/Coaches.jsx";
 import NamePrompt from "./components/NamePrompt.jsx";
+import Welcome from "./components/Welcome.jsx";
 
 const TAB_VIEWS = ["today", "history", "progress", "settings", "lift"];
 
@@ -31,6 +32,8 @@ export default function App() {
   const [weighins, setWeighins] = useState([]);
   const [prefs, setPrefs] = useState(DEFAULT_PREFS);
   const [name, setName] = useState(null); // first name from the account, once known
+  const [nameSettled, setNameSettled] = useState(false); // the name prompt is done, so the welcome can show
+  const onNameSettled = useCallback(() => setNameSettled(true), []);
   const [toast, setToast] = useState(null);
   const { route, go, back } = useRoute();
 
@@ -40,7 +43,7 @@ export default function App() {
       const { data, offline } = await loadState();
       // A confirmed-empty account is a new user: start with no history.
       setSessions(data?.sessions || []);
-      setProgram(data?.program ? refreshCues(data.program) : PROGRAM);
+      setProgram(data?.program ? normalizeProgram(data.program) : PROGRAM);
       setDrafts(data?.drafts || {});
       setWeighins(data?.weighins || []);
       setPrefs({ ...DEFAULT_PREFS, ...data?.prefs });
@@ -155,11 +158,22 @@ export default function App() {
     setProgram(next);
     return () => setProgram(before);
   };
+  // A coach's first chat finished: their lifts (and, for Tank, goals, days and weight) are in.
+  const finishSetup = ({ coach, program: next, profile, weight }) => {
+    if (next) setProgram(next);
+    setPrefs((p) => ({
+      ...p,
+      welcomed: true,
+      profile: profile ? { ...p.profile, ...profile } : p.profile,
+      coachSetup: { ...p.coachSetup, [coach]: Date.now() },
+    }));
+    if (weight) setWeighins((ws) => [...ws.filter((w) => w.date !== today()), { date: today(), bw: weight }]);
+  };
   const common = { sessions, program, drafts, weighins, prefs, setPref, name, go, back, notify, onWeighin: logWeighin, onProgramChange: applyCoachProgram };
   let view;
   switch (route.name) {
     case "session": {
-      if (!DAYS.includes(route.day)) { view = <Today {...common} />; break; }
+      if (!DAYS.includes(route.day) && route.day !== CUSTOM) { view = <Today {...common} />; break; }
       const existing = route.id ? sessions.find((s) => s.id === route.id) : null;
       if (route.id && !existing) { view = <Today {...common} />; break; }
       view = (
@@ -181,7 +195,7 @@ export default function App() {
     case "settings": view = <Settings {...common} />; break;
     case "program": view = DAYS.includes(route.day) ? <ProgramEditor {...common} day={route.day} ops={programOps} /> : <Settings {...common} />; break;
     case "export": view = <Export {...common} />; break;
-    case "coaches": view = <Coaches {...common} />; break;
+    case "coaches": view = <Coaches key={route.coach || "grid"} {...common} openCoach={route.coach} onSetupDone={finishSetup} />; break;
     default: view = <Today {...common} />;
   }
 
@@ -193,7 +207,10 @@ export default function App() {
       {view}
       {showTabs && <TabBar active={activeTab} onSelect={selectTab} />}
       {sync === "offline" && <SyncNote raised={showTabs} />}
-      <NamePrompt onName={setName} />
+      <NamePrompt onName={setName} onSettled={onNameSettled} />
+      {nameSettled && !prefs.welcomed && route.name !== "coaches" && (
+        <Welcome name={name} onStart={() => { setPref("welcomed", true); go(href("coaches", "tank")); }} onLater={() => setPref("welcomed", true)} />
+      )}
       <Toast toast={toast} onDismiss={() => setToast(null)} raised={route.name === "session"} />
     </div>
   );
