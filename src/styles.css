@@ -138,12 +138,13 @@ p { margin: 0; }
 .top-title[data-day]::before { content: ""; width: 12px; height: 12px; border-radius: 50%; background: var(--day); flex-shrink: 0; }
 .spacer { flex: 1; }
 
-.tabbar { position: fixed; bottom: calc(14px + var(--safe-b)); left: 16px; right: 16px; max-width: 528px; margin: 0 auto; z-index: 20; touch-action: none; -webkit-user-select: none; user-select: none; display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; padding: 7px; border-radius: 34px; background: var(--dock); box-shadow: 0 6px 0 var(--lip); }
-.tab { position: relative; z-index: 1; display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 54px; font-size: 13px; font-weight: 700; color: var(--dock-mute); text-decoration: none; border-radius: 27px; -webkit-touch-callout: none; transition: color 120ms; }
+.tabbar { position: fixed; bottom: calc(14px + var(--safe-b)); left: 16px; right: 16px; max-width: 528px; margin: 0 auto; z-index: 20; touch-action: none; -webkit-user-select: none; user-select: none; display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; padding: 7px; border-radius: 34px; background: var(--dock); box-shadow: 0 6px 0 var(--lip); transition: grid-template-columns 220ms ease; }
+.tab { position: relative; z-index: 1; display: flex; align-items: center; justify-content: center; gap: 7px; min-width: 0; padding: 0 12px; min-height: 54px; font-size: 13px; white-space: nowrap; font-weight: 700; color: var(--dock-mute); text-decoration: none; border-radius: 27px; -webkit-touch-callout: none; transition: color 120ms; }
 .tab[aria-current="page"] { color: var(--ink); }
 /* The pill slides between tabs with a little overshoot; while a finger drags it tracks the finger exactly. */
-.tab-pill { position: absolute; left: 0; top: 7px; bottom: 7px; border-radius: 27px; background: var(--bg); transition: transform 260ms cubic-bezier(.3, 1.35, .5, 1), width 200ms ease; }
+.tab-pill { position: absolute; left: 0; top: 7px; bottom: 7px; border-radius: 27px; background: var(--bg); transition: transform 260ms cubic-bezier(.3, 1.35, .5, 1), width 220ms ease; }
 .tabbar.dragging .tab-pill { transition: none; transform-origin: center; }
+.tabbar.dragging { transition: none; }
 .tabbar.dragging .tab-pill { box-shadow: 0 0 0 3px color-mix(in srgb, var(--ink) 12%, transparent); }
 .tab:not([aria-current="page"]) .tab-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
 
@@ -553,3 +554,12 @@ button.chip { min-height: 38px; padding: 0 14px; border: 2px solid var(--rule); 
 .ask-btn { flex: none; display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 12px; border-radius: 999px; font-size: 13px; font-weight: 800; background: var(--surface-2); color: var(--ink); }
 button.coach-card { width: 100%; font: inherit; color: inherit; cursor: pointer; }
 button.coach-card:active { transform: translateY(3px); box-shadow: 0 2px 0 var(--lip); }
+
+/* Today: swap which day you are training. */
+.hero-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.hero-card .hero-switch { background: #FFFFFF; color: var(--day-lip); font-family: inherit; cursor: pointer; }
+.hero-card .hero-switch:active { transform: scale(0.95); }
+.weigh { position: relative; }
+.weigh-skip { position: absolute; top: -8px; right: -8px; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; background: var(--surface-2); color: var(--mute); border: 2px solid var(--bg); cursor: pointer; }
+.weigh-skip::after { content: ""; position: absolute; inset: -9px; } /* 44px tap target */
+.weigh-skip:active { transform: scale(0.9); }
