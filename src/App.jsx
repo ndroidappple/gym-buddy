@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { PROGRAM, DAYS } from "./data/program.js";
-import { seedSessions } from "./lib/util.js";
 import { useRoute, href } from "./lib/router.js";
 import { Toast, TabBar, Boot, LoadError, SyncNote } from "./components/ui.jsx";
 import { loadState, createSaver } from "./lib/store.js";
@@ -38,8 +37,8 @@ export default function App() {
     setLoadFailed(false);
     try {
       const { data, offline } = await loadState();
-      // Seed only when the account is confirmed empty — never after a failed read.
-      setSessions(data ? data.sessions : seedSessions());
+      // A confirmed-empty account is a new user: start with no history.
+      setSessions(data?.sessions || []);
       setProgram(data?.program || PROGRAM);
       setDrafts(data?.drafts || {});
       setWeighins(data?.weighins || []);
