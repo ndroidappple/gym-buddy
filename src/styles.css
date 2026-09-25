@@ -481,8 +481,10 @@ button.chip { min-height: 38px; padding: 0 14px; border: 2px solid var(--rule); 
 .coach-card i { font-style: normal; font-size: 12px; font-weight: 600; color: var(--faint); }
 
 /* ═══════════════ SHEET / TOAST ═══════════════ */
-.sheet-wrap { position: fixed; left: 0; right: 0; top: var(--vv-top, 0px); height: var(--vv-h, 100dvh); background: var(--scrim); z-index: 50; display: flex; align-items: flex-end; justify-content: center; animation: fade 160ms ease-out; }
-.sheet { width: 100%; max-width: 560px; background: var(--bg); border-radius: 28px 28px 0 0; max-height: min(90dvh, calc(var(--vv-h, 100dvh) - var(--safe-t) - 8px)); display: flex; flex-direction: column; padding-bottom: var(--safe-b); transition: max-height 180ms ease, height 180ms ease; animation: sheet-in 300ms cubic-bezier(.2, 1.15, .35, 1); }
+/* Only the wrap animates when the keyboard moves (on a curve close to iOS's own keyboard); the
+   sheet sizes from the wrap in %, so everything inside moves together in one smooth motion. */
+.sheet-wrap { --kb-ease: cubic-bezier(.38, .7, .125, 1); --kb-ms: 280ms; position: fixed; left: 0; right: 0; top: var(--vv-top, 0px); height: var(--vv-h, 100dvh); background: var(--scrim); z-index: 50; display: flex; align-items: flex-end; justify-content: center; animation: fade 160ms ease-out; transition: top var(--kb-ms) var(--kb-ease), height var(--kb-ms) var(--kb-ease); }
+.sheet { width: 100%; max-width: 560px; background: var(--bg); border-radius: 28px 28px 0 0; max-height: min(90dvh, calc(100% - var(--safe-t) - 8px)); display: flex; flex-direction: column; padding-bottom: var(--safe-b); transition: padding-bottom var(--kb-ms) var(--kb-ease); animation: sheet-in 300ms cubic-bezier(.2, 1.15, .35, 1); }
 .sheet-grab { width: 44px; height: 5px; background: var(--rule-2); border-radius: 3px; margin: 10px auto 2px; }
 .sheet-head { display: flex; align-items: flex-start; gap: 8px; padding: 8px 16px 12px; }
 .sheet-title { font-weight: 800; font-size: 24px; line-height: 1.1; letter-spacing: -0.02em; }
@@ -523,15 +525,25 @@ button.chip { min-height: 38px; padding: 0 14px; border: 2px solid var(--rule); 
 
 /* ═══════════════ COACH CHAT ═══════════════ */
 /* The chat sheet has a fixed height inside the visible viewport: the list scrolls, the input stays pinned above the keyboard. */
-.sheet-chat { height: min(680px, calc(var(--vv-h, 100dvh) - var(--safe-t) - 8px)); }
+.sheet-chat { height: min(680px, calc(100% - var(--safe-t) - 8px)); }
 .sheet-wrap[data-kb] .sheet { padding-bottom: 8px; }
 .sheet-chat .sheet-body { overflow: hidden; padding-bottom: 8px; }
 .chat { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 10px; }
 .chat-coach { display: grid; place-items: center; padding-top: 2px; }
-/* Keyboard up: the coach shrinks so it stays in view with the conversation. */
-.chat-coach .coach { transition: width 200ms ease, height 200ms ease; }
-.sheet-wrap[data-kb] .chat-coach .coach { width: 52px; height: 55px; }
-.sheet-wrap[data-kb] .sheet-sub, .sheet-wrap[data-kb] .chat-note { display: none; }
+/* Keyboard up: the big coach, grab handle, subtitle and footnote fold away (never snap) so the
+   conversation gets the room; "…is thinking" in the thread still shows the coach is working. */
+.sheet-chat .sheet-grab, .sheet-chat .sheet-sub, .chat-coach, .chat-note { overflow: hidden; transition: max-height var(--kb-ms) var(--kb-ease), opacity 180ms ease, margin var(--kb-ms) var(--kb-ease), padding var(--kb-ms) var(--kb-ease); }
+.sheet-chat .sheet-grab { max-height: 5px; }
+.sheet-chat .sheet-sub { max-height: 2.6em; }
+.chat-coach { max-height: 110px; }
+.chat-note { max-height: 3em; }
+.sheet-wrap[data-kb] .sheet-chat .sheet-grab { max-height: 0; margin-top: 4px; margin-bottom: 0; opacity: 0; }
+.sheet-wrap[data-kb] .sheet-chat .sheet-sub { max-height: 0; margin-top: 0; opacity: 0; }
+.sheet-wrap[data-kb] .sheet-chat .sheet-head { padding-bottom: 6px; }
+/* -10px cancels the .chat gap next to each folded block. */
+.sheet-wrap[data-kb] .chat-coach { max-height: 0; padding-top: 0; margin-bottom: -10px; opacity: 0; }
+.sheet-wrap[data-kb] .chat-note { max-height: 0; margin-top: -10px; opacity: 0; }
+.sheet-chat .sheet-head { transition: padding var(--kb-ms) var(--kb-ease); }
 .chat-list { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; padding: 2px 8px 4px; }
 .chat-list .coach-bubble { flex: none; align-self: flex-start; max-width: 88%; margin: 0; }
 .chat-me, .chat-list .coach-bubble { animation: bubble-in 240ms cubic-bezier(.2, 1.5, .4, 1); transform-origin: bottom left; }

@@ -32,13 +32,17 @@ export default function CoachChat({ coach, exercise, sessions, program, weighins
   const abort = useRef(null);
   useEffect(() => () => abort.current?.abort(), []);
   useEffect(() => { listRef.current?.scrollTo({ top: listRef.current.scrollHeight }); }, [messages]);
-  // When the keyboard opens the list gets shorter; keep the newest message in view.
+  // The list resizes on every frame while the keyboard animates; stay pinned to the newest
+  // message throughout, unless the lifter has scrolled up to reread something.
   useEffect(() => {
-    const vv = window.visualViewport;
-    if (!vv) return;
-    const keep = () => listRef.current?.scrollTo({ top: listRef.current.scrollHeight });
-    vv.addEventListener("resize", keep);
-    return () => vv.removeEventListener("resize", keep);
+    const el = listRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    let pinned = true;
+    const onScroll = () => { pinned = el.scrollHeight - el.scrollTop - el.clientHeight < 24; };
+    const ro = new ResizeObserver(() => { if (pinned) el.scrollTop = el.scrollHeight; });
+    el.addEventListener("scroll", onScroll, { passive: true });
+    ro.observe(el);
+    return () => { ro.disconnect(); el.removeEventListener("scroll", onScroll); };
   }, []);
   useEffect(() => {
     if (status !== "answered") return;
