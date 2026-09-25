@@ -1,4 +1,4 @@
-import { DAYS, IMPORTED } from "../data/program.js";
+import { DAYS } from "../data/program.js";
 
 export const uid = () => Math.random().toString(36).slice(2, 10);
 export const e1rm = (w, r) => (r <= 1 ? w : w * (1 + r / 30));
@@ -13,17 +13,6 @@ export const shortDate = (s) => new Date(s + "T12:00:00").toLocaleDateString(und
 export const longDate = (s) => new Date(s + "T12:00:00").toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
 export const mmss = (t) => `${Math.floor(t / 60)}:${String(t % 60).padStart(2, "0")}`;
 export const compact = (n) => (n >= 10000 ? `${num(n / 1000)}k` : Math.round(n).toLocaleString());
-
-export function seedSessions() {
-  const now = new Date();
-  return IMPORTED.map((h) => {
-    const d = new Date(now);
-    d.setDate(now.getDate() - (h.w === 1 ? 17 : 10) + DAYS.indexOf(h.d));
-    const sets = {};
-    Object.entries(h.s).forEach(([k, v]) => { sets[k] = v.map(([w, r]) => ({ w, r })); });
-    return { id: uid(), day: h.d, date: iso(d), note: "Imported from spreadsheet", bw: null, sets };
-  });
-}
 
 export const byDateAsc = (a, b) => a.date.localeCompare(b.date) || (a.finishedAt || 0) - (b.finishedAt || 0);
 export const byDateDesc = (a, b) => -byDateAsc(a, b);
