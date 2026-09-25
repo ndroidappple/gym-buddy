@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
-import { InfoButton } from "../components/ui.jsx";
-import { Scale } from "lucide-react";
+import { InfoButton, Sheet } from "../components/ui.jsx";
+import { Scale, ArrowLeftRight, Check, X } from "lucide-react";
 import { DAYS, PLATES } from "../data/program.js";
 import { href } from "../lib/router.js";
 import { COACHES, coachesFor } from "../data/coaches.js";
@@ -10,11 +10,22 @@ import { byDateDesc, bestSet, fmtW, num, shortDate, weekDates, today, nextDayAft
 export default function Today({ name, sessions, program, drafts, weighins, onWeighin }) {
   const sorted = useMemo(() => [...sessions].sort(byDateDesc), [sessions]);
   const draftDay = DAYS.find((d) => drafts[d]);
-  const day = draftDay || nextDayAfter(sessions);
+  const t = today();
+  const [pick, setPick] = useState(loadPick);
+  const [choosing, setChoosing] = useState(false);
+  // A swapped day holds for today only, until the next session is logged.
+  const picked = pick && pick.date === t && pick.after === sessions.length && program[pick.day] ? pick.day : null;
+  const suggested = nextDayAfter(sessions);
+  const day = draftDay || picked || suggested;
   const p = program[day];
   const draft = drafts[day];
   const lastOfDay = sorted.find((s) => s.day === day);
-  const t = today();
+  const choose = (d) => {
+    const next = d === suggested ? null : { date: t, day: d, after: sessions.length };
+    setPick(next);
+    try { next ? localStorage.setItem(PICK_KEY, JSON.stringify(next)) : localStorage.removeItem(PICK_KEY); } catch {}
+    setChoosing(false);
+  };
 
   const setsLogged = draft ? Object.values(draft.grid || {}).reduce((a, rows) => a + rows.filter((r) => r.done).length, 0) : 0;
   const plannedSets = p.exercises.reduce((a, e) => a + e.sets, 0);
@@ -64,7 +75,14 @@ export default function Today({ name, sessions, program, drafts, weighins, onWei
 
       <div className="body" data-day={day}>
         <section className="hero-card" aria-label={draft ? `${p.name} in progress` : `Up next: ${p.name}`}>
-          <span className="pill day-lbl">{draft ? `In progress · ${plural(setsLogged, "set")} logged` : `Up next · Day ${DAYS.indexOf(day) + 1}`}</span>
+          <div className="hero-top">
+            <span className="pill day-lbl">{draft ? `In progress · ${plural(setsLogged, "set")} logged` : `${picked ? "Today" : "Up next"} · Day ${DAYS.indexOf(day) + 1}`}</span>
+            {!draft && (
+              <button type="button" className="pill hero-switch" onClick={() => setChoosing(true)} aria-haspopup="dialog">
+                <ArrowLeftRight size={14} strokeWidth={2.6} aria-hidden="true" />Change
+              </button>
+            )}
+          </div>
           <div className="hero-text">
             <span className={"hero-day" + (p.name.length > 6 ? " long" : "")}>{p.name}</span>
             <span className="hero-meta">{p.detail}{lastOfDay ? ` · last ${shortDate(lastOfDay.date)}` : ""}</span>
@@ -80,6 +98,20 @@ export default function Today({ name, sessions, program, drafts, weighins, onWei
           </div>
           <a className="btn hero-cta" href={href("session", day)}>{draft ? `Resume ${p.name}` : "Start lifting"}</a>
         </section>
+
+        {choosing && (
+          <Sheet title="Train something else" sub="Swap today's workout. Your rotation picks back up after you log it." onClose={() => setChoosing(false)} labelledBy="swap-title">
+            <div className="list">
+              {DAYS.map((d) => (
+                <button key={d} type="button" className="list-row" data-day={d} aria-pressed={d === day} onClick={() => choose(d)}>
+                  <span className="dot" aria-hidden="true" />
+                  <span className="name">{program[d].name}{d === suggested ? " · up next" : ""}<span className="sub">{program[d].detail} · {plural(program[d].exercises.length, "lift")}</span></span>
+                  {d === day && <Check size={18} strokeWidth={2.6} aria-hidden="true" />}
+                </button>
+              ))}
+            </div>
+          </Sheet>
+        )}
 
         <WeighIn sessions={sessions} weighins={weighins} onSave={onWeighin} />
 
@@ -133,12 +165,25 @@ export default function Today({ name, sessions, program, drafts, weighins, onWei
 }
 
 /** Weekly nudge: shows when the last bodyweight (weigh-in or session) is 7+ days old, or there is none. */
+const PICK_KEY = "ironlog-today-pick";
+const SKIP_KEY = "ironlog-weigh-skip"; // holds the Monday of the week the weigh-in was skipped
+function loadPick() {
+  try { return JSON.parse(localStorage.getItem(PICK_KEY)) || null; } catch { return null; }
+}
+
 function WeighIn({ sessions, weighins, onSave }) {
   const series = useMemo(() => bodyweightSeries(sessions, weighins), [sessions, weighins]);
   const last = series[series.length - 1];
   const t = today();
   const [bw, setBw] = useState("");
-  if (last && daysBetween(last.date, t) < 7) return null;
+  // ✕ skips the weigh-in until next Monday.
+  const week = weekDates()[0];
+  const [skipped, setSkipped] = useState(() => { try { return localStorage.getItem(SKIP_KEY) === week; } catch { return false; } });
+  if (skipped || (last && daysBetween(last.date, t) < 7)) return null;
+  const skip = () => {
+    try { localStorage.setItem(SKIP_KEY, week); } catch {}
+    setSkipped(true);
+  };
 
   const ago = last ? daysBetween(last.date, t) : null;
   const value = parseFloat(bw);
@@ -162,6 +207,7 @@ function WeighIn({ sessions, weighins, onSave }) {
         <span className="u">lb</span>
       </label>
       <button type="submit" className="btn weigh-save" disabled={!valid}>Save</button>
+      <button type="button" className="weigh-skip" onClick={skip} aria-label="Skip this week's weigh-in"><X size={14} strokeWidth={3} aria-hidden="true" /></button>
     </form>
   );
 }

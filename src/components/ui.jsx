@@ -108,25 +108,39 @@ const TABS = [
 
 /* Tab bar. Switches on finger-down, not on release, and you can slide a finger along it: the
    pill follows the finger and each tab you cross opens as you pass it. Tab switches replace the
-   history entry, so the back gesture never replays a string of tab taps. */
+   history entry, so the back gesture never replays a string of tab taps.
+   The active tab gets a wider column so its label has room inside the pill. Tab geometry is
+   computed from the bar's width (not measured) so the pill lands right while the columns animate. */
+const TAB_PAD = 7, TAB_GAP = 4, ACTIVE_FR = 2; // keep in sync with .tabbar padding and gap
+function tabGeometry(navW, idx) {
+  const unit = (navW - 2 * TAB_PAD - TAB_GAP * (TABS.length - 1)) / (TABS.length - 1 + ACTIVE_FR);
+  let left = TAB_PAD;
+  return TABS.map((_, i) => {
+    const width = i === idx ? unit * ACTIVE_FR : unit;
+    const g = { left, width };
+    left += width + TAB_GAP;
+    return g;
+  });
+}
+
 export function TabBar({ active, onSelect }) {
   const nav = useRef(null);
-  const tabs = useRef([]);
-  const [geo, setGeo] = useState(null); // [{ left, width }] per tab
+  const [navW, setNavW] = useState(0);
   const [drag, setDrag] = useState(null); // pill centre x while a finger is down
   const idx = Math.max(0, TABS.findIndex((t) => t.key === active));
+  const geo = navW ? tabGeometry(navW, idx) : null;
 
   useLayoutEffect(() => {
-    const measure = () => setGeo(tabs.current.map((el) => ({ left: el.offsetLeft, width: el.offsetWidth })));
+    const measure = () => setNavW(nav.current.clientWidth);
     measure();
     addEventListener("resize", measure);
     return () => removeEventListener("resize", measure);
   }, []);
 
   const keyAt = (x) => {
-    const r = nav.current.getBoundingClientRect();
-    const i = Math.min(TABS.length - 1, Math.max(0, Math.floor(((x - r.left) / r.width) * TABS.length)));
-    return TABS[i].key;
+    const px = x - nav.current.getBoundingClientRect().left;
+    const i = geo ? geo.findIndex((t) => px < t.left + t.width + TAB_GAP / 2) : 0;
+    return TABS[i < 0 ? TABS.length - 1 : i].key;
   };
   const pick = (key) => { if (key !== active) { onSelect(key); vibrate(6); } };
 
@@ -149,10 +163,11 @@ export function TabBar({ active, onSelect }) {
   const x = drag != null && geo ? Math.min(maxX, Math.max(geo[0].left, drag - w / 2)) : g?.left || 0;
   return (
     <nav className={"tabbar" + (drag != null ? " dragging" : "")} aria-label="Main" ref={nav}
+      style={{ gridTemplateColumns: TABS.map((_, i) => (i === idx ? `${ACTIVE_FR}fr` : "1fr")).join(" ") }}
       onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up} onLostPointerCapture={up}>
       {g && <span className="tab-pill" aria-hidden="true" style={{ width: w, transform: `translateX(${x}px)` }} />}
-      {TABS.map(({ key, label, Icon }, i) => (
-        <a key={key} ref={(el) => { tabs.current[i] = el; }} className="tab" href={`#/${key}`} aria-current={active === key ? "page" : undefined}
+      {TABS.map(({ key, label, Icon }) => (
+        <a key={key} className="tab" href={`#/${key}`} aria-current={active === key ? "page" : undefined}
           // Pointer input already switched on press; this handles keyboard activation only.
           onClick={(e) => { e.preventDefault(); if (e.detail === 0) pick(key); }}>
           <Icon size={21} strokeWidth={2.4} aria-hidden="true" />
