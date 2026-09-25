@@ -25,7 +25,8 @@ export function buildContext({ coach, sessions, program, weighins }) {
     const t = trend(s.map((x) => x.orm));
     const rir = last.sets.filter((x) => x.rir != null).map((x) => x.rir);
     const up = readyToIncrease(plan[n], last.sets);
-    return `${n}: last ${last.date} best set ${fmtW(b.w)}x${b.r}, e1RM ${num(last.orm)} lb, ${s.length} sessions` +
+    const target = plan[n] ? `plan ${plan[n].sets}x${plan[n].reps[0]}-${plan[n].reps[1]}, ` : "";
+    return `${n}: ${target}last ${last.date} best set ${fmtW(b.w)}x${b.r}, e1RM ${num(last.orm)} lb, ${s.length} sessions` +
       (t != null ? `, trend ${t >= 0 ? "+" : ""}${t.toFixed(1)}%` : "") + (rir.length ? `, RIR ${rir.join("/")}` : "") +
       (up ? `, READY TO ADD WEIGHT (hit ${up.sets}x${up.reps} at ${up.from} lb; next: ${up.to} lb)` : "");
   };
