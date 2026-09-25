@@ -305,15 +305,14 @@ button.chip { min-height: 38px; padding: 0 14px; border: 2px solid var(--rule); 
 .meta-chip { display: flex; align-items: center; gap: 8px; min-height: 54px; padding: 0 16px; font-size: 14px; color: var(--mute); width: 100%; text-align: left; font-weight: 600; }
 .meta-chip b { color: var(--ink); font-weight: 800; }
 
-.ex { padding: 16px; display: flex; flex-direction: column; gap: 14px; border-radius: 28px; animation: ex-open 460ms cubic-bezier(.22, 1, .36, 1); scroll-margin-top: calc(var(--safe-t) + 104px); }
+.ex { padding: 14px; display: flex; flex-direction: column; gap: 10px; border-radius: 28px; animation: ex-open 460ms cubic-bezier(.22, 1, .36, 1); scroll-margin-top: calc(var(--safe-t) + 104px); }
 @keyframes ex-open { from { transform: translateY(16px) scale(.97); opacity: 0; } 35% { opacity: 1; } }
 .ex-collapsed.just-closed { animation: ex-close 380ms cubic-bezier(.22, 1, .36, 1); }
 @keyframes ex-close { from { transform: scale(1.04); opacity: .35; } }
-.ex-coach { display: flex; flex-direction: column; gap: 10px; }
-.ex-coach-row { display: flex; align-items: center; gap: 10px; }
-.ex-coach-row .coach { flex: none; margin: -10px 0 -4px; }
-.ex-coach-row .who { flex: 1; min-width: 0; display: flex; flex-direction: column; font-size: 12.5px; font-weight: 700; color: var(--mute); line-height: 1.25; }
-.ex-coach-row .who b { font-size: 15px; font-weight: 800; color: var(--ink); }
+.ex-coach { display: flex; align-items: flex-end; gap: 10px; }
+.ex-coach > .coach { flex: none; margin: 0 -2px -4px 0; }
+.ex-coach .coach-bubble { flex: 1; margin-left: 4px; font-size: 14px; padding: 10px 13px; }
+.ask-btn.compact { flex: none; flex-direction: column; gap: 2px; min-height: 0; padding: 7px 10px; border-radius: 16px; font-size: 11px; align-self: center; }
 .ex-head { display: flex; align-items: center; gap: 8px; }
 .ex-name { font-weight: 800; font-size: 20px; line-height: 1.2; letter-spacing: -0.01em; }
 .ex-spec { font-size: 13px; font-weight: 600; color: var(--mute); margin-top: 2px; }
@@ -331,12 +330,12 @@ button.chip { min-height: 38px; padding: 0 14px; border: 2px solid var(--rule); 
 @keyframes pop { from { transform: scale(.4); opacity: 0; } }
 .beat-mark { font-size: 12px; color: var(--mute); font-weight: 800; }
 
-.active-set { border-radius: 24px; padding: 12px; display: flex; flex-direction: column; gap: 10px; background: var(--surface-2); margin-top: 6px; }
+.active-set { border-radius: 24px; padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 8px; background: var(--surface-2); margin-top: 6px; }
 .active-set .set-head { display: flex; align-items: center; font-weight: 800; }
 .steppers { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-.stepper { display: flex; flex-direction: column; gap: 8px; padding: 10px 8px 8px; border-radius: 20px; background: var(--surface); }
+.stepper { display: flex; flex-direction: column; gap: 6px; padding: 6px 8px 8px; border-radius: 20px; background: var(--surface); }
 .stepper label { display: grid; justify-items: center; line-height: 1; min-width: 0; }
-.stepper input { width: 100%; border: 0; background: transparent; text-align: center; font-weight: 800; font-size: 44px; line-height: 1.05; padding: 0; letter-spacing: -0.02em; }
+.stepper input { width: 100%; border: 0; background: transparent; text-align: center; font-weight: 800; font-size: 40px; line-height: 1.05; padding: 0; letter-spacing: -0.02em; }
 .stepper input:focus { outline: none; }
 .stepper:focus-within { outline: 3px solid var(--day); outline-offset: -3px; }
 .stepper .u { font-size: 11.5px; color: var(--mute); font-weight: 700; margin-top: 4px; }
@@ -648,3 +647,5 @@ button.coach-card:active { transform: translateY(3px); box-shadow: 0 2px 0 var(-
 .setup-card-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .setup-card-text b { font-weight: 800; }
 .setup-card-text span { font-size: 13.5px; color: var(--mute); font-weight: 600; }
+.set-remove { width: 32px; height: 32px; margin: -6px -6px -6px 6px; display: grid; place-items: center; border-radius: 50%; color: var(--mute); }
+.set-remove:active { background: var(--surface); }
