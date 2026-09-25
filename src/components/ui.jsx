@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState, useMemo } from "react";
-import { X, Circle, List, TrendingUp, Settings as Gear, Plus } from "lucide-react";
+import { X, Home, CalendarDays, TrendingUp, Settings as Gear, Plus } from "lucide-react";
 import { LIBRARY } from "../data/program.js";
 
 export function Sheet({ title, sub, onClose, children, labelledBy = "sheet-title" }) {
@@ -57,8 +57,8 @@ export function Toast({ toast, onDismiss, raised }) {
 }
 
 const TABS = [
-  { key: "today", label: "Today", Icon: Circle },
-  { key: "history", label: "History", Icon: List },
+  { key: "today", label: "Today", Icon: Home },
+  { key: "history", label: "History", Icon: CalendarDays },
   { key: "progress", label: "Progress", Icon: TrendingUp },
   { key: "settings", label: "Settings", Icon: Gear },
 ];
@@ -68,8 +68,8 @@ export function TabBar({ active }) {
     <nav className="tabbar" aria-label="Main">
       {TABS.map(({ key, label, Icon }) => (
         <a key={key} className="tab" href={`#/${key}`} aria-current={active === key ? "page" : undefined}>
-          <Icon size={21} strokeWidth={2} aria-hidden="true" />
-          {label}
+          <Icon size={21} strokeWidth={2.4} aria-hidden="true" />
+          <span className="tab-label">{label}</span>
         </a>
       ))}
     </nav>
@@ -98,8 +98,8 @@ export function Sparkline({ values }) {
   const [lx, ly] = pts[pts.length - 1];
   return (
     <svg className="spark" viewBox="0 0 72 28" aria-hidden="true">
-      <polyline points={pts.map((p) => p.join(",")).join(" ")} style={{ fill: "none", stroke: "var(--day, var(--ink))", strokeWidth: 2, strokeLinejoin: "round", strokeLinecap: "round" }} />
-      <circle cx={lx} cy={ly} r="3" style={{ fill: "var(--day, var(--ink))" }} />
+      <polyline points={pts.map((p) => p.join(",")).join(" ")} style={{ fill: "none", stroke: "var(--day, var(--ink))", strokeWidth: 3.5, strokeLinejoin: "round", strokeLinecap: "round" }} />
+      <circle cx={lx} cy={ly} r="3.5" style={{ fill: "var(--day, var(--ink))" }} />
     </svg>
   );
 }
@@ -134,11 +134,11 @@ export function LineChart({ points, format = (v) => v, height = 150, ariaLabel }
         {ticks.map((t) => (
           <g key={t}>
             <line x1={L} x2={W - R} y1={y(t)} y2={y(t)} style={{ stroke: "var(--rule)", strokeWidth: 1 }} />
-            <text x={L - 6} y={y(t) + 3.5} textAnchor="end" style={{ fill: "var(--mute)", fontFamily: "var(--mono)", fontSize: 10 }}>{format(t)}</text>
+            <text x={L - 6} y={y(t) + 3.5} textAnchor="end" style={{ fill: "var(--mute)", fontSize: 10, fontWeight: 600 }}>{format(t)}</text>
           </g>
         ))}
         <path d={area} style={{ fill: "var(--day, var(--ink))", opacity: 0.12 }} />
-        <polyline points={line} style={{ fill: "none", stroke: "var(--day, var(--ink))", strokeWidth: 2.5, strokeLinejoin: "round" }} />
+        <polyline points={line} style={{ fill: "none", stroke: "var(--day, var(--ink))", strokeWidth: 3.5, strokeLinejoin: "round", strokeLinecap: "round" }} />
         {points.map((p, i) => (
           <g key={i} onClick={() => setSel(sel === i ? null : i)} style={{ cursor: "pointer" }}>
             <circle cx={x(i)} cy={y(p.value)} r="14" style={{ fill: "transparent" }} />
@@ -146,8 +146,8 @@ export function LineChart({ points, format = (v) => v, height = 150, ariaLabel }
               style={{ fill: p.pr ? "var(--day, var(--ink))" : "var(--surface)", stroke: "var(--day, var(--ink))", strokeWidth: 2 }} />
           </g>
         ))}
-        <text x={x(0)} y={H - 5} textAnchor={points.length === 1 ? "middle" : "start"} style={{ fill: "var(--mute)", fontFamily: "var(--mono)", fontSize: 10 }}>{points[0].label}</text>
-        {points.length > 1 && <text x={x(points.length - 1)} y={H - 5} textAnchor="end" style={{ fill: "var(--mute)", fontFamily: "var(--mono)", fontSize: 10 }}>{points[points.length - 1].label}</text>}
+        <text x={x(0)} y={H - 5} textAnchor={points.length === 1 ? "middle" : "start"} style={{ fill: "var(--mute)", fontSize: 10, fontWeight: 600 }}>{points[0].label}</text>
+        {points.length > 1 && <text x={x(points.length - 1)} y={H - 5} textAnchor="end" style={{ fill: "var(--mute)", fontSize: 10, fontWeight: 600 }}>{points[points.length - 1].label}</text>}
       </svg>
     </div>
   );

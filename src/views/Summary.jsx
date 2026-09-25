@@ -1,5 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { href } from "../lib/router.js";
+import Coach from "../components/Coach.jsx";
+import { coachFor } from "../data/coaches.js";
 import { priorSessions, allTimeBest, bestSet, bestE1rm, e1rm, fmtW, num, compact, shortDate, plural, sessionVolume, sessionSetCount, byDateDesc, nextDayAfter } from "../lib/util.js";
 
 export default function Summary({ session, sessions, program, go, onUpdate }) {
@@ -45,7 +47,10 @@ export default function Summary({ session, sessions, program, go, onUpdate }) {
             <span className="spacer" />
             {mins && <span className="mono small muted">{mins} min</span>}
           </div>
-          <Headline />
+          <div className="summary-hero">
+            <Headline />
+            <Coach id={coachFor(Object.keys(session.sets)[0] || "")} mood={r.records.length ? "pr" : "proud"} size={84} />
+          </div>
         </header>
 
         <div className="stats">
@@ -127,7 +132,7 @@ function Headline() {
   return (
     <h1 className="summary-title">
       {metal
-        ? <metal.MetalText font={'900 64px/0.9 "Big Shoulders Display", "Arial Narrow", sans-serif'} color={ink} theme="dark" strength={0.9}>SESSION LOGGED</metal.MetalText>
+        ? <metal.MetalText font={'800 44px/1 Lexend, "Helvetica Neue", sans-serif'} color={ink} theme="dark" strength={0.9}>Session logged</metal.MetalText>
         : "Session logged"}
     </h1>
   );

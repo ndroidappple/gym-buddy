@@ -1,8 +1,9 @@
 import React, { useMemo, useState } from "react";
-import { ArrowRight } from "lucide-react";
-import { BorderBeam } from "border-beam";
+import { Scale } from "lucide-react";
 import { DAYS, PLATES } from "../data/program.js";
 import { href } from "../lib/router.js";
+import { COACHES, coachesFor } from "../data/coaches.js";
+import Coach from "../components/Coach.jsx";
 import { byDateDesc, bestSet, fmtW, num, shortDate, weekDates, today, nextDayAfter, bodyweightSeries, daysBetween, plural } from "../lib/util.js";
 
 export default function Today({ sessions, program, drafts, weighins, onWeighin }) {
@@ -12,9 +13,13 @@ export default function Today({ sessions, program, drafts, weighins, onWeighin }
   const p = program[day];
   const draft = drafts[day];
   const lastOfDay = sorted.find((s) => s.day === day);
+  const t = today();
 
   const setsLogged = draft ? Object.values(draft.grid || {}).reduce((a, rows) => a + rows.filter((r) => r.done).length, 0) : 0;
   const plannedSets = p.exercises.reduce((a, e) => a + e.sets, 0);
+  const crew = useMemo(() => coachesFor(p.exercises.map((e) => e.n)), [p]);
+  const daysOff = sorted[0] ? daysBetween(sorted[0].date, t) : null;
+  const lead = crew[0];
 
   /* Typical length of this day, from sessions with both start and finish times. */
   const usualMins = useMemo(() => {
@@ -29,7 +34,6 @@ export default function Today({ sessions, program, drafts, weighins, onWeighin }
   }).filter(Boolean).slice(0, 3), [p, sorted]);
 
   const week = weekDates();
-  const t = today();
   const byDate = useMemo(() => {
     const m = {};
     sessions.forEach((s) => { m[s.date] ||= s.day; });
@@ -37,41 +41,47 @@ export default function Today({ sessions, program, drafts, weighins, onWeighin }
   }, [sessions]);
   const doneThisWeek = week.filter((d) => byDate[d]).length;
 
-  const status = draft
-    ? `${plural(setsLogged, "set")} logged so far`
-    : [lastOfDay ? `Last ${p.name.toLowerCase()} ${shortDate(lastOfDay.date)}` : "Not logged yet", usualMins && `usually ${usualMins} min`].filter(Boolean).join(" · ");
+  const names = crew.map((id) => COACHES[id].name);
+  const onDeck = names.length <= 2 ? names.join(" & ") : `${names.slice(0, 2).join(", ")} +${names.length - 2}`;
+  const headline = draft ? `${p.name} in progress.` : daysOff != null && daysOff >= 5 ? `${daysOff} days off. Back to it.` : `${p.name} day. Let's lift.`;
 
   return (
     <main className="screen has-tabs">
       <header className="top today-top">
         <div className="today-head">
-          <span className="lbl">{new Date(t + "T12:00:00").toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}</span>
-          <h1 className="wordmark">IRONLOG</h1>
+          <span className="lbl">{new Date(t + "T12:00:00").toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" })}</span>
+          <h1>{headline}</h1>
         </div>
+        <a className="coach-link" href="#/coaches" aria-label="Meet your coaches">
+          {/* 5+ days away and the lead coach misses you. */}
+          <Coach id={lead} mood={daysOff != null && daysOff >= 5 ? "sleepy" : "idle"} size={40} decorative />
+        </a>
       </header>
 
       <div className="body" data-day={day}>
         <section className="hero-card" aria-label={draft ? `${p.name} in progress` : `Up next: ${p.name}`}>
-          <Plate kg={PLATES[day].kg} />
+          <span className="pill day-lbl">{draft ? `In progress · ${plural(setsLogged, "set")} logged` : `Up next · Day ${DAYS.indexOf(day) + 1}`}</span>
           <div className="hero-text">
-            <span className="lbl day-lbl">{draft ? "In progress" : "Up next"}</span>
             <span className={"hero-day" + (p.name.length > 6 ? " long" : "")}>{p.name}</span>
-            <span className="hero-meta">{p.detail} · {plural(p.exercises.length, "lift")} · {plannedSets} sets<br />{status}</span>
+            <span className="hero-meta">{p.detail}{lastOfDay ? ` · last ${shortDate(lastOfDay.date)}` : ""}</span>
           </div>
-          {/* The one primary action breathes softly; pulse types stop themselves under reduced motion. */}
-          <BorderBeam size="pulse-inner" colorVariant="mono" theme="auto" strength={0.8}>
-            <a className="btn btn-day hero-cta" href={href("session", day)}>
-              {draft ? `Resume ${p.name}` : `Start ${p.name}`}
-              <ArrowRight size={20} strokeWidth={2.6} aria-hidden="true" />
-            </a>
-          </BorderBeam>
+          <div className="hero-pills">
+            <span className="pill">{plural(p.exercises.length, "lift")}</span>
+            <span className="pill">{plannedSets} sets</span>
+            {usualMins && <span className="pill">~{usualMins} min</span>}
+          </div>
+          <div className="hero-coaches">
+            <span className="coach-stack">{crew.slice(0, 3).map((id) => <span key={id} className="coach-chip"><Coach id={id} size={34} still decorative /></span>)}</span>
+            <span>{onDeck} {crew.length === 1 ? "is" : "are"} on deck</span>
+          </div>
+          <a className="btn hero-cta" href={href("session", day)}>{draft ? `Resume ${p.name}` : "Start lifting"}</a>
         </section>
 
         <WeighIn sessions={sessions} weighins={weighins} onSave={onWeighin} />
 
         {targets.length > 0 && (
           <section className="section">
-            <div className="section-head"><h2 className="lbl">Beat these</h2><span className="small muted">best set last time</span></div>
+            <h2 className="lbl">Beat these</h2>
             <div className="card-list">
               {targets.map((x) => (
                 <a key={x.n} className="card-row" href={href("lift", x.n)}>
@@ -84,7 +94,7 @@ export default function Today({ sessions, program, drafts, weighins, onWeighin }
         )}
 
         <section className="section">
-          <div className="section-head"><h2 className="lbl">This week</h2><span className="mono small muted">{doneThisWeek} of 4</span></div>
+          <div className="section-head"><h2 className="lbl">This week</h2><span className="lbl">{doneThisWeek} of 4</span></div>
           <div className="week">
             {week.map((d) => {
               const dd = byDate[d];
@@ -118,20 +128,6 @@ export default function Today({ sessions, program, drafts, weighins, onWeighin }
   );
 }
 
-/** Competition plate in the day's colour, bleeding off the hero card's corner. */
-function Plate({ kg }) {
-  return (
-    <svg className="hero-plate" viewBox="0 0 210 210" aria-hidden="true">
-      <circle cx="105" cy="105" r="100" style={{ fill: "var(--day)" }} />
-      <circle cx="105" cy="105" r="92" style={{ fill: "none", stroke: "color-mix(in srgb, var(--day) 55%, #000)", strokeWidth: 3 }} />
-      <circle cx="105" cy="105" r="70" style={{ fill: "none", stroke: "color-mix(in srgb, var(--day) 78%, #000)", strokeWidth: 1.5 }} />
-      <circle cx="105" cy="105" r="30" style={{ fill: "color-mix(in srgb, var(--day) 85%, #000)" }} />
-      <circle cx="105" cy="105" r="19" style={{ fill: "var(--surface)" }} />
-      <text x="105" y="186" textAnchor="middle" style={{ fill: "var(--on-day)", fontFamily: "var(--display)", fontWeight: 900, fontSize: 20, letterSpacing: 1 }}>{kg}</text>
-    </svg>
-  );
-}
-
 /** Weekly nudge: shows when the last bodyweight (weigh-in or session) is 7+ days old, or there is none. */
 function WeighIn({ sessions, weighins, onSave }) {
   const series = useMemo(() => bodyweightSeries(sessions, weighins), [sessions, weighins]);
@@ -151,6 +147,7 @@ function WeighIn({ sessions, weighins, onSave }) {
   };
   return (
     <form className="weigh" onSubmit={save} aria-label="Weekly weigh-in">
+      <span className="weigh-icon" aria-hidden="true"><Scale size={22} /></span>
       <div className="weigh-text">
         <b>Weigh-in due</b>
         <span className="small muted">{last ? `Last: ${num(last.bw)} lb · ${plural(ago, "day")} ago` : "Log your bodyweight to start the chart"}</span>
@@ -160,7 +157,7 @@ function WeighIn({ sessions, weighins, onSave }) {
         <input id="weigh-bw" type="number" inputMode="decimal" step="0.1" placeholder={last ? num(last.bw) : "—"} value={bw} onChange={(e) => setBw(e.target.value)} />
         <span className="u">lb</span>
       </label>
-      <button type="submit" className="btn btn-ink weigh-save" disabled={!valid}>Save</button>
+      <button type="submit" className="btn weigh-save" disabled={!valid}>Save</button>
     </form>
   );
 }

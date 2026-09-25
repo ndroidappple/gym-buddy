@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.117.0",
+    "ai": "^7.0.114",
     "border-beam": "^1.4.1",
     "lucide-react": "^0.383.0",
     "metal-fx": "^2.0.11",

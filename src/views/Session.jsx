@@ -4,10 +4,14 @@ import { BorderBeam } from "border-beam";
 import { uid, e1rm, fmtW, today, shortDate, mmss, byDateDesc, priorSessions, allTimeBest, bestSet, vibrate } from "../lib/util.js";
 import { primeAudio, chime } from "../lib/sound.js";
 import { Sheet, ConfirmSheet, ExercisePicker } from "../components/ui.jsx";
+import Coach, { MOODS } from "../components/Coach.jsx";
+import CoachChat from "../components/CoachChat.jsx";
+import { MessageCircle } from "lucide-react";
+import { COACHES, coachFor } from "../data/coaches.js";
 
 const hasVal = (v) => v !== "" && v != null;
 
-export default function Session({ day, existing, draft, sessions, program, back, notify, onSaveDraft, onDiscardDraft, onFinish, onUpdate, onDelete }) {
+export default function Session({ day, existing, draft, sessions, program, weighins, back, notify, onSaveDraft, onDiscardDraft, onFinish, onUpdate, onDelete }) {
   const dayProgram = program[day];
   const [extras, setExtras] = useState(() => draft?.extras || []);
   const [skipped, setSkipped] = useState(() => draft?.skipped || []);
@@ -17,8 +21,22 @@ export default function Session({ day, existing, draft, sessions, program, back,
   const [startedAt, setStartedAt] = useState(existing?.startedAt || draft?.startedAt || null);
   const [timer, setTimer] = useState(() => (draft?.timer?.endsAt > Date.now() ? draft.timer : null));
   const [sheet, setSheet] = useState(null); // "picker" | "details" | "delete"
-  const [openCue, setOpenCue] = useState(null);
+  const [chat, setChat] = useState(null); // coach id being asked
   const [flash, setFlash] = useState(null); // {ex, i} — the set that was just logged
+  const [reaction, setReaction] = useState(null); // {ex, mood} — the coach's brief reaction to a logged set
+  const [editing, setEditing] = useState(false); // numbers being adjusted on the active set
+  const reactionTimer = useRef(null);
+  useEffect(() => () => clearTimeout(reactionTimer.current), []);
+
+  /* Re-render when rest ends so the coach wakes from "recovering". */
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const ms = timer ? timer.endsAt - Date.now() : 0;
+    if (ms <= 0) return;
+    const h = setTimeout(() => setTick((x) => x + 1), ms + 50);
+    return () => clearTimeout(h);
+  }, [timer]);
+  const resting = !!timer && timer.endsAt > Date.now();
 
   /* The moment this session sits at, for "what came before". */
   const here = useMemo(() => ({ id: existing?.id || "new", date, finishedAt: existing?.finishedAt || Date.now() }), [existing, date]);
@@ -134,8 +152,11 @@ export default function Session({ day, existing, draft, sessions, program, back,
     const score = e1rm(parseFloat(row.w) || 0, parseInt(row.r) || 0);
     const prevBest = bestSoFar(ex.n, i);
     const pr = prevBest > 0 && score > prevBest + 0.05;
-    const target = bestSet(lastFor(ex.n)?.sets[ex.n]);
+    const lastSets = lastFor(ex.n)?.sets[ex.n];
+    const target = bestSet(lastSets);
     const beat = !!target && score >= e1rm(target.w, target.r);
+    const same = lastSets?.[i]; // the same set last time
+    const below = !pr && !!same && score < e1rm(same.w, same.r) - 0.05;
 
     setGrid((g) => {
       const rows = [...g[ex.n]];
@@ -147,8 +168,14 @@ export default function Session({ day, existing, draft, sessions, program, back,
     if (!startedAt) setStartedAt(Date.now());
     setFlash({ ex: ex.n, i });
     vibrate(pr ? [40, 60, 40, 60, 80] : 20);
-    setTimer({ endsAt: Date.now() + ex.rest * 1000, total: ex.rest });
+    setTimer({ endsAt: Date.now() + ex.rest * 1000, total: ex.rest, coach: coachFor(ex.n) });
     setActiveIdx(null);
+    setEditing(false);
+    // The coach reacts first, then settles into recovering while the rest timer runs.
+    const mood = pr ? "pr" : below ? "encourage" : "hyped";
+    setReaction({ ex: ex.n, mood });
+    clearTimeout(reactionTimer.current);
+    reactionTimer.current = setTimeout(() => setReaction(null), pr ? 3200 : below ? 3000 : 2200);
 
     const stillPending = grid[ex.n].some((r, j) => j !== i && !r.done);
     if (!stillPending) {
@@ -213,9 +240,7 @@ export default function Session({ day, existing, draft, sessions, program, back,
           <button className="icon-btn boxed" onClick={() => back()} aria-label="Back"><ChevronLeft size={20} /></button>
           <h1 className="top-title" data-day={day}>{dayProgram.name}</h1>
           <span className="spacer" />
-          <span className="mono small muted tn" aria-live="polite">
-            {`${doneSlots} / ${totalSlots} sets`}
-          </span>
+          <span className="pill sets-pill" aria-live="polite">{doneSlots} of {totalSlots} sets</span>
           {existing && <button className="icon-btn" onClick={() => setSheet("delete")} aria-label="Delete session"><Trash2 size={18} /></button>}
         </header>
         <div className="progress" role="progressbar" aria-label="Sets completed" aria-valuemin={0} aria-valuemax={totalSlots} aria-valuenow={doneSlots}>
@@ -233,12 +258,12 @@ export default function Session({ day, existing, draft, sessions, program, back,
             return (
               <ExerciseCard key={ex.n} ex={ex} rows={rows} target={target} targetDate={last?.date}
                 refSets={last?.sets[ex.n] || []} activeIdx={pendingIdx} flash={flash?.ex === ex.n ? flash.i : null}
-                cueOpen={openCue === ex.n} onCue={() => setOpenCue(openCue === ex.n ? null : ex.n)}
-                onEdit={(i, patch) => setRow(ex.n, i, patch)} onLog={(i) => logSet(ex, i)}
-                onPick={(i) => setActiveIdx(i)} onReopen={(i) => reopen(ex.n, i)}
+                mood={reaction?.ex === ex.n ? reaction.mood : resting ? "resting" : editing ? "focused" : "idle"}
+                onEdit={(i, patch) => { setRow(ex.n, i, patch); setEditing(true); }} onLog={(i) => logSet(ex, i)}
+                onPick={(i) => { setActiveIdx(i); setEditing(false); }} onReopen={(i) => reopen(ex.n, i)}
                 onAddSet={() => addSet(ex.n)} onRemoveSet={(i) => removeSet(ex.n, i)}
                 onSkip={ex.today ? () => removeExtra(ex.n) : ex.orphan ? null : () => skip(ex.n)} skipLabel={ex.today ? "Remove" : "Skip today"}
-                onCollapse={() => setFocus(null)} />
+                onAsk={() => setChat(coachFor(ex.n))} onCollapse={() => setFocus(null)} />
             );
           }
           return <Collapsed key={ex.n} ex={ex} rows={rows} target={target} skipped={skipped.includes(ex.n)}
@@ -288,6 +313,7 @@ export default function Session({ day, existing, draft, sessions, program, back,
           <button className="btn btn-ink" onClick={() => setSheet(null)}>Done</button>
         </Sheet>
       )}
+      {chat && <CoachChat coach={chat} sessions={sessions} program={program} weighins={weighins} onClose={() => setChat(null)} />}
       {sheet === "delete" && (
         <ConfirmSheet title="Delete session?" body={`${dayProgram.name} on ${shortDate(existing.date)} and all its sets will be removed.`}
           confirm="Delete" onClose={() => setSheet(null)} onConfirm={() => { onDelete(existing); back("#/history"); }} />
@@ -307,30 +333,49 @@ function Collapsed({ ex, rows, target, skipped, onOpen }) {
   else sub = `${done.length}/${rows.length} sets${target ? ` · beat ${fmtW(target.w)} × ${target.r}` : ""}`;
   return (
     <button className={"ex-collapsed" + (skipped ? " skipped" : complete ? "" : " pending")} onClick={onOpen}>
-      {complete && !skipped ? <span className="mini-ck" aria-hidden="true"><Check size={16} strokeWidth={3} /></span> : <span className="mini-ring" aria-hidden="true" />}
+      <SetRing done={done.length} total={rows.length} skipped={skipped} />
       <span className="name">{ex.n}{ex.today && <span className="ex-tag">today</span>}<span className="sub">{sub}</span></span>
       {prs > 0 && !skipped && <span className="stamp">PR{prs > 1 ? ` ×${prs}` : ""}</span>}
     </button>
   );
 }
 
-function ExerciseCard({ ex, rows, target, targetDate, refSets, activeIdx, flash, cueOpen, onCue, onEdit, onLog, onPick, onReopen, onAddSet, onRemoveSet, onSkip, skipLabel, onCollapse }) {
+/* Sets done as a ring in the day's colour; a check once every set is in, a dash when skipped. */
+function SetRing({ done, total, skipped }) {
+  const C = 2 * Math.PI * 15;
+  const complete = total > 0 && done === total;
+  return (
+    <span className={"set-ring" + (complete && !skipped ? " complete" : "")} aria-hidden="true">
+      {complete && !skipped ? <Check size={16} strokeWidth={3.4} /> : skipped ? <Minus size={16} strokeWidth={3} /> : (
+        <svg viewBox="0 0 36 36"><circle cx="18" cy="18" r="15" className="set-ring-trk" />
+          <circle cx="18" cy="18" r="15" className="set-ring-val" strokeDasharray={C} strokeDashoffset={C * (1 - (total ? done / total : 0))} transform="rotate(-90 18 18)" /></svg>
+      )}
+    </span>
+  );
+}
+
+function ExerciseCard({ ex, rows, target, targetDate, refSets, activeIdx, flash, mood, onAsk, onEdit, onLog, onPick, onReopen, onAddSet, onRemoveSet, onSkip, skipLabel, onCollapse }) {
+  const id = coachFor(ex.n);
+  const coach = COACHES[id];
+  // Calm moods read the form cue; reactions say their own line.
+  const line = (mood === "idle" || mood === "focused") && ex.cue ? ex.cue : MOODS[mood].line;
   return (
     <section className="ex" aria-label={ex.n}>
+      <div className="ex-coach">
+        <Coach id={id} mood={mood} size={68} />
+        <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 6 }}>
+          <p className="coach-bubble" style={{ "--c": coach.color }} aria-live="polite">{line}<span className="who">{coach.name} · {coach.group} coach</span></p>
+          <button className="ask-btn" onClick={onAsk}><MessageCircle size={15} strokeWidth={2.6} aria-hidden="true" /> Ask {coach.name}</button>
+        </div>
+      </div>
       <div className="ex-head">
-        <button style={{ flex: 1, textAlign: "left" }} onClick={onCollapse} aria-label={`${ex.n}, collapse`}>
+        <button style={{ flex: 1, textAlign: "left", minWidth: 0 }} onClick={onCollapse} aria-label={`${ex.n}, collapse`}>
           <div className="ex-name">{ex.n}{ex.today && <span className="ex-tag">today</span>}{ex.orphan && <span className="ex-tag">off program</span>}</div>
           <div className="ex-spec">{ex.sets} × {ex.reps[0]}–{ex.reps[1]} · {ex.rest}s rest</div>
         </button>
-        {ex.cue && <button className="chip" onClick={onCue} aria-expanded={cueOpen}>{cueOpen ? "Hide cue" : "Cue"}</button>}
+        {target && <span className="target" title={`Best set on ${shortDate(targetDate)}`}>Beat {fmtW(target.w)} × {target.r}</span>}
       </div>
-      {cueOpen && ex.cue && <p className="cue">{ex.cue}</p>}
-
-      {target ? (
-        <div className="target"><span className="lbl">Beat</span><span className="v">{fmtW(target.w)} × {target.r}</span><span className="spacer" /><span className="mono small muted">{shortDate(targetDate)}</span></div>
-      ) : (
-        <div className="target"><span className="small muted">No history yet. This session sets the baseline.</span></div>
-      )}
+      {!target && <p className="target-none">First time logging this one. Today sets the baseline.</p>}
 
       <div>
         {rows.map((r, i) => {
@@ -376,14 +421,14 @@ function ActiveSet({ i, ex, row, last, canRemove, onEdit, onLog, onRemove }) {
   const ready = hasVal(row.w) && hasVal(row.r);
   return (
     <div className="active-set">
-      <div style={{ display: "flex", alignItems: "center" }}>
-        <span className="lbl">Set {i + 1}</span><span className="spacer" />
-        {last && <span className="mono small muted">last time {fmtW(last.w)} × {last.r}</span>}
+      <div className="set-head">
+        <span>Set {i + 1}</span><span className="spacer" />
+        {last && <span className="lbl">last time {fmtW(last.w)} × {last.r}</span>}
       </div>
       <div className="steppers">
-        <Stepper id={`w-${i}`} label="Weight" unit={row.w === "0" ? "BODYWEIGHT" : "LB"} value={row.w} mode="decimal"
+        <Stepper id={`w-${i}`} label="Weight" unit={row.w === "0" ? "bodyweight" : "lb"} value={row.w} mode="decimal"
           onChange={(v) => onEdit({ w: v })} onDec={() => bump("w", -5)} onInc={() => bump("w", 5)} step="5 pounds" />
-        <Stepper id={`r-${i}`} label="Reps" unit="REPS" value={row.r} mode="numeric" placeholder={`${ex.reps[0]}–${ex.reps[1]}`}
+        <Stepper id={`r-${i}`} label="Reps" unit="reps" value={row.r} mode="numeric" placeholder={`${ex.reps[0]}–${ex.reps[1]}`}
           onChange={(v) => onEdit({ r: v })} onDec={() => bump("r", -1)} onInc={() => bump("r", 1)} step="1 rep" />
       </div>
       <div className="rir" role="group" aria-label="Reps in reserve (optional)">
@@ -428,21 +473,16 @@ function RestDock({ timer, setTimer }) {
   useEffect(() => {
     if (over && !alerted.current) { alerted.current = true; chime(); vibrate([200, 100, 200]); }
   }, [over]);
-  const pct = Math.min(100, ((timer.total - left) / timer.total) * 100);
   const adjust = (d) => setTimer((t) => ({ ...t, endsAt: Math.max(Date.now(), t.endsAt + d * 1000), total: Math.max(15, t.total + d) }));
   const reduced = useReducedMotion();
-  const C = 2 * Math.PI * 24;
   return (
     // Line beam runs only while resting (a 60–120 s wait); the line type ignores reduced motion, so gate it here.
     <BorderBeam size="line" theme="auto" active={!over && !reduced} className="rest-wrap">
       <div className={"rest" + (over ? " over" : "")} role="timer" aria-label="Rest timer">
-        <svg className="ring" viewBox="0 0 56 56" aria-hidden="true">
-          <circle cx="28" cy="28" r="24" className="ring-trk" />
-          <circle cx="28" cy="28" r="24" className="ring-val" strokeDasharray={C} strokeDashoffset={C * (1 - pct / 100)} transform="rotate(-90 28 28)" />
-        </svg>
+        <Coach id={timer.coach || "tank"} mood={over ? "focused" : "resting"} size={46} decorative />
         <div className="rest-text">
-          <span className="lbl">{over ? "Rest over · next set" : `Rest · of ${mmss(timer.total)}`}</span>
-          <span className="clock" aria-live={over ? "assertive" : "off"}>{over ? "Go" : mmss(left)}</span>
+          <span className="rest-line">{over ? "Rest over. Next set!" : MOODS.resting.line}</span>
+          <span className="clock" aria-live={over ? "assertive" : "off"} aria-label={over ? "Rest over" : `${mmss(left)} of ${mmss(timer.total)} rest left`}>{over ? "Go" : mmss(left)}</span>
         </div>
         {!over && <button className="rb" onClick={() => adjust(-15)} aria-label="Remove 15 seconds">−15</button>}
         {!over && <button className="rb" onClick={() => adjust(15)} aria-label="Add 15 seconds">+15</button>}
