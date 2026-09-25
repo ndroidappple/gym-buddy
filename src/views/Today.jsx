@@ -16,12 +16,14 @@ export default function Today({ name, sessions, program, drafts, weighins, onWei
   // A swapped day holds for today only, until the next session is logged.
   const picked = pick && pick.date === t && pick.after === sessions.length && program[pick.day] ? pick.day : null;
   const suggested = nextDayAfter(sessions);
-  const day = draftDay || picked || suggested;
+  // A workout in progress leads unless the lifter picked another day; that draft stays saved.
+  const fallback = draftDay || suggested;
+  const day = picked || fallback;
   const p = program[day];
   const draft = drafts[day];
   const lastOfDay = sorted.find((s) => s.day === day);
   const choose = (d) => {
-    const next = d === suggested ? null : { date: t, day: d, after: sessions.length };
+    const next = d === fallback ? null : { date: t, day: d, after: sessions.length };
     setPick(next);
     try { next ? localStorage.setItem(PICK_KEY, JSON.stringify(next)) : localStorage.removeItem(PICK_KEY); } catch {}
     setChoosing(false);
@@ -78,11 +80,9 @@ export default function Today({ name, sessions, program, drafts, weighins, onWei
         <section className="hero-card" aria-label={draft ? `${p.name} in progress` : `Up next: ${p.name}`}>
           <div className="hero-top">
             <span className="pill day-lbl">{draft ? `In progress · ${plural(setsLogged, "set")} logged` : `${picked ? "Today" : "Up next"} · Day ${DAYS.indexOf(day) + 1}`}</span>
-            {!draft && (
-              <button type="button" className="pill hero-switch" onClick={() => setChoosing(true)} aria-haspopup="dialog">
-                <ArrowLeftRight size={14} strokeWidth={2.6} aria-hidden="true" />Change
-              </button>
-            )}
+            <button type="button" className="pill hero-switch" onClick={() => setChoosing(true)} aria-haspopup="dialog">
+              <ArrowLeftRight size={14} strokeWidth={2.6} aria-hidden="true" />Change
+            </button>
           </div>
           <div className="hero-text">
             <span className={"hero-day" + (p.name.length > 6 ? " long" : "")}>{p.name}</span>
@@ -101,12 +101,12 @@ export default function Today({ name, sessions, program, drafts, weighins, onWei
         </section>
 
         {choosing && (
-          <Sheet title="Train something else" sub="Swap today's workout. Your rotation picks back up after you log it." onClose={() => setChoosing(false)} labelledBy="swap-title">
+          <Sheet title="Train something else" sub={draftDay ? `Your ${program[draftDay].name} workout in progress stays saved. Tap it to pick back up.` : "Swap today's workout. Your rotation picks back up after you log it."} onClose={() => setChoosing(false)} labelledBy="swap-title">
             <div className="list">
               {DAYS.map((d) => (
                 <button key={d} type="button" className="list-row" data-day={d} aria-pressed={d === day} onClick={() => choose(d)}>
                   <span className="dot" aria-hidden="true" />
-                  <span className="name">{program[d].name}{d === suggested ? " · up next" : ""}<span className="sub">{program[d].detail} · {plural(program[d].exercises.length, "lift")}</span></span>
+                  <span className="name">{program[d].name}{drafts[d] ? " · in progress" : d === suggested ? " · up next" : ""}<span className="sub">{program[d].detail} · {plural(program[d].exercises.length, "lift")}</span></span>
                   {d === day && <Check size={18} strokeWidth={2.6} aria-hidden="true" />}
                 </button>
               ))}

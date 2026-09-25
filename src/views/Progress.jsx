@@ -1,12 +1,9 @@
 import React, { useMemo } from "react";
 import { Scale } from "lucide-react";
-import { BorderBeam } from "border-beam";
 import { isCardio, DAYS } from "../data/program.js";
 import { href } from "../lib/router.js";
 import { liftSeries, trend, num, shortDate, bodyweightSeries, daysBetween, today } from "../lib/util.js";
 import { InfoButton, Sparkline, Trend } from "../components/ui.jsx";
-import { useReducedMotion } from "../lib/motion.js";
-import { useTheme } from "../lib/theme.js";
 
 /* A lift is "on a PR" when its latest session beat every earlier one (not its first) in the last two weeks. */
 const PR_DAYS = 14;
@@ -36,8 +33,6 @@ export default function Progress({ sessions, program, weighins }) {
   const all = groups.flatMap((g) => g.logged).filter((r) => r.pct != null);
   const up = all.filter((r) => r.pct >= 1).length;
   const bw = useMemo(() => bodyweightSeries(sessions, weighins), [sessions, weighins]);
-  const reduced = useReducedMotion();
-  const theme = useTheme();
 
   return (
     <main className="screen has-tabs">
@@ -55,19 +50,16 @@ export default function Progress({ sessions, program, weighins }) {
           <section key={g.name} className="section" data-day={g.day || undefined}>
             <h2 className="lbl" style={{ display: "flex", alignItems: "center", gap: 8 }}><span className="dot" aria-hidden="true" />{g.name}</h2>
             <div className="card-list">
-              {g.logged.map((r) => {
-                const row = (
-                  <a key={r.n} className={"lift-row" + (r.pr ? " is-pr" : "")} href={href("lift", r.n)}>
-                    <span className="name">{r.pr && <span className="stamp pr-stamp">PR</span>}{r.n}
-                      <span className="sub">Est. max {num(r.best)} lb · {r.vals.length} session{r.vals.length > 1 ? "s" : ""}</span>
-                    </span>
-                    <Sparkline values={r.vals} />
-                    <Trend pct={r.pct} />
-                  </a>
-                );
-                // A bold travelling rim on fresh PRs; the PR stamp carries the meaning when motion is off.
-                return r.pr ? <BorderBeam key={r.n} size="md" colorVariant="sunset" theme={theme} active={!reduced} className="pr-beam">{row}</BorderBeam> : row;
-              })}
+              {g.logged.map((r) => (
+                // Fresh PRs get the animated gold rim (.pr-rim); with motion off it holds still.
+                <a key={r.n} className={"lift-row" + (r.pr ? " pr-rim" : "")} href={href("lift", r.n)}>
+                  <span className="name">{r.pr && <span className="stamp pr-stamp">PR</span>}{r.n}
+                    <span className="sub">Est. max {num(r.best)} lb · {r.vals.length} session{r.vals.length > 1 ? "s" : ""}</span>
+                  </span>
+                  <Sparkline values={r.vals} />
+                  <Trend pct={r.pct} />
+                </a>
+              ))}
               {g.unlogged.length > 0 && (
                 <div className="lift-row unlogged">
                   <span className="name" style={{ whiteSpace: "normal" }}>Not logged yet

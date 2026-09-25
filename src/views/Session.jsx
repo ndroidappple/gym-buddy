@@ -14,7 +14,7 @@ import { isCardio, specLine } from "../data/program.js";
 
 const hasVal = (v) => v !== "" && v != null;
 
-export default function Session({ day, existing, draft, sessions, program, weighins, prefs, back, notify, onSaveDraft, onDiscardDraft, onFinish, onUpdate, onDelete }) {
+export default function Session({ day, existing, draft, sessions, program, weighins, prefs, back, notify, onSaveDraft, onDiscardDraft, onFinish, onUpdate, onDelete, onProgramChange }) {
   const dayProgram = program[day];
   const [extras, setExtras] = useState(() => draft?.extras || []);
   const [skipped, setSkipped] = useState(() => draft?.skipped || []);
@@ -378,7 +378,7 @@ export default function Session({ day, existing, draft, sessions, program, weigh
           <button className="btn btn-ink" onClick={() => setSheet(null)}>Done</button>
         </Sheet>
       )}
-      {chat && <CoachChat coach={chat.coach} exercise={chat.exercise} sessions={sessions} program={program} weighins={weighins} onClose={() => setChat(null)} />}
+      {chat && <CoachChat coach={chat.coach} exercise={chat.exercise} sessions={sessions} program={program} weighins={weighins} onProgramChange={onProgramChange} onClose={() => setChat(null)} />}
       {sheet === "delete" && (
         <ConfirmSheet title="Delete session?" body={`${dayProgram.name} on ${shortDate(existing.date)} and all its sets will be removed.`}
           confirm="Delete" onClose={() => setSheet(null)} onConfirm={() => { onDelete(existing); back("#/history"); }} />
@@ -432,8 +432,6 @@ function ExerciseCard({ ex, showRir, rows, target, targetDate, bump, refSets, ac
     : calm && ex.cue ? ex.cue : MOODS[mood].line;
   const cardio = isCardio(ex.n);
   const lastEntry = cardio ? refSets[0] : null;
-  const reduced = useReducedMotion();
-  const theme = useTheme();
   return (
     <section className="ex" aria-label={ex.n}>
       {/* Comic layout: the bubble's tail points down at the coach who says it. */}
@@ -471,16 +469,15 @@ function ExerciseCard({ ex, showRir, rows, target, targetDate, bump, refSets, ac
             );
           }
           if (r.done) {
-            const row = (
-              <button key={i} className={"done-row" + (r.pr ? " is-pr" : "")} onClick={() => onReopen(i)} aria-label={`Set ${i + 1}: ${fmtW(+r.w)} by ${r.r}${r.pr ? ", personal record" : ""}. Tap to edit.`}>
+            // PR sets get the animated gold rim (.pr-rim), bolder than the rest timer's line beam.
+            return (
+              <button key={i} className={"done-row" + (r.pr ? " pr-rim" : "")} onClick={() => onReopen(i)} aria-label={`Set ${i + 1}: ${fmtW(+r.w)} by ${r.r}${r.pr ? ", personal record" : ""}. Tap to edit.`}>
                 <span className="n">{i + 1}</span>
                 <span className="w">{fmtW(+r.w)} × {r.r}{r.pr ? <span className={"stamp" + (flash === i ? " hit" : "")}>PR</span> : r.beat ? <span className="beat-mark">▲ beat</span> : null}</span>
                 <span className="small muted">{showRir && hasVal(r.rir) ? `RIR ${r.rir}` : ""}</span>
                 <span className={"ck" + (flash === i ? " fill" : "")} aria-hidden="true"><Check size={18} strokeWidth={3} /></span>
               </button>
             );
-            // PR sets get the bold travelling rim (the rest timer uses the quieter line beam).
-            return r.pr ? <BorderBeam key={i} size="md" colorVariant="sunset" theme={theme} active={!reduced} className="pr-beam">{row}</BorderBeam> : row;
           }
           if (i === activeIdx && cardio) {
             return <CardioSet key={i} i={i} ex={ex} row={r} last={refSets[i]} canRemove={rows.length > 1}

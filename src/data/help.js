@@ -11,6 +11,15 @@ export const HELP = {
       "Weigh in once a week for your bodyweight chart, or tap ✕ to skip until Monday.",
     ],
   },
+  summary: {
+    title: "Workout summary",
+    sub: "How this workout went.",
+    points: [
+      "Records are lifts where you beat your best est. max (estimated one-rep max, or 1RM): the most you could likely lift for a single rep, worked out from your best set.",
+      "Beat last time and below last time compare each lift with the last time you did it.",
+      "First time logged sets the baseline to beat next time.",
+    ],
+  },
   history: {
     title: "History",
     sub: "Every workout you've logged.",
@@ -23,7 +32,7 @@ export const HELP = {
     title: "Progress",
     sub: "Is each lift getting stronger?",
     points: [
-      "Est. max is the most you could likely lift once, worked out from your best set.",
+      "Est. max (estimated one-rep max, or 1RM) is the most you could likely lift for a single rep, worked out from your best set. 80 lb × 12 ≈ 112 lb.",
       "The arrow shows how much it's changed recently. Baseline means you've logged it once.",
       "A glowing row means you just set a PR on that lift.",
       "Tap a lift for its chart and records.",
@@ -33,6 +42,7 @@ export const HELP = {
     title: "Lift detail",
     sub: "Everything about one lift.",
     points: [
+      "Est. max (estimated one-rep max, or 1RM) is the most you could likely lift for a single rep, worked out from your best set. 80 lb × 12 ≈ 112 lb.",
       "The chart shows est. max, top set or total weight over time. PRs are marked.",
       "Rep records are your heaviest weight for each number of reps.",
       "Tap a session to open it.",

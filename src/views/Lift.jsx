@@ -82,7 +82,7 @@ function LiftDetail({ name, sessions, program, back }) {
         ) : (
           <>
             <section className="section" aria-label="Best estimated one-rep max">
-              <span className="lbl">Best estimated 1RM</span>
+              <span className="lbl">Best est. max</span>
               <div className="hero-num">
                 <b>{num(best)}</b>
                 <span className="mono small" style={{ paddingBottom: 6 }}>lb &nbsp;{pct != null && <Trend pct={pct} />}</span>

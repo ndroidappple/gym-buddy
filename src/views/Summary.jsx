@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { isCardio } from "../data/program.js";
 import { href } from "../lib/router.js";
 import Coach from "../components/Coach.jsx";
+import { InfoButton } from "../components/ui.jsx";
 import { coachFor } from "../data/coaches.js";
 import { useTheme } from "../lib/theme.js";
 import { fmtSet, cardioTotals, priorSessions, allTimeBest, bestSet, bestE1rm, e1rm, fmtW, num, compact, shortDate, plural, sessionVolume, sessionSetCount, byDateDesc, nextDayAfter } from "../lib/util.js";
@@ -49,6 +50,7 @@ export default function Summary({ session, sessions, program, go, onUpdate }) {
             <span className="chip"><span className="dot" aria-hidden="true" />{p.name} · {shortDate(session.date)}</span>
             <span className="spacer" />
             {mins && <span className="mono small muted">{mins} min</span>}
+            <InfoButton screen="summary" />
           </div>
           <div className="summary-hero">
             <Headline />
