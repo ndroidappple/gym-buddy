@@ -5,6 +5,14 @@ import { createClient } from "@supabase/supabase-js";
    just travels to the app, which shows a confirm card and applies the change only if the lifter
    taps Apply. In the response stream a proposal is a line starting with PROPOSAL_MARK. */
 export const PROPOSAL_MARK = "\u001E";
+
+/** A 429 from AI Gateway (free-tier per-model limit) or the provider, however the SDK wraps it. */
+function isRateLimit(e) {
+  for (let x = e, depth = 0; x && depth < 5; x = x.lastError || x.cause, depth++) {
+    if (x.statusCode === 429 || x.type === "rate_limit_exceeded" || /rate.?limit/i.test(x.message || "")) return true;
+  }
+  return false;
+}
 export const COACH_TOOLS = {
   propose_program_change: tool({
     description: "Propose changes to the lifter's saved program (the lifts, sets, reps and rest each day starts with). The app shows the lifter a confirm card; nothing changes unless they tap Apply. Use only when they ask to change their program or agree to your suggestion.",
@@ -99,30 +107,48 @@ export async function POST(request) {
     instructions: coachInstructions(body.coach, context),
     messages,
     tools: COACH_TOOLS,
-    // Brevity comes from the prompt, not this cap: the model spends unlabeled tokens thinking first
-    // (up to ~400 measured), so a tight cap returns an empty reply instead of a short one.
-    maxOutputTokens: 600,
+    // Brevity comes from the prompt, not this cap. The model thinks before it answers and that counts
+    // against the cap (up to ~580 tokens measured with the full context), so a tight cap returns an
+    // empty reply, which used to look like a rate limit. Free model: the headroom costs nothing.
+    maxOutputTokens: 1500,
     abortSignal: request.signal,
-    onError: ({ error }) => console.error("coach stream error", error),
   });
 
-  // Plain text as it streams, then any proposal as its own line: MARK + JSON.
+  return new Response(toReplyStream(result), { headers: { "content-type": "text/plain; charset=utf-8", "cache-control": "no-store" } });
+}
+
+/** Plain text as it streams, then any proposal as its own line: MARK + JSON. When the reply fails
+    or comes back empty, a final MARK + {"status": ...} line tells the app why, so it can say the
+    right thing (and retry an empty reply) instead of blaming the free tier for everything. */
+export function toReplyStream(result) {
   const enc = new TextEncoder();
-  const stream = new ReadableStream({
+  return new ReadableStream({
     async start(ctl) {
+      let wrote = false;
+      let failure = null;
       try {
         for await (const part of result.fullStream) {
-          if (part.type === "text-delta") ctl.enqueue(enc.encode(part.text));
+          if (part.type === "text-delta" && part.text) { wrote = wrote || !!part.text.trim(); ctl.enqueue(enc.encode(part.text)); }
           else if (part.type === "tool-call" && part.toolName === "propose_program_change") {
+            wrote = true;
             ctl.enqueue(enc.encode(`${PROPOSAL_MARK}${JSON.stringify(part.input)}\n`));
-          }
+          } else if (part.type === "error") failure = part.error;
         }
       } catch (e) {
-        if (e?.name !== "AbortError") console.error("coach stream error", e);
-      } finally {
-        ctl.close();
+        if (e?.name === "AbortError") { ctl.close(); return; }
+        failure = e;
       }
+      let status = null;
+      if (failure) {
+        status = isRateLimit(failure) ? "rate" : "error";
+        console.error(`coach ${status}`, failure?.statusCode ?? "", failure?.message ?? failure);
+      } else if (!wrote) {
+        status = "empty";
+        const [finish, usage] = await Promise.all([result.finishReason.catch(() => "?"), result.usage.catch(() => ({}))]);
+        console.warn("coach empty reply", { finish, outputTokens: usage.outputTokens, model: MODEL });
+      }
+      if (status) ctl.enqueue(enc.encode(`${PROPOSAL_MARK}${JSON.stringify({ status })}\n`));
+      ctl.close();
     },
   });
-  return new Response(stream, { headers: { "content-type": "text/plain; charset=utf-8", "cache-control": "no-store" } });
 }
