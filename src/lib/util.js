@@ -1,4 +1,4 @@
-import { DAYS, isCardio } from "../data/program.js";
+import { DAYS, isCardio, activeDays } from "../data/program.js";
 
 export const uid = () => Math.random().toString(36).slice(2, 10);
 export const e1rm = (w, r) => (r <= 1 ? w : w * (1 + r / 30));
@@ -82,10 +82,17 @@ export function weekDates(ref = new Date()) {
   return Array.from({ length: 7 }, (_, i) => { const x = new Date(d); x.setDate(d.getDate() + i); return iso(x); });
 }
 
-export function nextDayAfter(sessions) {
-  const last = [...sessions].sort(byDateDesc)[0];
-  if (!last) return DAYS[0];
-  return DAYS[(DAYS.indexOf(last.day) + 1) % DAYS.length];
+/** The next day in the rotation. Custom workouts (and days since switched off) take a slot too:
+    Push next, do a custom workout, and Pull is next. */
+export function nextDayAfter(sessions, program) {
+  const days = program ? activeDays(program) : DAYS;
+  let skipped = 0;
+  for (const s of [...sessions].sort(byDateDesc)) {
+    const i = days.indexOf(s.day);
+    if (i >= 0) return days[(i + 1 + skipped) % days.length];
+    skipped++;
+  }
+  return days[skipped % days.length];
 }
 
 /** Bodyweight over time from weekly weigh-ins and session entries, oldest first, one point per date (a weigh-in wins). */

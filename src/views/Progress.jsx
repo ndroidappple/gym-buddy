@@ -1,6 +1,6 @@
 import React, { useMemo } from "react";
 import { Scale } from "lucide-react";
-import { isCardio, DAYS } from "../data/program.js";
+import { isCardio, activeDays } from "../data/program.js";
 import { href } from "../lib/router.js";
 import { liftSeries, trend, num, shortDate, bodyweightSeries, daysBetween, today } from "../lib/util.js";
 import { InfoButton, Sparkline, Trend } from "../components/ui.jsx";
@@ -11,7 +11,7 @@ const PR_DAYS = 14;
 export default function Progress({ sessions, program, weighins }) {
   const groups = useMemo(() => {
     const seen = new Set();
-    const out = DAYS.map((d) => {
+    const out = activeDays(program).map((d) => {
       const lifts = program[d].exercises.map((e) => e.n).filter((n) => !seen.has(n) && seen.add(n));
       return { day: d, name: program[d].name, lifts };
     });

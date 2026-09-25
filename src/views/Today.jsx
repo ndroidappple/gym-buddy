@@ -1,21 +1,22 @@
 import React, { useMemo, useState } from "react";
 import { InfoButton, Sheet } from "../components/ui.jsx";
 import { Scale, ArrowLeftRight, Check, X } from "lucide-react";
-import { DAYS } from "../data/program.js";
+import { DAYS, CUSTOM, activeDays } from "../data/program.js";
 import { href } from "../lib/router.js";
 import { COACHES, coachesFor } from "../data/coaches.js";
+import SetupCard from "../components/SetupCard.jsx";
 import Coach from "../components/Coach.jsx";
 import { byDateDesc, bestSet, fmtW, num, shortDate, weekDates, today, nextDayAfter, bodyweightSeries, daysBetween, plural, readyToIncrease } from "../lib/util.js";
 
-export default function Today({ name, sessions, program, drafts, weighins, onWeighin }) {
+export default function Today({ name, sessions, program, drafts, weighins, prefs, onWeighin }) {
   const sorted = useMemo(() => [...sessions].sort(byDateDesc), [sessions]);
-  const draftDay = DAYS.find((d) => drafts[d]);
+  const draftDay = [...activeDays(program), CUSTOM].find((d) => drafts[d]);
   const t = today();
   const [pick, setPick] = useState(loadPick);
   const [choosing, setChoosing] = useState(false);
   // A swapped day holds for today only, until the next session is logged.
   const picked = pick && pick.date === t && pick.after === sessions.length && program[pick.day] ? pick.day : null;
-  const suggested = nextDayAfter(sessions);
+  const suggested = nextDayAfter(sessions, program);
   // A workout in progress leads unless the lifter picked another day; that draft stays saved.
   const fallback = draftDay || suggested;
   const day = picked || fallback;
@@ -77,9 +78,10 @@ export default function Today({ name, sessions, program, drafts, weighins, onWei
       </header>
 
       <div className="body" data-day={day}>
+        {sessions.length === 0 && <SetupCard prefs={prefs} glow />}
         <section className="hero-card" aria-label={draft ? `${p.name} in progress` : `Up next: ${p.name}`}>
           <div className="hero-top">
-            <span className="pill day-lbl">{draft ? `In progress · ${plural(setsLogged, "set")} logged` : `${picked ? "Today" : "Up next"} · Day ${DAYS.indexOf(day) + 1}`}</span>
+            <span className="pill day-lbl">{draft ? `In progress · ${plural(setsLogged, "set")} logged` : day === CUSTOM ? "Today · Custom workout" : `${picked ? "Today" : "Up next"} · Day ${activeDays(program).indexOf(day) + 1}`}</span>
             <button type="button" className="pill hero-switch" onClick={() => setChoosing(true)} aria-haspopup="dialog">
               <ArrowLeftRight size={14} strokeWidth={2.6} aria-hidden="true" />Change
             </button>
@@ -88,31 +90,38 @@ export default function Today({ name, sessions, program, drafts, weighins, onWei
             <span className={"hero-day" + (p.name.length > 6 ? " long" : "")}>{p.name}</span>
             <span className="hero-meta">{p.detail}{lastOfDay ? ` · last done ${shortDate(lastOfDay.date)}` : ""}</span>
           </div>
-          <div className="hero-pills">
-            <span className="pill">{plural(p.exercises.length, "lift")}</span>
-            <span className="pill">{plannedSets} sets</span>
-            {usualMins && <span className="pill">~{usualMins} min</span>}
-          </div>
-          <div className="hero-coaches">
-            <span className="coach-stack">{crew.slice(0, 3).map((id) => <span key={id} className="coach-chip"><Coach id={id} size={32} still badge decorative /></span>)}</span>
-            <span>{onDeck} {crew.length === 1 ? "is" : "are"} on deck</span>
-          </div>
+          {p.exercises.length > 0 && (
+            <>
+              <div className="hero-pills">
+                <span className="pill">{plural(p.exercises.length, "lift")}</span>
+                <span className="pill">{plannedSets} sets</span>
+                {usualMins && <span className="pill">~{usualMins} min</span>}
+              </div>
+              <div className="hero-coaches">
+                <span className="coach-stack">{crew.slice(0, 3).map((id) => <span key={id} className="coach-chip"><Coach id={id} size={32} still badge decorative /></span>)}</span>
+                <span>{onDeck} {crew.length === 1 ? "is" : "are"} on deck</span>
+              </div>
+            </>
+          )}
           <a className="btn hero-cta" href={href("session", day)}>{draft ? `Resume ${p.name}` : "Start lifting"}</a>
         </section>
 
         {choosing && (
           <Sheet title="Train something else" sub={draftDay ? `Your ${program[draftDay].name} workout in progress stays saved. Tap it to pick back up.` : "Swap today's workout. Your rotation picks back up after you log it."} onClose={() => setChoosing(false)} labelledBy="swap-title">
             <div className="list">
-              {DAYS.map((d) => (
+              {[...activeDays(program), CUSTOM].map((d) => (
                 <button key={d} type="button" className="list-row" data-day={d} aria-pressed={d === day} onClick={() => choose(d)}>
                   <span className="dot" aria-hidden="true" />
-                  <span className="name">{program[d].name}{drafts[d] ? " · in progress" : d === suggested ? " · up next" : ""}<span className="sub">{program[d].detail} · {plural(program[d].exercises.length, "lift")}</span></span>
+                  <span className="name">{d === CUSTOM ? "Custom workout" : program[d].name}{drafts[d] ? " · in progress" : d === suggested ? " · up next" : ""}
+                    <span className="sub">{d === CUSTOM ? "Start empty and add any lifts or cardio." : `${program[d].detail} · ${plural(program[d].exercises.length, "lift")}`}</span></span>
                   {d === day && <Check size={18} strokeWidth={2.6} aria-hidden="true" />}
                 </button>
               ))}
             </div>
           </Sheet>
         )}
+
+        {sessions.length > 0 && <SetupCard prefs={prefs} />}
 
         <WeighIn sessions={sessions} weighins={weighins} onSave={onWeighin} />
 
@@ -133,7 +142,7 @@ export default function Today({ name, sessions, program, drafts, weighins, onWei
         )}
 
         <section className="section">
-          <div className="section-head"><h2 className="lbl">This week</h2><span className="lbl">{doneThisWeek} of 4 workouts</span></div>
+          <div className="section-head"><h2 className="lbl">This week</h2><span className="lbl">{doneThisWeek} done · aim ~{prefs?.profile?.days || activeDays(program).length}</span></div>
           <div className="week">
             {week.map((d) => {
               const dd = byDate[d];
@@ -151,7 +160,7 @@ export default function Today({ name, sessions, program, drafts, weighins, onWei
         <section className="section">
           <h2 className="lbl">Or train another day</h2>
           <div className="others">
-            {DAYS.filter((d) => d !== day).map((d) => {
+            {activeDays(program).filter((d) => d !== day).map((d) => {
               const last = sorted.find((s) => s.day === d);
               return (
                 <a key={d} className="other" data-day={d} href={href("session", d)}>

@@ -3,11 +3,12 @@ import { isCardio } from "../data/program.js";
 import { href } from "../lib/router.js";
 import Coach from "../components/Coach.jsx";
 import { InfoButton } from "../components/ui.jsx";
+import SetupCard from "../components/SetupCard.jsx";
 import { coachFor } from "../data/coaches.js";
 import { useTheme } from "../lib/theme.js";
 import { fmtSet, cardioTotals, priorSessions, allTimeBest, bestSet, bestE1rm, e1rm, fmtW, num, compact, shortDate, plural, sessionVolume, sessionSetCount, byDateDesc, nextDayAfter } from "../lib/util.js";
 
-export default function Summary({ session, sessions, program, go, onUpdate }) {
+export default function Summary({ session, sessions, program, prefs, go, onUpdate }) {
   const [note, setNote] = useState(session.note || "");
   const p = program[session.day];
 
@@ -37,7 +38,7 @@ export default function Summary({ session, sessions, program, go, onUpdate }) {
 
   const mins = session.startedAt && session.finishedAt ? Math.max(1, Math.round((session.finishedAt - session.startedAt) / 60000)) : null;
   const volPct = r.lastVol ? ((r.vol - r.lastVol) / r.lastVol) * 100 : null;
-  const nextDay = nextDayAfter(sessions);
+  const nextDay = nextDayAfter(sessions, program);
   const next = program[nextDay];
   const saveNote = () => { if ((session.note || "") !== note.trim()) onUpdate({ ...session, note: note.trim() || null }); };
   const done = () => { saveNote(); go("#/today", { replace: true }); };
@@ -57,6 +58,8 @@ export default function Summary({ session, sessions, program, go, onUpdate }) {
             <Coach id={coachFor(Object.keys(session.sets)[0] || "")} mood={r.records.length ? "pr" : "proud"} size={84} />
           </div>
         </header>
+        {/* First workout logged and the plan still generic: the moment to point at the coaches. */}
+        {sessions.length === 1 && <SetupCard prefs={prefs} glow lead="First workout done. Now shape your plan." />}
 
         <div className="stats">
           <div className="stat"><b>{compact(r.vol)}</b><span>lb volume</span>{volPct != null && <Delta pct={volPct} />}</div>

@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { InfoButton } from "../components/ui.jsx";
 import { Pencil } from "lucide-react";
-import { DAYS } from "../data/program.js";
+import { DAYS, CUSTOM } from "../data/program.js";
 import { href } from "../lib/router.js";
 import { fmtSet, byDateDesc, longDate, fmtW, compact, sessionVolume, sessionSetCount, plural, priorSessions, allTimeBest, bestE1rm } from "../lib/util.js";
 
@@ -25,7 +25,7 @@ export default function History({ sessions, program }) {
       <div className="body">
         <div className="filters" role="group" aria-label="Filter by day">
           <button className="chip" aria-pressed={!filter} onClick={() => setFilter(null)}>All</button>
-          {DAYS.map((d) => (
+          {[...DAYS, CUSTOM].filter((d) => !program[d].off || sessions.some((x) => x.day === d)).filter((d) => d !== CUSTOM || sessions.some((x) => x.day === d)).map((d) => (
             <button key={d} className="chip" data-day={d} aria-pressed={filter === d} onClick={() => setFilter(filter === d ? null : d)}>
               <span className="dot" aria-hidden="true" />{program[d].name}
             </button>

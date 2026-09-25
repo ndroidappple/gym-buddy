@@ -36,8 +36,20 @@ const BASE_PROGRAM = {
     { n: "Skull Crushers", sets: 3, reps: [10,12], rest: 60 },
   ]},
 };
-export const PROGRAM = refreshCues(BASE_PROGRAM);
+/* A custom workout: starts empty, lifts are added for that session only. It lives in the program so
+   names and colours resolve like any day, but it's never edited as a day. It still takes a slot in
+   the rotation (see nextDayAfter). */
+export const CUSTOM = "custom";
+const CUSTOM_DAY = { name: "Custom", detail: "Your pick of lifts", exercises: [], virtual: true };
+
+/** Normalises a saved program: current cues, and the custom day present. */
+export const normalizeProgram = (p) => { const q = refreshCues(p); return q[CUSTOM] ? q : { ...q, [CUSTOM]: CUSTOM_DAY }; };
+
+export const PROGRAM = normalizeProgram(BASE_PROGRAM);
+/** Every program day slot. A day can be switched off (`off: true`), e.g. a 3-day split. */
 export const DAYS = ["push", "pull", "legs", "shoulders"];
+/** The days in the rotation right now, in order. */
+export const activeDays = (program) => DAYS.filter((d) => program?.[d] && !program[d].off);
 
 /** Cardio entries log minutes (+ optional miles) instead of weight × reps. */
 export const isCardio = (name) => CARDIO.has(name);
