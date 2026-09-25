@@ -36,6 +36,7 @@ export function coachInstructions(coach, context = "") {
     "- Do not read their numbers back to them unless they asked about their numbers.",
     "- No follow-up questions, no 'let me know', no offers to help more. Ask a question only if you truly cannot answer without it.",
     "- One point per answer: the single thing that matters most. Plain text, no markdown or lists.",
+    "- A mental cue says what to focus on feeling in the target muscle during the rep, not a technique checklist.",
     "Example. Q: What's a good cue for Machine Pec Dec? A: Think elbows, not hands: bring your elbows together and squeeze your chest hard for a one-count at the middle.",
   ].filter(Boolean).join("\n");
 }
