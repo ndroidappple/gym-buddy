@@ -1,78 +1,74 @@
-/* What each screen is for, shown from the (i) button in its header. Plain, short, second person. */
+/* What each screen is for, shown from the (i) button in its header. Plain, short, second person:
+   only what's worth knowing, one idea per point. */
 export const HELP = {
   today: {
     title: "Today",
-    sub: "Your starting point each time you open GymBuddy.",
+    sub: "What to train next.",
     points: [
-      "The big button starts the next day in your rotation, or picks up a session you left mid-way.",
-      "Your week shows which days you trained, coloured by the day's plate.",
-      "\"Beat these\" lists the numbers to top from last time.",
-      "Log your bodyweight here; a weekly reminder keeps the trend honest.",
-      "Tap the coach at the top to meet all six coaches.",
+      "Start lifting opens the next day in your rotation. Tap Change to train a different day.",
+      "Beat these are your best sets from last time. Top one of them today.",
+      "The dots show which days you trained this week.",
+      "Weigh in once a week for your bodyweight chart, or tap ✕ to skip until Monday.",
     ],
   },
   history: {
     title: "History",
-    sub: "Every session you've logged, newest first.",
+    sub: "Every workout you've logged.",
     points: [
-      "Each card shows the sets, volume and any PRs from that day.",
-      "Tap the pencil to fix a session: numbers, date, bodyweight or note.",
-      "Tap a lift to see its full progress.",
+      "Each card shows your sets, total weight lifted and any PRs.",
+      "Tap the pencil to fix a mistake.",
     ],
   },
   progress: {
     title: "Progress",
-    sub: "Whether each lift is moving up.",
+    sub: "Is each lift getting stronger?",
     points: [
-      "Lifts are grouped by day, each with its best estimated one-rep max (e1RM) and a trend.",
-      "The trend compares your recent best with the sessions before it, so one off day doesn't swing it.",
-      "Your bodyweight trend sits here too.",
-      "Tap a lift for its chart, rep records and recent sessions. Cardio shows up in History and on its own log.",
+      "Est. max is the most you could likely lift once, worked out from your best set.",
+      "The arrow shows how much it's changed recently. Baseline means you've logged it once.",
+      "A glowing row means you just set a PR on that lift.",
+      "Tap a lift for its chart and records.",
     ],
   },
   lift: {
     title: "Lift detail",
     sub: "Everything about one lift.",
     points: [
-      "The chart tracks e1RM, top set or volume; PRs are marked.",
-      "Rep records show the heaviest weight you've moved for each rep count.",
-      "Recent sessions list every set; tap one to open that session.",
+      "The chart shows est. max, top set or total weight over time. PRs are marked.",
+      "Rep records are your heaviest weight for each number of reps.",
+      "Tap a session to open it.",
     ],
   },
   settings: {
     title: "Settings",
     sub: "Make GymBuddy yours.",
     points: [
-      "Program: change the lifts, sets, reps, rest and cues for each day.",
-      "Display: dark mode, and whether to rate reps in reserve (RIR) on each set.",
-      "Home screen: pick an app icon and see how to add GymBuddy to your home screen.",
-      "Data: export everything as CSV or JSON.",
+      "Program: change each day's lifts, sets, reps, rest and cues.",
+      "Reps in reserve: turn on to note how many more reps you had left.",
+      "Export: download a copy of all your data.",
     ],
   },
   program: {
     title: "Edit a day",
     sub: "The lifts this day starts with.",
     points: [
-      "Tap a lift to change its sets, rep range, rest time and form cue.",
-      "Use the arrows to reorder, or add lifts and cardio from the library.",
-      "Changes apply to future sessions; past sessions stay as logged.",
+      "Tap a lift to change its sets, reps, rest or cue.",
+      "Add, remove or reorder lifts. Past workouts stay as they were.",
     ],
   },
   export: {
     title: "Export",
-    sub: "Take your data anywhere.",
+    sub: "A copy of your data you control.",
     points: [
-      "CSV opens in Numbers, Excel or Google Sheets: one row per set, plus weigh-ins.",
-      "JSON is the full backup of your sessions, program and weigh-ins.",
+      "CSV opens in Sheets, Numbers or Excel.",
+      "JSON is a full backup.",
     ],
   },
   coaches: {
     title: "Coaches",
-    sub: "Six coaches, one for each training area.",
+    sub: "One coach for each muscle group.",
     points: [
-      "Each lift gets the coach for its muscle group; cardio gets Dash.",
-      "Coaches read your form cues, react to your sets and celebrate PRs.",
-      "Tap a coach to ask a question. Answers use your logged sets.",
+      "Your coach shows up on each lift with a cue and reacts to your sets.",
+      "Tap a coach to ask a question. Answers use your logged workouts.",
     ],
   },
 };
