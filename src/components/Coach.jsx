@@ -256,18 +256,14 @@ export default function Coach({ id = "tank", mood = "idle", size = 64, still = f
 
         {f.blush && <g fill="#FF7A8A" opacity=".45"><ellipse cx="31" cy="62" rx="5" ry="3" /><ellipse cx="69" cy="62" rx="5" ry="3" /></g>}
 
-        {/* Eyes: sclera, pupils (aimed), shines, and a lid that drops over each eye. */}
+        {/* Eyes: sclera, matte pupils (aimed), and a lid that drops over each eye. */}
         <g className="cz-fade" style={{ opacity: f.eyes === "open" ? 1 : 0 }}>
           {eyeX.map((x, i) => (
             <g key={x} clipPath={`url(#${uid}e${i})`}>
               <ellipse cx={x} cy="54" rx="8.8" ry="9.8" fill="#fff" />
               <g className={still || f.fixed ? undefined : "coach-look"} style={{ transform: lookDown }}>
                 <g ref={(el) => { pupils.current[i] = el; }} className="cz-aim">
-                  <g>
-                    <circle cx={x + 1} cy="55" r={f.big ? 6 : 5.2} fill={INK} className="cz-pupil" />
-                    <circle cx={x + 3} cy="52.3" r="2" fill="#fff" />
-                    <circle cx={x - 0.8} cy="57.6" r="1" fill="#fff" />
-                  </g>
+                  <circle cx={x + 1} cy="55" r={f.big ? 6 : 5.2} fill={INK} className="cz-pupil" />
                 </g>
               </g>
               <g className="coach-blink-lid">
