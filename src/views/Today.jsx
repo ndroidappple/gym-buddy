@@ -61,14 +61,21 @@ export default function Today({ name, sessions, program, drafts, weighins, prefs
 
   const names = crew.map((id) => COACHES[id].name);
   const onDeck = names.length <= 2 ? names.join(" & ") : `${names.slice(0, 2).join(", ")} +${names.length - 2}`;
-  const to = name ? `, ${name}` : "";
+  // The name appears once: in the headline on odd days, in the coach's hello on even days (and
+  // always in the hello when a workout's in progress, since that headline has no name).
+  const nameInTitle = !draft && Math.floor(new Date(t + "T12:00:00").getTime() / 864e5) % 2 === 1;
+  const to = name && nameInTitle ? `, ${name}` : "";
   const headline = draft ? `${p.name} in progress.` : daysOff != null && daysOff >= 5 ? `${daysOff} days off${to}. Back to it.` : `${p.name} day${to}. Let's lift.`;
 
   return (
     <main className="screen has-tabs">
       <header className="top today-top">
         <div className="today-head">
-          <span className="lbl">{new Date(t + "T12:00:00").toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" })}</span>
+          <div className="today-date-row">
+            <span className="lbl">{new Date(t + "T12:00:00").toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" })}</span>
+            {/* The coach says hi, which also shows the coach is tappable. */}
+            <a className="coach-hello" href="#/coaches" aria-hidden="true" tabIndex={-1} style={{ "--c": COACHES[lead]?.color }}>{greeting(nameInTitle ? null : name, daysOff)}</a>
+          </div>
           <h1>{headline}</h1>
         </div>
         <a className="coach-link" href="#/coaches" aria-label="Meet your coaches">
@@ -180,6 +187,14 @@ export default function Today({ name, sessions, program, drafts, weighins, prefs
 
 /** Weekly nudge: shows when the last bodyweight (weigh-in or session) is 7+ days old, or there is none. */
 const PICK_KEY = "ironlog-today-pick";
+/** The top-right coach's hello: by time of day, or "missed you" after 5+ days off (the sleepy face). */
+function greeting(name, daysOff) {
+  const who = name ? `, ${name}` : "";
+  if (daysOff != null && daysOff >= 5) return name ? `Missed you${who}` : "Missed you!";
+  const h = new Date().getHours();
+  return h < 12 ? `Morning${who}!` : h < 17 ? (name ? `Hey ${name}!` : "Hey there!") : `Evening${who}!`;
+}
+
 const SKIP_KEY = "ironlog-weigh-skip"; // the Monday of the skipped week, or "d:<date>" for a skip during a phase
 function loadPick() {
   try { return JSON.parse(localStorage.getItem(PICK_KEY)) || null; } catch { return null; }

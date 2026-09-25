@@ -684,3 +684,9 @@ button.coach-card:active { transform: translateY(3px); box-shadow: 0 2px 0 var(-
 .phase-line { display: flex; flex-direction: column; gap: 2px; padding: 12px 14px; color: var(--ink); text-decoration: none; }
 .phase-line b { font-weight: 800; font-size: 14px; }
 .phase-line span { font-size: 13.5px; color: var(--mute); font-weight: 600; }
+
+/* Today: the coach says hi from the date row; the tail points at the coach button. */
+.today-date-row { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.today-date-row .lbl { flex: none; }
+.coach-hello { position: relative; margin-left: auto; margin-right: -4px; max-width: 58%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 5px 11px; border-radius: 14px 14px 4px 14px; background: color-mix(in srgb, var(--c, #5BD68A) 24%, var(--surface)); color: var(--ink); font-size: 13px; font-weight: 800; text-decoration: none; transform-origin: 100% 100%; animation: hello-in 520ms 250ms cubic-bezier(.2, 1.5, .4, 1) both; }
+@keyframes hello-in { from { transform: scale(.3); opacity: 0; } }
