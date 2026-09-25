@@ -98,7 +98,9 @@ p { margin: 0; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
 .app { max-width: 560px; margin: 0 auto; min-height: 100dvh; position: relative; }
-.screen { min-height: 100dvh; display: flex; flex-direction: column; }
+.screen { min-height: 100dvh; display: flex; flex-direction: column; animation: view-in 200ms cubic-bezier(.2, .8, .2, 1); }
+/* Screens settle in rather than fade up from nothing: visible and tappable from the first frame. */
+@keyframes view-in { from { opacity: .55; transform: translateY(8px); } }
 .screen.has-tabs { padding-bottom: calc(108px + var(--safe-b)); }
 .body { padding: 0 16px 32px; display: flex; flex-direction: column; gap: 20px; flex: 1; }
 
@@ -278,7 +280,8 @@ button.chip { min-height: 38px; padding: 0 14px; border: 2px solid var(--rule); 
 .meta-chip { display: flex; align-items: center; gap: 8px; min-height: 54px; padding: 0 16px; font-size: 14px; color: var(--mute); width: 100%; text-align: left; font-weight: 600; }
 .meta-chip b { color: var(--ink); font-weight: 800; }
 
-.ex { padding: 16px; display: flex; flex-direction: column; gap: 14px; border-radius: 28px; }
+.ex { padding: 16px; display: flex; flex-direction: column; gap: 14px; border-radius: 28px; animation: ex-open 220ms cubic-bezier(.2, 1.3, .4, 1); }
+@keyframes ex-open { from { transform: scale(.97); opacity: .6; } }
 .ex-coach { display: flex; align-items: flex-end; gap: 10px; }
 .ex-head { display: flex; align-items: center; gap: 8px; }
 .ex-name { font-weight: 800; font-size: 20px; line-height: 1.2; letter-spacing: -0.01em; }
@@ -473,21 +476,24 @@ button.chip { min-height: 38px; padding: 0 14px; border: 2px solid var(--rule); 
 .chat-coach { display: grid; place-items: center; padding-top: 6px; }
 .chat-list { flex: 1; display: flex; flex-direction: column; gap: 8px; overflow-y: auto; max-height: 42dvh; padding: 2px; }
 .chat-list .coach-bubble { flex: none; align-self: flex-start; max-width: 88%; margin: 0; }
+.chat-me, .chat-list .coach-bubble { animation: bubble-in 180ms cubic-bezier(.2, 1.4, .4, 1); transform-origin: bottom left; }
+.chat-me { transform-origin: bottom right; }
+@keyframes bubble-in { from { transform: scale(.9); opacity: 0; } }
 .chat-me { align-self: flex-end; max-width: 80%; margin: 0; padding: 10px 14px; border-radius: 20px 20px 6px 20px; background: var(--ink); color: var(--bg); font-weight: 600; font-size: 14.5px; line-height: 1.35; }
 .chat-empty { display: flex; flex-direction: column; gap: 10px; }
 .chat-suggest { display: flex; flex-wrap: wrap; gap: 6px; }
 .chat-suggest .chip { white-space: normal; text-align: left; min-height: 40px; height: auto; padding: 8px 14px; }
-.chat-input { display: flex; align-items: flex-end; gap: 8px; padding: 6px; border-radius: 26px; background: var(--surface); border: 2px solid var(--rule); box-shadow: 0 4px 0 var(--lip); }
+/* The beam clips its wrapper, so the lip shadow lives on the wrapper, not the form. */
+.chat-input-wrap { flex: none; border-radius: 26px; box-shadow: 0 4px 0 var(--lip); }
+.chat-input { display: flex; align-items: flex-end; gap: 8px; padding: 6px; border-radius: 26px; background: var(--surface); border: 2px solid var(--rule); }
 .chat-input textarea { flex: 1; min-height: 40px; max-height: 120px; resize: none; border: 0; background: none; padding: 9px 10px; line-height: 1.35; }
 .chat-input textarea:focus { outline: none; }
 .chat-input:focus-within { outline: 3px solid var(--ink); outline-offset: -2px; }
 .chat-input button { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; background: var(--ink); color: var(--bg); flex-shrink: 0; }
 .chat-input button:disabled { opacity: 0.35; }
 .chat-note { font-size: 12px; color: var(--faint); text-align: center; font-weight: 600; }
-.chat-dots { display: inline-flex; gap: 4px; padding: 4px 0; }
-.chat-dots i { width: 7px; height: 7px; border-radius: 50%; background: currentColor; opacity: .5; animation: dots 1s infinite ease-in-out; }
-.chat-dots i:nth-child(2) { animation-delay: .15s; } .chat-dots i:nth-child(3) { animation-delay: .3s; }
-@keyframes dots { 50% { transform: translateY(-4px); opacity: 1; } }
+.chat-wait { display: inline-flex; align-items: center; gap: 8px; color: var(--mute); animation: fade 200ms 600ms both; }
+.chat-wait canvas { flex: none; }
 .ask-btn { align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 12px; border-radius: 999px; font-size: 13px; font-weight: 800; background: var(--surface-2); color: var(--ink); }
 button.coach-card { width: 100%; font: inherit; color: inherit; cursor: pointer; }
 button.coach-card:active { transform: translateY(3px); box-shadow: 0 2px 0 var(--lip); }

@@ -1,10 +1,13 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowUp } from "lucide-react";
+import { BorderBeam } from "border-beam";
+import { ThinkingOrb } from "thinking-orbs";
 import { Sheet } from "./ui.jsx";
 import Coach from "./Coach.jsx";
 import { COACHES, coachFor } from "../data/coaches.js";
 import { DAYS } from "../data/program.js";
 import { askCoach, buildContext } from "../lib/coachChat.js";
+import { useReducedMotion } from "../lib/motion.js";
 
 /* When the coach can't answer, it still answers in character. */
 const TROUBLE = {
@@ -14,12 +17,15 @@ const TROUBLE = {
   busy: "Catching my breath. Free-tier limit, give me a minute and ask again.",
 };
 
-/** Chat with one coach. Answers stream in; the coach looks locked in while thinking and fired up when it lands. */
-export default function CoachChat({ coach, sessions, program, weighins, onClose }) {
+/** Chat with one coach. Answers stream in; the coach looks locked in while thinking and fired up when it lands.
+    `exercise` is the lift the chat was opened from, so the first suggestion is about that lift. */
+export default function CoachChat({ coach, exercise, sessions, program, weighins, onClose }) {
   const c = COACHES[coach];
   const [messages, setMessages] = useState([]); // {role, content, trouble?}
   const [draft, setDraft] = useState("");
   const [status, setStatus] = useState("idle"); // idle | thinking | streaming | answered
+  const busy = status === "thinking" || status === "streaming";
+  const reduced = useReducedMotion();
   const listRef = useRef(null);
   const abort = useRef(null);
   useEffect(() => () => abort.current?.abort(), []);
@@ -32,16 +38,17 @@ export default function CoachChat({ coach, sessions, program, weighins, onClose 
 
   const suggestions = useMemo(() => {
     const mine = DAYS.flatMap((d) => program[d].exercises.map((e) => e.n)).filter((n) => coachFor(n) === coach);
+    const lift = exercise || mine[0];
     return [
-      mine[0] ? `How do I push my ${mine[0]} up?` : `What's a good ${c.group.toLowerCase()} lift to add?`,
+      lift ? `What's a great mental cue for ${lift}?` : `What's a good ${c.group.toLowerCase()} lift to add?`,
       `How was my last ${c.group.toLowerCase()} work?`,
       "What should I focus on today?",
     ];
-  }, [program, coach, c.group]);
+  }, [program, coach, c.group, exercise]);
 
   const send = async (text) => {
     const q = text.trim();
-    if (!q || status === "thinking" || status === "streaming") return;
+    if (!q || busy) return;
     const history = [...messages.filter((m) => !m.trouble), { role: "user", content: q }];
     setMessages([...messages, { role: "user", content: q }, { role: "assistant", content: "" }]);
     setDraft("");
@@ -79,17 +86,26 @@ export default function CoachChat({ coach, sessions, program, weighins, onClose 
           )}
           {messages.map((m, i) => (
             <p key={i} className={m.role === "user" ? "chat-me" : "coach-bubble"}>
-              {m.content || <span className="chat-dots" aria-label={`${c.name} is thinking`}><i /><i /><i /></span>}
+              {m.content || (
+                // Fades in only after a beat, so a fast reply never flashes an orb.
+                <span className="chat-wait">
+                  <ThinkingOrb state="breathing" size={20} theme="auto" aria-hidden="true" />
+                  {c.name} is thinking…
+                </span>
+              )}
             </p>
           ))}
         </div>
-        <form className="chat-input" onSubmit={(e) => { e.preventDefault(); send(draft); }}>
-          <label htmlFor="coach-q" className="sr-only">Your question for {c.name}</label>
-          <textarea id="coach-q" rows={1} value={draft} placeholder={`Ask ${c.name}…`} maxLength={600}
-            onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(draft); } }} />
-          <button type="submit" aria-label="Send" disabled={!draft.trim() || status === "thinking" || status === "streaming"}><ArrowUp size={20} strokeWidth={2.8} /></button>
-        </form>
+        {/* Line beam from send until the answer finishes; the line type ignores reduced motion, so gate it here. */}
+        <BorderBeam size="line" theme="auto" active={busy && !reduced} className="chat-input-wrap">
+          <form className="chat-input" aria-busy={busy} onSubmit={(e) => { e.preventDefault(); send(draft); }}>
+            <label htmlFor="coach-q" className="sr-only">Your question for {c.name}</label>
+            <textarea id="coach-q" rows={1} value={draft} placeholder={`Ask ${c.name}…`} maxLength={600}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(draft); } }} />
+            <button type="submit" aria-label="Send" disabled={!draft.trim() || busy}><ArrowUp size={20} strokeWidth={2.8} /></button>
+          </form>
+        </BorderBeam>
         <p className="chat-note">AI answers can be wrong. Not medical advice.</p>
       </div>
     </Sheet>

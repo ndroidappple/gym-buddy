@@ -6,6 +6,7 @@ import { primeAudio, chime } from "../lib/sound.js";
 import { Sheet, ConfirmSheet, ExercisePicker } from "../components/ui.jsx";
 import Coach, { MOODS } from "../components/Coach.jsx";
 import CoachChat from "../components/CoachChat.jsx";
+import { useReducedMotion } from "../lib/motion.js";
 import { MessageCircle } from "lucide-react";
 import { COACHES, coachFor } from "../data/coaches.js";
 
@@ -21,7 +22,7 @@ export default function Session({ day, existing, draft, sessions, program, weigh
   const [startedAt, setStartedAt] = useState(existing?.startedAt || draft?.startedAt || null);
   const [timer, setTimer] = useState(() => (draft?.timer?.endsAt > Date.now() ? draft.timer : null));
   const [sheet, setSheet] = useState(null); // "picker" | "details" | "delete"
-  const [chat, setChat] = useState(null); // coach id being asked
+  const [chat, setChat] = useState(null); // {coach, exercise} being asked
   const [flash, setFlash] = useState(null); // {ex, i} — the set that was just logged
   const [reaction, setReaction] = useState(null); // {ex, mood} — the coach's brief reaction to a logged set
   const [editing, setEditing] = useState(false); // numbers being adjusted on the active set
@@ -263,7 +264,7 @@ export default function Session({ day, existing, draft, sessions, program, weigh
                 onPick={(i) => { setActiveIdx(i); setEditing(false); }} onReopen={(i) => reopen(ex.n, i)}
                 onAddSet={() => addSet(ex.n)} onRemoveSet={(i) => removeSet(ex.n, i)}
                 onSkip={ex.today ? () => removeExtra(ex.n) : ex.orphan ? null : () => skip(ex.n)} skipLabel={ex.today ? "Remove" : "Skip today"}
-                onAsk={() => setChat(coachFor(ex.n))} onCollapse={() => setFocus(null)} />
+                onAsk={() => setChat({ coach: coachFor(ex.n), exercise: ex.n })} onCollapse={() => setFocus(null)} />
             );
           }
           return <Collapsed key={ex.n} ex={ex} rows={rows} target={target} skipped={skipped.includes(ex.n)}
@@ -313,7 +314,7 @@ export default function Session({ day, existing, draft, sessions, program, weigh
           <button className="btn btn-ink" onClick={() => setSheet(null)}>Done</button>
         </Sheet>
       )}
-      {chat && <CoachChat coach={chat} sessions={sessions} program={program} weighins={weighins} onClose={() => setChat(null)} />}
+      {chat && <CoachChat coach={chat.coach} exercise={chat.exercise} sessions={sessions} program={program} weighins={weighins} onClose={() => setChat(null)} />}
       {sheet === "delete" && (
         <ConfirmSheet title="Delete session?" body={`${dayProgram.name} on ${shortDate(existing.date)} and all its sets will be removed.`}
           confirm="Delete" onClose={() => setSheet(null)} onConfirm={() => { onDelete(existing); back("#/history"); }} />
@@ -490,15 +491,4 @@ function RestDock({ timer, setTimer }) {
       </div>
     </BorderBeam>
   );
-}
-
-function useReducedMotion() {
-  const [reduced, setReduced] = useState(() => window.matchMedia("(prefers-reduced-motion: reduce)").matches);
-  useEffect(() => {
-    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
-    const on = (e) => setReduced(e.matches);
-    mq.addEventListener("change", on);
-    return () => mq.removeEventListener("change", on);
-  }, []);
-  return reduced;
 }
