@@ -23,6 +23,7 @@ export default function App() {
   const [sessions, setSessions] = useState([]);
   const [program, setProgram] = useState(PROGRAM);
   const [drafts, setDrafts] = useState({});
+  const [weighins, setWeighins] = useState([]);
   const [toast, setToast] = useState(null);
   const { route, go, back } = useRoute();
 
@@ -34,6 +35,7 @@ export default function App() {
       setSessions(data ? data.sessions : seedSessions());
       setProgram(data?.program || PROGRAM);
       setDrafts(data?.drafts || {});
+      setWeighins(data?.weighins || []);
       if (offline) setSync("offline");
       setReady(true);
     } catch {
@@ -46,8 +48,8 @@ export default function App() {
   if (!saver.current) saver.current = createSaver(setSync);
 
   useEffect(() => {
-    if (ready) saver.current.save({ sessions, program, drafts });
-  }, [sessions, program, drafts, ready]);
+    if (ready) saver.current.save({ sessions, program, drafts, weighins });
+  }, [sessions, program, drafts, weighins, ready]);
 
   /* Retry unsynced changes when the connection comes back, the app returns to the foreground, or every 30 s. */
   useEffect(() => {
@@ -69,6 +71,13 @@ export default function App() {
   const notify = useCallback((msg, undo) => setToast({ msg, undo, at: Date.now() }), []);
 
   useEffect(() => { window.scrollTo(0, 0); }, [route.name, route.day, route.id, route.lift]);
+
+  /* ── weigh-ins ── */
+  const logWeighin = useCallback((date, bw) => {
+    let before;
+    setWeighins((ws) => { before = ws; return [...ws.filter((w) => w.date !== date), { date, bw }]; });
+    notify(`${bw} lb logged`, () => setWeighins(before));
+  }, [notify]);
 
   /* ── drafts ── */
   const saveDraft = useCallback((day, draft) => {
@@ -127,7 +136,7 @@ export default function App() {
   if (loadFailed) return <LoadError onRetry={load} />;
   if (!ready) return <Boot />;
 
-  const common = { sessions, program, drafts, go, back, notify };
+  const common = { sessions, program, drafts, weighins, go, back, notify, onWeighin: logWeighin };
   let view;
   switch (route.name) {
     case "session": {

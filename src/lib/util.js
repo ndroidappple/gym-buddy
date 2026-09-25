@@ -91,6 +91,17 @@ export function nextDayAfter(sessions) {
   return DAYS[(DAYS.indexOf(last.day) + 1) % DAYS.length];
 }
 
+/** Bodyweight over time from weekly weigh-ins and session entries, oldest first, one point per date (a weigh-in wins). */
+export function bodyweightSeries(sessions, weighins = []) {
+  const m = {};
+  sessions.forEach((s) => { if (s.bw != null) m[s.date] = s.bw; });
+  weighins.forEach((w) => { m[w.date] = w.bw; });
+  return Object.entries(m).sort(([a], [b]) => a.localeCompare(b)).map(([date, bw]) => ({ date, bw }));
+}
+
+/** Whole days between two ISO dates. */
+export const daysBetween = (a, b) => Math.round((new Date(b + "T12:00:00") - new Date(a + "T12:00:00")) / 86400000);
+
 export const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
 
 export function vibrate(pattern) {

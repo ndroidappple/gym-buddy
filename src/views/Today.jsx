@@ -1,9 +1,9 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import { DAYS, PLATES } from "../data/program.js";
 import { href } from "../lib/router.js";
-import { byDateDesc, bestSet, fmtW, shortDate, weekDates, today, nextDayAfter } from "../lib/util.js";
+import { byDateDesc, bestSet, fmtW, num, shortDate, weekDates, today, nextDayAfter, bodyweightSeries, daysBetween, plural } from "../lib/util.js";
 
-export default function Today({ sessions, program, drafts }) {
+export default function Today({ sessions, program, drafts, weighins, onWeighin }) {
   const sorted = useMemo(() => [...sessions].sort(byDateDesc), [sessions]);
   const draftDay = DAYS.find((d) => drafts[d]);
   const day = draftDay || nextDayAfter(sessions);
@@ -49,6 +49,8 @@ export default function Today({ sessions, program, drafts }) {
         </section>
 
         <a className="btn btn-day" href={href("session", day)}>{draft ? `Resume ${p.name}` : `Start ${p.name}`}</a>
+
+        <WeighIn sessions={sessions} weighins={weighins} onSave={onWeighin} />
 
         {targets.length > 0 && (
           <section className="section">
@@ -96,5 +98,38 @@ export default function Today({ sessions, program, drafts }) {
         </section>
       </div>
     </main>
+  );
+}
+
+/** Weekly nudge: shows when the last bodyweight (weigh-in or session) is 7+ days old, or there is none. */
+function WeighIn({ sessions, weighins, onSave }) {
+  const series = useMemo(() => bodyweightSeries(sessions, weighins), [sessions, weighins]);
+  const last = series[series.length - 1];
+  const t = today();
+  const [bw, setBw] = useState("");
+  if (last && daysBetween(last.date, t) < 7) return null;
+
+  const ago = last ? daysBetween(last.date, t) : null;
+  const value = parseFloat(bw);
+  const valid = value > 0 && value < 1000;
+  const save = (e) => {
+    e.preventDefault();
+    if (!valid) return;
+    onSave(t, Math.round(value * 10) / 10);
+    setBw("");
+  };
+  return (
+    <form className="weigh" onSubmit={save} aria-label="Weekly weigh-in">
+      <div className="weigh-text">
+        <b>Weigh-in due</b>
+        <span className="small muted">{last ? `Last: ${num(last.bw)} lb · ${plural(ago, "day")} ago` : "Log your bodyweight to start the chart"}</span>
+      </div>
+      <label className="weigh-field">
+        <span className="sr-only">Bodyweight in pounds</span>
+        <input id="weigh-bw" type="number" inputMode="decimal" step="0.1" placeholder={last ? num(last.bw) : "—"} value={bw} onChange={(e) => setBw(e.target.value)} />
+        <span className="u">lb</span>
+      </label>
+      <button type="submit" className="btn btn-ink weigh-save" disabled={!valid}>Save</button>
+    </form>
   );
 }

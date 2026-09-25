@@ -2,7 +2,7 @@ import React, { useMemo, useState } from "react";
 import { ChevronLeft, Download, Copy } from "lucide-react";
 import { e1rm, num, today, byDateAsc } from "../lib/util.js";
 
-export default function Export({ sessions, program, back, notify }) {
+export default function Export({ sessions, program, weighins, back, notify }) {
   const [fmt, setFmt] = useState("csv");
 
   const csv = useMemo(() => {
@@ -15,11 +15,12 @@ export default function Export({ sessions, program, back, notify }) {
         ]));
       });
     });
+    (weighins || []).forEach((w) => rows.push([w.date, "Weigh-in", "", "", "", "", "", "", w.bw, ""]));
     const cell = (c) => { const v = String(c); return /[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v; };
     return rows.map((r) => r.map(cell).join(",")).join("\n");
-  }, [sessions, program]);
+  }, [sessions, program, weighins]);
 
-  const json = useMemo(() => JSON.stringify({ exportedAt: new Date().toISOString(), sessions }, null, 2), [sessions]);
+  const json = useMemo(() => JSON.stringify({ exportedAt: new Date().toISOString(), sessions, weighins }, null, 2), [sessions, weighins]);
   const payload = fmt === "csv" ? csv : json;
 
   const copy = async () => {

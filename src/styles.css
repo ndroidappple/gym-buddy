@@ -327,3 +327,13 @@ button.chip { min-height: 36px; padding: 0 12px; }
 /* ═══════════════ SYNC ═══════════════ */
 .sync-note { position: fixed; left: 16px; right: 16px; bottom: calc(16px + var(--safe-b)); max-width: 528px; margin: 0 auto; z-index: 30; padding: 8px 12px; border-radius: var(--r); background: var(--surface-2); border: 1px solid var(--rule-2); font-family: var(--mono); font-size: 12px; color: var(--mute); text-align: center; pointer-events: none; }
 .sync-note.raised { bottom: calc(84px + var(--safe-b)); }
+
+/* ═══════════════ WEIGH-IN ═══════════════ */
+.weigh { display: flex; align-items: center; gap: 10px; padding: 10px 10px 10px 14px; border: 1px solid var(--rule-2); border-radius: var(--r); background: var(--surface); }
+.weigh-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.weigh-field { display: flex; align-items: baseline; gap: 4px; height: var(--tap); padding: 0 10px; border-radius: var(--r); background: var(--surface-2); border: 1px solid var(--rule-2); }
+.weigh-field input { width: 64px; height: 100%; border: 0; background: none; text-align: right; font-family: var(--display); font-weight: 800; font-size: 22px; font-variant-numeric: tabular-nums; }
+.weigh-field input:focus { outline: none; }
+.weigh-field:focus-within { outline: 2px solid var(--ink); outline-offset: -1px; }
+.weigh-field .u { font-family: var(--mono); font-size: 11px; color: var(--mute); }
+.weigh-save { width: auto; min-height: var(--tap); font-size: 18px; padding: 0 14px; }

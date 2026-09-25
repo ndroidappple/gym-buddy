@@ -1,10 +1,10 @@
 import React, { useMemo } from "react";
 import { DAYS } from "../data/program.js";
 import { href } from "../lib/router.js";
-import { liftSeries, trend, num, shortDate, byDateAsc } from "../lib/util.js";
+import { liftSeries, trend, num, shortDate, bodyweightSeries } from "../lib/util.js";
 import { Sparkline, Trend, LineChart } from "../components/ui.jsx";
 
-export default function Progress({ sessions, program }) {
+export default function Progress({ sessions, program, weighins }) {
   const groups = useMemo(() => {
     const seen = new Set();
     const out = DAYS.map((d) => {
@@ -28,8 +28,8 @@ export default function Progress({ sessions, program }) {
   const up = all.filter((r) => r.pct >= 1).length;
   const flat = all.filter((r) => r.pct < 1).length;
 
-  const bw = useMemo(() => [...sessions].filter((s) => s.bw != null).sort(byDateAsc)
-    .map((s) => ({ label: shortDate(s.date), value: s.bw })), [sessions]);
+  const bw = useMemo(() => bodyweightSeries(sessions, weighins)
+    .map((x) => ({ label: shortDate(x.date), value: x.bw })), [sessions, weighins]);
 
   return (
     <main className="screen has-tabs">
