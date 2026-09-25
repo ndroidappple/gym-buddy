@@ -1,9 +1,9 @@
 import React, { useMemo, useState } from "react";
 import { ChevronLeft } from "lucide-react";
-import { DAYS } from "../data/program.js";
+import { DAYS, isCardio } from "../data/program.js";
 import { href } from "../lib/router.js";
-import { liftSeries, trend, repPRs, num, fmtW, compact, shortDate, bestSet } from "../lib/util.js";
-import { LineChart, Trend } from "../components/ui.jsx";
+import { liftSeries, trend, repPRs, num, fmtW, fmtSet, cardioTotals, compact, shortDate, bestSet, byDateDesc } from "../lib/util.js";
+import { InfoButton, LineChart, Trend } from "../components/ui.jsx";
 
 const METRICS = [
   { key: "orm", label: "e1RM", fmt: num },
@@ -11,7 +11,45 @@ const METRICS = [
   { key: "vol", label: "Volume", fmt: compact },
 ];
 
-export default function Lift({ name, sessions, program, back }) {
+export default function Lift(props) {
+  return isCardio(props.name) ? <CardioLog {...props} /> : <LiftDetail {...props} />;
+}
+
+/* Cardio has no e1RM: show totals and every logged entry, newest first. */
+function CardioLog({ name, sessions, program, back }) {
+  const logs = useMemo(() => [...sessions].sort(byDateDesc).filter((s) => s.sets[name]?.length), [sessions, name]);
+  const t = cardioTotals(logs.flatMap((s) => s.sets[name]));
+  return (
+    <main className="screen has-tabs">
+      <header className="top">
+        <button className="icon-btn boxed" onClick={() => back("#/progress")} aria-label="Back"><ChevronLeft size={20} /></button>
+        <span className="spacer" />
+        <InfoButton screen="lift" />
+      </header>
+      <div className="body">
+        <h1 style={{ fontWeight: 700, fontSize: 22, lineHeight: 1.2 }}>{name}</h1>
+        <div className="stats">
+          <div className="stat"><b>{logs.length}</b><span>sessions</span></div>
+          <div className="stat"><b>{num(t.min)}</b><span>minutes</span></div>
+          <div className="stat"><b>{num(t.mi)}</b><span>miles</span></div>
+        </div>
+        <section className="section">
+          <h2 className="lbl">Recent sessions</h2>
+          <div>
+            {logs.slice(0, 12).map((s) => (
+              <a key={s.id} className="hist-line" href={href("session", s.day, s.id)} style={{ color: "inherit", textDecoration: "none" }} data-day={s.day}>
+                <span className="name"><span className="dot" aria-hidden="true" style={{ marginRight: 8 }} />{shortDate(s.date)} · {program[s.day]?.name}</span>
+                <span className="sets">{s.sets[name].map(fmtSet).join(" + ")}</span>
+              </a>
+            ))}
+          </div>
+        </section>
+      </div>
+    </main>
+  );
+}
+
+function LiftDetail({ name, sessions, program, back }) {
   const [metric, setMetric] = useState("orm");
   const series = useMemo(() => liftSeries(sessions, name), [sessions, name]);
   const reps = useMemo(() => repPRs(sessions, name), [sessions, name]);
@@ -34,6 +72,7 @@ export default function Lift({ name, sessions, program, back }) {
         <button className="icon-btn boxed" onClick={() => back("#/progress")} aria-label="Back"><ChevronLeft size={20} /></button>
         <span className="spacer" />
         {day && <span className="chip"><span className="dot" aria-hidden="true" />{program[day].name}</span>}
+        <InfoButton screen="lift" />
       </header>
       <div className="body">
         <h1 style={{ fontWeight: 700, fontSize: 22, lineHeight: 1.2 }}>{name}</h1>

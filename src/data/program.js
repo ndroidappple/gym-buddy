@@ -36,6 +36,9 @@ export const PROGRAM = {
 };
 export const DAYS = ["push", "pull", "legs", "shoulders"];
 
+/** Cardio entries log minutes (+ optional miles) instead of weight × reps. */
+export const isCardio = (name) => CARDIO.has(name);
+
 /* Searchable library for adding lifts. Defaults are starting points — edit on add. */
 export const LIBRARY = [
   // Chest
@@ -95,6 +98,15 @@ export const LIBRARY = [
   { n: "Leg Abduction", g: "Legs", sets: 3, reps: [15,20], rest: 60 },
   { n: "Standing Calf Raise", g: "Legs", sets: 4, reps: [12,20], rest: 60 },
   { n: "Seated Calf Raise", g: "Legs", sets: 3, reps: [15,20], rest: 60 },
+  // Cardio: logged as minutes + miles instead of weight × reps. reps = the minutes target.
+  { n: "Treadmill Run", g: "Cardio", kind: "cardio", sets: 1, reps: [20, 30], rest: 0 },
+  { n: "Incline Walk", g: "Cardio", kind: "cardio", sets: 1, reps: [20, 30], rest: 0 },
+  { n: "Outdoor Run", g: "Cardio", kind: "cardio", sets: 1, reps: [20, 40], rest: 0 },
+  { n: "Stationary Bike", g: "Cardio", kind: "cardio", sets: 1, reps: [15, 30], rest: 0 },
+  { n: "Rower", g: "Cardio", kind: "cardio", sets: 1, reps: [10, 20], rest: 0 },
+  { n: "Stair Climber", g: "Cardio", kind: "cardio", sets: 1, reps: [10, 20], rest: 0 },
+  { n: "Elliptical", g: "Cardio", kind: "cardio", sets: 1, reps: [15, 30], rest: 0 },
+  { n: "Jump Rope", g: "Cardio", kind: "cardio", sets: 1, reps: [5, 15], rest: 0 },
   // Core
   { n: "Cable Crunch", g: "Core", sets: 3, reps: [12,20], rest: 60 },
   { n: "Hanging Leg Raise", g: "Core", sets: 3, reps: [10,15], rest: 60 },
@@ -122,3 +134,8 @@ export const PLATES = {
   legs: { kg: 15, short: "Legs" },
   shoulders: { kg: 10, short: "Shldr" },
 };
+
+const CARDIO = new Set(LIBRARY.filter((e) => e.kind === "cardio").map((e) => e.n));
+
+/** "4 × 8–12 · 90s rest" for lifts, "Cardio · 20–30 min" for cardio. */
+export const specLine = (ex) => (isCardio(ex.n) ? `Cardio · ${ex.reps[0]}–${ex.reps[1]} min` : `${ex.sets} × ${ex.reps[0]}–${ex.reps[1]} · ${ex.rest}s rest`);

@@ -28,10 +28,18 @@ export function seedSessions() {
 export const byDateAsc = (a, b) => a.date.localeCompare(b.date) || (a.finishedAt || 0) - (b.finishedAt || 0);
 export const byDateDesc = (a, b) => -byDateAsc(a, b);
 
-export const bestSet = (sets) =>
-  sets?.length ? sets.reduce((b, s) => (e1rm(s.w, s.r) > e1rm(b.w, b.r) ? s : b)) : null;
-export const bestE1rm = (sets) => (sets?.length ? Math.max(...sets.map((s) => e1rm(s.w, s.r))) : 0);
-export const volume = (sets) => sets.reduce((a, x) => a + x.w * x.r, 0);
+/* Cardio entries ({ min, mi }) share the sets map with lifts; strength maths only ever sees lifting sets. */
+export const isCardioSet = (x) => x?.min != null;
+export const lifting = (sets) => (sets || []).filter((x) => !isCardioSet(x));
+export const fmtSet = (x) => (isCardioSet(x) ? `${num(x.min)} min${x.mi != null ? ` · ${num(x.mi)} mi` : ""}` : `${fmtW(x.w)}×${x.r}`);
+export const cardioTotals = (sets) => (sets || []).filter(isCardioSet).reduce((t, x) => ({ min: t.min + x.min, mi: t.mi + (x.mi || 0) }), { min: 0, mi: 0 });
+
+export const bestSet = (sets) => {
+  const l = lifting(sets);
+  return l.length ? l.reduce((b, s) => (e1rm(s.w, s.r) > e1rm(b.w, b.r) ? s : b)) : null;
+};
+export const bestE1rm = (sets) => { const l = lifting(sets); return l.length ? Math.max(...l.map((s) => e1rm(s.w, s.r))) : 0; };
+export const volume = (sets) => lifting(sets).reduce((a, x) => a + x.w * x.r, 0);
 export const sessionVolume = (s) => Object.values(s.sets).reduce((a, v) => a + volume(v), 0);
 export const sessionSetCount = (s) => Object.values(s.sets).reduce((a, v) => a + v.length, 0);
 
@@ -50,8 +58,8 @@ export function allTimeBest(sessions, lift) {
 /** Per-session series for a lift, oldest first, with PR flags. */
 export function liftSeries(sessions, lift) {
   let running = 0;
-  return [...sessions].sort(byDateAsc).filter((s) => s.sets[lift]?.length).map((s) => {
-    const sets = s.sets[lift];
+  return [...sessions].sort(byDateAsc).filter((s) => lifting(s.sets[lift]).length).map((s) => {
+    const sets = lifting(s.sets[lift]);
     const orm = bestE1rm(sets);
     const pr = orm > running;
     running = Math.max(running, orm);
@@ -71,7 +79,7 @@ export function trend(values) {
 
 export function repPRs(sessions, lift) {
   const m = {};
-  sessions.forEach((s) => (s.sets[lift] || []).forEach((x) => {
+  sessions.forEach((s) => lifting(s.sets[lift]).forEach((x) => {
     if (!m[x.r] || x.w > m[x.r].w) m[x.r] = { w: x.w, date: s.date };
   }));
   return Object.entries(m).map(([r, v]) => ({ r: +r, ...v })).sort((a, b) => a.r - b.r);

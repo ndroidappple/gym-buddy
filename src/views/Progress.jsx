@@ -1,9 +1,9 @@
 import React, { useMemo } from "react";
 import { Scale } from "lucide-react";
-import { DAYS } from "../data/program.js";
+import { isCardio, DAYS } from "../data/program.js";
 import { href } from "../lib/router.js";
 import { liftSeries, trend, num, shortDate, bodyweightSeries } from "../lib/util.js";
-import { Sparkline, Trend } from "../components/ui.jsx";
+import { InfoButton, Sparkline, Trend } from "../components/ui.jsx";
 
 export default function Progress({ sessions, program, weighins }) {
   const groups = useMemo(() => {
@@ -16,7 +16,7 @@ export default function Progress({ sessions, program, weighins }) {
     sessions.forEach((s) => Object.keys(s.sets).forEach((n) => { if (!seen.has(n)) other.add(n); }));
     if (other.size) out.push({ day: null, name: "Off program", lifts: [...other].sort() });
     return out.map((g) => {
-      const rows = g.lifts.map((n) => {
+      const rows = g.lifts.filter((n) => !isCardio(n)).map((n) => {
         const vals = liftSeries(sessions, n).map((x) => x.orm);
         return { n, vals, best: vals.length ? Math.max(...vals) : 0, pct: trend(vals) };
       });
@@ -30,9 +30,12 @@ export default function Progress({ sessions, program, weighins }) {
 
   return (
     <main className="screen has-tabs">
-      <header className="top" style={{ flexDirection: "column", alignItems: "stretch", gap: 2 }}>
-        <h1 className="page-title">Progress</h1>
-        {all.length > 0 && <span className="lbl" style={{ fontSize: 15 }}>{up} of {all.length} lifts moving up</span>}
+      <header className="top">
+        <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 2 }}>
+          <h1 className="page-title">Progress</h1>
+          {all.length > 0 && <span className="lbl" style={{ fontSize: 15 }}>{up} of {all.length} lifts moving up</span>}
+        </div>
+        <InfoButton screen="progress" />
       </header>
       <div className="body">
         <Bodyweight series={bw} />

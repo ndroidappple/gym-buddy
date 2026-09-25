@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from "react";
+import { InfoButton } from "../components/ui.jsx";
 import { Scale } from "lucide-react";
 import { DAYS, PLATES } from "../data/program.js";
 import { href } from "../lib/router.js";
@@ -6,7 +7,7 @@ import { COACHES, coachesFor } from "../data/coaches.js";
 import Coach from "../components/Coach.jsx";
 import { byDateDesc, bestSet, fmtW, num, shortDate, weekDates, today, nextDayAfter, bodyweightSeries, daysBetween, plural } from "../lib/util.js";
 
-export default function Today({ sessions, program, drafts, weighins, onWeighin }) {
+export default function Today({ name, sessions, program, drafts, weighins, onWeighin }) {
   const sorted = useMemo(() => [...sessions].sort(byDateDesc), [sessions]);
   const draftDay = DAYS.find((d) => drafts[d]);
   const day = draftDay || nextDayAfter(sessions);
@@ -30,7 +31,8 @@ export default function Today({ sessions, program, drafts, weighins, onWeighin }
 
   const targets = useMemo(() => p.exercises.map((ex) => {
     const prior = sorted.find((s) => s.sets[ex.n]?.length);
-    return prior ? { n: ex.n, best: bestSet(prior.sets[ex.n]) } : null;
+    const best = prior && bestSet(prior.sets[ex.n]);
+    return best ? { n: ex.n, best } : null;
   }).filter(Boolean).slice(0, 3), [p, sorted]);
 
   const week = weekDates();
@@ -43,7 +45,8 @@ export default function Today({ sessions, program, drafts, weighins, onWeighin }
 
   const names = crew.map((id) => COACHES[id].name);
   const onDeck = names.length <= 2 ? names.join(" & ") : `${names.slice(0, 2).join(", ")} +${names.length - 2}`;
-  const headline = draft ? `${p.name} in progress.` : daysOff != null && daysOff >= 5 ? `${daysOff} days off. Back to it.` : `${p.name} day. Let's lift.`;
+  const to = name ? `, ${name}` : "";
+  const headline = draft ? `${p.name} in progress.` : daysOff != null && daysOff >= 5 ? `${daysOff} days off${to}. Back to it.` : `${p.name} day${to}. Let's lift.`;
 
   return (
     <main className="screen has-tabs">
@@ -56,6 +59,7 @@ export default function Today({ sessions, program, drafts, weighins, onWeighin }
           {/* 5+ days away and the lead coach misses you. */}
           <Coach id={lead} mood={daysOff != null && daysOff >= 5 ? "sleepy" : "idle"} size={40} decorative />
         </a>
+        <InfoButton screen="today" />
       </header>
 
       <div className="body" data-day={day}>

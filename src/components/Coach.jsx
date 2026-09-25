@@ -49,6 +49,7 @@ function Shape({ type, ...p }) {
     case "star": return <path {...p} strokeLinejoin="round" strokeWidth="9" d="M50 15 L61.2 37.4 L86 41 L68 58.6 L72.3 83.3 L50 71.6 L27.7 83.3 L32 58.6 L14 41 L38.8 37.4 Z" />;
     case "hexagon": return <path {...p} strokeLinejoin="round" strokeWidth="10" d="M50 15 L81 32.5 L81 67.5 L50 85 L19 67.5 L19 32.5 Z" />;
     case "mech": return <rect {...p} x="15" y="22" width="70" height="64" rx="18" />;
+    case "heart": return <path {...p} strokeLinejoin="round" strokeWidth="6" d="M50 90 C24 74 13 60 13 43 C13 27 27 18 39 20 C45 21 48 25 50 29 C52 25 55 21 61 20 C73 18 87 27 87 43 C87 60 76 74 50 90 Z" />;
     case "circle": return <circle {...p} cx="50" cy="52" r="36" />;
     default: return <rect {...p} x="15" y="16" width="70" height="70" rx="22" />;
   }
@@ -73,6 +74,70 @@ function Arm({ side, pose, color, shade }) {
       </g>
     </g>
   );
+}
+
+/* Each coach's headgear is drawn to its own outline, so it sits on the head instead of floating across it. */
+const SHINE = { fill: "#fff", opacity: 0.45 };
+function Gear({ coach }) {
+  switch (coach.body) {
+    case "clover": // Tank: red lifting sweatband on the top lobe, tails flapping off the right.
+      return (
+        <g>
+          <g className="cz-tails" style={{ transformOrigin: "74px 22px" }}>
+            <path d="M72 19 Q83 14 90 18 Q83 20 76 24 Z" fill="#C8372F" />
+            <path d="M72 23 Q81 27 85 34 Q79 31 73 27 Z" fill="#9E2A24" />
+          </g>
+          <path d="M26 18 Q50 12 74 18 L74 27 Q50 21 26 27 Z" fill="#FF5E57" />
+          <path d="M28 20.5 Q50 15.5 72 20.5" stroke="#fff" strokeWidth="1.6" fill="none" opacity=".55" />
+        </g>
+      );
+    case "ghost": // Wings: backwards cap following the dome, strap and brim at the back.
+      return (
+        <g>
+          <path d="M19 44 A31 31 0 0 1 81 44 Q50 36 19 44 Z" fill="#1FB5A8" />
+          <path d="M19 44 Q50 36 81 44 L81 47 Q50 39 19 47 Z" fill="#128A80" />
+          <path d="M72 22 Q86 20 94 27 Q84 29 77 29 Z" fill="#128A80" />
+          <circle cx="50" cy="19.5" r="2.6" fill="#128A80" />
+          <path d="M35 28 A24 24 0 0 1 48 22" stroke="#fff" strokeWidth="2" fill="none" strokeLinecap="round" opacity=".4" />
+        </g>
+      );
+    case "star": // Boulder: striped sweatband ringed round the top point.
+      return (
+        <g>
+          <path d="M40.5 27 L59.5 27 L62.5 36 L37.5 36 Z" fill="#4C8DFF" />
+          <path d="M39.3 30.5 L60.7 30.5" stroke="#fff" strokeWidth="1.8" />
+          <path d="M38.3 33.3 L61.7 33.3" stroke="#fff" strokeWidth="1.2" opacity=".7" />
+        </g>
+      );
+    case "mech": // Piston: riveted steel brow plate and the antenna.
+      return (
+        <g>
+          <rect x="47.5" y="9" width="5" height="14" rx="2.5" fill="#7C8691" />
+          <circle cx="50" cy="8" r="5.5" fill="#FF5E57" /><circle cx="48.3" cy="6.4" r="1.6" {...SHINE} />
+          <rect x="15" y="26" width="70" height="9" rx="3" fill="#A9B2BC" />
+          <rect x="15" y="26" width="70" height="3" rx="1.5" {...SHINE} />
+          {[20, 35, 65, 80].map((x) => <circle key={x} cx={x} cy="31.5" r="1.6" fill="#6B747E" />)}
+        </g>
+      );
+    case "heart": // Dash: headphones over both lobes.
+      return (
+        <g>
+          <path d="M16 44 C14 16 86 16 84 44" fill="none" stroke={INK} strokeWidth="4.5" strokeLinecap="round" />
+          <rect x="10" y="38" width="10" height="16" rx="5" fill={INK} />
+          <rect x="80" y="38" width="10" height="16" rx="5" fill={INK} />
+          <rect x="12" y="41" width="4" height="10" rx="2" fill="#FF6F91" />
+          <rect x="84" y="41" width="4" height="10" rx="2" fill="#FF6F91" />
+        </g>
+      );
+    default: // Brick: 80s terry headband, white with red and navy stripes.
+      return (
+        <g>
+          <rect x="15" y="22" width="70" height="10" fill="#F4F1EA" />
+          <rect x="15" y="24.5" width="70" height="1.8" fill="#FF5E57" />
+          <rect x="15" y="27.8" width="70" height="1.8" fill="#23408E" />
+        </g>
+      );
+  }
 }
 
 const MOUTHS = {
@@ -186,15 +251,8 @@ export default function Coach({ id = "tank", mood = "idle", size = 64, still = f
         {/* Arms sit in front of the body so a flex reads clearly; flexed fists rise beside the head, clear of the face. */}
         <Arm side={-1} pose={f.arms} color={arm} shade={shade} />
         <Arm side={1} pose={f.arms} color={arm} shade={shade} />
-        {c.body === "mech" && <g><rect x="47.5" y="9" width="5" height="14" rx="2.5" fill={shade} /><circle cx="50" cy="8" r="5.5" fill="#FF5E57" /><circle cx="48.3" cy="6.4" r="1.6" fill="#fff" opacity=".7" /></g>}
 
-        {/* Sweatband with two tails fluttering off the right side. */}
-        <g className="cz-tails" style={{ transformOrigin: "86px 26px" }}>
-          <path d="M85 23 Q95 19 101 24 Q95 25 88 28 Z" fill={INK} />
-          <path d="M85 27 Q94 31 98 38 Q92 35 86 31 Z" fill="#34303D" />
-        </g>
-        <rect x="12" y="21" width="76" height="10" rx="5" fill={INK} />
-        <rect x="14" y="24.6" width="72" height="2" rx="1" fill="#fff" opacity=".5" />
+        <Gear coach={c} />
 
         {f.blush && <g fill="#FF7A8A" opacity=".45"><ellipse cx="31" cy="62" rx="5" ry="3" /><ellipse cx="69" cy="62" rx="5" ry="3" /></g>}
 

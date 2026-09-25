@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { ChevronLeft, ChevronUp, ChevronDown, Trash2, Plus } from "lucide-react";
-import { ExercisePicker, ConfirmSheet } from "../components/ui.jsx";
+import { InfoButton, ExercisePicker, ConfirmSheet } from "../components/ui.jsx";
+import { isCardio, specLine } from "../data/program.js";
 
 export default function ProgramEditor({ day, program, back, ops }) {
   const p = program[day];
@@ -14,6 +15,7 @@ export default function ProgramEditor({ day, program, back, ops }) {
         <h1 className="top-title" data-day={day}>{p.name}</h1>
         <span className="spacer" />
         <span className="mono small muted">{p.exercises.length} lifts</span>
+        <InfoButton screen="program" />
       </header>
       <div className="body" style={{ paddingTop: 12 }}>
         <p className="small muted">Changes apply to future {p.name} sessions. Past sessions keep what you logged.</p>
@@ -23,7 +25,7 @@ export default function ProgramEditor({ day, program, back, ops }) {
               <div className="prog-row">
                 <button className="main" onClick={() => setOpen(open === ex.n ? null : ex.n)} aria-expanded={open === ex.n}>
                   <span className="name">{ex.n}{ex.custom && <span className="ex-tag">added</span>}</span>
-                  <span className="sub">{ex.sets} × {ex.reps[0]}–{ex.reps[1]} · {ex.rest}s rest</span>
+                  <span className="sub">{specLine(ex)}</span>
                 </button>
                 <button className="icon-btn" disabled={i === 0} style={{ opacity: i === 0 ? 0.3 : 1 }} onClick={() => ops.move(day, ex.n, -1)} aria-label={`Move ${ex.n} up`}><ChevronUp size={19} /></button>
                 <button className="icon-btn" disabled={i === p.exercises.length - 1} style={{ opacity: i === p.exercises.length - 1 ? 0.3 : 1 }} onClick={() => ops.move(day, ex.n, 1)} aria-label={`Move ${ex.n} down`}><ChevronDown size={19} /></button>
@@ -57,12 +59,19 @@ function EditLift({ ex, onChange, onRemove }) {
   );
   return (
     <div className="prog-edit">
-      <div className="grid-4">
-        {numField("sets", "Sets", ex.sets, (v) => ({ sets: v }))}
-        {numField("min", "Rep low", ex.reps[0], (v) => ({ reps: [v, Math.max(v, ex.reps[1])] }))}
-        {numField("max", "Rep high", ex.reps[1], (v) => ({ reps: [Math.min(v, ex.reps[0]), v] }))}
-        {numField("rest", "Rest s", ex.rest, (v) => ({ rest: Math.max(15, v) }))}
-      </div>
+      {isCardio(ex.n) ? (
+        <div className="grid-2">
+          {numField("min", "Minutes low", ex.reps[0], (v) => ({ reps: [v, Math.max(v, ex.reps[1])] }))}
+          {numField("max", "Minutes high", ex.reps[1], (v) => ({ reps: [Math.min(v, ex.reps[0]), v] }))}
+        </div>
+      ) : (
+        <div className="grid-4">
+          {numField("sets", "Sets", ex.sets, (v) => ({ sets: v }))}
+          {numField("min", "Rep low", ex.reps[0], (v) => ({ reps: [v, Math.max(v, ex.reps[1])] }))}
+          {numField("max", "Rep high", ex.reps[1], (v) => ({ reps: [Math.min(v, ex.reps[0]), v] }))}
+          {numField("rest", "Rest s", ex.rest, (v) => ({ rest: Math.max(15, v) }))}
+        </div>
+      )}
       <label className="field"><span className="lbl">Cue</span>
         <textarea id={`${ex.n}-cue`} className="textarea" style={{ minHeight: 64 }} defaultValue={ex.cue || ""} placeholder="Form reminder you want to see mid-set"
           onBlur={(e) => onChange({ cue: e.target.value.trim() })} /></label>

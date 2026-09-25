@@ -1,8 +1,9 @@
 import React, { useMemo, useState } from "react";
+import { InfoButton } from "../components/ui.jsx";
 import { Pencil } from "lucide-react";
 import { DAYS } from "../data/program.js";
 import { href } from "../lib/router.js";
-import { byDateDesc, longDate, fmtW, compact, sessionVolume, sessionSetCount, plural, priorSessions, allTimeBest, bestE1rm } from "../lib/util.js";
+import { fmtSet, byDateDesc, longDate, fmtW, compact, sessionVolume, sessionSetCount, plural, priorSessions, allTimeBest, bestE1rm } from "../lib/util.js";
 
 export default function History({ sessions, program }) {
   const [filter, setFilter] = useState(null);
@@ -20,7 +21,7 @@ export default function History({ sessions, program }) {
 
   return (
     <main className="screen has-tabs">
-      <header className="top"><h1 className="page-title">History</h1><span className="spacer" /><span className="mono small muted">{sessions.length} sessions</span></header>
+      <header className="top"><h1 className="page-title">History</h1><span className="spacer" /><span className="mono small muted">{sessions.length} sessions</span><InfoButton screen="history" /></header>
       <div className="body">
         <div className="filters" role="group" aria-label="Filter by day">
           <button className="chip" aria-pressed={!filter} onClick={() => setFilter(null)}>All</button>
@@ -50,7 +51,7 @@ export default function History({ sessions, program }) {
               {Object.entries(s.sets).map(([n, sets]) => (
                 <a key={n} className="hist-line" href={href("lift", n)} style={{ color: "inherit", textDecoration: "none" }}>
                   <span className="name">{n}</span>
-                  <span className="sets">{sets.map((x) => `${fmtW(x.w)}×${x.r}`).join("  ")}</span>
+                  <span className="sets">{sets.map(fmtSet).join("  ")}</span>
                 </a>
               ))}
             </div>

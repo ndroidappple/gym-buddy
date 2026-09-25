@@ -4,6 +4,9 @@ import { seedSessions } from "./lib/util.js";
 import { useRoute, href } from "./lib/router.js";
 import { Toast, TabBar, Boot, LoadError, SyncNote } from "./components/ui.jsx";
 import { loadState, createSaver } from "./lib/store.js";
+import { DEFAULT_PREFS } from "./lib/prefs.js";
+import { applyIcon } from "./lib/icons.js";
+import { applyTheme } from "./lib/theme.js";
 import Today from "./views/Today.jsx";
 import Session from "./views/Session.jsx";
 import Summary from "./views/Summary.jsx";
@@ -14,6 +17,7 @@ import Settings from "./views/Settings.jsx";
 import ProgramEditor from "./views/ProgramEditor.jsx";
 import Export from "./views/Export.jsx";
 import Coaches from "./views/Coaches.jsx";
+import NamePrompt from "./components/NamePrompt.jsx";
 
 const TAB_VIEWS = ["today", "history", "progress", "settings", "lift"];
 
@@ -25,6 +29,8 @@ export default function App() {
   const [program, setProgram] = useState(PROGRAM);
   const [drafts, setDrafts] = useState({});
   const [weighins, setWeighins] = useState([]);
+  const [prefs, setPrefs] = useState(DEFAULT_PREFS);
+  const [name, setName] = useState(null); // first name from the account, once known
   const [toast, setToast] = useState(null);
   const { route, go, back } = useRoute();
 
@@ -37,6 +43,7 @@ export default function App() {
       setProgram(data?.program || PROGRAM);
       setDrafts(data?.drafts || {});
       setWeighins(data?.weighins || []);
+      setPrefs({ ...DEFAULT_PREFS, ...data?.prefs });
       if (offline) setSync("offline");
       setReady(true);
     } catch {
@@ -49,8 +56,13 @@ export default function App() {
   if (!saver.current) saver.current = createSaver(setSync);
 
   useEffect(() => {
-    if (ready) saver.current.save({ sessions, program, drafts, weighins });
-  }, [sessions, program, drafts, weighins, ready]);
+    if (ready) saver.current.save({ sessions, program, drafts, weighins, prefs });
+  }, [sessions, program, drafts, weighins, prefs, ready]);
+
+  /* The icon choice follows the account, so a fresh Safari sign-in offers the same icon to Add to Home Screen. */
+  useEffect(() => { if (ready) applyIcon(prefs.icon); }, [ready, prefs.icon]);
+  useEffect(() => { if (ready) applyTheme(prefs.theme); }, [ready, prefs.theme]);
+  const setPref = useCallback((k, v) => setPrefs((p) => ({ ...p, [k]: v })), []);
 
   /* Retry unsynced changes when the connection comes back, the app returns to the foreground, or every 30 s. */
   useEffect(() => {
@@ -137,7 +149,7 @@ export default function App() {
   if (loadFailed) return <LoadError onRetry={load} />;
   if (!ready) return <Boot />;
 
-  const common = { sessions, program, drafts, weighins, go, back, notify, onWeighin: logWeighin };
+  const common = { sessions, program, drafts, weighins, prefs, setPref, name, go, back, notify, onWeighin: logWeighin };
   let view;
   switch (route.name) {
     case "session": {
@@ -174,6 +186,7 @@ export default function App() {
       {view}
       {showTabs && <TabBar active={activeTab} />}
       {sync === "offline" && <SyncNote raised={showTabs} />}
+      <NamePrompt onName={setName} />
       <Toast toast={toast} onDismiss={() => setToast(null)} raised={route.name === "session"} />
     </div>
   );

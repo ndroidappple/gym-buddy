@@ -1,7 +1,7 @@
 import { supabase } from "../supabase-client.js";
 import { COACHES, coachFor } from "../data/coaches.js";
-import { DAYS } from "../data/program.js";
-import { liftSeries, trend, num, fmtW, bestSet, bodyweightSeries, byDateDesc, daysBetween, today, nextDayAfter } from "./util.js";
+import { DAYS, isCardio } from "../data/program.js";
+import { fmtSet, liftSeries, trend, num, fmtW, bestSet, bodyweightSeries, byDateDesc, daysBetween, today, nextDayAfter } from "./util.js";
 
 /** A compact, plain-text picture of the lifter for the coach: their lifts, recent bests, trends, bodyweight. */
 export function buildContext({ coach, sessions, program, weighins }) {
@@ -13,6 +13,10 @@ export function buildContext({ coach, sessions, program, weighins }) {
   const lifts = [...new Set(DAYS.flatMap((d) => program[d].exercises.map((e) => e.n)))];
   const mine = lifts.filter((n) => coachFor(n) === coach);
   const describe = (n) => {
+    if (isCardio(n)) {
+      const logs = [...sessions].sort(byDateDesc).filter((x) => x.sets[n]?.length);
+      return logs.length ? `${n}: last ${logs[0].date} ${logs[0].sets[n].map(fmtSet).join(" + ")}, ${logs.length} sessions` : `${n}: not logged yet`;
+    }
     const s = liftSeries(sessions, n);
     if (!s.length) return `${n}: not logged yet`;
     const last = s[s.length - 1];
@@ -38,6 +42,8 @@ export function buildContext({ coach, sessions, program, weighins }) {
  * Streams a coach reply. Calls onText with the text so far. Throws an Error whose `kind` is
  * "offline" | "auth" | "unavailable" | "busy" so the chat can answer in the coach's voice.
  */
+const withName = (context, first) => (first ? `Lifter's first name: ${first}.\n${context}` : context);
+
 export async function askCoach({ coach, messages, context, onText, signal }) {
   if (!navigator.onLine) throw Object.assign(new Error("offline"), { kind: "offline" });
   const { data } = await supabase.auth.getSession();
@@ -46,7 +52,7 @@ export async function askCoach({ coach, messages, context, onText, signal }) {
     res = await fetch("/api/coach", {
       method: "POST",
       headers: { "content-type": "application/json", authorization: `Bearer ${data.session?.access_token || ""}` },
-      body: JSON.stringify({ coach, messages, context }),
+      body: JSON.stringify({ coach, messages, context: withName(context, data.session?.user?.user_metadata?.first_name) }),
       signal,
     });
   } catch (e) {

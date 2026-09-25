@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from "react";
+import { InfoButton } from "../components/ui.jsx";
 import { ChevronLeft, Download, Copy } from "lucide-react";
 import { e1rm, num, today, byDateAsc } from "../lib/util.js";
 
@@ -6,16 +7,16 @@ export default function Export({ sessions, program, weighins, back, notify }) {
   const [fmt, setFmt] = useState("csv");
 
   const csv = useMemo(() => {
-    const rows = [["date", "day", "exercise", "set", "weight_lbs", "reps", "rir", "est_1rm", "bodyweight_lbs", "note"]];
+    const rows = [["date", "day", "exercise", "set", "weight_lbs", "reps", "rir", "est_1rm", "minutes", "miles", "bodyweight_lbs", "note"]];
     [...sessions].sort(byDateAsc).forEach((s) => {
       Object.entries(s.sets).forEach(([n, sets]) => {
         sets.forEach((x, i) => rows.push([
-          s.date, program[s.day]?.name || s.day, n, i + 1, x.w, x.r, x.rir ?? "",
-          num(e1rm(x.w, x.r)), s.bw ?? "", s.note || "",
+          s.date, program[s.day]?.name || s.day, n, i + 1, x.w ?? "", x.r ?? "", x.rir ?? "",
+          x.min != null ? "" : num(e1rm(x.w, x.r)), x.min ?? "", x.mi ?? "", s.bw ?? "", s.note || "",
         ]));
       });
     });
-    (weighins || []).forEach((w) => rows.push([w.date, "Weigh-in", "", "", "", "", "", "", w.bw, ""]));
+    (weighins || []).forEach((w) => rows.push([w.date, "Weigh-in", "", "", "", "", "", "", "", "", w.bw, ""]));
     const cell = (c) => { const v = String(c); return /[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v; };
     return rows.map((r) => r.map(cell).join(",")).join("\n");
   }, [sessions, program, weighins]);
@@ -46,6 +47,8 @@ export default function Export({ sessions, program, weighins, back, notify }) {
       <header className="top ruled">
         <button className="icon-btn boxed" onClick={() => back("#/settings")} aria-label="Back"><ChevronLeft size={20} /></button>
         <h1 className="top-title">Export</h1>
+        <span className="spacer" />
+        <InfoButton screen="export" />
       </header>
       <div className="body" style={{ paddingTop: 12 }}>
         <p className="muted">Your sessions are saved to your IRONLOG account and sync across devices. Export a copy whenever you want one you control. CSV opens straight in Sheets or Excel.</p>

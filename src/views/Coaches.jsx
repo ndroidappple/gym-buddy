@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from "react";
+import { InfoButton } from "../components/ui.jsx";
 import { ChevronLeft } from "lucide-react";
 import { DAYS } from "../data/program.js";
 import { COACHES, COACH_ORDER, coachFor } from "../data/coaches.js";
@@ -18,11 +19,13 @@ export default function Coaches({ program, sessions, weighins, back }) {
     <main className="screen">
       <header className="top">
         <button className="icon-btn boxed" onClick={() => back("#/today")} aria-label="Back"><ChevronLeft size={20} /></button>
+        <span className="spacer" />
+        <InfoButton screen="coaches" />
       </header>
       <div className="body" style={{ gap: 16 }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
           <h1 className="page-title">Meet your coaches</h1>
-          <p className="muted" style={{ fontWeight: 600, fontSize: 15 }}>Five coaches, one per training area. They call your cues, cheer your sets and lose it when you hit a PR. Tap one to ask a question.</p>
+          <p className="muted" style={{ fontWeight: 600, fontSize: 15 }}>Six coaches, one per training area. They call your cues, cheer your sets and lose it when you hit a PR. Tap one to ask a question.</p>
         </div>
         <div className="coach-grid">
           {COACH_ORDER.map((id) => (

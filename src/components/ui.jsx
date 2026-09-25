@@ -1,9 +1,32 @@
 import React, { useEffect, useRef, useState, useMemo } from "react";
-import { X, Home, CalendarDays, TrendingUp, Settings as Gear, Plus } from "lucide-react";
-import { LIBRARY } from "../data/program.js";
+import { createPortal } from "react-dom";
+import { X, Home, CalendarDays, TrendingUp, Settings as Gear, Plus, Info } from "lucide-react";
+import { HELP } from "../data/help.js";
+import { LIBRARY, specLine } from "../data/program.js";
 
-export function Sheet({ title, sub, onClose, children, labelledBy = "sheet-title" }) {
+/* iOS lays the keyboard over the page instead of resizing it. The sheet follows the visible
+   viewport instead, so the keyboard pushes it up rather than covering it. */
+function useVisibleViewport(wrap) {
+  useEffect(() => {
+    const vv = window.visualViewport;
+    const el = wrap.current;
+    if (!vv || !el) return;
+    const fit = () => {
+      el.style.setProperty("--vv-top", `${vv.offsetTop}px`);
+      el.style.setProperty("--vv-h", `${vv.height}px`);
+      el.toggleAttribute("data-kb", window.innerHeight - vv.height > 120);
+    };
+    fit();
+    vv.addEventListener("resize", fit);
+    vv.addEventListener("scroll", fit);
+    return () => { vv.removeEventListener("resize", fit); vv.removeEventListener("scroll", fit); };
+  }, [wrap]);
+}
+
+export function Sheet({ title, sub, onClose, children, labelledBy = "sheet-title", className = "" }) {
   const ref = useRef(null);
+  const wrap = useRef(null);
+  useVisibleViewport(wrap);
   const close = useRef(onClose);
   close.current = onClose;
   useEffect(() => {
@@ -15,9 +38,10 @@ export function Sheet({ title, sub, onClose, children, labelledBy = "sheet-title
     document.body.style.overflow = "hidden";
     return () => { removeEventListener("keydown", onKey); document.body.style.overflow = ""; prev?.focus?.(); };
   }, []);
-  return (
-    <div className="sheet-wrap" onClick={onClose}>
-      <div className="sheet" role="dialog" aria-modal="true" aria-labelledby={labelledBy} ref={ref} tabIndex={-1} onClick={(e) => e.stopPropagation()}>
+  // Portalled to <body>: a sheet opened from a sticky header would otherwise sit under the tab bar.
+  return createPortal((
+    <div className="sheet-wrap" ref={wrap} onClick={onClose}>
+      <div className={"sheet " + className} role="dialog" aria-modal="true" aria-labelledby={labelledBy} ref={ref} tabIndex={-1} onClick={(e) => e.stopPropagation()}>
         <div className="sheet-grab" aria-hidden="true" />
         <div className="sheet-head">
           <div style={{ flex: 1 }}>
@@ -29,6 +53,24 @@ export function Sheet({ title, sub, onClose, children, labelledBy = "sheet-title
         <div className="sheet-body">{children}</div>
       </div>
     </div>
+  ), document.body);
+}
+
+/** The (i) in a screen's header: opens a short sheet on what the screen is for. */
+export function InfoButton({ screen }) {
+  const [open, setOpen] = useState(false);
+  const h = HELP[screen];
+  if (!h) return null;
+  return (
+    <>
+      <button className="icon-btn info-btn" onClick={() => setOpen(true)} aria-label={`About ${h.title}`}><Info size={20} strokeWidth={2.4} /></button>
+      {open && (
+        <Sheet title={h.title} sub={h.sub} onClose={() => setOpen(false)} labelledBy="info-title">
+          <ul className="info-list">{h.points.map((p) => <li key={p}>{p}</li>)}</ul>
+          <button className="btn btn-ink" onClick={() => setOpen(false)}>Got it</button>
+        </Sheet>
+      )}
+    </>
   );
 }
 
@@ -206,7 +248,7 @@ export function ExercisePicker({ title, sub, existingNames, onPick, onClose }) {
           <div className="lbl group-lbl">{g}</div>
           {items.map((e) => (
             <button key={e.n} className="lib-row" onClick={() => onPick({ n: e.n, sets: e.sets, reps: e.reps, rest: e.rest, cue: "" })}>
-              <span style={{ flex: 1 }}><span className="name">{e.n}</span><span className="sub">{e.sets} × {e.reps[0]}–{e.reps[1]} · {e.rest}s rest</span></span>
+              <span style={{ flex: 1 }}><span className="name">{e.n}</span><span className="sub">{specLine(e)}</span></span>
               <Plus size={18} aria-hidden="true" />
             </button>
           ))}

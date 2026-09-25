@@ -1,18 +1,20 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { ChevronLeft, Check, Plus, Minus, Trash2 } from "lucide-react";
 import { BorderBeam } from "border-beam";
-import { uid, e1rm, fmtW, today, shortDate, mmss, byDateDesc, priorSessions, allTimeBest, bestSet, vibrate } from "../lib/util.js";
+import { fmtSet, uid, e1rm, fmtW, today, shortDate, mmss, byDateDesc, priorSessions, allTimeBest, bestSet, vibrate } from "../lib/util.js";
 import { primeAudio, chime } from "../lib/sound.js";
 import { Sheet, ConfirmSheet, ExercisePicker } from "../components/ui.jsx";
 import Coach, { MOODS } from "../components/Coach.jsx";
 import CoachChat from "../components/CoachChat.jsx";
 import { useReducedMotion } from "../lib/motion.js";
+import { useTheme } from "../lib/theme.js";
 import { MessageCircle } from "lucide-react";
 import { COACHES, coachFor } from "../data/coaches.js";
+import { isCardio, specLine } from "../data/program.js";
 
 const hasVal = (v) => v !== "" && v != null;
 
-export default function Session({ day, existing, draft, sessions, program, weighins, back, notify, onSaveDraft, onDiscardDraft, onFinish, onUpdate, onDelete }) {
+export default function Session({ day, existing, draft, sessions, program, weighins, prefs, back, notify, onSaveDraft, onDiscardDraft, onFinish, onUpdate, onDelete }) {
   const dayProgram = program[day];
   const [extras, setExtras] = useState(() => draft?.extras || []);
   const [skipped, setSkipped] = useState(() => draft?.skipped || []);
@@ -55,6 +57,13 @@ export default function Session({ day, existing, draft, sessions, program, weigh
 
   const buildRows = useCallback((ex) => {
     const prev = existing?.sets?.[ex.n];
+    if (isCardio(ex.n)) {
+      if (prev) return prev.map((s) => ({ min: String(s.min ?? ""), mi: s.mi != null ? String(s.mi) : "", done: true, saved: true }));
+      const ref = lastFor(ex.n)?.sets[ex.n] || [];
+      return Array.from({ length: Math.max(1, ex.sets) }, (_, i) => ({
+        min: String(ref[i]?.min ?? ex.reps[0]), mi: ref[i]?.mi != null ? String(ref[i].mi) : "", done: false,
+      }));
+    }
     if (prev) return prev.map((s) => ({ w: String(s.w), r: String(s.r), rir: s.rir != null ? String(s.rir) : "", done: true, saved: true }));
     const ref = lastFor(ex.n)?.sets[ex.n] || [];
     const count = Math.max(ex.sets, ref.length);
@@ -98,6 +107,13 @@ export default function Session({ day, existing, draft, sessions, program, weigh
     const sets = {};
     Object.entries(grid).forEach(([n, rows]) => {
       if (skipped.includes(n)) return;
+      if (isCardio(n)) {
+        const entries = rows.filter((r) => (r.done || r.saved) && hasVal(r.min)).map((r) => ({
+          min: parseFloat(r.min) || 0, ...(hasVal(r.mi) ? { mi: parseFloat(r.mi) || 0 } : {}),
+        }));
+        if (entries.length) sets[n] = entries;
+        return;
+      }
       const valid = rows.filter((r) => (r.done || r.saved) && hasVal(r.w) && hasVal(r.r)).map((r) => ({
         w: parseFloat(r.w) || 0, r: parseInt(r.r) || 0,
         ...(hasVal(r.rir) ? { rir: parseFloat(r.rir) } : {}),
@@ -146,7 +162,31 @@ export default function Session({ day, existing, draft, sessions, program, weigh
     return b;
   };
 
+  /* Cardio: no rest timer and no PRs; the coach cheers if you went longer or further than last time. */
+  const logCardio = (ex, i) => {
+    const row = grid[ex.n][i];
+    if (!hasVal(row.min)) return;
+    primeAudio();
+    const same = lastFor(ex.n)?.sets[ex.n]?.[i];
+    const beat = !!same && (parseFloat(row.min) > same.min || (hasVal(row.mi) && parseFloat(row.mi) > (same.mi || 0)));
+    setGrid((g) => { const rows = [...g[ex.n]]; rows[i] = { ...rows[i], done: true, beat }; return { ...g, [ex.n]: rows }; });
+    if (!startedAt) setStartedAt(Date.now());
+    setFlash({ ex: ex.n, i });
+    vibrate(20);
+    setActiveIdx(null);
+    setEditing(false);
+    setReaction({ ex: ex.n, mood: beat ? "proud" : "hyped" });
+    clearTimeout(reactionTimer.current);
+    reactionTimer.current = setTimeout(() => setReaction(null), 2400);
+    if (!grid[ex.n].some((r, j) => j !== i && !r.done)) {
+      const idx = exercises.findIndex((e) => e.n === ex.n);
+      const next = [...exercises.slice(idx + 1), ...exercises.slice(0, idx)].find((e) => isPending(e.n));
+      setFocus(next ? next.n : null);
+    }
+  };
+
   const logSet = (ex, i) => {
+    if (isCardio(ex.n)) { logCardio(ex, i); return; }
     const row = grid[ex.n][i];
     if (!hasVal(row.w) || !hasVal(row.r)) return;
     primeAudio();
@@ -196,7 +236,8 @@ export default function Session({ day, existing, draft, sessions, program, weigh
     setGrid((g) => {
       const rows = g[n];
       const last = rows[rows.length - 1];
-      return { ...g, [n]: [...rows, { w: last?.w ?? "", r: last?.r ?? "", rir: "", done: false }] };
+      const row = isCardio(n) ? { min: last?.min ?? "", mi: "", done: false } : { w: last?.w ?? "", r: last?.r ?? "", rir: "", done: false };
+      return { ...g, [n]: [...rows, row] };
     });
     setFocus(n);
     setActiveIdx(grid[n].length);
@@ -264,14 +305,14 @@ export default function Session({ day, existing, draft, sessions, program, weigh
                 onPick={(i) => { setActiveIdx(i); setEditing(false); }} onReopen={(i) => reopen(ex.n, i)}
                 onAddSet={() => addSet(ex.n)} onRemoveSet={(i) => removeSet(ex.n, i)}
                 onSkip={ex.today ? () => removeExtra(ex.n) : ex.orphan ? null : () => skip(ex.n)} skipLabel={ex.today ? "Remove" : "Skip today"}
-                onAsk={() => setChat({ coach: coachFor(ex.n), exercise: ex.n })} onCollapse={() => setFocus(null)} />
+                showRir={prefs.rir} onAsk={() => setChat({ coach: coachFor(ex.n), exercise: ex.n })} onCollapse={() => setFocus(null)} />
             );
           }
           return <Collapsed key={ex.n} ex={ex} rows={rows} target={target} skipped={skipped.includes(ex.n)}
             onOpen={() => { if (skipped.includes(ex.n)) setSkipped((s) => s.filter((x) => x !== ex.n)); setFocus(ex.n); setActiveIdx(null); }} />;
         })}
 
-        <button className="btn btn-ghost" onClick={() => setSheet("picker")}><Plus size={18} aria-hidden="true" /> Add a lift for today</button>
+        <button className="btn btn-ghost" onClick={() => setSheet("picker")}><Plus size={18} aria-hidden="true" /> Add a lift or cardio</button>
 
         <div className="finish">
           <button className="meta-chip" onClick={() => setSheet("details")}>
@@ -328,8 +369,10 @@ function Collapsed({ ex, rows, target, skipped, onOpen }) {
   const complete = rows.length > 0 && done.length === rows.length;
   const prs = done.filter((r) => r.pr).length;
   const best = bestSet(done.filter((r) => hasVal(r.w) && hasVal(r.r)).map((r) => ({ w: +r.w, r: +r.r })));
+  const cardio = isCardio(ex.n);
   let sub;
   if (skipped) sub = "Skipped today · tap to add back";
+  else if (cardio) sub = done.length ? done.map((r) => fmtSet({ min: +r.min, mi: hasVal(r.mi) ? +r.mi : null })).join(" + ") : `Cardio · ${ex.reps[0]}–${ex.reps[1]} min`;
   else if (complete) sub = `${done.length} sets · best ${fmtW(best.w)} × ${best.r}`;
   else sub = `${done.length}/${rows.length} sets${target ? ` · beat ${fmtW(target.w)} × ${target.r}` : ""}`;
   return (
@@ -355,57 +398,78 @@ function SetRing({ done, total, skipped }) {
   );
 }
 
-function ExerciseCard({ ex, rows, target, targetDate, refSets, activeIdx, flash, mood, onAsk, onEdit, onLog, onPick, onReopen, onAddSet, onRemoveSet, onSkip, skipLabel, onCollapse }) {
+function ExerciseCard({ ex, showRir, rows, target, targetDate, refSets, activeIdx, flash, mood, onAsk, onEdit, onLog, onPick, onReopen, onAddSet, onRemoveSet, onSkip, skipLabel, onCollapse }) {
   const id = coachFor(ex.n);
   const coach = COACHES[id];
   // Calm moods read the form cue; reactions say their own line.
   const line = (mood === "idle" || mood === "focused") && ex.cue ? ex.cue : MOODS[mood].line;
+  const cardio = isCardio(ex.n);
+  const lastEntry = cardio ? refSets[0] : null;
   return (
     <section className="ex" aria-label={ex.n}>
-      <div className="ex-coach">
-        <Coach id={id} mood={mood} size={68} />
-        <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 6 }}>
-          <p className="coach-bubble" style={{ "--c": coach.color }} aria-live="polite">{line}<span className="who">{coach.name} · {coach.group} coach</span></p>
+      {/* Comic layout: the bubble's tail points down at the coach who says it. */}
+      <div className="ex-coach" style={{ "--c": coach.color }}>
+        <p className="coach-bubble says-down" aria-live="polite">{line}</p>
+        <div className="ex-coach-row">
+          <Coach id={id} mood={mood} size={60} />
+          <span className="who"><b>{coach.name}</b>{coach.group} coach</span>
           <button className="ask-btn" onClick={onAsk}><MessageCircle size={15} strokeWidth={2.6} aria-hidden="true" /> Ask {coach.name}</button>
         </div>
       </div>
       <div className="ex-head">
         <button style={{ flex: 1, textAlign: "left", minWidth: 0 }} onClick={onCollapse} aria-label={`${ex.n}, collapse`}>
           <div className="ex-name">{ex.n}{ex.today && <span className="ex-tag">today</span>}{ex.orphan && <span className="ex-tag">off program</span>}</div>
-          <div className="ex-spec">{ex.sets} × {ex.reps[0]}–{ex.reps[1]} · {ex.rest}s rest</div>
+          <div className="ex-spec">{specLine(ex)}</div>
         </button>
-        {target && <span className="target" title={`Best set on ${shortDate(targetDate)}`}>Beat {fmtW(target.w)} × {target.r}</span>}
+        {cardio
+          ? lastEntry && <span className="target" title={`Last time, ${shortDate(targetDate)}`}>Beat {fmtSet(lastEntry)}</span>
+          : target && <span className="target" title={`Best set on ${shortDate(targetDate)}`}>Beat {fmtW(target.w)} × {target.r}</span>}
       </div>
-      {!target && <p className="target-none">First time logging this one. Today sets the baseline.</p>}
+      {!(cardio ? lastEntry : target) && <p className="target-none">First time logging this one. Today sets the baseline.</p>}
 
       <div>
         {rows.map((r, i) => {
+          if (r.done && cardio) {
+            const label = fmtSet({ min: +r.min, mi: hasVal(r.mi) ? +r.mi : null });
+            return (
+              <button key={i} className="done-row" onClick={() => onReopen(i)} aria-label={`Entry ${i + 1}: ${label}. Tap to edit.`}>
+                <span className="n">{i + 1}</span>
+                <span className="w">{label}{r.beat ? <span className="beat-mark">▲ beat</span> : null}</span>
+                <span />
+                <span className={"ck" + (flash === i ? " fill" : "")} aria-hidden="true"><Check size={18} strokeWidth={3} /></span>
+              </button>
+            );
+          }
           if (r.done) {
             return (
               <button key={i} className="done-row" onClick={() => onReopen(i)} aria-label={`Set ${i + 1}: ${fmtW(+r.w)} by ${r.r}${r.pr ? ", personal record" : ""}. Tap to edit.`}>
                 <span className="n">{i + 1}</span>
                 <span className="w">{fmtW(+r.w)} × {r.r}{r.pr ? <span className={"stamp" + (flash === i ? " hit" : "")}>PR</span> : r.beat ? <span className="beat-mark">▲ beat</span> : null}</span>
-                <span className="small muted">{hasVal(r.rir) ? `RIR ${r.rir}` : ""}</span>
+                <span className="small muted">{showRir && hasVal(r.rir) ? `RIR ${r.rir}` : ""}</span>
                 <span className={"ck" + (flash === i ? " fill" : "")} aria-hidden="true"><Check size={18} strokeWidth={3} /></span>
               </button>
             );
           }
+          if (i === activeIdx && cardio) {
+            return <CardioSet key={i} i={i} ex={ex} row={r} last={refSets[i]} canRemove={rows.length > 1}
+              onEdit={(patch) => onEdit(i, patch)} onLog={() => onLog(i)} onRemove={() => onRemoveSet(i)} />;
+          }
           if (i === activeIdx) {
-            return <ActiveSet key={i} i={i} ex={ex} row={r} last={refSets[i]} canRemove={rows.length > 1}
+            return <ActiveSet key={i} i={i} ex={ex} showRir={showRir} row={r} last={refSets[i]} canRemove={rows.length > 1}
               onEdit={(patch) => onEdit(i, patch)} onLog={() => onLog(i)} onRemove={() => onRemoveSet(i)} />;
           }
           return (
-            <button key={i} className="pending-row" onClick={() => onPick(i)} aria-label={`Set ${i + 1}, not logged. Tap to enter.`}>
+            <button key={i} className="pending-row" onClick={() => onPick(i)} aria-label={`${cardio ? "Entry" : "Set"} ${i + 1}, not logged. Tap to enter.`}>
               <span>{i + 1}</span>
-              <span>{hasVal(r.w) ? fmtW(+r.w) : "—"} × {hasVal(r.r) ? r.r : "—"}</span>
-              <span>{refSets[i] ? `last ${fmtW(refSets[i].w)} × ${refSets[i].r}` : ""}</span>
+              <span>{cardio ? `${hasVal(r.min) ? r.min : "—"} min` : `${hasVal(r.w) ? fmtW(+r.w) : "—"} × ${hasVal(r.r) ? r.r : "—"}`}</span>
+              <span>{refSets[i] ? `last ${cardio ? fmtSet(refSets[i]) : `${fmtW(refSets[i].w)} × ${refSets[i].r}`}` : ""}</span>
             </button>
           );
         })}
       </div>
 
       <div className="ex-foot">
-        <button className="btn-quiet" onClick={onAddSet}><Plus size={16} aria-hidden="true" style={{ verticalAlign: -3 }} /> Add set</button>
+        <button className="btn-quiet" onClick={onAddSet}><Plus size={16} aria-hidden="true" style={{ verticalAlign: -3 }} /> {cardio ? "Add interval" : "Add set"}</button>
         <span className="spacer" />
         {onSkip && <button className="btn-quiet" onClick={onSkip}>{skipLabel}</button>}
       </div>
@@ -413,7 +477,30 @@ function ExerciseCard({ ex, rows, target, targetDate, refSets, activeIdx, flash,
   );
 }
 
-function ActiveSet({ i, ex, row, last, canRemove, onEdit, onLog, onRemove }) {
+function CardioSet({ i, ex, row, last, canRemove, onEdit, onLog, onRemove }) {
+  const bump = (field, step, digits) => {
+    const next = Math.max(0, (parseFloat(row[field]) || 0) + step);
+    onEdit({ [field]: String(Math.round(next * 10 ** digits) / 10 ** digits) });
+  };
+  return (
+    <div className="active-set">
+      <div className="set-head">
+        <span>{i ? `Interval ${i + 1}` : "Today"}</span><span className="spacer" />
+        {last && <span className="lbl">last time {fmtSet(last)}</span>}
+      </div>
+      <div className="steppers">
+        <Stepper id={`min-${i}`} label="Minutes" unit="min" value={row.min} mode="decimal" placeholder={`${ex.reps[0]}–${ex.reps[1]}`}
+          onChange={(v) => onEdit({ min: v })} onDec={() => bump("min", -5, 0)} onInc={() => bump("min", 5, 0)} step="5 minutes" />
+        <Stepper id={`mi-${i}`} label="Distance" unit="miles" value={row.mi} mode="decimal" placeholder="opt."
+          onChange={(v) => onEdit({ mi: v })} onDec={() => bump("mi", -0.1, 1)} onInc={() => bump("mi", 0.1, 1)} step="a tenth of a mile" />
+      </div>
+      <button className="btn btn-day" onClick={onLog} disabled={!hasVal(row.min)}>{hasVal(row.min) ? "Log cardio" : "Enter minutes"}</button>
+      {canRemove && <button className="btn-quiet" onClick={onRemove}>Remove this interval</button>}
+    </div>
+  );
+}
+
+function ActiveSet({ i, ex, showRir, row, last, canRemove, onEdit, onLog, onRemove }) {
   const bump = (field, step) => {
     const cur = parseFloat(row[field]) || 0;
     const next = Math.max(0, Math.round((cur + step) * 10) / 10);
@@ -432,12 +519,14 @@ function ActiveSet({ i, ex, row, last, canRemove, onEdit, onLog, onRemove }) {
         <Stepper id={`r-${i}`} label="Reps" unit="reps" value={row.r} mode="numeric" placeholder={`${ex.reps[0]}–${ex.reps[1]}`}
           onChange={(v) => onEdit({ r: v })} onDec={() => bump("r", -1)} onInc={() => bump("r", 1)} step="1 rep" />
       </div>
-      <div className="rir" role="group" aria-label="Reps in reserve (optional)">
-        <span className="lbl">RIR</span>
-        {["0", "1", "2", "3", "4"].map((v) => (
-          <button key={v} aria-pressed={row.rir === v} onClick={() => onEdit({ rir: row.rir === v ? "" : v })}>{v === "4" ? "4+" : v}</button>
-        ))}
-      </div>
+      {showRir && (
+        <div className="rir" role="group" aria-label="Reps in reserve (optional)">
+          <span className="lbl">RIR</span>
+          {["0", "1", "2", "3", "4"].map((v) => (
+            <button key={v} aria-pressed={row.rir === v} onClick={() => onEdit({ rir: row.rir === v ? "" : v })}>{v === "4" ? "4+" : v}</button>
+          ))}
+        </div>
+      )}
       <button className="btn btn-day" onClick={onLog} disabled={!ready}>{ready ? "Log set" : "Enter weight and reps"}</button>
       {canRemove && <button className="btn-quiet" onClick={onRemove}>Remove this set</button>}
     </div>
@@ -476,9 +565,10 @@ function RestDock({ timer, setTimer }) {
   }, [over]);
   const adjust = (d) => setTimer((t) => ({ ...t, endsAt: Math.max(Date.now(), t.endsAt + d * 1000), total: Math.max(15, t.total + d) }));
   const reduced = useReducedMotion();
+  const theme = useTheme();
   return (
     // Line beam runs only while resting (a 60–120 s wait); the line type ignores reduced motion, so gate it here.
-    <BorderBeam size="line" theme="auto" active={!over && !reduced} className="rest-wrap">
+    <BorderBeam size="line" theme={theme} active={!over && !reduced} className="rest-wrap">
       <div className={"rest" + (over ? " over" : "")} role="timer" aria-label="Rest timer">
         <Coach id={timer.coach || "tank"} mood={over ? "focused" : "resting"} size={46} decorative />
         <div className="rest-text">

@@ -1,8 +1,10 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { isCardio } from "../data/program.js";
 import { href } from "../lib/router.js";
 import Coach from "../components/Coach.jsx";
 import { coachFor } from "../data/coaches.js";
-import { priorSessions, allTimeBest, bestSet, bestE1rm, e1rm, fmtW, num, compact, shortDate, plural, sessionVolume, sessionSetCount, byDateDesc, nextDayAfter } from "../lib/util.js";
+import { useTheme } from "../lib/theme.js";
+import { fmtSet, cardioTotals, priorSessions, allTimeBest, bestSet, bestE1rm, e1rm, fmtW, num, compact, shortDate, plural, sessionVolume, sessionSetCount, byDateDesc, nextDayAfter } from "../lib/util.js";
 
 export default function Summary({ session, sessions, program, go, onUpdate }) {
   const [note, setNote] = useState(session.note || "");
@@ -11,7 +13,7 @@ export default function Summary({ session, sessions, program, go, onUpdate }) {
   const r = useMemo(() => {
     const prior = priorSessions(sessions, session).sort(byDateDesc);
     const lastSame = prior.find((s) => s.day === session.day);
-    const rows = Object.entries(session.sets).map(([n, sets]) => {
+    const rows = Object.entries(session.sets).filter(([n]) => !isCardio(n)).map(([n, sets]) => {
       const best = bestSet(sets);
       const score = bestE1rm(sets);
       const allTime = allTimeBest(prior, n);
@@ -28,6 +30,7 @@ export default function Summary({ session, sessions, program, go, onUpdate }) {
       below: rows.filter((x) => x.lastScore && x.score < x.lastScore),
       baseline: rows.filter((x) => !x.lastScore),
       prevRecords: lastSame ? countRecords(sessions, lastSame) : null,
+      cardio: Object.entries(session.sets).filter(([n]) => isCardio(n)).map(([n, sets]) => ({ n, sets, t: cardioTotals(sets) })),
     };
   }, [session, sessions]);
 
@@ -72,6 +75,16 @@ export default function Summary({ session, sessions, program, go, onUpdate }) {
         )}
         {r.beat.length > 0 && <Group title="Beat last time">{r.beat.map((x) => <Plain key={x.n} x={x} mark={x.vsLast > 0.05 ? `▲ ${x.vsLast.toFixed(1)}%` : "— matched"} />)}</Group>}
         {r.below.length > 0 && <Group title="Below last time">{r.below.map((x) => <Plain key={x.n} x={x} mark={`▼ ${Math.abs(x.vsLast).toFixed(1)}%`} />)}</Group>}
+        {r.cardio.length > 0 && (
+          <Group title="Cardio">
+            {r.cardio.map((x) => (
+              <a key={x.n} className="rec plain" href={href("lift", x.n)}>
+                <span className="rec-text"><span className="n">{x.n}</span><span className="m">{x.sets.map(fmtSet).join(" + ")}</span></span>
+                <span className="trend flat">{num(x.t.min)} min</span>
+              </a>
+            ))}
+          </Group>
+        )}
         {r.baseline.length > 0 && <Group title="New baselines">{r.baseline.map((x) => <Plain key={x.n} x={x} mark="first log" />)}</Group>}
 
         <label className="field">
@@ -96,13 +109,7 @@ export default function Summary({ session, sessions, program, go, onUpdate }) {
 let metalLoad = null;
 function useMetal() {
   const [metal, setMetal] = useState(null);
-  const [dark, setDark] = useState(() => window.matchMedia("(prefers-color-scheme: dark)").matches);
-  useEffect(() => {
-    const mq = window.matchMedia("(prefers-color-scheme: dark)");
-    const on = (e) => setDark(e.matches);
-    mq.addEventListener("change", on);
-    return () => mq.removeEventListener("change", on);
-  }, []);
+  const dark = useTheme() === "dark";
   useEffect(() => {
     if (!dark || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     let live = true;
@@ -116,13 +123,9 @@ function useMetal() {
 
 function useInk() {
   const read = () => getComputedStyle(document.documentElement).getPropertyValue("--ink").trim() || "#15171A";
+  const theme = useTheme();
   const [ink, setInk] = useState(read);
-  useEffect(() => {
-    const mq = window.matchMedia("(prefers-color-scheme: dark)");
-    const on = () => setInk(read());
-    mq.addEventListener("change", on);
-    return () => mq.removeEventListener("change", on);
-  }, []);
+  useEffect(() => { setInk(read()); }, [theme]);
   return ink;
 }
 
