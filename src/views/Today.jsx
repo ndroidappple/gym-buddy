@@ -5,7 +5,7 @@ import { DAYS } from "../data/program.js";
 import { href } from "../lib/router.js";
 import { COACHES, coachesFor } from "../data/coaches.js";
 import Coach from "../components/Coach.jsx";
-import { byDateDesc, bestSet, fmtW, num, shortDate, weekDates, today, nextDayAfter, bodyweightSeries, daysBetween, plural } from "../lib/util.js";
+import { byDateDesc, bestSet, fmtW, num, shortDate, weekDates, today, nextDayAfter, bodyweightSeries, daysBetween, plural, readyToIncrease } from "../lib/util.js";
 
 export default function Today({ name, sessions, program, drafts, weighins, onWeighin }) {
   const sorted = useMemo(() => [...sessions].sort(byDateDesc), [sessions]);
@@ -40,11 +40,12 @@ export default function Today({ name, sessions, program, drafts, weighins, onWei
     return mins.length ? Math.round(mins.reduce((a, m) => a + m, 0) / mins.length) : null;
   }, [sessions, day]);
 
+  // Lifts that earned more weight lead the list; the rest show last time's best set to beat.
   const targets = useMemo(() => p.exercises.map((ex) => {
     const prior = sorted.find((s) => s.sets[ex.n]?.length);
     const best = prior && bestSet(prior.sets[ex.n]);
-    return best ? { n: ex.n, best } : null;
-  }).filter(Boolean).slice(0, 3), [p, sorted]);
+    return best ? { n: ex.n, best, bump: readyToIncrease(ex, prior.sets[ex.n]) } : null;
+  }).filter(Boolean).sort((a, b) => !!b.bump - !!a.bump).slice(0, 3), [p, sorted]);
 
   const week = weekDates();
   const byDate = useMemo(() => {
@@ -122,7 +123,9 @@ export default function Today({ name, sessions, program, drafts, weighins, onWei
               {targets.map((x) => (
                 <a key={x.n} className="card-row" href={href("lift", x.n)}>
                   <span className="name">{x.n}</span>
-                  <span className="v">{fmtW(x.best.w)} × {x.best.r}</span>
+                  {x.bump
+                    ? <span className="v up" aria-label={`Go up to ${fmtW(x.bump.to)} pounds`}>↑ {fmtW(x.bump.to)} lb</span>
+                    : <span className="v">{fmtW(x.best.w)} × {x.best.r}</span>}
                 </a>
               ))}
             </div>

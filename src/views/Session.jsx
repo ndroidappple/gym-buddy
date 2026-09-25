@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { ChevronLeft, Check, Plus, Minus, Trash2 } from "lucide-react";
 import { BorderBeam } from "border-beam";
-import { fmtSet, uid, e1rm, fmtW, today, shortDate, mmss, byDateDesc, priorSessions, allTimeBest, bestSet, vibrate } from "../lib/util.js";
+import { fmtSet, uid, e1rm, fmtW, today, shortDate, mmss, byDateDesc, priorSessions, allTimeBest, bestSet, vibrate, readyToIncrease } from "../lib/util.js";
 import { primeAudio, chime } from "../lib/sound.js";
 import { Sheet, ConfirmSheet, ExercisePicker } from "../components/ui.jsx";
 import Coach, { MOODS } from "../components/Coach.jsx";
@@ -66,6 +66,9 @@ export default function Session({ day, existing, draft, sessions, program, weigh
     }
     if (prev) return prev.map((s) => ({ w: String(s.w), r: String(s.r), rir: s.rir != null ? String(s.rir) : "", done: true, saved: true }));
     const ref = lastFor(ex.n)?.sets[ex.n] || [];
+    // Earned a weight increase last time: every set starts at the new weight, reps start fresh.
+    const bump = readyToIncrease(ex, ref);
+    if (bump) return Array.from({ length: ex.sets }, () => ({ w: String(bump.to), r: "", rir: "", done: false }));
     const count = Math.max(ex.sets, ref.length);
     const lastW = ref.length ? String(ref[ref.length - 1].w) : "";
     return Array.from({ length: count }, (_, i) => ({
@@ -222,6 +225,10 @@ export default function Session({ day, existing, draft, sessions, program, weigh
       if (nx >= 0 && !hasVal(rows[nx].w)) rows[nx] = { ...rows[nx], w: row.w };
       return { ...g, [ex.n]: rows };
     });
+    // Finishing the planned sets at the top of the rep range earns more weight next time.
+    const doneNow = grid[ex.n].map((r, j) => (j === i ? { ...r, done: true } : r)).filter((r) => r.done && hasVal(r.w) && hasVal(r.r));
+    const earned = doneNow.length >= ex.sets && readyToIncrease(ex, doneNow.map((r) => ({ w: +r.w, r: +r.r })));
+    if (earned) notify(`${ex.n}: ${earned.sets} × ${earned.reps} done. Go up to ${fmtW(earned.to)} lb next time.`);
     if (!startedAt) setStartedAt(Date.now());
     setFlash({ ex: ex.n, i });
     vibrate(pr ? [40, 60, 40, 60, 80] : 20);
@@ -314,7 +321,7 @@ export default function Session({ day, existing, draft, sessions, program, weigh
           if (focus === ex.n) {
             const pendingIdx = activeIdx != null && rows[activeIdx] && !rows[activeIdx].done ? activeIdx : rows.findIndex((r) => !r.done);
             return (
-              <ExerciseCard key={ex.n} ex={ex} rows={rows} target={target} targetDate={last?.date}
+              <ExerciseCard key={ex.n} ex={ex} rows={rows} target={target} targetDate={last?.date} bump={readyToIncrease(ex, last?.sets[ex.n])}
                 refSets={last?.sets[ex.n] || []} activeIdx={pendingIdx} flash={flash?.ex === ex.n ? flash.i : null}
                 mood={reaction?.ex === ex.n ? reaction.mood : resting ? "resting" : editing ? "focused" : "idle"}
                 onEdit={(i, patch) => { setRow(ex.n, i, patch); setEditing(true); }} onLog={(i) => logSet(ex, i)}
@@ -414,11 +421,15 @@ function SetRing({ done, total, skipped }) {
   );
 }
 
-function ExerciseCard({ ex, showRir, rows, target, targetDate, refSets, activeIdx, flash, mood, onAsk, onEdit, onLog, onPick, onReopen, onAddSet, onRemoveSet, onSkip, skipLabel, onCollapse }) {
+function ExerciseCard({ ex, showRir, rows, target, targetDate, bump, refSets, activeIdx, flash, mood, onAsk, onEdit, onLog, onPick, onReopen, onAddSet, onRemoveSet, onSkip, skipLabel, onCollapse }) {
   const id = coachFor(ex.n);
   const coach = COACHES[id];
-  // Calm moods read the form cue; reactions say their own line.
-  const line = (mood === "idle" || mood === "focused") && ex.cue ? ex.cue : MOODS[mood].line;
+  // Calm moods read the form cue; reactions say their own line. Until the first set is logged,
+  // a lift that earned more weight gets the coach telling you to go up instead.
+  const calm = mood === "idle" || mood === "focused";
+  const goUp = bump && calm && !rows.some((r) => r.done);
+  const line = goUp ? `You hit ${bump.sets} × ${bump.reps} at ${fmtW(bump.from)} lb. Go up to ${fmtW(bump.to)} today.`
+    : calm && ex.cue ? ex.cue : MOODS[mood].line;
   const cardio = isCardio(ex.n);
   const lastEntry = cardio ? refSets[0] : null;
   const reduced = useReducedMotion();
@@ -441,6 +452,7 @@ function ExerciseCard({ ex, showRir, rows, target, targetDate, refSets, activeId
         </button>
         {cardio
           ? lastEntry && <span className="target" title={`Last time, ${shortDate(targetDate)}`}>Beat {fmtSet(lastEntry)}</span>
+          : bump ? <span className="target up" title={`All ${bump.sets} sets hit ${bump.reps} on ${shortDate(targetDate)}`}>Go up · {fmtW(bump.to)} lb</span>
           : target && <span className="target" title={`Best set on ${shortDate(targetDate)}`}>Beat {fmtW(target.w)} × {target.r}</span>}
       </div>
       {!(cardio ? lastEntry : target) && <p className="target-none">First time logging this one. Today sets the baseline.</p>}

@@ -1,4 +1,4 @@
-import { DAYS } from "../data/program.js";
+import { DAYS, isCardio } from "../data/program.js";
 
 export const uid = () => Math.random().toString(36).slice(2, 10);
 export const e1rm = (w, r) => (r <= 1 ? w : w * (1 + r / 30));
@@ -103,4 +103,19 @@ export const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
 
 export function vibrate(pattern) {
   try { navigator.vibrate?.(pattern); } catch {}
+}
+
+/* Double progression. Each lift has its own rep range; once every planned set at your top weight
+   reached the top of that range, it's time to add weight (and work back up the reps). */
+const BIG_LOWER = /leg press|squat|deadlift|romanian|hip thrust|good morning/i;
+export const weightStep = (lift) => (BIG_LOWER.test(lift) ? 10 : 5);
+
+/** { from, to, sets, reps } when `sets` (one session's sets for `ex`) earned a weight increase, else null. */
+export function readyToIncrease(ex, sets) {
+  if (!ex || !sets?.length || isCardio(ex.n)) return null;
+  const top = Math.max(...sets.map((s) => +s.w || 0));
+  if (!(top > 0)) return null; // bodyweight moves progress by reps, not plates
+  const hits = sets.filter((s) => +s.w === top && +s.r >= ex.reps[1]).length;
+  if (hits < ex.sets) return null;
+  return { from: top, to: top + weightStep(ex.n), sets: ex.sets, reps: ex.reps[1] };
 }

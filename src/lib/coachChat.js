@@ -1,7 +1,7 @@
 import { supabase } from "../supabase-client.js";
 import { COACHES, coachFor } from "../data/coaches.js";
 import { DAYS, isCardio } from "../data/program.js";
-import { fmtSet, liftSeries, trend, num, fmtW, bestSet, bodyweightSeries, byDateDesc, daysBetween, today, nextDayAfter } from "./util.js";
+import { fmtSet, liftSeries, trend, num, fmtW, bestSet, bodyweightSeries, byDateDesc, daysBetween, today, nextDayAfter, readyToIncrease } from "./util.js";
 
 /** A compact, plain-text picture of the lifter for the coach: their lifts, recent bests, trends, bodyweight. */
 export function buildContext({ coach, sessions, program, weighins }) {
@@ -11,6 +11,7 @@ export function buildContext({ coach, sessions, program, weighins }) {
   lines.push(`Next up: ${program[nextDayAfter(sessions)].name}. Program: ${DAYS.map((d) => `${program[d].name} (${program[d].detail})`).join(", ")}.`);
 
   const lifts = [...new Set(DAYS.flatMap((d) => program[d].exercises.map((e) => e.n)))];
+  const plan = Object.fromEntries(DAYS.flatMap((d) => program[d].exercises.map((e) => [e.n, e])));
   const mine = lifts.filter((n) => coachFor(n) === coach);
   const describe = (n) => {
     if (isCardio(n)) {
@@ -23,8 +24,10 @@ export function buildContext({ coach, sessions, program, weighins }) {
     const b = bestSet(last.sets);
     const t = trend(s.map((x) => x.orm));
     const rir = last.sets.filter((x) => x.rir != null).map((x) => x.rir);
+    const up = readyToIncrease(plan[n], last.sets);
     return `${n}: last ${last.date} best set ${fmtW(b.w)}x${b.r}, e1RM ${num(last.orm)} lb, ${s.length} sessions` +
-      (t != null ? `, trend ${t >= 0 ? "+" : ""}${t.toFixed(1)}%` : "") + (rir.length ? `, RIR ${rir.join("/")}` : "");
+      (t != null ? `, trend ${t >= 0 ? "+" : ""}${t.toFixed(1)}%` : "") + (rir.length ? `, RIR ${rir.join("/")}` : "") +
+      (up ? `, READY TO ADD WEIGHT (hit ${up.sets}x${up.reps} at ${up.from} lb; next: ${up.to} lb)` : "");
   };
   lines.push(`Your lifts (${COACHES[coach].group}):`, ...mine.map((n) => `- ${describe(n)}`));
   const others = lifts.filter((n) => coachFor(n) !== coach).map(describe).filter((x) => !x.endsWith("not logged yet"));
