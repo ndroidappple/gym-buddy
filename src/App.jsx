@@ -190,7 +190,7 @@ export default function App() {
       break;
     }
     case "history": view = <History {...common} />; break;
-    case "progress": view = <Progress {...common} />; break;
+    case "progress": view = <Progress key={route.open || "p"} {...common} openPhase={route.open === "phase"} />; break;
     case "lift": view = <Lift {...common} name={route.lift} />; break;
     case "settings": view = <Settings {...common} />; break;
     case "program": view = DAYS.includes(route.day) ? <ProgramEditor {...common} day={route.day} ops={programOps} /> : <Settings {...common} />; break;

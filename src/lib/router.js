@@ -14,6 +14,7 @@ export function parse(hash) {
       if (a === "program") return { name: "program", day: b };
       if (a === "export") return { name: "export" };
       return { name: "settings" };
+    case "progress": return { name, open: a };
     default: return TABS.includes(name) ? { name } : { name: "today" };
   }
 }

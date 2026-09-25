@@ -35,6 +35,7 @@ export const HELP = {
       "Est. max (estimated one-rep max, or 1RM) is the most you could likely lift for a single rep, worked out from your best set. 80 lb × 12 ≈ 112 lb.",
       "The arrow shows how much it's changed recently. Baseline means you've logged it once.",
       "A glowing row means you just set a PR on that lift.",
+      "Start a bulk or cut to set a target weight or weekly rate. The chart shows your goal line and the coaches read your pace from your weigh-ins.",
       "Tap a lift for its chart and records.",
     ],
   },

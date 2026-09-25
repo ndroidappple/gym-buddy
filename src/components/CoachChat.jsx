@@ -21,7 +21,7 @@ const TROUBLE = {
 
 /** Chat with one coach. Answers stream in; the coach looks locked in while thinking and fired up when it lands.
     `exercise` is the lift the chat was opened from, so the first suggestion is about that lift. */
-export default function CoachChat({ coach, exercise, starter, sessions, program, weighins, profile, onProgramChange, onClose }) {
+export default function CoachChat({ coach, exercise, starter, sessions, program, weighins, profile, phase, onProgramChange, onClose }) {
   const c = COACHES[coach];
   // {role, content, trouble?, changes?, preview?: {lines, errors}, decision?: "applied" | "dismissed"}
   const [messages, setMessages] = useState([]);
@@ -78,7 +78,7 @@ export default function CoachChat({ coach, exercise, starter, sessions, program,
     try {
       const { text: reply, changes } = await askCoach({
         coach, messages: history, signal: abort.current.signal,
-        context: buildContext({ coach, sessions, program, weighins, profile }),
+        context: buildContext({ coach, sessions, program, weighins, profile, phase }),
         onText: (t) => { setStatus("streaming"); put({ content: t }); },
       });
       if (changes.length && onProgramChange) {

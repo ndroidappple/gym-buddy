@@ -60,7 +60,7 @@ export default function Coaches({ program, sessions, weighins, prefs, name, back
       )}
       {open && !setupOpen && (
         <CoachChat key={open.coach + (open.ask ? "-ask" : "")} coach={open.coach} starter={open.ask} sessions={sessions} program={program}
-          weighins={weighins} profile={prefs.profile} onProgramChange={onProgramChange} onClose={() => setOpen(null)} />
+          weighins={weighins} profile={prefs.profile} phase={prefs.phase} onProgramChange={onProgramChange} onClose={() => setOpen(null)} />
       )}
     </main>
   );
