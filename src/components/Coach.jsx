@@ -84,14 +84,14 @@ const SHINE = { fill: "#fff", opacity: 0.45 };
 const BROWS = {
   // Tank: a heavy slab, set low and a touch tough.
   tank: { tilt: -6, d: (P) => `M ${P(-10.5, -3.2)} L ${P(6.5, -1.8)} L ${P(6.5, 3.8)} L ${P(-10.5, 2.6)} Z` },
-  // Wings: a thin, high arch.
-  wings: { line: 2.8, dy: -1.5, tilt: 3, d: (P) => `M ${P(-9.5, 2.5)} Q ${P(-1, -5.5)} ${P(9.5, 0.5)}` },
-  // Boulder: a bold wedge with a sharp outer point, like a star tip.
-  boulder: { tilt: -2, dy: 1.8, d: (P) => `M ${P(-11.5, 1.8)} L ${P(-1.5, -4)} L ${P(9, -2.2)} L ${P(9, 2.6)} L ${P(-1, 1.6)} Z` },
+  // Wings: a swept wing, thick at the inside and tapering up and out like a feather.
+  wings: { tilt: -7, dy: 1.6, d: (P) => `M ${P(7, -1.2)} Q ${P(-2, -2)} ${P(-10.5, -3.6)} Q ${P(-3, 1.6)} ${P(7, 2.6)} Z` },
+  // Boulder: chunky rounded rocks with a lumpy top.
+  boulder: { tilt: -3, dy: 1.2, d: (P) => `M ${P(-9, 1.8)} Q ${P(-10, -2)} ${P(-5.5, -2.6)} Q ${P(-2.5, -4.6)} ${P(1.5, -3.2)} Q ${P(5.5, -4.2)} ${P(7.8, -1.2)} Q ${P(9.4, 1.8)} ${P(5, 2.6)} L ${P(-5.5, 2.8)} Q ${P(-9, 3)} ${P(-9, 1.8)} Z` },
   // Piston: flat machined bars with square ends.
   piston: { square: true, d: (P) => `M ${P(-8.5, -1.6)} L ${P(6.5, -1.6)} L ${P(6.5, 1.8)} L ${P(-8.5, 1.8)} Z` },
-  // Brick: thick bars that meet in the middle (a unibrow).
-  brick: { square: true, tilt: -2, d: (P) => `M ${P(-9.5, -2.8)} L ${P(10.5, -2.8)} L ${P(10.5, 3)} L ${P(-9.5, 3)} Z` },
+  // Brick: two short, square blocks, like bricks.
+  brick: { square: true, tilt: -3, d: (P) => `M ${P(-8.5, -2.6)} L ${P(5, -2.6)} L ${P(5, 2.8)} L ${P(-8.5, 2.8)} Z` },
   // Dash: short, sporty dashes set high.
   dash: { line: 5, dy: -2, tilt: 6, d: (P) => `M ${P(-5.5, 0.5)} L ${P(4.5, -1)}` },
 };
@@ -309,8 +309,8 @@ export default function Coach({ id = "tank", mood = "idle", size = 64, still = f
           <path d="M34 54 L46 54" /><path d="M54 54 L66 54" />
         </g>
 
-        {/* Brows: [lift, tilt] from the mood. Positive tilt raises the inner ends (worried); negative lowers
-            them (tough). Each coach has their own brow shape and resting angle; the right brow mirrors the left. */}
+        {/* Brows: [lift, tilt] from the mood. Positive tilt lowers the inner ends (tough); negative raises
+            them (soft). Each coach has their own brow shape and resting angle; the right brow mirrors the left. */}
         {eyeX.map((x, i) => {
           const b = BROWS[id] || BROWS.tank;
           const side = i ? -1 : 1; // shapes are drawn for the left brow: negative dx is the outer end
