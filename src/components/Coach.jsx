@@ -1,0 +1,257 @@
+import React, { useEffect, useId, useRef, useState } from "react";
+import { COACHES } from "../data/coaches.js";
+
+/* Flat 2D coaches, drawn in SVG. Every feature is a separate layer that eases between moods:
+   brows tilt, eyelids drop, the mouth swaps with a pop, arms bend at the elbow to flex.
+   Eyes follow your finger, each coach blinks on its own clock, and a tap gets a reaction. */
+
+export const MOODS = {
+  idle: { title: "Ready", line: "Let's get to work." },
+  focused: { title: "Locked in", line: "Eyes on the bar. Nothing else." },
+  hyped: { title: "Fired up", line: "THAT is how it's done!" },
+  resting: { title: "Recovering", line: "Breathe. Next set is yours." },
+  pr: { title: "Beast mode", line: "NEW RECORD! Somebody call the gym!" },
+  encourage: { title: "Shake it off", line: "Off set. You still showed up. Next one." },
+  sleepy: { title: "Missing you", line: "Zzz… the iron misses you." },
+  proud: { title: "Proud", line: "Work done. Go eat something big." },
+};
+export const MOOD_ORDER = ["idle", "focused", "hyped", "resting", "pr", "encourage", "sleepy", "proud"];
+
+/* Face and pose per mood. lid: 0 open, 1 closed. eyes: "open" | "happy" (∩) | "shut" (∪). */
+const FACE = {
+  idle: { brow: [-3, 4], lid: 0.08, eyes: "open", mouth: "smile", arms: "down", anim: "breathe" },
+  focused: { brow: [2, -16], lid: 0.45, eyes: "open", mouth: "line", arms: "down", anim: "tense", fixed: true },
+  hyped: { brow: [-3, 6], lid: 0, eyes: "happy", mouth: "grin", arms: "flex", anim: "hop", fx: "lines", blush: true },
+  resting: { brow: [-1, 0], lid: 1, eyes: "shut", mouth: "o", arms: "down", anim: "slow", fx: "sweat" },
+  pr: { brow: [-3, 10], lid: 0, eyes: "open", big: true, mouth: "roar", arms: "flex", anim: "jump", fx: "stars", blush: true, fixed: true },
+  encourage: { brow: [-3, 14], lid: 0.2, eyes: "open", mouth: "wobble", arms: "down", anim: "sway", down: true },
+  sleepy: { brow: [1, 6], lid: 1, eyes: "flat", mouth: "tiny", arms: "down", anim: "sink", fx: "zzz" },
+  proud: { brow: [-2, -4], lid: 0, eyes: "happy", mouth: "smirk", arms: "flex", anim: "nod", fx: "medal", blush: true },
+};
+
+const INK = "#1C1A22";
+function tone(hex, t) {
+  const n = parseInt(hex.slice(1), 16);
+  const to = t > 0 ? 255 : 0, k = Math.abs(t);
+  return `rgb(${[n >> 16, (n >> 8) & 255, n & 255].map((v) => Math.round(v + (to - v) * k)).join(",")})`;
+}
+
+/* Body outlines in a 100×100 box. Composite outlines are flat lists of shapes (no <g>), because the same
+   outline is reused inside <clipPath>, which only accepts plain shapes. */
+const CIRCLES = {
+  clover: [[50, 28, 23], [72, 50, 23], [50, 72, 23], [28, 50, 23], [50, 50, 26]],
+  flower: [[50, 24, 18], [72.5, 37, 18], [72.5, 63, 18], [50, 76, 18], [27.5, 63, 18], [27.5, 37, 18], [50, 50, 28]],
+};
+function Shape({ type, ...p }) {
+  if (CIRCLES[type]) return <>{CIRCLES[type].map(([cx, cy, r]) => <circle key={`${cx},${cy}`} {...p} cx={cx} cy={cy} r={r} />)}</>;
+  switch (type) {
+    case "ghost": return <path {...p} d="M17 52 A33 33 0 0 1 83 52 V84 Q83 90 77 87 L72 84 Q66 81 61 86 Q55 91 50 86 Q45 81 39 86 Q34 91 28 86 L23 87 Q17 90 17 84 Z" />;
+    case "star": return <path {...p} strokeLinejoin="round" strokeWidth="9" d="M50 15 L61.2 37.4 L86 41 L68 58.6 L72.3 83.3 L50 71.6 L27.7 83.3 L32 58.6 L14 41 L38.8 37.4 Z" />;
+    case "hexagon": return <path {...p} strokeLinejoin="round" strokeWidth="10" d="M50 15 L81 32.5 L81 67.5 L50 85 L19 67.5 L19 32.5 Z" />;
+    case "mech": return <rect {...p} x="15" y="22" width="70" height="64" rx="18" />;
+    case "circle": return <circle {...p} cx="50" cy="52" r="36" />;
+    default: return <rect {...p} x="15" y="16" width="70" height="70" rx="22" />;
+  }
+}
+
+/* A jointed arm: shoulder → upper arm → elbow → forearm → fist. Rotations ease, so flexing reads as motion. */
+function Arm({ side, pose, color, shade }) {
+  const flex = pose === "flex";
+  // Shoulder at (20,58); elbow at (20,74). Flexed: upper arm out to the side, forearm up. Down: hands at the hips.
+  const shoulder = flex ? 96 : 20, elbow = flex ? 102 : -14;
+  return (
+    <g transform={side > 0 ? "translate(100 0) scale(-1 1)" : undefined}>
+      {/* Pivots are written into the transform (not transform-origin) so they stay right inside the rotated shoulder. */}
+      <g className="cz-joint" style={{ transform: `translate(20px, 58px) rotate(${shoulder}deg) translate(-20px, -58px)` }}>
+        <rect x="14.5" y="56" width="11" height="21" rx="5.5" fill={color} />
+        <circle className="cz-bicep" cx="16" cy="67" r="7.5" fill={color} style={{ transform: `scale(${flex ? 1 : 0.3})` }} />
+        <g className="cz-joint" style={{ transform: `translate(20px, 75px) rotate(${elbow}deg) translate(-20px, -75px)` }}>
+          <rect x="15" y="73" width="10" height="16" rx="5" fill={color} />
+          <circle cx="20" cy="91" r="7.5" fill={color} />
+          <path d="M16 90 Q20 94 24 90" stroke={shade} strokeWidth="1.6" fill="none" strokeLinecap="round" />
+        </g>
+      </g>
+    </g>
+  );
+}
+
+const MOUTHS = {
+  smile: <path d="M41.5 64 Q50 72 58.5 64" fill="none" stroke={INK} strokeWidth="3.4" strokeLinecap="round" />,
+  smirk: <path d="M42 66 Q51 71 59 62" fill="none" stroke={INK} strokeWidth="3.4" strokeLinecap="round" />,
+  line: <path d="M43.5 66 L56.5 66" fill="none" stroke={INK} strokeWidth="3.4" strokeLinecap="round" />,
+  tiny: <path d="M47.5 67 L52.5 67" fill="none" stroke={INK} strokeWidth="3" strokeLinecap="round" />,
+  wobble: <path d="M42.5 67.5 Q46 63.5 50 67 Q54 70.5 57.5 66.5" fill="none" stroke={INK} strokeWidth="3.2" strokeLinecap="round" />,
+  o: <ellipse cx="50" cy="66.5" rx="3.6" ry="4.2" fill={INK} />,
+  grin: (
+    <g>
+      <path d="M39 61 Q50 61 61 61 Q60 77 50 78 Q40 77 39 61 Z" fill={INK} />
+      <path d="M41.5 61.5 L58.5 61.5 L57.5 65 L42.5 65 Z" fill="#fff" />
+      <ellipse cx="50" cy="73.5" rx="5.5" ry="3" fill="#FF6F7D" />
+    </g>
+  ),
+  roar: (
+    <g>
+      <path d="M40 59 Q50 57 60 59 Q63 79 50 81 Q37 79 40 59 Z" fill={INK} />
+      <path d="M42 60 L58 60 L56.8 63.8 L43.2 63.8 Z" fill="#fff" />
+      <ellipse cx="50" cy="75" rx="6" ry="3.4" fill="#FF6F7D" />
+    </g>
+  ),
+};
+
+/* One shared pointer listener; each coach reads it on the next frame to aim its pupils. */
+const watchers = new Set();
+let pointer = null, frame = 0;
+function aimAll() {
+  frame = 0;
+  for (const w of watchers) w();
+}
+if (typeof window !== "undefined") {
+  addEventListener("pointermove", (e) => { pointer = { x: e.clientX, y: e.clientY, t: performance.now() }; if (!frame) frame = requestAnimationFrame(aimAll); }, { passive: true });
+}
+
+/**
+ * A coach. `mood` is one of MOOD_ORDER. `still` holds the pose (use in lists): the face still shows the mood,
+ * the eyes still blink. Pass `decorative` when the coach's name is already shown as text beside it.
+ */
+export default function Coach({ id = "tank", mood = "idle", size = 64, still = false, decorative = false, className = "" }) {
+  const c = COACHES[id] || COACHES.tank;
+  const [poke, setPoke] = useState(false);
+  const f = FACE[poke ? "hyped" : mood] || FACE.idle;
+  const uid = useId().replace(/[^a-zA-Z0-9]/g, "");
+  const svg = useRef(null);
+  const pupils = useRef([]);
+  const delay = useRef(`${(-Math.random() * 5).toFixed(2)}s`).current;
+  const shade = tone(c.color, -0.22);
+  const arm = tone(c.color, -0.12);
+
+  // Eyes follow the finger while it's nearby and recent; otherwise the idle wander takes over.
+  useEffect(() => {
+    const set = (v) => pupils.current.forEach((p) => { if (p) p.style.transform = v; });
+    if (still || f.fixed) { set(""); return; }
+    const aim = () => {
+      const el = svg.current;
+      if (!el) return;
+      if (!pointer || performance.now() - pointer.t > 2500) { set(""); return; }
+      const r = el.getBoundingClientRect();
+      const dx = pointer.x - (r.left + r.width / 2), dy = pointer.y - (r.top + r.height / 2), d = Math.hypot(dx, dy) || 1;
+      const k = Math.min(1, d / 140) * 2.6;
+      set(`translate(${(dx / d) * k}px, ${(dy / d) * k}px)`);
+    };
+    watchers.add(aim);
+    return () => watchers.delete(aim);
+  }, [still, f.fixed]);
+
+  // A tap gets a quick happy bounce, then the real mood comes back.
+  useEffect(() => {
+    if (!poke) return;
+    const t = setTimeout(() => setPoke(false), 900);
+    return () => clearTimeout(t);
+  }, [poke]);
+
+  const a11y = decorative ? { "aria-hidden": true } : { role: "img", "aria-label": `${c.name}, ${(MOODS[mood] || MOODS.idle).title.toLowerCase()}` };
+  const eyeX = [40, 60];
+  const lookDown = f.down ? "translate(0px, 2px)" : "";
+
+  return (
+    <svg ref={svg} viewBox="-12 -24 124 132" width={size} height={Math.round((size * 132) / 124)}
+      className={`coach${still ? " coach-still" : ""}${poke ? " coach-poked" : ""} ${className}`} style={{ "--d": delay }}
+      onPointerDown={decorative ? undefined : () => setPoke(true)} {...a11y}>
+      <defs>
+        <clipPath id={`${uid}c`}><Shape type={c.body} stroke="none" /></clipPath>
+        {eyeX.map((x, i) => <clipPath key={i} id={`${uid}e${i}`}><ellipse cx={x} cy="54" rx="8.8" ry="9.8" /></clipPath>)}
+      </defs>
+
+      {f.fx === "stars" && !still && (
+        <g>
+          {[["6,6 8.5,11 14,11.5 10,15 11,20.5 6,18 1,20.5 2,15 -2,11.5 3.5,11", "#FFC53D", 0], ["94,0 96,4 100,4.4 97,7 98,11 94,9 90,11 91,7 88,4.4 92,4", "#FF5E57", 0.3],
+            ["100,70 102,74 106,74.4 103,77 104,81 100,79 96,81 97,77 94,74.4 98,74", "#4C8DFF", 0.6], ["-4,64 -2,68 2,68.4 -1,71 0,75 -4,73 -8,75 -7,71 -10,68.4 -6,68", "#2EC27E", 0.15]]
+            .map(([pts, col, dl]) => <polygon key={pts} className="coach-twinkle" style={{ animationDelay: `${dl}s` }} points={pts} fill={col} />)}
+        </g>
+      )}
+      {f.fx === "lines" && !still && (
+        <g className="coach-whoosh" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round"><path d="M-6 26 L2 32" /><path d="M-9 40 L0 41" /><path d="M106 26 L98 32" /><path d="M109 40 L100 41" /></g>
+      )}
+
+      <ellipse className="cz-ground" cx="50" cy="101" rx="30" ry="4.5" fill={INK} opacity=".13" />
+
+      <g className={`coach-body coach-${f.anim}`}>
+
+        {/* Flat shading: the body in its shadow color, then the lit body nudged up-left and clipped to the outline,
+            leaving a crescent of shade along the bottom-right; a soft highlight sits top-left. */}
+        <Shape type={c.body} fill={shade} stroke={shade} />
+        <g clipPath={`url(#${uid}c)`}>
+          <Shape type={c.body} fill={c.color} stroke={c.color} transform="translate(-4 -5)" />
+          <ellipse cx="30" cy="27" rx="11" ry="6" fill="#fff" opacity=".28" transform="rotate(-30 30 27)" />
+        </g>
+        {/* Arms sit in front of the body so a flex reads clearly; flexed fists rise beside the head, clear of the face. */}
+        <Arm side={-1} pose={f.arms} color={arm} shade={shade} />
+        <Arm side={1} pose={f.arms} color={arm} shade={shade} />
+        {c.body === "mech" && <g><rect x="47.5" y="9" width="5" height="14" rx="2.5" fill={shade} /><circle cx="50" cy="8" r="5.5" fill="#FF5E57" /><circle cx="48.3" cy="6.4" r="1.6" fill="#fff" opacity=".7" /></g>}
+
+        {/* Sweatband with two tails fluttering off the right side. */}
+        <g className="cz-tails" style={{ transformOrigin: "86px 26px" }}>
+          <path d="M85 23 Q95 19 101 24 Q95 25 88 28 Z" fill={INK} />
+          <path d="M85 27 Q94 31 98 38 Q92 35 86 31 Z" fill="#34303D" />
+        </g>
+        <rect x="12" y="21" width="76" height="10" rx="5" fill={INK} />
+        <rect x="14" y="24.6" width="72" height="2" rx="1" fill="#fff" opacity=".5" />
+
+        {f.blush && <g fill="#FF7A8A" opacity=".45"><ellipse cx="31" cy="62" rx="5" ry="3" /><ellipse cx="69" cy="62" rx="5" ry="3" /></g>}
+
+        {/* Eyes: sclera, pupils (aimed), shines, and a lid that drops over each eye. */}
+        <g className="cz-fade" style={{ opacity: f.eyes === "open" ? 1 : 0 }}>
+          {eyeX.map((x, i) => (
+            <g key={x} clipPath={`url(#${uid}e${i})`}>
+              <ellipse cx={x} cy="54" rx="8.8" ry="9.8" fill="#fff" />
+              <g className={still || f.fixed ? undefined : "coach-look"} style={{ transform: lookDown }}>
+                <g ref={(el) => { pupils.current[i] = el; }} className="cz-aim">
+                  <g>
+                    <circle cx={x + 1} cy="55" r={f.big ? 6 : 5.2} fill={INK} className="cz-pupil" />
+                    <circle cx={x + 3} cy="52.3" r="2" fill="#fff" />
+                    <circle cx={x - 0.8} cy="57.6" r="1" fill="#fff" />
+                  </g>
+                </g>
+              </g>
+              <g className="coach-blink-lid">
+                <g className="cz-lid" style={{ transform: `translateY(${-21 + 21 * f.lid}px)` }}>
+                  <rect x={x - 10} y="43" width="20" height="21" fill={c.color} />
+                  <path d={`M${x - 10} 64 L${x + 10} 64`} stroke={INK} strokeWidth="2.8" />
+                </g>
+              </g>
+            </g>
+          ))}
+        </g>
+        <g className="cz-fade" style={{ opacity: f.eyes === "happy" ? 1 : 0 }} fill="none" stroke={INK} strokeWidth="3.4" strokeLinecap="round">
+          <path d="M33.5 55 Q40 46 46.5 55" /><path d="M53.5 55 Q60 46 66.5 55" />
+        </g>
+        <g className="cz-fade" style={{ opacity: f.eyes === "shut" ? 1 : 0 }} fill="none" stroke={INK} strokeWidth="3.2" strokeLinecap="round">
+          <path d="M33.5 52 Q40 58 46.5 52" /><path d="M53.5 52 Q60 58 66.5 52" />
+        </g>
+        <g className="cz-fade" style={{ opacity: f.eyes === "flat" ? 1 : 0 }} stroke={INK} strokeWidth="3.2" strokeLinecap="round">
+          <path d="M34 54 L46 54" /><path d="M54 54 L66 54" />
+        </g>
+
+        {/* Brows: [lift, tilt]. Positive tilt raises the inner ends (worried); negative lowers them (tough). */}
+        {eyeX.map((x, i) => (
+          <rect key={x} className="cz-brow" x={x - 8.5} y="37.5" width="17" height="6" rx="3" fill={INK}
+            style={{ transform: `translateY(${f.brow[0]}px) rotate(${(i ? -1 : 1) * f.brow[1]}deg)`, transformOrigin: `${x}px 40.5px` }} />
+        ))}
+
+        {Object.entries(MOUTHS).map(([k, el]) => (
+          <g key={k} className="cz-mouth" style={{ opacity: f.mouth === k ? 1 : 0, transform: `scale(${f.mouth === k ? 1 : 0.5})` }}>{el}</g>
+        ))}
+
+        {f.fx === "sweat" && <path className="coach-drip" d="M82 40 q4.5 7 0 10.5 q-4.5 -3.5 0 -10.5" fill="#6FB7FF" />}
+        {f.fx === "medal" && <g><path d="M44 76 L50 86 L56 76" fill="none" stroke="#4C8DFF" strokeWidth="4" /><circle cx="50" cy="90" r="7.5" fill="#FFC53D" stroke="#D9A21F" strokeWidth="2" /><circle cx="48" cy="88" r="2" fill="#fff" opacity=".6" /></g>}
+      </g>
+
+      {f.fx === "zzz" && (
+        <g fill="currentColor" opacity=".7" style={{ fontFamily: "var(--body)", fontWeight: 800 }}>
+          <text className="coach-zzz" x="80" y="20" fontSize="14">z</text>
+          <text className="coach-zzz" style={{ animationDelay: ".8s" }} x="90" y="8" fontSize="11">z</text>
+          <text className="coach-zzz" style={{ animationDelay: "1.6s" }} x="98" y="-2" fontSize="9">z</text>
+        </g>
+      )}
+    </svg>
+  );
+}

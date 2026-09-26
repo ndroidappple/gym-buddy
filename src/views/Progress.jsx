@@ -1,8 +1,9 @@
 import React, { useMemo } from "react";
+import { Scale } from "lucide-react";
 import { DAYS } from "../data/program.js";
 import { href } from "../lib/router.js";
 import { liftSeries, trend, num, shortDate, bodyweightSeries } from "../lib/util.js";
-import { Sparkline, Trend, LineChart } from "../components/ui.jsx";
+import { Sparkline, Trend } from "../components/ui.jsx";
 
 export default function Progress({ sessions, program, weighins }) {
   const groups = useMemo(() => {
@@ -14,57 +15,90 @@ export default function Progress({ sessions, program, weighins }) {
     const other = new Set();
     sessions.forEach((s) => Object.keys(s.sets).forEach((n) => { if (!seen.has(n)) other.add(n); }));
     if (other.size) out.push({ day: null, name: "Off program", lifts: [...other].sort() });
-    return out.map((g) => ({
-      ...g,
-      rows: g.lifts.map((n) => {
-        const series = liftSeries(sessions, n);
-        const vals = series.map((x) => x.orm);
-        return { n, series, vals, best: vals.length ? Math.max(...vals) : 0, pct: trend(vals) };
-      }),
-    }));
+    return out.map((g) => {
+      const rows = g.lifts.map((n) => {
+        const vals = liftSeries(sessions, n).map((x) => x.orm);
+        return { n, vals, best: vals.length ? Math.max(...vals) : 0, pct: trend(vals) };
+      });
+      return { ...g, logged: rows.filter((r) => r.vals.length), unlogged: rows.filter((r) => !r.vals.length).map((r) => r.n) };
+    });
   }, [sessions, program]);
 
-  const all = groups.flatMap((g) => g.rows).filter((r) => r.pct != null);
+  const all = groups.flatMap((g) => g.logged).filter((r) => r.pct != null);
   const up = all.filter((r) => r.pct >= 1).length;
-  const flat = all.filter((r) => r.pct < 1).length;
-
-  const bw = useMemo(() => bodyweightSeries(sessions, weighins)
-    .map((x) => ({ label: shortDate(x.date), value: x.bw })), [sessions, weighins]);
+  const bw = useMemo(() => bodyweightSeries(sessions, weighins), [sessions, weighins]);
 
   return (
     <main className="screen has-tabs">
-      <header className="top"><h1 className="page-title">Progress</h1></header>
+      <header className="top" style={{ flexDirection: "column", alignItems: "stretch", gap: 2 }}>
+        <h1 className="page-title">Progress</h1>
+        {all.length > 0 && <span className="lbl" style={{ fontSize: 15 }}>{up} of {all.length} lifts moving up</span>}
+      </header>
       <div className="body">
-        {all.length > 0 && (
-          <p className="small muted">
-            Trends compare each lift's best e1RM over its latest sessions (up to 3) with the same number before them. <b style={{ color: "var(--ink)" }}>{up} moving up</b>, {flat} flat or down.
-          </p>
-        )}
+        <Bodyweight series={bw} />
 
-        {bw.length >= 2 && (
-          <section className="section">
-            <div className="section-head"><h2 className="lbl">Bodyweight</h2><span className="mono small">{num(bw[bw.length - 1].value)} lb</span></div>
-            <LineChart points={bw} format={num} height={120} ariaLabel={`Bodyweight from ${bw[0].value} to ${bw[bw.length - 1].value} pounds`} />
-          </section>
-        )}
-
-        {groups.map((g) => (
+        {groups.map((g) => (g.logged.length || g.unlogged.length) ? (
           <section key={g.name} className="section" data-day={g.day || undefined}>
-            <div className="section-head"><h2 className="lbl"><span className="dot" aria-hidden="true" style={{ marginRight: 8 }} />{g.name}</h2></div>
-            <div>
-              {g.rows.map((r) => (
-                <a key={r.n} className="lift-row" href={href("lift", r.n)} style={{ color: "inherit", textDecoration: "none" }}>
+            <h2 className="lbl" style={{ display: "flex", alignItems: "center", gap: 8 }}><span className="dot" aria-hidden="true" />{g.name}</h2>
+            <div className="card-list">
+              {g.logged.map((r) => (
+                <a key={r.n} className="lift-row" href={href("lift", r.n)}>
                   <span className="name">{r.n}
-                    <span className="sub">{r.vals.length ? `e1RM ${num(r.best)} · ${r.vals.length} session${r.vals.length > 1 ? "s" : ""}` : "Not logged yet"}</span>
+                    <span className="sub">e1RM {num(r.best)} · {r.vals.length} session{r.vals.length > 1 ? "s" : ""}</span>
                   </span>
                   <Sparkline values={r.vals} />
-                  {r.vals.length ? <Trend pct={r.pct} /> : <span />}
+                  <Trend pct={r.pct} />
                 </a>
               ))}
+              {g.unlogged.length > 0 && (
+                <div className="lift-row unlogged">
+                  <span className="name" style={{ whiteSpace: "normal" }}>Not logged yet
+                    <span className="sub">{g.unlogged.join(", ")}</span>
+                  </span>
+                </div>
+              )}
             </div>
           </section>
-        ))}
+        ) : null)}
       </div>
     </main>
+  );
+}
+
+/* Weigh-ins and session bodyweight together. The card is a way in, not a verdict: the change is shown, never colored. */
+function Bodyweight({ series }) {
+  if (series.length < 2) {
+    return (
+      <div className="card bw-empty">
+        <span className="weigh-icon" aria-hidden="true"><Scale size={22} /></span>
+        <span className="small" style={{ fontWeight: 600 }}>
+          {series.length ? `${num(series[0].bw)} lb logged. One more weigh-in and your chart starts.` : "Log a weigh-in on Today to start your bodyweight chart."}
+        </span>
+      </div>
+    );
+  }
+  const first = series[0], last = series[series.length - 1];
+  const delta = last.bw - first.bw;
+  const vals = series.map((x) => x.bw);
+  const lo = Math.min(...vals), hi = Math.max(...vals), span = hi - lo || 1;
+  const W = 326, H = 86;
+  const pts = series.map((x, i) => [4 + (i / (series.length - 1)) * (W - 10), 8 + (1 - (x.bw - lo) / span) * (H - 16)]);
+  const change = Math.abs(delta) < 0.05 ? "No change" : `${delta > 0 ? "▲" : "▼"} ${num(Math.abs(delta))} lb`;
+  return (
+    <section className="bw-card" aria-label={`Bodyweight ${num(last.bw)} pounds. ${change} since ${shortDate(first.date)}.`}>
+      <div className="top-row">
+        <div style={{ display: "flex", flexDirection: "column", flex: 1 }}>
+          <span className="lbl">Bodyweight</span>
+          <span className="big">{num(last.bw)} <small>lb</small></span>
+        </div>
+        <span className="pill">{change}</span>
+      </div>
+      <svg viewBox={`0 0 ${W} ${H}`} aria-hidden="true">
+        <polyline points={pts.map((p) => p.join(",")).join(" ")} fill="none" stroke="#FFFFFF" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
+        {pts.slice(0, -1).map(([x, y], i) => <circle key={i} cx={x} cy={y} r="4" fill="var(--accent)" stroke="#FFFFFF" strokeWidth="2.5" />)}
+        <circle cx={pts[pts.length - 1][0]} cy={pts[pts.length - 1][1]} r="7" fill="#FFFFFF" />
+      </svg>
+      <div className="ends"><span style={{ flex: 1 }}>{shortDate(first.date)}</span><span>{shortDate(last.date)}</span></div>
+    </section>
   );
 }

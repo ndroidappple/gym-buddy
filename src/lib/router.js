@@ -9,6 +9,7 @@ export function parse(hash) {
     case "session": return { name, day: a, id: b };
     case "summary": return { name, id: a };
     case "lift": return { name, lift: a };
+    case "coaches": return { name };
     case "settings":
       if (a === "program") return { name: "program", day: b };
       if (a === "export") return { name: "export" };

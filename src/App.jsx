@@ -13,6 +13,7 @@ import Lift from "./views/Lift.jsx";
 import Settings from "./views/Settings.jsx";
 import ProgramEditor from "./views/ProgramEditor.jsx";
 import Export from "./views/Export.jsx";
+import Coaches from "./views/Coaches.jsx";
 
 const TAB_VIEWS = ["today", "history", "progress", "settings", "lift"];
 
@@ -162,6 +163,7 @@ export default function App() {
     case "settings": view = <Settings {...common} />; break;
     case "program": view = DAYS.includes(route.day) ? <ProgramEditor {...common} day={route.day} ops={programOps} /> : <Settings {...common} />; break;
     case "export": view = <Export {...common} />; break;
+    case "coaches": view = <Coaches {...common} />; break;
     default: view = <Today {...common} />;
   }
 
