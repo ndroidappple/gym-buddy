@@ -117,6 +117,21 @@ export function vibrate(pattern) {
 const BIG_LOWER = /leg press|squat|deadlift|romanian|hip thrust|good morning/i;
 export const weightStep = (lift) => (BIG_LOWER.test(lift) ? 10 : 5);
 
+/** What to aim for when a lift isn't ready for more weight, from last time's sets. Below the top of the
+    rep range: the best set plus one rep (which beats it; a matched set is only a match). At the top:
+    one more set at the top, as double progression asks. `idx` is the set to put the goal on. */
+export function nextGoal(ex, sets) {
+  const l = lifting(sets);
+  const best = bestSet(l);
+  if (!best) return null;
+  const top = ex?.reps?.[1];
+  if (!top || best.r < top) return { w: best.w, r: best.r + 1, idx: l.indexOf(best), sets: 1 };
+  const atTop = (s) => s.w === best.w && s.r >= top;
+  const j = l.findIndex((s) => !atTop(s));
+  return { w: best.w, r: top, idx: j >= 0 ? j : l.length, sets: l.filter(atTop).length + 1 };
+}
+export const fmtGoal = (g) => (g.sets > 1 ? `${g.sets} × ${g.r} @ ${fmtW(g.w)}` : `${fmtW(g.w)} × ${g.r}`);
+
 /** { from, to, sets, reps } when `sets` (one session's sets for `ex`) earned a weight increase, else null. */
 export function readyToIncrease(ex, sets) {
   if (!ex || !sets?.length || isCardio(ex.n)) return null;

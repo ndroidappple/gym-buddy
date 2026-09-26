@@ -18,14 +18,16 @@
   --on-dock: #FFFFFF;
   --dock-mute: #A29DA8;
 
-  --push: #FF5E57;  --on-push: #FFFFFF;  --push-ink: #C8372F;  --push-lip: #D9433D;
-  --pull: #4C8DFF;  --on-pull: #FFFFFF;  --pull-ink: #2563D9;  --pull-lip: #2F6FE0;
+  --push: #FF5E57;  --on-push: #1C1A22;  --push-ink: #B42D26;  --push-lip: #D9433D;
+  --pull: #4C8DFF;  --on-pull: #1C1A22;  --pull-ink: #2563D9;  --pull-lip: #2F6FE0;
   --legs: #FFC53D;  --on-legs: #1C1A22;  --legs-ink: #8A6400;  --legs-lip: #D9A21F;
-  --shoulders: #2EC27E; --on-shoulders: #FFFFFF; --shoulders-ink: #1B8A56; --shoulders-lip: #1F9C63;
-  --custom: #8C7BF2; --on-custom: #FFFFFF; --custom-ink: #5F4ED0; --custom-lip: #6554D8;
+  --shoulders: #2EC27E; --on-shoulders: #1C1A22; --shoulders-ink: #15744A; --shoulders-lip: #1F9C63;
+  --custom: #8C7BF2; --on-custom: #1C1A22; --custom-ink: #5F4ED0; --custom-lip: #6554D8;
   --stamp: #8A6400;
   --stamp-bg: #FFF1C2;
   --danger: #D63A31;
+  --pr: #FFB23E;       /* PR gold: rims, glows, highlights */
+  --pr-ink: #9A5B00;   /* PR text on light surfaces */
   --accent: #7B61FF;  --accent-lip: #5A42D6;  /* bodyweight: not a day, so not a plate color */
 
   --display: "Lexend", "Helvetica Neue", Arial, sans-serif;
@@ -64,6 +66,7 @@
   --stamp: #FFC53D;
   --stamp-bg: #3A3016;
   --danger: #FF6B5E;
+  --pr-ink: #FFB23E;
   --accent-lip: #4A34B8;
 
   color-scheme: dark;
@@ -129,7 +132,7 @@ p { margin: 0; }
 .wordmark { font-weight: 800; font-size: 20px; letter-spacing: 0.04em; }
 
 /* ═══════════════ SURFACES ═══════════════ */
-.card, .card-list, .list, .stat, .hist, .other, .weigh, .chart, .ex, .ex-collapsed, .lib-row, .meta-chip, .coach-card {
+.card, .card-list, .list, .stat, .hist, .weigh, .chart, .ex, .ex-collapsed, .lib-row, .meta-chip, .coach-card {
   background: var(--surface); border: 2px solid var(--rule); border-radius: var(--r-lg); box-shadow: 0 5px 0 var(--lip);
 }
 
@@ -263,10 +266,10 @@ button.chip { min-height: 38px; padding: 0 14px; border: 2px solid var(--rule); 
 .hero-day.long { font-size: 48px; }
 .hero-meta { font-size: 15px; font-weight: 600; opacity: 0.92; }
 .hero-pills { display: flex; gap: 6px; flex-wrap: wrap; }
-.hero-pills .pill { background: #FFFFFF; color: var(--day-lip); }
+.hero-pills .pill { background: #FFFFFF; color: #1C1A22; }
 .hero-coaches { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 14px; }
 .coach-chip { width: 44px; height: 44px; border-radius: 50%; background: #FFFFFF; display: grid; place-items: center; }
-.hero-cta { background: #FFFFFF; color: var(--day-lip); box-shadow: 0 5px 0 color-mix(in srgb, var(--day-lip) 80%, #000); font-size: 20px; min-height: 60px; border-radius: 22px; }
+.hero-cta { background: #FFFFFF; color: #1C1A22; box-shadow: 0 5px 0 color-mix(in srgb, var(--day-lip) 80%, #000); font-size: 20px; min-height: 60px; border-radius: 22px; }
 .hero-cta:active:not(:disabled) { box-shadow: 0 2px 0 color-mix(in srgb, var(--day-lip) 80%, #000); }
 .card-list { display: flex; flex-direction: column; padding: 6px; overflow: hidden; }
 .card-row { display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 6px 10px; border-radius: var(--r); color: inherit; text-decoration: none; }
@@ -279,11 +282,6 @@ button.chip { min-height: 38px; padding: 0 14px; border: 2px solid var(--rule); 
 .wd i.on { background: var(--day); box-shadow: 0 3px 0 var(--day-lip); }
 .wd.now { color: var(--ink); font-weight: 800; }
 .wd.now i:not(.on) { background: none; border: 3px dashed var(--day); }
-.others { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-.other { padding: 12px; display: grid; gap: 2px; text-align: left; min-height: 64px; color: inherit; text-decoration: none; transition: transform 80ms; }
-.other:active { transform: translateY(3px); box-shadow: 0 2px 0 var(--lip); }
-.other b { font-size: 17px; font-weight: 800; display: flex; align-items: center; gap: 7px; }
-.other span { font-size: 13px; color: var(--mute); font-weight: 600; }
 .weigh { display: flex; align-items: center; gap: 10px; padding: 12px 12px 12px 14px; }
 .weigh-icon { width: 44px; height: 44px; border-radius: 16px; display: grid; place-items: center; background: color-mix(in srgb, var(--accent) 16%, var(--surface)); color: var(--accent); flex-shrink: 0; }
 .weigh-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
@@ -375,7 +373,7 @@ button.chip { min-height: 38px; padding: 0 14px; border: 2px solid var(--rule); 
 .rest .rb.primary { background: var(--bg); color: var(--ink); }
 .rest.over { background: var(--day); color: var(--on-day); }
 .rest.over .rest-line { color: inherit; opacity: 0.85; }
-.rest.over .rb.primary { background: var(--on-day); color: var(--day-lip); }
+.rest.over .rb.primary { background: var(--on-day); color: var(--day); }
 
 /* ═══════════════ SUMMARY ═══════════════ */
 .summary { position: relative; overflow-x: hidden; }
@@ -572,7 +570,7 @@ button.coach-card:active { transform: translateY(3px); box-shadow: 0 2px 0 var(-
 
 /* Today: swap which day you are training. */
 .hero-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.hero-card .hero-switch { background: #FFFFFF; color: var(--day-lip); font-family: inherit; cursor: pointer; }
+.hero-card .hero-switch { background: #FFFFFF; color: #1C1A22; font-family: inherit; cursor: pointer; }
 .hero-card .hero-switch:active { transform: scale(0.95); }
 .weigh { position: relative; }
 .weigh-skip { position: absolute; top: -8px; right: -8px; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; background: var(--surface-2); color: var(--mute); border: 2px solid var(--bg); cursor: pointer; }
@@ -585,7 +583,7 @@ button.coach-card:active { transform: translateY(3px); box-shadow: 0 2px 0 var(-
 @property --pr-spin { syntax: "<angle>"; inherits: false; initial-value: 0deg; }
 .pr-rim { position: relative; isolation: isolate; background: color-mix(in srgb, var(--stamp-bg) 45%, var(--surface)); box-shadow: 0 0 0 0 rgba(255, 178, 62, 0), 0 0 0 rgba(255, 138, 43, 0); animation: pr-breathe 2.4s ease-in-out infinite; }
 .pr-rim::before { content: ""; position: absolute; inset: 0; z-index: 1; padding: 2.5px; border-radius: inherit; pointer-events: none;
-  background: conic-gradient(from var(--pr-spin), #FFB23E, #FF6A2B 18%, #FFE7A3 30%, #FFB23E 42%, color-mix(in srgb, #FFB23E 35%, transparent) 60%, color-mix(in srgb, #FFB23E 35%, transparent) 88%, #FFB23E);
+  background: conic-gradient(from var(--pr-spin), var(--pr), #FF6A2B 18%, #FFE7A3 30%, var(--pr) 42%, color-mix(in srgb, var(--pr) 35%, transparent) 60%, color-mix(in srgb, var(--pr) 35%, transparent) 88%, var(--pr));
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor;
   mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); mask-composite: exclude;
   animation: pr-spin 2.4s linear infinite; }
@@ -634,9 +632,9 @@ button.coach-card:active { transform: translateY(3px); box-shadow: 0 2px 0 var(-
 
 /* Setup nudges: the next coach to meet glows gold; unmet coaches wear a badge. */
 .coach-card { position: relative; }
-.coach-card.next-up { box-shadow: 0 0 0 3px #FFB23E, 0 4px 0 var(--lip); }
+.coach-card.next-up { box-shadow: 0 0 0 3px var(--pr), 0 4px 0 var(--lip); }
 .say-hi { position: absolute; top: 8px; right: 8px; padding: 3px 9px; border-radius: 999px; font-size: 11.5px; font-weight: 800; background: var(--surface-2); color: var(--ink); }
-.coach-card.next-up .say-hi { background: #FFB23E; color: #3A2400; }
+.coach-card.next-up .say-hi { background: var(--pr); color: #3A2400; }
 .welcome { gap: 14px; }
 .welcome p { font-size: 15.5px; font-weight: 600; line-height: 1.4; color: var(--mute); }
 .welcome-crew { display: flex; justify-content: center; padding: 6px 0 2px; }
@@ -652,9 +650,8 @@ button.coach-card:active { transform: translateY(3px); box-shadow: 0 2px 0 var(-
 
 /* History: the record set and what it beat, on the lift that set it. */
 .hist-line .name .pr-stamp { height: 20px; padding: 0 7px; font-size: 11px; margin-right: 7px; vertical-align: 1px; }
-.pr-note { display: block; font-size: 12.5px; font-weight: 700; color: #D98A12; margin-top: 3px; }
-:root[data-theme="dark"] .pr-note { color: #FFB23E; }
-.pr-set { color: var(--ink); font-weight: 800; background: color-mix(in srgb, #FFB23E 28%, transparent); border-radius: 6px; padding: 1px 5px; }
+.pr-note { display: block; font-size: 12.5px; font-weight: 700; color: var(--pr-ink); margin-top: 3px; }
+.pr-set { color: var(--ink); font-weight: 800; background: color-mix(in srgb, var(--pr) 28%, transparent); border-radius: 6px; padding: 1px 5px; }
 
 /* ═══════════════ BULK / CUT PHASES ═══════════════ */
 .seg { display: flex; gap: 4px; padding: 4px; border-radius: 16px; background: var(--surface-2); }
@@ -664,8 +661,7 @@ button.coach-card:active { transform: translateY(3px); box-shadow: 0 2px 0 var(-
 .phase-form input[type="range"] { width: 100%; accent-color: var(--accent); }
 .phase-preview { font-size: 15px; font-weight: 600; }
 .phase-preview b { font-weight: 800; }
-.phase-warn { font-size: 13.5px; font-weight: 600; color: #D98A12; }
-:root[data-theme="dark"] .phase-warn { color: #FFB23E; }
+.phase-warn { font-size: 13.5px; font-weight: 600; color: var(--pr-ink); }
 .phase-card { display: flex; flex-direction: column; gap: 10px; padding: 14px; text-align: left; width: 100%; color: var(--ink); }
 .phase-empty { flex-direction: row; align-items: center; gap: 12px; }
 .phase-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }

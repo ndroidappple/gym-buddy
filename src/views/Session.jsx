@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { ChevronLeft, Check, Plus, Minus, Trash2 } from "lucide-react";
 import { BorderBeam } from "border-beam";
-import { fmtSet, uid, e1rm, fmtW, today, shortDate, mmss, byDateDesc, priorSessions, allTimeBest, bestSet, vibrate, readyToIncrease } from "../lib/util.js";
+import { fmtSet, uid, e1rm, fmtW, today, shortDate, mmss, byDateDesc, priorSessions, allTimeBest, bestSet, vibrate, readyToIncrease, nextGoal, fmtGoal } from "../lib/util.js";
 import { primeAudio, chime } from "../lib/sound.js";
 import { Sheet, ConfirmSheet, ExercisePicker } from "../components/ui.jsx";
 import Coach, { MOODS } from "../components/Coach.jsx";
@@ -71,9 +71,11 @@ export default function Session({ day, existing, draft, sessions, program, weigh
     if (bump) return Array.from({ length: ex.sets }, () => ({ w: String(bump.to), r: "", rir: "", done: false }));
     const count = Math.max(ex.sets, ref.length);
     const lastW = ref.length ? String(ref[ref.length - 1].w) : "";
+    // Last time's numbers, with the goal (see nextGoal) filled into its set: logging as-is makes progress.
+    const goal = nextGoal(ex, ref);
     return Array.from({ length: count }, (_, i) => ({
-      w: ref[i] ? String(ref[i].w) : lastW,
-      r: ref[i] ? String(ref[i].r) : "",
+      w: goal && i === goal.idx ? String(goal.w) : ref[i] ? String(ref[i].w) : lastW,
+      r: goal && i === goal.idx ? String(goal.r) : ref[i] ? String(ref[i].r) : "",
       rir: "", done: false,
     }));
   }, [existing, lastFor]);
@@ -214,13 +216,14 @@ export default function Session({ day, existing, draft, sessions, program, weigh
     const pr = prevBest > 0 && score > prevBest + 0.05;
     const lastSets = lastFor(ex.n)?.sets[ex.n];
     const target = bestSet(lastSets);
-    const beat = !!target && score >= e1rm(target.w, target.r);
+    const beat = !!target && score > e1rm(target.w, target.r) + 0.05;
+    const matched = !beat && !!target && score >= e1rm(target.w, target.r) - 0.05;
     const same = lastSets?.[i]; // the same set last time
     const below = !pr && !!same && score < e1rm(same.w, same.r) - 0.05;
 
     setGrid((g) => {
       const rows = [...g[ex.n]];
-      rows[i] = { ...rows[i], done: true, pr, beat };
+      rows[i] = { ...rows[i], done: true, pr, beat, matched };
       const nx = rows.findIndex((r, j) => j > i && !r.done);
       if (nx >= 0 && !hasVal(rows[nx].w)) rows[nx] = { ...rows[nx], w: row.w };
       return { ...g, [ex.n]: rows };
@@ -250,7 +253,7 @@ export default function Session({ day, existing, draft, sessions, program, weigh
   };
 
   const reopen = (n, i) => {
-    setRow(n, i, { done: false, pr: false, beat: false });
+    setRow(n, i, { done: false, pr: false, beat: false, matched: false });
     setFocus(n);
     setActiveIdx(i);
   };
@@ -318,10 +321,12 @@ export default function Session({ day, existing, draft, sessions, program, weigh
           const rows = grid[ex.n] || [];
           const last = lastFor(ex.n);
           const target = bestSet(last?.sets[ex.n]);
+          const bump = readyToIncrease(ex, last?.sets[ex.n]);
+          const goal = bump || isCardio(ex.n) ? null : nextGoal(ex, last?.sets[ex.n]);
           if (focus === ex.n) {
             const pendingIdx = activeIdx != null && rows[activeIdx] && !rows[activeIdx].done ? activeIdx : rows.findIndex((r) => !r.done);
             return (
-              <ExerciseCard key={ex.n} ex={ex} rows={rows} target={target} targetDate={last?.date} bump={readyToIncrease(ex, last?.sets[ex.n])}
+              <ExerciseCard key={ex.n} ex={ex} rows={rows} target={target} goal={goal} targetDate={last?.date} bump={bump}
                 refSets={last?.sets[ex.n] || []} activeIdx={pendingIdx} flash={flash?.ex === ex.n ? flash.i : null}
                 mood={reaction?.ex === ex.n ? reaction.mood : resting ? "resting" : editing ? "focused" : "idle"}
                 onEdit={(i, patch) => { setRow(ex.n, i, patch); setEditing(true); }} onLog={(i) => logSet(ex, i)}
@@ -331,7 +336,7 @@ export default function Session({ day, existing, draft, sessions, program, weigh
                 showRir={prefs.rir} onAsk={() => setChat({ coach: coachFor(ex.n), exercise: ex.n })} onCollapse={() => setFocus(null)} />
             );
           }
-          return <Collapsed key={ex.n} ex={ex} rows={rows} target={target} skipped={skipped.includes(ex.n)} justClosed={closed.current === ex.n}
+          return <Collapsed key={ex.n} ex={ex} rows={rows} goal={goal} bump={bump} skipped={skipped.includes(ex.n)} justClosed={closed.current === ex.n}
             onOpen={() => { if (skipped.includes(ex.n)) setSkipped((s) => s.filter((x) => x !== ex.n)); setFocus(ex.n); setActiveIdx(null); }} />;
         })}
 
@@ -387,7 +392,7 @@ export default function Session({ day, existing, draft, sessions, program, weigh
   );
 }
 
-function Collapsed({ ex, rows, target, skipped, justClosed, onOpen }) {
+function Collapsed({ ex, rows, goal, bump, skipped, justClosed, onOpen }) {
   const done = rows.filter((r) => r.done);
   const complete = rows.length > 0 && done.length === rows.length;
   const prs = done.filter((r) => r.pr).length;
@@ -397,7 +402,9 @@ function Collapsed({ ex, rows, target, skipped, justClosed, onOpen }) {
   if (skipped) sub = "Skipped today · tap to add back";
   else if (cardio) sub = done.length ? done.map((r) => fmtSet({ min: +r.min, mi: hasVal(r.mi) ? +r.mi : null })).join(" + ") : `Cardio · ${ex.reps[0]}–${ex.reps[1]} min`;
   else if (complete) sub = `${done.length} sets · top set ${fmtW(best.w)} × ${best.r}`;
-  else sub = `${done.length}/${rows.length} sets${target ? ` · to beat ${fmtW(target.w)} × ${target.r}` : ""}`;
+  else if (bump) sub = `${done.length}/${rows.length} sets · go up to ${fmtW(bump.to)} lb`;
+  else if (goal) sub = `${done.length}/${rows.length} sets · try ${fmtGoal(goal)}`;
+  else sub = `${done.length}/${rows.length} sets`;
   return (
     <button className={"ex-collapsed" + (skipped ? " skipped" : complete ? "" : " pending") + (justClosed ? " just-closed" : "")} onClick={onOpen}>
       <SetRing done={done.length} total={rows.length} skipped={skipped} />
@@ -421,7 +428,7 @@ function SetRing({ done, total, skipped }) {
   );
 }
 
-function ExerciseCard({ ex, showRir, rows, target, targetDate, bump, refSets, activeIdx, flash, mood, onAsk, onEdit, onLog, onPick, onReopen, onAddSet, onRemoveSet, onSkip, skipLabel, onCollapse }) {
+function ExerciseCard({ ex, showRir, rows, target, goal, targetDate, bump, refSets, activeIdx, flash, mood, onAsk, onEdit, onLog, onPick, onReopen, onAddSet, onRemoveSet, onSkip, skipLabel, onCollapse }) {
   const id = coachFor(ex.n);
   const coach = COACHES[id];
   // Calm moods read the form cue; reactions say their own line. Until the first set is logged,
@@ -452,7 +459,7 @@ function ExerciseCard({ ex, showRir, rows, target, targetDate, bump, refSets, ac
         {cardio
           ? lastEntry && <span className="target" title={`Last time, ${shortDate(targetDate)}`}>Beat {fmtSet(lastEntry)}</span>
           : bump ? <span className="target up" title={`All ${bump.sets} sets hit ${bump.reps} on ${shortDate(targetDate)}`}>Go up · {fmtW(bump.to)} lb</span>
-          : target && <span className="target" title={`Best set on ${shortDate(targetDate)}`}>Beat {fmtW(target.w)} × {target.r}</span>}
+          : goal && <span className="target" title={`Best set on ${shortDate(targetDate)}: ${fmtW(target.w)} × ${target.r}`}>Try {fmtGoal(goal)}</span>}
       </div>
       {!(cardio ? lastEntry : target) && <p className="target-none">First time logging this one. Today sets the baseline.</p>}
 
@@ -474,7 +481,7 @@ function ExerciseCard({ ex, showRir, rows, target, targetDate, bump, refSets, ac
             return (
               <button key={i} className={"done-row" + (r.pr ? " pr-rim" : "")} onClick={() => onReopen(i)} aria-label={`Set ${i + 1}: ${fmtW(+r.w)} by ${r.r}${r.pr ? ", personal record" : ""}. Tap to edit.`}>
                 <span className="n">{i + 1}</span>
-                <span className="w">{fmtW(+r.w)} × {r.r}{r.pr ? <span className={"stamp" + (flash === i ? " hit" : "")}>PR</span> : r.beat ? <span className="beat-mark">▲ beat</span> : null}</span>
+                <span className="w">{fmtW(+r.w)} × {r.r}{r.pr ? <span className={"stamp" + (flash === i ? " hit" : "")}>PR</span> : r.beat ? <span className="beat-mark">▲ beat</span> : r.matched ? <span className="beat-mark">= matched</span> : null}</span>
                 <span className="small muted">{showRir && hasVal(r.rir) ? `RIR ${r.rir}` : ""}</span>
                 <span className={"ck" + (flash === i ? " fill" : "")} aria-hidden="true"><Check size={18} strokeWidth={3} /></span>
               </button>

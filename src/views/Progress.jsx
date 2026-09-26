@@ -7,7 +7,8 @@ import { InfoButton, Sparkline, Trend } from "../components/ui.jsx";
 import PhaseCard from "../components/PhaseCard.jsx";
 import PhaseSheet from "../components/PhaseSheet.jsx";
 
-/* A lift is "on a PR" when its latest session beat every earlier one (not its first) in the last two weeks. */
+/* A lift is "on a PR" when its latest session beat every earlier one (not its first) in the last two weeks.
+   Only PRs from the most recent workout glow; older ones keep a still stamp, so the glow stays news. */
 const PR_DAYS = 14;
 
 export default function Progress({ sessions, program, weighins, prefs, setPref, notify, onWeighin, onProgramChange, openPhase }) {
@@ -22,6 +23,7 @@ export default function Progress({ sessions, program, weighins, prefs, setPref, 
     notify?.(recap ? "Phase complete" : "Phase ended", () => { setPref("phase", before.phase); setPref("phaseHistory", before.history); });
   };
   const groups = useMemo(() => {
+    const latest = sessions.reduce((d, s) => (s.date > d ? s.date : d), "");
     const seen = new Set();
     const out = activeDays(program).map((d) => {
       const lifts = program[d].exercises.map((e) => e.n).filter((n) => !seen.has(n) && seen.add(n));
@@ -36,7 +38,7 @@ export default function Progress({ sessions, program, weighins, prefs, setPref, 
         const vals = series.map((x) => x.orm);
         const last = series[series.length - 1];
         const pr = series.length > 1 && last.pr && daysBetween(last.date, today()) <= PR_DAYS;
-        return { n, vals, best: vals.length ? Math.max(...vals) : 0, pct: trend(vals), pr };
+        return { n, vals, best: vals.length ? Math.max(...vals) : 0, pct: trend(vals), pr, fresh: pr && last.date === latest };
       });
       return { ...g, logged: rows.filter((r) => r.vals.length), unlogged: rows.filter((r) => !r.vals.length).map((r) => r.n) };
     });
@@ -74,8 +76,8 @@ export default function Progress({ sessions, program, weighins, prefs, setPref, 
             <h2 className="lbl" style={{ display: "flex", alignItems: "center", gap: 8 }}><span className="dot" aria-hidden="true" />{g.name}</h2>
             <div className="card-list">
               {g.logged.map((r) => (
-                // Fresh PRs get the animated gold rim (.pr-rim); with motion off it holds still.
-                <a key={r.n} className={"lift-row" + (r.pr ? " pr-rim" : "")} href={href("lift", r.n)}>
+                // PRs from the latest workout get the animated gold rim (.pr-rim); with motion off it holds still.
+                <a key={r.n} className={"lift-row" + (r.fresh ? " pr-rim" : "")} href={href("lift", r.n)}>
                   <span className="name">{r.pr && <span className="stamp pr-stamp">PR</span>}{r.n}
                     <span className="sub">Est. max {num(r.best)} lb · {r.vals.length} session{r.vals.length > 1 ? "s" : ""}</span>
                   </span>
