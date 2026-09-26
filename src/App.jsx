@@ -204,6 +204,11 @@ export default function App() {
     }));
     if (weight) setWeighins((ws) => [...ws.filter((w) => w.date !== today()), { date: today(), bw: weight }]);
   };
+  // Tank's answers as they're given, so closing setup part way keeps them. Tank stays unmet until the plan step.
+  const saveSetupProgress = ({ profile, weight }) => {
+    if (profile) setPrefs((p) => ({ ...p, profile: { ...p.profile, ...profile } }));
+    if (weight) setWeighins((ws) => [...ws.filter((w) => w.date !== today()), { date: today(), bw: weight }]);
+  };
   const common = { sessions, program, drafts, weighins, prefs, setPref, name, go, back, notify, onWeighin: logWeighin, onProgramChange: applyCoachProgram };
   let view;
   switch (route.name) {
@@ -230,7 +235,7 @@ export default function App() {
     case "settings": view = <Settings {...common} />; break;
     case "program": view = DAYS.includes(route.day) ? <ProgramEditor {...common} day={route.day} ops={programOps} /> : <Settings {...common} />; break;
     case "export": view = <Export {...common} />; break;
-    case "coaches": view = <Coaches key={route.coach || "grid"} {...common} openCoach={route.coach} onSetupDone={finishSetup} />; break;
+    case "coaches": view = <Coaches key={route.coach || "grid"} {...common} openCoach={route.coach} onSetupDone={finishSetup} onSetupProgress={saveSetupProgress} />; break;
     default: view = <Today {...common} />;
   }
 
