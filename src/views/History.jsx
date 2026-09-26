@@ -39,7 +39,7 @@ export default function History({ sessions, program }) {
         <h1 className="page-title">History</h1><span className="spacer" />
         {sessions.length > 0 && (<>
           <span className="mono small muted">{sessions.length} sessions</span>
-          <button className="icon-btn" onClick={() => pickView(calendar ? "list" : "calendar")} aria-pressed={calendar}
+          <button className="icon-btn" data-help="calendar" onClick={() => pickView(calendar ? "list" : "calendar")} aria-pressed={calendar}
             aria-label={calendar ? "Show as a list" : "Show as a calendar"}>
             {calendar ? <List size={20} strokeWidth={2.4} /> : <CalendarDays size={20} strokeWidth={2.4} />}
           </button>
@@ -141,7 +141,7 @@ function HistCard({ s, program, prs }) {
   // Each lift shows its top set (the record set on a PR); every set is one tap away.
   const [all, setAll] = useState(false);
   return (
-    <article className="hist" data-day={s.day}>
+    <article className="hist" data-help="workout" data-day={s.day}>
       <div className="hist-head">
         <div style={{ flex: 1 }}>
           <h2 className="hist-date">{longDate(s.date)}</h2>
@@ -150,7 +150,7 @@ function HistCard({ s, program, prs }) {
           </div>
         </div>
         {n > 0 && <span className="stamp">PR{n > 1 ? ` ×${n}` : ""}</span>}
-        <a className="icon-btn" href={href("session", s.day, s.id)} aria-label={`Edit ${program[s.day].name} session on ${longDate(s.date)}`}><Pencil size={17} /></a>
+        <a className="icon-btn" data-help="edit" href={href("session", s.day, s.id)} aria-label={`Edit ${program[s.day].name} session on ${longDate(s.date)}`}><Pencil size={17} /></a>
       </div>
       {s.note && <p className="hist-note">{s.note}</p>}
       <div>

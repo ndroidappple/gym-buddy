@@ -69,7 +69,7 @@ export default function Summary({ session, sessions, program, prefs, go, onUpdat
         </div>
 
         {r.records.length > 0 && (
-          <Group title="Records">
+          <Group title="Records" help="records">
             {r.records.map((x) => (
               <a key={x.n} className="rec" href={href("lift", x.n)}>
                 <PrBadge />
@@ -79,9 +79,9 @@ export default function Summary({ session, sessions, program, prefs, go, onUpdat
             ))}
           </Group>
         )}
-        {r.beat.length > 0 && <Group title="Beat last time">{r.beat.map((x) => <Plain key={x.n} x={x} mark={`▲ ${x.vsLast.toFixed(1)}%`} />)}</Group>}
-        {r.matched.length > 0 && <Group title="Matched last time">{r.matched.map((x) => <Plain key={x.n} x={x} mark="= matched" />)}</Group>}
-        {r.below.length > 0 && <Group title="Below last time">{r.below.map((x) => <Plain key={x.n} x={x} mark={`▼ ${Math.abs(x.vsLast).toFixed(1)}%`} />)}</Group>}
+        {r.beat.length > 0 && <Group title="Beat last time" help="vs-last">{r.beat.map((x) => <Plain key={x.n} x={x} mark={`▲ ${x.vsLast.toFixed(1)}%`} />)}</Group>}
+        {r.matched.length > 0 && <Group title="Matched last time" help="vs-last">{r.matched.map((x) => <Plain key={x.n} x={x} mark="= matched" />)}</Group>}
+        {r.below.length > 0 && <Group title="Below last time" help="vs-last">{r.below.map((x) => <Plain key={x.n} x={x} mark={`▼ ${Math.abs(x.vsLast).toFixed(1)}%`} />)}</Group>}
         {r.cardio.length > 0 && (
           <Group title="Cardio">
             {r.cardio.map((x) => (
@@ -166,8 +166,8 @@ function Delta({ pct }) {
   return <span className={"trend" + (pct < 0 ? " flat" : "")}>{pct > 0 ? "▲" : "▼"} {Math.abs(pct).toFixed(0)}%</span>;
 }
 
-function Group({ title, children }) {
-  return <section className="section"><h2 className="lbl">{title}</h2><div className="card-list">{children}</div></section>;
+function Group({ title, help, children }) {
+  return <section className="section" data-help={help}><h2 className="lbl">{title}</h2><div className="card-list">{children}</div></section>;
 }
 
 function Plain({ x, mark }) {

@@ -1,6 +1,6 @@
 import React, { useEffect, useLayoutEffect, useRef, useState, useMemo } from "react";
 import { createPortal } from "react-dom";
-import { X, Home, CalendarDays, TrendingUp, Settings as Gear, Plus, Info } from "lucide-react";
+import { X, Home, CalendarDays, TrendingUp, Settings as Gear, Plus, Info, ChevronLeft, ArrowUpRight } from "lucide-react";
 import { HELP } from "../data/help.js";
 import { vibrate } from "../lib/util.js";
 import { LIBRARY, specLine } from "../data/program.js";
@@ -69,18 +69,58 @@ export function Sheet({ title, sub, onClose, children, labelledBy = "sheet-title
   ), document.body);
 }
 
-/** The (i) in a screen's header: opens a short sheet on what the screen is for. */
+/** Text with [Name] marked as an inline chip, so anything you can see or tap in the app stands out. */
+function HelpText({ text }) {
+  return text.split(/(\[[^\]]+\])/).map((part, i) =>
+    part.startsWith("[") ? <span key={i} className="help-chip inline">{part.slice(1, -1)}</span> : part);
+}
+
+/* Points at a part of the screen: scrolls it into view and pulses a ring around it. */
+function spotlight(el) {
+  el.scrollIntoView({ block: "center", behavior: "smooth" });
+  el.classList.remove("help-spot");
+  void el.offsetWidth; // restart the pulse if it's already running
+  el.classList.add("help-spot");
+  setTimeout(() => el.classList.remove("help-spot"), 2400);
+}
+
+/** The (i) in a screen's header: a short tap-through, one feature per card. A feature that's on
+    screen gets a "Show me" chip that closes the sheet and points at it. */
 export function InfoButton({ screen }) {
   const [open, setOpen] = useState(false);
+  const [i, setI] = useState(0);
   const h = HELP[screen];
   if (!h) return null;
+  const steps = h.steps;
+  const step = steps[i];
+  const last = i === steps.length - 1;
+  const target = open && step.spot ? document.querySelector(`[data-help="${step.spot}"]`) : null;
+  const close = () => { setOpen(false); setI(0); };
+  const show = () => { close(); requestAnimationFrame(() => spotlight(target)); };
+  const { Icon } = step;
   return (
     <>
       <button className="icon-btn info-btn" onClick={() => setOpen(true)} aria-label={`About ${h.title}`}><Info size={20} strokeWidth={2.4} /></button>
       {open && (
-        <Sheet title={h.title} sub={h.sub} onClose={() => setOpen(false)} labelledBy="info-title">
-          <ul className="info-list">{h.points.map((p) => <li key={p}>{p}</li>)}</ul>
-          <button className="btn btn-ink" onClick={() => setOpen(false)}>Got it</button>
+        <Sheet title={h.title} sub={`${i + 1} of ${steps.length}`} onClose={close} labelledBy="info-title" className="help-sheet">
+          <div className="help-card" key={i} aria-live="polite">
+            {target ? (
+              <button type="button" className="help-chip" onClick={show} aria-label={`${step.name}: show me`}>
+                <Icon size={18} strokeWidth={2.6} aria-hidden="true" />{step.name}
+                <span className="help-show">Show me<ArrowUpRight size={14} strokeWidth={3} aria-hidden="true" /></span>
+              </button>
+            ) : (
+              <span className="help-chip"><Icon size={18} strokeWidth={2.6} aria-hidden="true" />{step.name}</span>
+            )}
+            <p className="help-text"><HelpText text={step.text} /></p>
+          </div>
+          <div className="help-dots" aria-hidden="true">
+            {steps.map((_, j) => <button key={j} type="button" tabIndex={-1} className={j === i ? "on" : ""} onClick={() => setI(j)} />)}
+          </div>
+          <div className="btn-row help-nav">
+            {i > 0 && <button type="button" className="btn btn-ghost help-back" onClick={() => setI(i - 1)} aria-label="Back"><ChevronLeft size={20} strokeWidth={2.8} /></button>}
+            <button type="button" className="btn btn-ink" onClick={() => (last ? close() : setI(i + 1))}>{last ? "Got it" : "Next"}</button>
+          </div>
         </Sheet>
       )}
     </>
@@ -215,10 +255,10 @@ export function Boot() {
   );
 }
 
-export function Trend({ pct }) {
-  if (pct == null) return <span className="trend flat">baseline</span>;
-  if (Math.abs(pct) < 1) return <span className="trend flat">— {Math.abs(pct).toFixed(1)}%</span>;
-  return <span className={"trend" + (pct < 0 ? " flat" : "")}>{pct > 0 ? "▲" : "▼"} {Math.abs(pct).toFixed(1)}%</span>;
+export function Trend({ pct, help }) {
+  if (pct == null) return <span className="trend flat" data-help={help}>baseline</span>;
+  if (Math.abs(pct) < 1) return <span className="trend flat" data-help={help}>— {Math.abs(pct).toFixed(1)}%</span>;
+  return <span className={"trend" + (pct < 0 ? " flat" : "")} data-help={help}>{pct > 0 ? "▲" : "▼"} {Math.abs(pct).toFixed(1)}%</span>;
 }
 
 export function Sparkline({ values }) {

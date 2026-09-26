@@ -33,7 +33,7 @@ function CardioLog({ name, sessions, program, back }) {
           <div className="stat"><b>{num(t.min)}</b><span>minutes</span></div>
           <div className="stat"><b>{num(t.mi)}</b><span>miles</span></div>
         </div>
-        <section className="section">
+        <section className="section" data-help="sessions">
           <h2 className="lbl">Recent sessions</h2>
           <div>
             {logs.slice(0, 12).map((s) => (
@@ -103,7 +103,7 @@ function LiftDetail({ name, sessions, program, back }) {
             )}
 
             <div className="section">
-              <div className="segctl" role="group" aria-label="Chart metric">
+              <div className="segctl" data-help="metric" role="group" aria-label="Chart metric">
                 {METRICS.map((x) => <button key={x.key} aria-pressed={metric === x.key} onClick={() => setMetric(x.key)}>{x.label}</button>)}
               </div>
               {points.length >= 2
@@ -112,7 +112,7 @@ function LiftDetail({ name, sessions, program, back }) {
               <p className="mono small muted">Filled dots set a new best. Tap a dot to read it.</p>
             </div>
 
-            <section className="section">
+            <section className="section" data-help="rep-records">
               <h2 className="lbl">Best by reps</h2>
               <div>
                 {reps.map((x) => (
@@ -121,7 +121,7 @@ function LiftDetail({ name, sessions, program, back }) {
               </div>
             </section>
 
-            <section className="section">
+            <section className="section" data-help="sessions">
               <h2 className="lbl">Recent sessions</h2>
               <div>
                 {[...series].reverse().slice(0, 8).map((x) => {

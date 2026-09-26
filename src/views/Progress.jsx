@@ -84,12 +84,12 @@ export default function Progress({ sessions, program, weighins, prefs, setPref, 
             <div className="card-list">
               {g.logged.map((r) => (
                 // PRs from the latest workout get the animated gold rim (.pr-rim); with motion off it holds still.
-                <a key={r.n} className={"lift-row" + (r.fresh ? " pr-rim" : "")} href={href("lift", r.n)}>
+                <a key={r.n} className={"lift-row" + (r.fresh ? " pr-rim" : "")} data-help={r.fresh || r.pr ? "pr" : "lift"} href={href("lift", r.n)}>
                   <span className="name">{r.pr && <span className="stamp pr-stamp">PR</span>}{r.n}
                     <span className="sub">{r.top ? `Best ${fmtW(r.top.w)} × ${r.top.r}` : `Est. max ${num(r.best)} lb`} · {r.vals.length} session{r.vals.length > 1 ? "s" : ""}</span>
                   </span>
                   <Sparkline values={r.vals} />
-                  <Trend pct={r.pct} />
+                  <Trend pct={r.pct} help="trend" />
                 </a>
               ))}
               {g.unlogged.length > 0 && (
