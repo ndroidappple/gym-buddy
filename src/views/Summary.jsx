@@ -28,8 +28,9 @@ export default function Summary({ session, sessions, program, prefs, go, onUpdat
       lastVol: lastSame ? sessionVolume(lastSame) : null,
       sets: sessionSetCount(session),
       records: rows.filter((x) => x.allTime && x.score > x.allTime + 0.05),
-      beat: rows.filter((x) => !(x.allTime && x.score > x.allTime + 0.05) && x.lastScore && x.score >= x.lastScore),
-      below: rows.filter((x) => x.lastScore && x.score < x.lastScore),
+      beat: rows.filter((x) => !(x.allTime && x.score > x.allTime + 0.05) && x.lastScore && x.score > x.lastScore + 0.05),
+      matched: rows.filter((x) => !(x.allTime && x.score > x.allTime + 0.05) && x.lastScore && Math.abs(x.score - x.lastScore) <= 0.05),
+      below: rows.filter((x) => x.lastScore && x.score < x.lastScore - 0.05),
       baseline: rows.filter((x) => !x.lastScore),
       prevRecords: lastSame ? countRecords(sessions, lastSame) : null,
       cardio: Object.entries(session.sets).filter(([n]) => isCardio(n)).map(([n, sets]) => ({ n, sets, t: cardioTotals(sets) })),
@@ -78,7 +79,8 @@ export default function Summary({ session, sessions, program, prefs, go, onUpdat
             ))}
           </Group>
         )}
-        {r.beat.length > 0 && <Group title="Beat last time">{r.beat.map((x) => <Plain key={x.n} x={x} mark={x.vsLast > 0.05 ? `▲ ${x.vsLast.toFixed(1)}%` : "— matched"} />)}</Group>}
+        {r.beat.length > 0 && <Group title="Beat last time">{r.beat.map((x) => <Plain key={x.n} x={x} mark={`▲ ${x.vsLast.toFixed(1)}%`} />)}</Group>}
+        {r.matched.length > 0 && <Group title="Matched last time">{r.matched.map((x) => <Plain key={x.n} x={x} mark="= matched" />)}</Group>}
         {r.below.length > 0 && <Group title="Below last time">{r.below.map((x) => <Plain key={x.n} x={x} mark={`▼ ${Math.abs(x.vsLast).toFixed(1)}%`} />)}</Group>}
         {r.cardio.length > 0 && (
           <Group title="Cardio">

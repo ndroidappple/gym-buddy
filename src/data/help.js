@@ -6,7 +6,7 @@ export const HELP = {
     sub: "What to train next.",
     points: [
       "Start lifting opens the next day in your rotation. Tap Change to train a different day or a custom workout.",
-      "Beat these are your best sets from last time. Top one of them today.",
+      "Today's targets beat last time: one more rep on your best set, or one more set at the top of the rep range. An ↑ means you earned more weight.",
       "The dots show which days you trained this week.",
       "Weigh in once a week for your bodyweight chart, or tap ✕ to skip until Monday.",
     ],
@@ -16,7 +16,7 @@ export const HELP = {
     sub: "How this workout went.",
     points: [
       "Records are lifts where you beat your best est. max (estimated one-rep max, or 1RM): the most you could likely lift for a single rep, worked out from your best set.",
-      "Beat last time and below last time compare each lift with the last time you did it.",
+      "Beat, matched and below last time compare each lift with the last time you did it.",
       "First time logged sets the baseline to beat next time.",
     ],
   },
@@ -35,7 +35,7 @@ export const HELP = {
     points: [
       "Est. max (estimated one-rep max, or 1RM) is the most you could likely lift for a single rep, worked out from your best set. 80 lb × 12 ≈ 112 lb.",
       "The arrow shows how much it's changed recently. Baseline means you've logged it once.",
-      "A glowing row means you just set a PR on that lift.",
+      "A glowing row is a PR from your latest workout. A PR stamp marks other PRs from the last two weeks.",
       "Start a bulk or cut to set a target weight or weekly rate. The chart shows your goal line and the coaches read your pace from your weigh-ins.",
       "Tap a lift for its chart and records.",
     ],

@@ -5,9 +5,10 @@ import { DAYS, CUSTOM, activeDays } from "../data/program.js";
 import { href } from "../lib/router.js";
 import { COACHES, coachesFor } from "../data/coaches.js";
 import SetupCard from "../components/SetupCard.jsx";
+import { nextCoachToMeet } from "../lib/setup.js";
 import { weighInEvery, phaseStatus, statusLine, PHASE_TYPES } from "../lib/phase.js";
 import Coach from "../components/Coach.jsx";
-import { byDateDesc, bestSet, fmtW, num, shortDate, weekDates, today, nextDayAfter, bodyweightSeries, daysBetween, plural, readyToIncrease } from "../lib/util.js";
+import { byDateDesc, bestSet, fmtW, num, shortDate, weekDates, today, nextDayAfter, bodyweightSeries, daysBetween, plural, readyToIncrease, nextGoal, fmtGoal } from "../lib/util.js";
 
 export default function Today({ name, sessions, program, drafts, weighins, prefs, onWeighin }) {
   const sorted = useMemo(() => [...sessions].sort(byDateDesc), [sessions]);
@@ -31,6 +32,9 @@ export default function Today({ name, sessions, program, drafts, weighins, prefs
     setChoosing(false);
   };
 
+  const weigh = useWeighIn(sessions, weighins, prefs?.phase);
+  const lastDone = (d) => { const last = sorted.find((s) => s.day === d); return last ? `last done ${shortDate(last.date)}` : "not done yet"; };
+
   const setsLogged = draft ? Object.values(draft.grid || {}).reduce((a, rows) => a + rows.filter((r) => r.done).length, 0) : 0;
   const plannedSets = p.exercises.reduce((a, e) => a + e.sets, 0);
   const crew = useMemo(() => coachesFor(p.exercises.map((e) => e.n)), [p]);
@@ -44,11 +48,11 @@ export default function Today({ name, sessions, program, drafts, weighins, prefs
     return mins.length ? Math.round(mins.reduce((a, m) => a + m, 0) / mins.length) : null;
   }, [sessions, day]);
 
-  // Lifts that earned more weight lead the list; the rest show last time's best set to beat.
+  // Lifts that earned more weight lead the list; the rest show the set that beats last time's best.
   const targets = useMemo(() => p.exercises.map((ex) => {
     const prior = sorted.find((s) => s.sets[ex.n]?.length);
     const best = prior && bestSet(prior.sets[ex.n]);
-    return best ? { n: ex.n, best, bump: readyToIncrease(ex, prior.sets[ex.n]) } : null;
+    return best ? { n: ex.n, best, bump: readyToIncrease(ex, prior.sets[ex.n]), goal: nextGoal(ex, prior.sets[ex.n]) } : null;
   }).filter(Boolean).sort((a, b) => !!b.bump - !!a.bump).slice(0, 3), [p, sorted]);
 
   const week = weekDates();
@@ -121,7 +125,7 @@ export default function Today({ name, sessions, program, drafts, weighins, prefs
                 <button key={d} type="button" className="list-row" data-day={d} aria-pressed={d === day} onClick={() => choose(d)}>
                   <span className="dot" aria-hidden="true" />
                   <span className="name">{d === CUSTOM ? "Custom workout" : program[d].name}{drafts[d] ? " · in progress" : d === suggested ? " · up next" : ""}
-                    <span className="sub">{d === CUSTOM ? "Start empty and add any lifts or cardio." : `${program[d].detail} · ${plural(program[d].exercises.length, "lift")}`}</span></span>
+                    <span className="sub">{d === CUSTOM ? "Start empty and add any lifts or cardio." : `${program[d].detail} · ${lastDone(d)}`}</span></span>
                   {d === day && <Check size={18} strokeWidth={2.6} aria-hidden="true" />}
                 </button>
               ))}
@@ -129,21 +133,22 @@ export default function Today({ name, sessions, program, drafts, weighins, prefs
           </Sheet>
         )}
 
-        {sessions.length > 0 && <SetupCard prefs={prefs} />}
-
-        <WeighIn sessions={sessions} weighins={weighins} onSave={onWeighin} phase={prefs?.phase} />
-        {prefs?.phase && <PhaseLine phase={prefs.phase} sessions={sessions} weighins={weighins} />}
+        {/* One nudge at a time under the hero: a due weigh-in, then coach setup, then the bulk/cut line. */}
+        {weigh.due ? <WeighIn {...weigh} onSave={onWeighin} />
+          : sessions.length > 0 && nextCoachToMeet(prefs) ? <SetupCard prefs={prefs} />
+          : prefs?.phase ? <PhaseLine phase={prefs.phase} sessions={sessions} weighins={weighins} />
+          : null}
 
         {targets.length > 0 && (
           <section className="section">
-            <h2 className="lbl">Beat these today</h2>
+            <h2 className="lbl">Today's targets</h2>
             <div className="card-list">
               {targets.map((x) => (
                 <a key={x.n} className="card-row" href={href("lift", x.n)}>
                   <span className="name">{x.n}</span>
                   {x.bump
                     ? <span className="v up" aria-label={`Go up to ${fmtW(x.bump.to)} pounds`}>↑ {fmtW(x.bump.to)} lb</span>
-                    : <span className="v">{fmtW(x.best.w)} × {x.best.r}</span>}
+                    : <span className="v">{fmtGoal(x.goal)}</span>}
                 </a>
               ))}
             </div>
@@ -161,21 +166,6 @@ export default function Today({ name, sessions, program, drafts, weighins, prefs
                   aria-label={`${new Date(d + "T12:00:00").toLocaleDateString(undefined, { weekday: "long" })}: ${dd ? program[dd].name : "rest"}`}>
                   <i className={dd ? "on" : ""} />{label}
                 </div>
-              );
-            })}
-          </div>
-        </section>
-
-        <section className="section">
-          <h2 className="lbl">Or train another day</h2>
-          <div className="others">
-            {activeDays(program).filter((d) => d !== day).map((d) => {
-              const last = sorted.find((s) => s.day === d);
-              return (
-                <a key={d} className="other" data-day={d} href={href("session", d)}>
-                  <b><span className="dot" aria-hidden="true" />{program[d].name}</b>
-                  <span>{drafts[d] ? "In progress" : last ? `Last done ${shortDate(last.date)}` : "Not done yet"}</span>
-                </a>
               );
             })}
           </div>
@@ -200,11 +190,11 @@ function loadPick() {
   try { return JSON.parse(localStorage.getItem(PICK_KEY)) || null; } catch { return null; }
 }
 
-function WeighIn({ sessions, weighins, onSave, phase }) {
+/** Whether the weigh-in nudge is due, and what it needs. Today uses `due` to pick the one nudge it shows. */
+function useWeighIn(sessions, weighins, phase) {
   const series = useMemo(() => bodyweightSeries(sessions, weighins), [sessions, weighins]);
   const last = series[series.length - 1];
   const t = today();
-  const [bw, setBw] = useState("");
   // Weekly normally; every few days during a bulk or cut (never daily, though daily logging works).
   const every = weighInEvery(phase);
   // ✕ skips until next Monday, or for a couple of days during a phase.
@@ -216,12 +206,16 @@ function WeighIn({ sessions, weighins, onSave, phase }) {
       return v === week || (!!phase && !!v?.startsWith("d:") && daysBetween(v.slice(2), t) < 2);
     } catch { return false; }
   });
-  if (skipped || (last && daysBetween(last.date, t) < every)) return null;
   const skip = () => {
     try { localStorage.setItem(SKIP_KEY, skipMark); } catch {}
     setSkipped(true);
   };
+  return { due: !skipped && !(last && daysBetween(last.date, t) < every), last, skip };
+}
 
+function WeighIn({ last, skip, onSave }) {
+  const t = today();
+  const [bw, setBw] = useState("");
   const ago = last ? daysBetween(last.date, t) : null;
   const value = parseFloat(bw);
   const valid = value > 0 && value < 1000;
