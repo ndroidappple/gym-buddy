@@ -27,7 +27,7 @@ function CardioLog({ name, sessions, program, back }) {
         <InfoButton screen="lift" />
       </header>
       <div className="body">
-        <h1 style={{ fontWeight: 700, fontSize: 22, lineHeight: 1.2 }}>{name}</h1>
+        <h1 className="detail-title">{name}</h1>
         <div className="stats">
           <div className="stat"><b>{logs.length}</b><span>sessions</span></div>
           <div className="stat"><b>{num(t.min)}</b><span>minutes</span></div>
@@ -77,7 +77,7 @@ function LiftDetail({ name, sessions, program, back }) {
         <InfoButton screen="lift" />
       </header>
       <div className="body">
-        <h1 style={{ fontWeight: 700, fontSize: 22, lineHeight: 1.2 }}>{name}</h1>
+        <h1 className="detail-title">{name}</h1>
 
         {series.length === 0 ? (
           <p className="muted">No sets logged for this lift yet. Its chart and records appear after the first session.</p>

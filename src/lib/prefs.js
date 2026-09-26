@@ -3,4 +3,6 @@ export const DEFAULT_PREFS = {
   theme: "dark", // "dark" | "light"
   rir: false, // reps-in-reserve picker on each set; off keeps logging to weight × reps
   icon: "plates", // home screen icon, one of ICONS in icons.js
+  haptics: true, // vibration on logged sets, PRs and rest end (where the browser supports it)
+  sound: true, // rest-timer chime
 };

@@ -108,7 +108,12 @@ export const daysBetween = (a, b) => Math.round((new Date(b + "T12:00:00") - new
 
 export const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
 
+/* Haptics follow the Settings switch (App calls setHaptics from prefs). */
+let haptics = true;
+export const setHaptics = (on) => { haptics = on !== false; };
+export const canVibrate = () => typeof navigator !== "undefined" && typeof navigator.vibrate === "function";
 export function vibrate(pattern) {
+  if (!haptics) return;
   try { navigator.vibrate?.(pattern); } catch {}
 }
 

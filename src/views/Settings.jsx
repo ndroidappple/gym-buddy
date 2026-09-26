@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from "react";
-import { ChevronRight, Download, LogOut, Moon, Gauge, Smartphone, Share, SquarePlus, EllipsisVertical, Check, Sparkles, Scale } from "lucide-react";
+import { ChevronRight, Download, LogOut, Moon, Gauge, Smartphone, Share, SquarePlus, EllipsisVertical, Check, Sparkles, Scale, Vibrate, Bell } from "lucide-react";
 import { Sheet, InfoButton } from "../components/ui.jsx";
 import { ICONS, iconSrc } from "../lib/icons.js";
 import { DAYS } from "../data/program.js";
 import { href } from "../lib/router.js";
-import { shortDate } from "../lib/util.js";
+import { shortDate, canVibrate } from "../lib/util.js";
 import { supabase } from "../supabase-client.js";
 
 export default function Settings({ program, sessions, prefs, setPref }) {
@@ -50,6 +50,19 @@ export default function Settings({ program, sessions, prefs, setPref }) {
               onChange={(v) => setPref("theme", v ? "dark" : "light")} />
             <Toggle Icon={Gauge} label="Reps in reserve (RIR)" sub="Rate how many reps you had left on each set." on={prefs.rir}
               onChange={(v) => setPref("rir", v)} />
+          </div>
+        </section>
+
+        <section className="section">
+          <h2 className="lbl">Feedback</h2>
+          <div className="list">
+            <Toggle Icon={Bell} label="Rest timer sound" sub="A short chime when rest is over." on={prefs.sound !== false}
+              onChange={(v) => setPref("sound", v)} />
+            {/* iPhone browsers can't vibrate, so the switch only shows where it does something. */}
+            {canVibrate() && (
+              <Toggle Icon={Vibrate} label="Vibration" sub="A buzz on logged sets, PRs and when rest ends." on={prefs.haptics !== false}
+                onChange={(v) => setPref("haptics", v)} />
+            )}
           </div>
         </section>
 
