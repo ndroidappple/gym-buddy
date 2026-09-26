@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { InfoButton } from "../components/ui.jsx";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, Check } from "lucide-react";
 import { activeDays } from "../data/program.js";
 import { COACHES, COACH_ORDER, coachFor } from "../data/coaches.js";
 import { plural } from "../lib/util.js";
@@ -35,7 +35,7 @@ export default function Coaches({ program, sessions, weighins, prefs, name, back
         <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
           <h1 className="page-title">Meet your coaches</h1>
           <p className="muted" style={{ fontWeight: 600, fontSize: 15 }}>
-            {left.length ? `Say hi to each coach to shape your plan. ${COACH_ORDER.length - left.length} of ${COACH_ORDER.length} done.` : "Six coaches, one per training area. Tap one to ask a question or change your plan."}
+            {left.length ? "Say hi to each coach to shape your plan. The gold ring shows who's next." : "Six coaches, one per training area. Tap one to ask a question or change your plan."}
           </p>
         </div>
         <div className="coach-grid">
@@ -43,8 +43,9 @@ export default function Coaches({ program, sessions, weighins, prefs, name, back
             const fresh = needsSetup(prefs, id);
             return (
               <button key={id} className={"coach-card" + (id === nextUp ? " next-up" : "")} onClick={() => openChat({ coach: id })}
-                aria-label={`${fresh ? "Meet" : "Ask"} ${COACHES[id].name}, ${COACHES[id].group} coach`}>
-                {fresh && <span className="say-hi">{id === nextUp ? "Start here" : "Say hi"}</span>}
+                aria-label={`${fresh ? "Meet" : "Ask"} ${COACHES[id].name}, ${COACHES[id].group} coach${fresh ? "" : ", set up"}${id === nextUp ? ", next up" : ""}`}>
+                {/* One signal for setup progress: a check on every coach you've met. The gold ring points at the next. */}
+                {!fresh && left.length > 0 && <span className="coach-done" aria-hidden="true"><Check size={14} strokeWidth={3.4} /></span>}
                 <Coach id={id} size={72} decorative />
                 <b>{COACHES[id].name}</b>
                 <span>{COACHES[id].group}</span>

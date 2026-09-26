@@ -2,8 +2,8 @@ import React, { useMemo, useState } from "react";
 import { Scale } from "lucide-react";
 import { isCardio, activeDays } from "../data/program.js";
 import { href } from "../lib/router.js";
-import { liftSeries, trend, num, shortDate, bodyweightSeries, daysBetween, today } from "../lib/util.js";
-import { InfoButton, Sparkline, Trend } from "../components/ui.jsx";
+import { liftSeries, trend, num, fmtW, bestSet, isIsolation, shortDate, bodyweightSeries, daysBetween, today } from "../lib/util.js";
+import { InfoButton, Sparkline, Trend, EmptyState } from "../components/ui.jsx";
 import PhaseCard from "../components/PhaseCard.jsx";
 import PhaseSheet from "../components/PhaseSheet.jsx";
 
@@ -38,7 +38,8 @@ export default function Progress({ sessions, program, weighins, prefs, setPref, 
         const vals = series.map((x) => x.orm);
         const last = series[series.length - 1];
         const pr = series.length > 1 && last.pr && daysBetween(last.date, today()) <= PR_DAYS;
-        return { n, vals, best: vals.length ? Math.max(...vals) : 0, pct: trend(vals), pr, fresh: pr && last.date === latest };
+        const top = isIsolation(n) && bestSet(series.flatMap((x) => x.sets));
+        return { n, vals, best: vals.length ? Math.max(...vals) : 0, top, pct: trend(vals), pr, fresh: pr && last.date === latest };
       });
       return { ...g, logged: rows.filter((r) => r.vals.length), unlogged: rows.filter((r) => !r.vals.length).map((r) => r.n) };
     });
@@ -71,7 +72,13 @@ export default function Progress({ sessions, program, weighins, prefs, setPref, 
             }} />
         )}
 
-        {groups.map((g) => (g.logged.length || g.unlogged.length) ? (
+        {sessions.length === 0 && (
+          <EmptyState coach="wings" title="Your lifts will show up here" action="Start your first workout" href="#/today">
+            After your first workout, each lift gets a trend line and a PR marker. Two workouts in, you'll see which lifts are moving up.
+          </EmptyState>
+        )}
+
+        {sessions.length > 0 && groups.map((g) => (g.logged.length || g.unlogged.length) ? (
           <section key={g.name} className="section" data-day={g.day || undefined}>
             <h2 className="lbl" style={{ display: "flex", alignItems: "center", gap: 8 }}><span className="dot" aria-hidden="true" />{g.name}</h2>
             <div className="card-list">
@@ -79,7 +86,7 @@ export default function Progress({ sessions, program, weighins, prefs, setPref, 
                 // PRs from the latest workout get the animated gold rim (.pr-rim); with motion off it holds still.
                 <a key={r.n} className={"lift-row" + (r.fresh ? " pr-rim" : "")} href={href("lift", r.n)}>
                   <span className="name">{r.pr && <span className="stamp pr-stamp">PR</span>}{r.n}
-                    <span className="sub">Est. max {num(r.best)} lb · {r.vals.length} session{r.vals.length > 1 ? "s" : ""}</span>
+                    <span className="sub">{r.top ? `Best ${fmtW(r.top.w)} × ${r.top.r}` : `Est. max ${num(r.best)} lb`} · {r.vals.length} session{r.vals.length > 1 ? "s" : ""}</span>
                   </span>
                   <Sparkline values={r.vals} />
                   <Trend pct={r.pct} />

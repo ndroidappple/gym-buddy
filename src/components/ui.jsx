@@ -4,6 +4,7 @@ import { X, Home, CalendarDays, TrendingUp, Settings as Gear, Plus, Info } from 
 import { HELP } from "../data/help.js";
 import { vibrate } from "../lib/util.js";
 import { LIBRARY, specLine } from "../data/program.js";
+import Coach from "./Coach.jsx";
 
 /* iOS lays the keyboard over the page instead of resizing it. The sheet follows the visible
    viewport instead, so the keyboard pushes it up rather than covering it. */
@@ -365,5 +366,17 @@ export function SyncNote({ raised }) {
     <div className={"sync-note" + (raised ? " raised" : "")} role="status">
       Offline · saved on this phone, will sync when you're back online
     </div>
+  );
+}
+
+/** A screen with nothing to show yet: a coach, what will appear here, and the way to get it. */
+export function EmptyState({ coach = "tank", title, children, action, href }) {
+  return (
+    <section className="card empty">
+      <Coach id={coach} mood="idle" size={64} decorative />
+      <h2 className="empty-title">{title}</h2>
+      <p className="empty-text">{children}</p>
+      {action && <a className="btn btn-ink empty-btn" href={href}>{action}</a>}
+    </section>
   );
 }

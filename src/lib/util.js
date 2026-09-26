@@ -112,6 +112,11 @@ export function vibrate(pattern) {
   try { navigator.vibrate?.(pattern); } catch {}
 }
 
+/* Estimated max suits big multi-joint lifts. For isolation work (curls, raises, flyes, cable
+   extensions) the best set itself is the honest number, so Progress and Lift show that instead. */
+const COMPOUND = /press|squat|deadlift|\brows?\b|pulldown|pull-?ups?|chin-?ups?|\bdips?\b|lunge|thrust|clean|snatch|good morning/i;
+export const isIsolation = (lift) => /straight-arm/i.test(lift) || !COMPOUND.test(lift);
+
 /* Double progression. Each lift has its own rep range; once every planned set at your top weight
    reached the top of that range, it's time to add weight (and work back up the reps). */
 const BIG_LOWER = /leg press|squat|deadlift|romanian|hip thrust|good morning/i;
