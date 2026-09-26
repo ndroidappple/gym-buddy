@@ -313,7 +313,14 @@ button.chip { min-height: 38px; padding: 0 14px; border: 2px solid var(--rule); 
 .wd i.on { background: var(--day); box-shadow: 0 3px 0 var(--day-lip); }
 .wd.now { color: var(--ink); font-weight: 800; }
 .wd.now i:not(.on) { background: none; border: 3px dashed var(--day); }
-.weigh { display: flex; align-items: center; gap: 10px; padding: 12px 12px 12px 14px; }
+.weigh { display: flex; flex-direction: column; gap: 10px; padding: 12px 12px 12px 14px; }
+.weigh-top, .weigh-row { display: flex; align-items: center; gap: 8px; }
+.weigh-top { gap: 10px; }
+.weigh-row .weigh-field { flex: 1; justify-content: center; }
+.weigh-row .weigh-field input { width: 5.5ch; text-align: right; }
+.weigh-step { flex: none; min-width: 56px; height: var(--tap); border-radius: 16px; font-weight: 800; font-size: 15px; color: var(--ink); background: var(--surface); border: 2px solid var(--rule); box-shadow: 0 3px 0 var(--lip); }
+.weigh-step:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--lip); }
+.weigh-skip { flex: none; padding: 0 8px; margin-right: -4px; font-size: 14px; }
 .weigh-icon { width: 44px; height: 44px; border-radius: 16px; display: grid; place-items: center; background: color-mix(in srgb, var(--accent) 16%, var(--surface)); color: var(--accent); flex-shrink: 0; }
 .weigh-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .weigh-text b { font-weight: 800; }
@@ -465,6 +472,7 @@ button.chip { min-height: 38px; padding: 0 14px; border: 2px solid var(--rule); 
 /* ═══════════════ HISTORY ═══════════════ */
 .filters { display: flex; gap: 8px; overflow-x: auto; padding: 2px 2px 6px; scrollbar-width: none; }
 .filters::-webkit-scrollbar { display: none; }
+.filters .chip { min-height: var(--tap); padding: 0 14px; font-size: 14px; }
 .hist { padding: 14px 16px 8px; display: flex; flex-direction: column; gap: 8px; border-top: 6px solid var(--day); }
 .hist-head { display: flex; align-items: flex-start; gap: 8px; }
 .hist-date { font-weight: 800; font-size: 20px; line-height: 1.1; }
@@ -614,9 +622,6 @@ button.coach-card:active { transform: translateY(3px); box-shadow: 0 2px 0 var(-
 .hero-card .hero-switch { background: #FFFFFF; color: var(--day-lip); font-family: inherit; cursor: pointer; }
 .hero-card .hero-switch:active { transform: scale(0.95); }
 .weigh { position: relative; }
-.weigh-skip { position: absolute; top: -8px; right: -8px; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; background: var(--surface-2); color: var(--mute); border: 2px solid var(--bg); cursor: pointer; }
-.weigh-skip::after { content: ""; position: absolute; inset: -9px; } /* 44px tap target */
-.weigh-skip:active { transform: scale(0.9); }
 
 /* PRs: a bold sunset beam rides the rim (BorderBeam md), plus a PR stamp. */
 /* Bolder than BorderBeam's free settings allow (a 1px line): a 2.5px gold light that circles the
@@ -686,7 +691,7 @@ button.coach-card:active { transform: translateY(3px); box-shadow: 0 2px 0 var(-
 .setup-card-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .setup-card-text b { font-weight: 800; }
 .setup-card-text span { font-size: 13.5px; color: var(--mute); font-weight: 500; }
-.set-remove { width: 32px; height: 32px; margin: -6px -6px -6px 6px; display: grid; place-items: center; border-radius: 50%; color: var(--mute); }
+.set-remove { width: var(--tap); height: var(--tap); margin: -10px -10px -10px 2px; display: grid; place-items: center; border-radius: 50%; color: var(--mute); }
 .set-remove:active { background: var(--surface); }
 
 /* History: the record set and what it beat, on the lift that set it. */
@@ -753,6 +758,20 @@ button.coach-card:active { transform: translateY(3px); box-shadow: 0 2px 0 var(-
 .empty-text { font-size: 15px; font-weight: 500; color: var(--mute); line-height: 1.4; max-width: 32ch; }
 .empty-btn { margin-top: 8px; }
 
-/* The exercise card's bubble doubles as the way to ask its coach. */
-.bubble-btn { display: block; text-align: left; cursor: pointer; transition: transform 100ms ease; }
-.bubble-btn:active { transform: scale(0.98); }
+/* Tap a logged set: an Edit button slides in at the end of the row (hold still edits straight away). */
+.done-edit { position: absolute; top: 50%; right: 8px; transform: translateY(-50%); display: inline-flex; align-items: center; gap: 6px; height: 38px; padding: 0 14px; border-radius: 999px; font-weight: 800; font-size: 14px; background: var(--ink); color: var(--bg); animation: done-edit-in 140ms ease-out; }
+.done-edit::after { content: ""; position: absolute; inset: -4px -8px; } /* 44px+ tap target */
+@keyframes done-edit-in { from { opacity: 0; transform: translate(8px, -50%); } }
+.swipe.armed > .done-row .ck { visibility: hidden; }
+
+/* Swipe a collapsed lift left to skip it. */
+.swipe-lift { margin-top: 0; border-radius: 22px; }
+.swipe-lift.swiping { background: var(--faint); }
+.swipe > .ex-collapsed { position: relative; touch-action: pan-y; transition: transform 200ms cubic-bezier(.2, 1.2, .4, 1); -webkit-user-select: none; user-select: none; }
+
+/* Finish early: quieter than the all-done Finish, same thumb spot. */
+.finish-dock.early .btn { min-height: 56px; font-size: 17px; }
+
+/* Summary's Done rides at the bottom; it steps aside while the note is being typed. */
+.summary:has(textarea:focus) .summary-dock { display: none; }
+@media (prefers-reduced-motion: reduce) { .done-edit { animation: none; } }

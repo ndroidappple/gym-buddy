@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { InfoButton, Sheet } from "../components/ui.jsx";
-import { Scale, ArrowLeftRight, Check, X } from "lucide-react";
+import { Scale, ArrowLeftRight, Check } from "lucide-react";
 import { DAYS, CUSTOM, activeDays } from "../data/program.js";
 import { href } from "../lib/router.js";
 import { COACHES, coachesFor } from "../data/coaches.js";
@@ -213,32 +213,41 @@ function useWeighIn(sessions, weighins, phase) {
   return { due: !skipped && !(last && daysBetween(last.date, t) < every), last, skip };
 }
 
+/* Starts at the last weight with ±0.2 steps, so a steady week is one tap on Save. */
+const WEIGH_STEP = 0.2;
 function WeighIn({ last, skip, onSave }) {
   const t = today();
-  const [bw, setBw] = useState("");
+  const [bw, setBw] = useState(() => (last ? String(Math.round(last.bw * 10) / 10) : ""));
   const ago = last ? daysBetween(last.date, t) : null;
   const value = parseFloat(bw);
   const valid = value > 0 && value < 1000;
+  const nudge = (d) => setBw((v) => { const n = parseFloat(v); return n > 0 ? String(Math.round((n + d) * 10) / 10) : v; });
   const save = (e) => {
     e.preventDefault();
     if (!valid) return;
     onSave(t, Math.round(value * 10) / 10);
-    setBw("");
   };
   return (
     <form className="weigh" data-help="weigh" onSubmit={save} aria-label="Weekly weigh-in">
-      <span className="weigh-icon" aria-hidden="true"><Scale size={22} /></span>
-      <div className="weigh-text">
-        <b>Weigh-in due</b>
-        <span className="small muted">{last ? `Last: ${num(last.bw)} lb · ${plural(ago, "day")} ago` : "Log your bodyweight to start the chart"}</span>
+      <div className="weigh-top">
+        <span className="weigh-icon" aria-hidden="true"><Scale size={22} /></span>
+        <div className="weigh-text">
+          <b>Weigh-in due</b>
+          <span className="small muted">{last ? `Last: ${num(last.bw)} lb · ${plural(ago, "day")} ago` : "Log your bodyweight to start the chart"}</span>
+        </div>
+        <button type="button" className="btn-quiet weigh-skip" onClick={skip} aria-label="Skip this weigh-in">Skip</button>
       </div>
-      <label className="weigh-field">
-        <span className="sr-only">Bodyweight in pounds</span>
-        <input id="weigh-bw" type="number" inputMode="decimal" step="0.1" placeholder={last ? num(last.bw) : "—"} value={bw} onChange={(e) => setBw(e.target.value)} />
-        <span className="u">lb</span>
-      </label>
-      <button type="submit" className="btn weigh-save" disabled={!valid}>Save</button>
-      <button type="button" className="weigh-skip" onClick={skip} aria-label="Skip this week's weigh-in"><X size={14} strokeWidth={3} aria-hidden="true" /></button>
+      <div className="weigh-row">
+        {last && <button type="button" className="weigh-step" onClick={() => nudge(-WEIGH_STEP)} aria-label="Down 0.2 pounds">−0.2</button>}
+        <label className="weigh-field">
+          <span className="sr-only">Bodyweight in pounds</span>
+          <input id="weigh-bw" type="number" inputMode="decimal" step="0.1" placeholder="—" value={bw}
+            onChange={(e) => setBw(e.target.value)} onFocus={(e) => e.target.select()} />
+          <span className="u">lb</span>
+        </label>
+        {last && <button type="button" className="weigh-step" onClick={() => nudge(WEIGH_STEP)} aria-label="Up 0.2 pounds">+0.2</button>}
+        <button type="submit" className="btn weigh-save" disabled={!valid}>Save</button>
+      </div>
     </form>
   );
 }

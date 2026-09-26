@@ -100,6 +100,10 @@ export default function Summary({ session, sessions, program, prefs, go, onUpdat
             placeholder="How did it feel? Anything to change next time?" />
         </label>
 
+        <div style={{ height: 96 }} aria-hidden="true" />
+      </div>
+      {/* Pinned where the thumb is: a long workout's summary shouldn't need a scroll just to leave. */}
+      <div className="rest-wrap finish-dock summary-dock">
         <button className="btn btn-ink summary-done" onClick={done}>
           Done <span className="next"><span className="dot" data-day={nextDay} aria-hidden="true" />{next.name} is next</span>
         </button>
