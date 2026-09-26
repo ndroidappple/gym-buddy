@@ -2,7 +2,7 @@ import React, { useMemo, useState } from "react";
 import { ChevronLeft } from "lucide-react";
 import { DAYS, isCardio } from "../data/program.js";
 import { href } from "../lib/router.js";
-import { liftSeries, trend, repPRs, num, fmtW, fmtSet, cardioTotals, compact, shortDate, bestSet, byDateDesc } from "../lib/util.js";
+import { liftSeries, trend, repPRs, num, fmtW, fmtSet, cardioTotals, compact, shortDate, bestSet, byDateDesc, isIsolation } from "../lib/util.js";
 import { InfoButton, LineChart, Trend } from "../components/ui.jsx";
 
 const METRICS = [
@@ -50,13 +50,15 @@ function CardioLog({ name, sessions, program, back }) {
 }
 
 function LiftDetail({ name, sessions, program, back }) {
-  const [metric, setMetric] = useState("orm");
+  const iso = isIsolation(name);
+  const [metric, setMetric] = useState(iso ? "top" : "orm");
   const series = useMemo(() => liftSeries(sessions, name), [sessions, name]);
   const reps = useMemo(() => repPRs(sessions, name), [sessions, name]);
   const day = DAYS.find((d) => program[d].exercises.some((e) => e.n === name)) || series[series.length - 1]?.day;
   const m = METRICS.find((x) => x.key === metric);
 
   const best = series.length ? Math.max(...series.map((x) => x.orm)) : 0;
+  const bestTop = bestSet(series.flatMap((x) => x.sets));
   const pct = trend(series.map((x) => x.orm));
   const running = { top: 0, vol: 0 };
   const points = series.map((x) => {
@@ -81,13 +83,24 @@ function LiftDetail({ name, sessions, program, back }) {
           <p className="muted">No sets logged for this lift yet. Its chart and records appear after the first session.</p>
         ) : (
           <>
-            <section className="section" aria-label="Best estimated one-rep max">
-              <span className="lbl">Best est. max</span>
-              <div className="hero-num">
-                <b>{num(best)}</b>
-                <span className="mono small" style={{ paddingBottom: 6 }}>lb &nbsp;{pct != null && <Trend pct={pct} />}</span>
-              </div>
-            </section>
+            {iso ? (
+              // Isolation lifts lead with the best set itself; est. max stays one tap away in the chart.
+              <section className="section" aria-label={`Best set ${fmtW(bestTop.w)} by ${bestTop.r}`}>
+                <span className="lbl">Best set</span>
+                <div className="hero-num">
+                  <b>{fmtW(bestTop.w)} × {bestTop.r}</b>
+                  <span className="mono small" style={{ paddingBottom: 6 }}>{pct != null && <Trend pct={pct} />}</span>
+                </div>
+              </section>
+            ) : (
+              <section className="section" aria-label="Best estimated one-rep max">
+                <span className="lbl">Best est. max</span>
+                <div className="hero-num">
+                  <b>{num(best)}</b>
+                  <span className="mono small" style={{ paddingBottom: 6 }}>lb &nbsp;{pct != null && <Trend pct={pct} />}</span>
+                </div>
+              </section>
+            )}
 
             <div className="section">
               <div className="segctl" role="group" aria-label="Chart metric">

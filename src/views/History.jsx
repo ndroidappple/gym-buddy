@@ -1,9 +1,9 @@
 import React, { useMemo, useState } from "react";
-import { InfoButton } from "../components/ui.jsx";
+import { InfoButton, EmptyState } from "../components/ui.jsx";
 import { Pencil, CalendarDays, List, ChevronLeft, ChevronRight } from "lucide-react";
 import { DAYS, CUSTOM } from "../data/program.js";
 import { href } from "../lib/router.js";
-import { fmtSet, byDateDesc, longDate, compact, sessionVolume, sessionSetCount, plural, priorSessions, allTimeBest, bestE1rm, e1rm, num, today, iso } from "../lib/util.js";
+import { fmtSet, bestSet, byDateDesc, longDate, compact, sessionVolume, sessionSetCount, plural, priorSessions, allTimeBest, bestE1rm, e1rm, num, today, iso } from "../lib/util.js";
 
 const VIEW_KEY = "ironlog-history-view"; // "list" | "calendar", per device
 
@@ -37,14 +37,21 @@ export default function History({ sessions, program }) {
     <main className="screen has-tabs">
       <header className="top">
         <h1 className="page-title">History</h1><span className="spacer" />
-        <span className="mono small muted">{sessions.length} sessions</span>
-        <button className="icon-btn" onClick={() => pickView(calendar ? "list" : "calendar")} aria-pressed={calendar}
-          aria-label={calendar ? "Show as a list" : "Show as a calendar"}>
-          {calendar ? <List size={20} strokeWidth={2.4} /> : <CalendarDays size={20} strokeWidth={2.4} />}
-        </button>
+        {sessions.length > 0 && (<>
+          <span className="mono small muted">{sessions.length} sessions</span>
+          <button className="icon-btn" onClick={() => pickView(calendar ? "list" : "calendar")} aria-pressed={calendar}
+            aria-label={calendar ? "Show as a list" : "Show as a calendar"}>
+            {calendar ? <List size={20} strokeWidth={2.4} /> : <CalendarDays size={20} strokeWidth={2.4} />}
+          </button>
+        </>)}
         <InfoButton screen="history" />
       </header>
       <div className="body">
+        {sessions.length === 0 ? (
+          <EmptyState title="No workouts yet" action="Start your first workout" href="#/today">
+            Every workout you log shows up here: sets, total weight lifted and any PRs. Tap the pencil on one to fix a mistake.
+          </EmptyState>
+        ) : (<>
         <div className="filters" role="group" aria-label="Filter by day">
           <button className="chip" aria-pressed={!filter} onClick={() => setFilter(null)}>All</button>
           {[...DAYS, CUSTOM].filter((d) => !program[d].off || sessions.some((x) => x.day === d)).filter((d) => d !== CUSTOM || sessions.some((x) => x.day === d)).map((d) => (
@@ -62,6 +69,7 @@ export default function History({ sessions, program }) {
               {shown.map((s) => <HistCard key={s.id} s={s} program={program} prs={prs} />)}
             </>
           )}
+        </>)}
       </div>
     </main>
   );
@@ -130,6 +138,8 @@ function MonthCalendar({ sessions, program, prs }) {
 function HistCard({ s, program, prs }) {
   const hits = prs[s.id] || {};
   const n = Object.keys(hits).length;
+  // Each lift shows its top set (the record set on a PR); every set is one tap away.
+  const [all, setAll] = useState(false);
   return (
     <article className="hist" data-day={s.day}>
       <div className="hist-head">
@@ -153,14 +163,25 @@ function HistCard({ s, program, prs }) {
                 {pr && <span className="pr-note">New best est. max {num(pr.now)} lb · was {num(pr.was)}</span>}
               </span>
               <span className="sets">
-                {sets.map((x, i) => (
+                {all ? sets.map((x, i) => (
                   <React.Fragment key={i}>{i > 0 && "  "}<span className={i === pr?.idx ? "pr-set" : undefined}>{fmtSet(x)}</span></React.Fragment>
-                ))}
+                )) : <TopSet sets={sets} pr={pr} />}
               </span>
             </a>
           );
         })}
       </div>
+      <button className="btn-quiet hist-more" onClick={() => setAll(!all)} aria-expanded={all}>{all ? "Show top sets" : "Show all sets"}</button>
     </article>
+  );
+}
+
+function TopSet({ sets, pr }) {
+  const top = (pr && sets[pr.idx]) || bestSet(sets) || sets[0];
+  return (
+    <>
+      <span className={"top-set" + (pr && sets[pr.idx] ? " pr-set" : "")}>{fmtSet(top)}</span>
+      {sets.length > 1 && <span className="set-count">{plural(sets.length, "set")}</span>}
+    </>
   );
 }

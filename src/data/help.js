@@ -34,6 +34,7 @@ export const HELP = {
     sub: "Is each lift getting stronger?",
     points: [
       "Est. max (estimated one-rep max, or 1RM) is the most you could likely lift for a single rep, worked out from your best set. 80 lb × 12 ≈ 112 lb.",
+      "Isolation lifts like curls, raises and flyes show your best set instead, since an est. max means little for them.",
       "The arrow shows how much it's changed recently. Baseline means you've logged it once.",
       "A glowing row is a PR from your latest workout. A PR stamp marks other PRs from the last two weeks.",
       "Start a bulk or cut to set a target weight or weekly rate. The chart shows your goal line and the coaches read your pace from your weigh-ins.",

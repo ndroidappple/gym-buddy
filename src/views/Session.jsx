@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { ChevronLeft, Check, Plus, Minus, Trash2 } from "lucide-react";
 import { BorderBeam } from "border-beam";
-import { fmtSet, uid, e1rm, fmtW, today, shortDate, mmss, byDateDesc, priorSessions, allTimeBest, bestSet, vibrate, readyToIncrease, nextGoal, fmtGoal } from "../lib/util.js";
+import { fmtSet, uid, e1rm, fmtW, today, shortDate, mmss, byDateDesc, priorSessions, allTimeBest, bestSet, vibrate, readyToIncrease, nextGoal, fmtGoal, weightStep } from "../lib/util.js";
 import { primeAudio, chime } from "../lib/sound.js";
 import { Sheet, ConfirmSheet, ExercisePicker } from "../components/ui.jsx";
 import Coach, { MOODS } from "../components/Coach.jsx";
@@ -118,6 +118,7 @@ export default function Session({ day, existing, draft, sessions, program, weigh
   const active = exercises.filter((e) => !skipped.includes(e.n));
   const totalSlots = active.reduce((a, e) => a + (grid[e.n]?.length || 0), 0);
   const doneSlots = active.reduce((a, e) => a + (grid[e.n]?.filter((r) => r.done).length || 0), 0);
+  const allDone = !existing && totalSlots > 0 && doneSlots === totalSlots;
 
   const dirty = useMemo(() =>
     bw !== "" || note.trim() !== "" || extras.length > 0 || skipped.length > 0 ||
@@ -332,6 +333,7 @@ export default function Session({ day, existing, draft, sessions, program, weigh
                 onEdit={(i, patch) => { setRow(ex.n, i, patch); setEditing(true); }} onLog={(i) => logSet(ex, i)}
                 onPick={(i) => { setActiveIdx(i); setEditing(false); }} onReopen={(i) => reopen(ex.n, i)}
                 onAddSet={() => addSet(ex.n)} onRemoveSet={(i) => removeSet(ex.n, i)}
+                onHint={() => notify("Hold a set to edit it, or swipe left to delete it.")}
                 onSkip={ex.today ? () => removeExtra(ex.n) : ex.orphan ? null : () => skip(ex.n)} skipLabel={ex.today ? "Remove" : "Skip today"}
                 showRir={prefs.rir} onAsk={() => setChat({ coach: coachFor(ex.n), exercise: ex.n })} onCollapse={() => setFocus(null)} />
             );
@@ -354,16 +356,17 @@ export default function Session({ day, existing, draft, sessions, program, weigh
             </>
           ) : (
             <>
-              <button className="btn btn-day" onClick={finish} disabled={!doneSlots}>Finish · {doneSlots}/{totalSlots} sets</button>
+              {!allDone && <button className="btn btn-day" onClick={finish} disabled={!doneSlots}>Finish · {doneSlots}/{totalSlots} sets</button>}
               {!doneSlots && <p className="small muted" style={{ textAlign: "center" }}>Log at least one set to finish.</p>}
               {dirty && <button className="btn-quiet danger" onClick={() => { onDiscardDraft(day); back(); }}>Discard this session</button>}
             </>
           )}
         </div>
-        <div style={{ height: timer ? 120 : 16 }} />
+        <div style={{ height: timer || allDone ? 120 : 16 }} />
       </div>
 
-      {timer && <RestDock timer={timer} setTimer={setTimer} />}
+      {/* Every set in: Finish takes the dock's place, so it's one tap away instead of a scroll. */}
+      {allDone ? <FinishDock sets={doneSlots} onFinish={finish} /> : timer && <RestDock timer={timer} setTimer={setTimer} />}
 
       {sheet === "picker" && (
         <ExercisePicker title="Add for today" sub={`Adds to this ${dayProgram.name} session only. Change the program in Settings.`}
@@ -428,7 +431,7 @@ function SetRing({ done, total, skipped }) {
   );
 }
 
-function ExerciseCard({ ex, showRir, rows, target, goal, targetDate, bump, refSets, activeIdx, flash, mood, onAsk, onEdit, onLog, onPick, onReopen, onAddSet, onRemoveSet, onSkip, skipLabel, onCollapse }) {
+function ExerciseCard({ ex, showRir, rows, target, goal, targetDate, onHint, bump, refSets, activeIdx, flash, mood, onAsk, onEdit, onLog, onPick, onReopen, onAddSet, onRemoveSet, onSkip, skipLabel, onCollapse }) {
   const id = coachFor(ex.n);
   const coach = COACHES[id];
   // Calm moods read the form cue; reactions say their own line. Until the first set is logged,
@@ -468,23 +471,25 @@ function ExerciseCard({ ex, showRir, rows, target, goal, targetDate, bump, refSe
           if (r.done && cardio) {
             const label = fmtSet({ min: +r.min, mi: hasVal(r.mi) ? +r.mi : null });
             return (
-              <button key={i} className="done-row" onClick={() => onReopen(i)} aria-label={`Entry ${i + 1}: ${label}. Tap to edit.`}>
+              <DoneRow key={i} className="done-row" label={`Entry ${i + 1}: ${label}. Hold to edit, swipe left to delete.`}
+                canDelete={rows.length > 1} onEdit={() => onReopen(i)} onDelete={() => onRemoveSet(i)} onHint={onHint}>
                 <span className="n">{i + 1}</span>
                 <span className="w">{label}{r.beat ? <span className="beat-mark">▲ beat</span> : null}</span>
                 <span />
                 <span className={"ck" + (flash === i ? " fill" : "")} aria-hidden="true"><Check size={18} strokeWidth={3} /></span>
-              </button>
+              </DoneRow>
             );
           }
           if (r.done) {
             // PR sets get the animated gold rim (.pr-rim), bolder than the rest timer's line beam.
             return (
-              <button key={i} className={"done-row" + (r.pr ? " pr-rim" : "")} onClick={() => onReopen(i)} aria-label={`Set ${i + 1}: ${fmtW(+r.w)} by ${r.r}${r.pr ? ", personal record" : ""}. Tap to edit.`}>
+              <DoneRow key={i} className={"done-row" + (r.pr ? " pr-rim" : "")} label={`Set ${i + 1}: ${fmtW(+r.w)} by ${r.r}${r.pr ? ", personal record" : ""}. Hold to edit, swipe left to delete.`}
+                canDelete={rows.length > 1} onEdit={() => onReopen(i)} onDelete={() => onRemoveSet(i)} onHint={onHint}>
                 <span className="n">{i + 1}</span>
                 <span className="w">{fmtW(+r.w)} × {r.r}{r.pr ? <span className={"stamp" + (flash === i ? " hit" : "")}>PR</span> : r.beat ? <span className="beat-mark">▲ beat</span> : r.matched ? <span className="beat-mark">= matched</span> : null}</span>
                 <span className="small muted">{showRir && hasVal(r.rir) ? `RIR ${r.rir}` : ""}</span>
                 <span className={"ck" + (flash === i ? " fill" : "")} aria-hidden="true"><Check size={18} strokeWidth={3} /></span>
-              </button>
+              </DoneRow>
             );
           }
           if (i === activeIdx && cardio) {
@@ -538,6 +543,7 @@ function CardioSet({ i, ex, row, last, canRemove, onEdit, onLog, onRemove }) {
 }
 
 function ActiveSet({ i, ex, showRir, row, last, canRemove, onEdit, onLog, onRemove }) {
+  const step = weightStep(ex.n);
   const bump = (field, step) => {
     const cur = parseFloat(row[field]) || 0;
     const next = Math.max(0, Math.round((cur + step) * 10) / 10);
@@ -553,7 +559,7 @@ function ActiveSet({ i, ex, showRir, row, last, canRemove, onEdit, onLog, onRemo
       </div>
       <div className="steppers">
         <Stepper id={`w-${i}`} label="Weight" unit={row.w === "0" ? "bodyweight" : "lb"} value={row.w} mode="decimal"
-          onChange={(v) => onEdit({ w: v })} onDec={() => bump("w", -5)} onInc={() => bump("w", 5)} step="5 pounds" />
+          onChange={(v) => onEdit({ w: v })} onDec={() => bump("w", -step)} onInc={() => bump("w", step)} step={`${step} pounds`} stepText={step} />
         <Stepper id={`r-${i}`} label="Reps" unit="reps" value={row.r} mode="numeric" placeholder={`${ex.reps[0]}–${ex.reps[1]}`}
           onChange={(v) => onEdit({ r: v })} onDec={() => bump("r", -1)} onInc={() => bump("r", 1)} step="1 rep" />
       </div>
@@ -570,7 +576,7 @@ function ActiveSet({ i, ex, showRir, row, last, canRemove, onEdit, onLog, onRemo
   );
 }
 
-function Stepper({ id, label, unit, value, mode, placeholder, onChange, onDec, onInc, step }) {
+function Stepper({ id, label, unit, value, mode, placeholder, onChange, onDec, onInc, step, stepText }) {
   return (
     <div className="stepper">
       <label htmlFor={id}>
@@ -580,9 +586,68 @@ function Stepper({ id, label, unit, value, mode, placeholder, onChange, onDec, o
         <span className="u">{unit}</span>
       </label>
       <div className="stepper-btns">
-        <button onClick={onDec} aria-label={`${label} down ${step}`}><Minus size={20} /></button>
-        <button onClick={onInc} aria-label={`${label} up ${step}`}><Plus size={20} /></button>
+        {/* A weight step is spelled out (−10 / +10) since it differs from lift to lift. */}
+        <button onClick={onDec} aria-label={`${label} down ${step}`}>{stepText ? `−${stepText}` : <Minus size={20} />}</button>
+        <button onClick={onInc} aria-label={`${label} up ${step}`}>{stepText ? `+${stepText}` : <Plus size={20} />}</button>
       </div>
+    </div>
+  );
+}
+
+/* A logged set. Hold to edit, swipe left to delete: a plain tap only says how, so brushing the
+   screen mid-workout never reopens a set. Enter or Space still edits from a keyboard. */
+const HOLD_MS = 450, SWIPE_DELETE = 96;
+function DoneRow({ className, label, canDelete, onEdit, onDelete, onHint, children }) {
+  const [dx, setDx] = useState(0);
+  const g = useRef(null); // the gesture in progress
+  const hold = useRef(null);
+  useEffect(() => () => clearTimeout(hold.current), []);
+  const down = (e) => {
+    g.current = { x: e.clientX, y: e.clientY, dx: 0, moved: false, swiping: false, held: false };
+    clearTimeout(hold.current);
+    hold.current = setTimeout(() => {
+      if (g.current && !g.current.moved) { g.current.held = true; vibrate(15); onEdit(); }
+    }, HOLD_MS);
+  };
+  const move = (e) => {
+    const t = g.current;
+    if (!t) return;
+    const mx = e.clientX - t.x, my = e.clientY - t.y;
+    if (!t.moved && Math.hypot(mx, my) > 8) {
+      t.moved = true;
+      clearTimeout(hold.current);
+      t.swiping = canDelete && mx < 0 && Math.abs(mx) > Math.abs(my);
+      if (t.swiping) e.currentTarget.setPointerCapture?.(e.pointerId);
+    }
+    if (t.swiping) { t.dx = Math.min(0, mx); setDx(t.dx); }
+  };
+  const up = () => {
+    const t = g.current;
+    g.current = null;
+    clearTimeout(hold.current);
+    setDx(0);
+    if (!t) return;
+    if (t.swiping) { if (t.dx < -SWIPE_DELETE) onDelete(); return; }
+    if (!t.moved && !t.held) onHint();
+  };
+  const cancel = () => { g.current = null; clearTimeout(hold.current); setDx(0); };
+  return (
+    <div className={"swipe" + (dx ? " swiping" : "")}>
+      {dx < 0 && <span className="swipe-del" aria-hidden="true"><Trash2 size={18} strokeWidth={2.4} />{dx < -SWIPE_DELETE ? "Release" : "Delete"}</span>}
+      <button className={className} style={dx ? { transform: `translateX(${dx}px)`, transition: "none" } : undefined}
+        onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={cancel}
+        onClick={(e) => { if (e.detail === 0) onEdit(); }} onContextMenu={(e) => e.preventDefault()}
+        aria-label={label}>
+        {children}
+      </button>
+    </div>
+  );
+}
+
+function FinishDock({ sets, onFinish }) {
+  return (
+    <div className="rest-wrap finish-dock">
+      <button className="btn btn-day" onClick={onFinish}><Check size={20} strokeWidth={3} aria-hidden="true" /> Finish workout · {sets} sets</button>
     </div>
   );
 }
