@@ -17,7 +17,7 @@ export default function SetupCard({ prefs, glow, lead }) {
       <span className="coach-chip"><Coach id={next} size={36} still badge decorative /></span>
       <span className="setup-card-text">
         <b>{lead || (tank ? "Set up your plan with Tank" : `Meet ${COACHES[next].name} next`)}</b>
-        <span>{tank ? "Goals, weight and training days. About 2 minutes." : `${met} of ${COACH_ORDER.length} coaches done. Pick your ${COACHES[next].group.toLowerCase()} lifts.`}</span>
+        <span>{tank ? "Goals, weight and training days. About a minute." : `${met} of ${COACH_ORDER.length} coaches done. Pick your ${COACHES[next].group.toLowerCase()} lifts.`}</span>
       </span>
       <ChevronRight size={20} strokeWidth={2.6} aria-hidden="true" />
     </a>

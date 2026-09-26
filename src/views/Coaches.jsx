@@ -4,13 +4,14 @@ import { ChevronLeft, Check } from "lucide-react";
 import { activeDays } from "../data/program.js";
 import { COACHES, COACH_ORDER, coachFor } from "../data/coaches.js";
 import { plural } from "../lib/util.js";
+import { href } from "../lib/router.js";
 import { coachesLeft, needsSetup } from "../lib/setup.js";
 import Coach from "../components/Coach.jsx";
 import CoachChat from "../components/CoachChat.jsx";
 import SetupChat from "../components/SetupChat.jsx";
 
 
-export default function Coaches({ program, sessions, weighins, prefs, name, back, onProgramChange, onSetupDone, openCoach }) {
+export default function Coaches({ program, sessions, weighins, prefs, name, go, back, onProgramChange, onSetupDone, onSetupProgress, openCoach }) {
   // { coach, ask? }: ask = a first question to send straight to the live chat.
   const [open, setOpen] = useState(() => (openCoach && COACHES[openCoach] ? { coach: openCoach, setup: needsSetup(prefs, openCoach) } : null));
   const counts = useMemo(() => {
@@ -23,6 +24,8 @@ export default function Coaches({ program, sessions, weighins, prefs, name, back
   // Decided when the chat opens, so a finished setup stays on screen until the lifter moves on.
   const setupOpen = open?.setup;
   const openChat = (o) => setOpen(o && { ...o, setup: !o.ask && needsSetup(prefs, o.coach) });
+  // Who's still to meet after the open coach, by who's actually unmet (not just list order).
+  const after = open ? COACH_ORDER.filter((id) => id !== open.coach && needsSetup(prefs, id)) : [];
 
   return (
     <main className="screen">
@@ -57,7 +60,9 @@ export default function Coaches({ program, sessions, weighins, prefs, name, back
       </div>
       {setupOpen && (
         <SetupChat key={open.coach} coach={open.coach} program={program} profile={prefs.profile} name={name}
-          onDone={onSetupDone} onClose={() => setOpen(null)} onNext={openChat} />
+          next={after[0] || null} left={after.length}
+          onSave={onSetupProgress} onDone={onSetupDone} onClose={() => setOpen(null)} onNext={openChat}
+          onFinish={() => { setOpen(null); go(href("today")); }} />
       )}
       {open && !setupOpen && (
         <CoachChat key={open.coach + (open.ask ? "-ask" : "")} coach={open.coach} starter={open.ask} sessions={sessions} program={program}

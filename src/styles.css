@@ -641,6 +641,7 @@ button.coach-card:active { transform: translateY(3px); box-shadow: 0 2px 0 var(-
 .setup-weight { flex: 1; min-width: 0; height: 40px; border: 0; background: none; padding: 0 10px; font-size: 17px; font-weight: 700; }
 .setup-weight:focus { outline: none; }
 .setup-skip { font-size: 13px; font-weight: 800; }
+.setup-hint { margin: 0 4px; font-size: 13.5px; font-weight: 600; color: var(--mute); }
 .setup-lifts { gap: 2px; }
 .setup-lift { display: flex; align-items: center; gap: 12px; min-height: 46px; padding: 4px 2px; font-weight: 700; border-top: 2px solid var(--rule); }
 .setup-lift:first-child { border-top: 0; }
