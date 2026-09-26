@@ -94,7 +94,7 @@ export default function Today({ name, sessions, program, drafts, weighins, prefs
         <section className="hero-card" aria-label={draft ? `${p.name} in progress` : `Up next: ${p.name}`}>
           <div className="hero-top">
             <span className="pill day-lbl">{draft ? `In progress · ${plural(setsLogged, "set")} logged` : day === CUSTOM ? "Today · Custom workout" : `${picked ? "Today" : "Up next"} · Day ${activeDays(program).indexOf(day) + 1}`}</span>
-            <button type="button" className="pill hero-switch" onClick={() => setChoosing(true)} aria-haspopup="dialog">
+            <button type="button" className="pill hero-switch" data-help="change" onClick={() => setChoosing(true)} aria-haspopup="dialog">
               <ArrowLeftRight size={14} strokeWidth={2.6} aria-hidden="true" />Change
             </button>
           </div>
@@ -115,7 +115,7 @@ export default function Today({ name, sessions, program, drafts, weighins, prefs
               </div>
             </>
           )}
-          <a className="btn hero-cta" href={href("session", day)}>{draft ? `Resume ${p.name}` : "Start lifting"}</a>
+          <a className="btn hero-cta" data-help="start" href={href("session", day)}>{draft ? `Resume ${p.name}` : "Start lifting"}</a>
         </section>
 
         {choosing && (
@@ -157,7 +157,7 @@ export default function Today({ name, sessions, program, drafts, weighins, prefs
 
         <section className="section">
           <div className="section-head"><h2 className="lbl">This week</h2><span className="lbl">{doneThisWeek} done · aim ~{prefs?.profile?.days || activeDays(program).length}</span></div>
-          <div className="week">
+          <div className="week" data-help="week">
             {week.map((d) => {
               const dd = byDate[d];
               const label = new Date(d + "T12:00:00").toLocaleDateString(undefined, { weekday: "narrow" });
@@ -226,7 +226,7 @@ function WeighIn({ last, skip, onSave }) {
     setBw("");
   };
   return (
-    <form className="weigh" onSubmit={save} aria-label="Weekly weigh-in">
+    <form className="weigh" data-help="weigh" onSubmit={save} aria-label="Weekly weigh-in">
       <span className="weigh-icon" aria-hidden="true"><Scale size={22} /></span>
       <div className="weigh-text">
         <b>Weigh-in due</b>

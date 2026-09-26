@@ -22,7 +22,7 @@ export default function ProgramEditor({ day, program, back, ops }) {
         <div>
           {p.exercises.map((ex, i) => (
             <div key={ex.n} className="prog">
-              <div className="prog-row">
+              <div className="prog-row" data-help={i === 0 ? "prog-lift" : undefined}>
                 <button className="main" onClick={() => setOpen(open === ex.n ? null : ex.n)} aria-expanded={open === ex.n}>
                   <span className="name">{ex.n}{ex.custom && <span className="ex-tag">added</span>}</span>
                   <span className="sub">{specLine(ex)}</span>
@@ -34,7 +34,7 @@ export default function ProgramEditor({ day, program, back, ops }) {
             </div>
           ))}
         </div>
-        <button className="btn btn-ghost" onClick={() => setSheet("picker")}><Plus size={18} aria-hidden="true" /> Add a lift</button>
+        <button className="btn btn-ghost" data-help="add-lift" onClick={() => setSheet("picker")}><Plus size={18} aria-hidden="true" /> Add a lift</button>
         <button className="btn-quiet" onClick={() => setSheet("restore")}>Restore {p.name} to its original lifts</button>
       </div>
 

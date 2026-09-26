@@ -176,8 +176,26 @@ p { margin: 0; }
 .icon-btn { width: var(--tap); height: var(--tap); display: grid; place-items: center; border-radius: 50%; color: var(--ink); flex-shrink: 0; transition: background 120ms; }
 .icon-btn:active { background: var(--surface-2); }
 .info-btn { color: var(--mute); margin-right: -8px; }
-.info-list { margin: 0; padding: 0 0 0 20px; display: flex; flex-direction: column; gap: 10px; font-size: 15px; font-weight: 500; line-height: 1.4; }
-.info-list li::marker { color: var(--faint); }
+/* Screen help: a tap-through, one feature per card. Features are chips, like the app's own pills. */
+.help-card { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; min-height: 112px; animation: help-in 180ms ease-out; }
+@keyframes help-in { from { opacity: 0; transform: translateX(10px); } to { opacity: 1; transform: none; } }
+.help-chip { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 16px; border-radius: 999px; font-weight: 800; font-size: 17px; color: var(--ink);
+  background: color-mix(in srgb, var(--accent) 14%, var(--surface)); border: 2px solid color-mix(in srgb, var(--accent) 55%, var(--rule)); }
+.help-chip svg { color: var(--accent); flex: none; }
+button.help-chip { box-shadow: 0 4px 0 color-mix(in srgb, var(--accent) 45%, var(--lip)); }
+button.help-chip:active { transform: translateY(3px); box-shadow: 0 1px 0 color-mix(in srgb, var(--accent) 45%, var(--lip)); }
+.help-show { display: inline-flex; align-items: center; gap: 2px; margin-left: 4px; padding-left: 10px; border-left: 2px solid color-mix(in srgb, var(--accent) 35%, var(--rule)); font-size: 13px; color: var(--mute); }
+.help-show svg { color: inherit; }
+.help-chip.inline { display: inline; min-height: 0; padding: 1px 8px; font-size: .92em; border-width: 1.5px; white-space: nowrap; }
+.help-text { margin: 0; font-size: 18px; font-weight: 500; line-height: 1.5; }
+.help-dots { display: flex; justify-content: center; gap: 6px; padding: 18px 0 14px; }
+.help-dots button { width: 8px; height: 8px; padding: 0; border-radius: 99px; background: var(--rule-2); transition: width 160ms ease, background 160ms ease; }
+.help-dots button.on { width: 22px; background: var(--accent); }
+.help-nav .help-back { flex: 0 0 56px; padding: 0; }
+/* "Show me": a ring pulses around the feature on screen. */
+.help-spot { outline: 3px solid var(--accent); outline-offset: 4px; animation: help-spot 0.8s ease-in-out 3; }
+@keyframes help-spot { 50% { outline-offset: 9px; outline-color: color-mix(in srgb, var(--accent) 35%, transparent); } }
+@media (prefers-reduced-motion: reduce) { .help-spot, .help-card { animation: none; } }
 .icon-btn.boxed { width: 46px; height: 46px; background: var(--surface); border: 2px solid var(--rule); box-shadow: 0 3px 0 var(--lip); }
 .chip { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; padding: 5px 12px; border-radius: 999px; background: var(--surface-2); color: var(--ink); white-space: nowrap; }
 button.chip { min-height: 38px; padding: 0 14px; border: 2px solid var(--rule); background: var(--surface); }

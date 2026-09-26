@@ -19,7 +19,7 @@ export default function Settings({ program, sessions, prefs, setPref }) {
       <div className="body">
         <section className="section">
           <h2 className="lbl">Program</h2>
-          <div className="list">
+          <div className="list" data-help="program">
             {DAYS.map((d) => (
               <a key={d} className="list-row" href={href("settings", "program", d)} data-day={d}>
                 <span className="dot" aria-hidden="true" />
@@ -34,7 +34,7 @@ export default function Settings({ program, sessions, prefs, setPref }) {
               <ChevronRight size={18} aria-hidden="true" className="muted" />
             </a>
             {/* Clears setup progress only; the program changes again only if the lifter confirms in the chats. */}
-            <a className="list-row" href={href("coaches", "tank")}
+            <a className="list-row" data-help="redo" href={href("coaches", "tank")}
               onClick={() => { setPref("profile", { ...prefs.profile, doneAt: null }); setPref("coachSetup", {}); }}>
               <Sparkles size={18} aria-hidden="true" />
               <span className="name">Redo setup with your coaches<span className="sub">Goals, training days and the lifts each coach runs.</span></span>
@@ -48,7 +48,7 @@ export default function Settings({ program, sessions, prefs, setPref }) {
           <div className="list">
             <Toggle Icon={Moon} label="Dark mode" sub="Easier on the eyes between sets." on={prefs.theme === "dark"}
               onChange={(v) => setPref("theme", v ? "dark" : "light")} />
-            <Toggle Icon={Gauge} label="Reps in reserve (RIR)" sub="Rate how many reps you had left on each set." on={prefs.rir}
+            <Toggle help="rir" Icon={Gauge} label="Reps in reserve (RIR)" sub="Rate how many reps you had left on each set." on={prefs.rir}
               onChange={(v) => setPref("rir", v)} />
           </div>
         </section>
@@ -85,7 +85,7 @@ export default function Settings({ program, sessions, prefs, setPref }) {
         <section className="section">
           <h2 className="lbl">Data</h2>
           <div className="list">
-            <a className="list-row" href="#/settings/export">
+            <a className="list-row" data-help="export" href="#/settings/export">
               <Download size={18} aria-hidden="true" />
               <span className="name">Export<span className="sub">{sessions.length} sessions as CSV or JSON</span></span>
               <ChevronRight size={18} aria-hidden="true" className="muted" />
@@ -126,9 +126,9 @@ export default function Settings({ program, sessions, prefs, setPref }) {
   );
 }
 
-function Toggle({ Icon, label, sub, on, onChange }) {
+function Toggle({ Icon, label, sub, on, onChange, help }) {
   return (
-    <button className="list-row" role="switch" aria-checked={on} onClick={() => onChange(!on)}>
+    <button className="list-row" data-help={help} role="switch" aria-checked={on} onClick={() => onChange(!on)}>
       <Icon size={18} aria-hidden="true" />
       <span className="name">{label}<span className="sub">{sub}</span></span>
       <span className="switch" aria-hidden="true" />

@@ -11,7 +11,7 @@ export default function PhaseCard({ phase, sessions, weighins, program, onStart,
   const [bw, setBw] = useState("");
   if (!phase) {
     return (
-      <button type="button" className="card phase-card phase-empty" onClick={onStart}>
+      <button type="button" className="card phase-card phase-empty" data-help="phase" onClick={onStart}>
         <span className="weigh-icon" aria-hidden="true"><Scale size={22} /></span>
         <span className="phase-text"><b>Bulk or cut?</b><span>Set a short-term bodyweight goal and your coaches track the pace.</span></span>
         <span className="pill">Start</span>
@@ -25,7 +25,7 @@ export default function PhaseCard({ phase, sessions, weighins, program, onStart,
   if (s.status === "done") {
     const r = phaseSummary(phase, sessions, weighins);
     return (
-      <section className="card phase-card" aria-label={`${t.label} complete`}>
+      <section className="card phase-card" data-help="phase" aria-label={`${t.label} complete`}>
         <span className="lbl">{t.label} complete</span>
         <p className="phase-big">{num(r.from)} → {num(r.to)} lb <small>{r.perWeek > 0 ? "+" : r.perWeek < 0 ? "−" : ""}{num(Math.abs(r.perWeek))} lb/wk over {r.weeks} weeks</small></p>
         {r.lifts.length > 0 && (
@@ -48,7 +48,7 @@ export default function PhaseCard({ phase, sessions, weighins, program, onStart,
     if (v > 50 && v < 800) { onLog(today(), Math.round(v * 10) / 10); setBw(""); }
   };
   return (
-    <section className={"card phase-card phase-" + s.status} aria-label={`${t.label}, week ${s.week} of ${s.weeks}`}>
+    <section className={"card phase-card phase-" + s.status} data-help="phase" aria-label={`${t.label}, week ${s.week} of ${s.weeks}`}>
       <div className="phase-head">
         <span className="lbl">{t.label} · week {s.week} of {s.weeks}</span>
         <span className="small muted">{num(phase.startWeight)} → {num(phase.target)} lb by {shortDate(phase.end)}</span>

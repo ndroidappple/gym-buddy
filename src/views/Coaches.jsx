@@ -41,7 +41,7 @@ export default function Coaches({ program, sessions, weighins, prefs, name, go, 
             {left.length ? "Say hi to each coach to shape your plan. The gold ring shows who's next." : "Six coaches, one per training area. Tap one to ask a question or change your plan."}
           </p>
         </div>
-        <div className="coach-grid">
+        <div className="coach-grid" data-help="coaches">
           {COACH_ORDER.map((id) => {
             const fresh = needsSetup(prefs, id);
             return (

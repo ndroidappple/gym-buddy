@@ -52,7 +52,7 @@ export default function Export({ sessions, program, weighins, back, notify }) {
       </header>
       <div className="body" style={{ paddingTop: 12 }}>
         <p className="muted">Your sessions are saved to your GymBuddy account and sync across devices. Export a copy whenever you want one you control. CSV opens straight in Sheets or Excel.</p>
-        <div className="segctl" role="group" aria-label="Format">
+        <div className="segctl" data-help="format" role="group" aria-label="Format">
           {["csv", "json"].map((f) => <button key={f} aria-pressed={fmt === f} onClick={() => setFmt(f)}>{f.toUpperCase()}</button>)}
         </div>
         <div className="btn-row">
