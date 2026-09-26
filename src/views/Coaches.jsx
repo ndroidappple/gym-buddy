@@ -34,7 +34,7 @@ export default function Coaches({ program, sessions, weighins, prefs, name, back
       <div className="body" style={{ gap: 16 }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
           <h1 className="page-title">Meet your coaches</h1>
-          <p className="muted" style={{ fontWeight: 600, fontSize: 15 }}>
+          <p className="muted" style={{ fontWeight: 500, fontSize: 15 }}>
             {left.length ? "Say hi to each coach to shape your plan. The gold ring shows who's next." : "Six coaches, one per training area. Tap one to ask a question or change your plan."}
           </p>
         </div>

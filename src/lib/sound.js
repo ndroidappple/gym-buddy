@@ -1,4 +1,7 @@
 let ctx = null;
+let enabled = true;
+/** The rest-timer chime follows the Settings switch (App calls this from prefs). */
+export const setSound = (on) => { enabled = on !== false; };
 
 /** Call from a user gesture (e.g. "Log set") so mobile browsers allow audio later. */
 export function primeAudio() {
@@ -10,7 +13,7 @@ export function primeAudio() {
 
 /** Two short bell tones, like a gym timer. */
 export function chime() {
-  if (!ctx) return;
+  if (!ctx || !enabled) return;
   try {
     const t0 = ctx.currentTime;
     [0, 0.22].forEach((dt, i) => {

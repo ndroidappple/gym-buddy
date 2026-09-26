@@ -449,7 +449,8 @@ function ExerciseCard({ ex, showRir, rows, target, goal, targetDate, onHint, bum
           the whole card fits on a phone screen mid-set. */}
       <div className="ex-coach" style={{ "--c": coach.color }}>
         <Coach id={id} mood={mood} size={52} />
-        <p className="coach-bubble" aria-live="polite">{line}</p>
+        {/* The whole bubble is a big target for asking; the Ask button stays the keyboard path. */}
+        <button type="button" className="coach-bubble bubble-btn" tabIndex={-1} onClick={onAsk}><span aria-live="polite">{line}</span></button>
         <button className="ask-btn compact" onClick={onAsk} aria-label={`Ask ${coach.name}, your ${coach.group.toLowerCase()} coach`}>
           <MessageCircle size={18} strokeWidth={2.6} aria-hidden="true" /><span>Ask</span>
         </button>
