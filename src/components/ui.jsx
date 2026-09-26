@@ -89,6 +89,7 @@ function spotlight(el) {
 export function InfoButton({ screen }) {
   const [open, setOpen] = useState(false);
   const [i, setI] = useState(0);
+  const swipe = useRef(null);
   const h = HELP[screen];
   if (!h) return null;
   const steps = h.steps;
@@ -96,13 +97,25 @@ export function InfoButton({ screen }) {
   const last = i === steps.length - 1;
   const target = open && step.spot ? document.querySelector(`[data-help="${step.spot}"]`) : null;
   const close = () => { setOpen(false); setI(0); };
-  const show = () => { close(); requestAnimationFrame(() => spotlight(target)); };
+  const show = (e) => { e.stopPropagation(); close(); requestAnimationFrame(() => spotlight(target)); };
+  const next = () => (last ? close() : setI(i + 1));
+  const back = () => i > 0 && setI(i - 1);
+  // The whole card is the tap target, like stories: tap for next, swipe either way.
+  const onTouchStart = (e) => { swipe.current = { x: e.touches[0].clientX, moved: false }; };
+  const onTouchEnd = (e) => {
+    const dx = e.changedTouches[0].clientX - (swipe.current?.x ?? 0);
+    if (Math.abs(dx) < 40) return;
+    swipe.current.moved = true; // the click that follows a swipe isn't a tap
+    dx < 0 ? next() : back();
+  };
+  const onTap = () => { if (swipe.current?.moved) { swipe.current.moved = false; return; } next(); };
   const { Icon } = step;
   return (
     <>
       <button className="icon-btn info-btn" onClick={() => setOpen(true)} aria-label={`About ${h.title}`}><Info size={20} strokeWidth={2.4} /></button>
       {open && (
         <Sheet title={h.title} sub={`${i + 1} of ${steps.length}`} onClose={close} labelledBy="info-title" className="help-sheet">
+          <div className="help-tap" onClick={onTap} onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
           <div className="help-card" key={i} aria-live="polite">
             {target ? (
               <button type="button" className="help-chip" onClick={show} aria-label={`${step.name}: show me`}>
@@ -115,11 +128,13 @@ export function InfoButton({ screen }) {
             <p className="help-text"><HelpText text={step.text} /></p>
           </div>
           <div className="help-dots" aria-hidden="true">
-            {steps.map((_, j) => <button key={j} type="button" tabIndex={-1} className={j === i ? "on" : ""} onClick={() => setI(j)} />)}
+            {steps.map((_, j) => <span key={j} className={j === i ? "on" : ""} />)}
+          </div>
+          <p className="help-hint" aria-hidden="true">{last ? "Tap to finish" : "Tap anywhere for next"}</p>
           </div>
           <div className="btn-row help-nav">
-            {i > 0 && <button type="button" className="btn btn-ghost help-back" onClick={() => setI(i - 1)} aria-label="Back"><ChevronLeft size={20} strokeWidth={2.8} /></button>}
-            <button type="button" className="btn btn-ink" onClick={() => (last ? close() : setI(i + 1))}>{last ? "Got it" : "Next"}</button>
+            {i > 0 && <button type="button" className="btn btn-ghost help-back" onClick={back} aria-label="Back"><ChevronLeft size={20} strokeWidth={2.8} /></button>}
+            <button type="button" className="btn btn-ink" onClick={next}>{last ? "Got it" : "Next"}</button>
           </div>
         </Sheet>
       )}
