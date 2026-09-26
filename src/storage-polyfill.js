@@ -27,22 +27,37 @@ if (typeof window !== "undefined" && !window.storage) {
       const user_id = await currentUserId();
       const { data, error } = await supabase
         .from("storage_kv")
-        .select("value")
+        .select("value, updated_at")
         .eq("user_id", user_id)
         .eq("key", key)
         .maybeSingle();
       if (error) throw error; // a failed read must never look like "no data yet"
       if (!data) return null;
-      return { key, value: data.value, shared: false };
+      return { key, value: data.value, stamp: data.updated_at, shared: false };
+    },
+
+    /** When the row was last written (or null), without downloading it: a cheap "did another device save?" check. */
+    async stamp(key) {
+      const user_id = await currentUserId();
+      const { data, error } = await supabase
+        .from("storage_kv")
+        .select("updated_at")
+        .eq("user_id", user_id)
+        .eq("key", key)
+        .maybeSingle();
+      if (error) throw error;
+      return data?.updated_at ?? null;
     },
 
     async set(key, value) {
       const user_id = await currentUserId();
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from("storage_kv")
-        .upsert({ user_id, key, value, updated_at: new Date().toISOString() });
+        .upsert({ user_id, key, value, updated_at: new Date().toISOString() })
+        .select("updated_at")
+        .single();
       if (error) throw error;
-      return { key, value, shared: false };
+      return { key, value, stamp: data.updated_at, shared: false };
     },
 
     async delete(key) {

@@ -3,6 +3,7 @@ import { PROGRAM, DAYS, CUSTOM, normalizeProgram } from "./data/program.js";
 import { useRoute, href } from "./lib/router.js";
 import { Toast, TabBar, Boot, LoadError, SyncNote } from "./components/ui.jsx";
 import { loadState, createSaver } from "./lib/store.js";
+import { merge3 } from "./lib/merge.js";
 import { DEFAULT_PREFS } from "./lib/prefs.js";
 import { today } from "./lib/util.js";
 import { applyIcon } from "./lib/icons.js";
@@ -22,6 +23,15 @@ import Welcome from "./components/Welcome.jsx";
 
 const TAB_VIEWS = ["today", "history", "progress", "settings", "lift"];
 
+/** Saved account data as app state, with defaults filled in. */
+const fromData = (data) => ({
+  sessions: data?.sessions || [],
+  program: data?.program ? normalizeProgram(data.program) : PROGRAM,
+  drafts: data?.drafts || {},
+  weighins: data?.weighins || [],
+  prefs: { ...DEFAULT_PREFS, ...data?.prefs },
+});
+
 export default function App() {
   const [ready, setReady] = useState(false);
   const [loadFailed, setLoadFailed] = useState(false);
@@ -40,13 +50,16 @@ export default function App() {
   const load = useCallback(async () => {
     setLoadFailed(false);
     try {
-      const { data, offline } = await loadState();
+      const { data, offline, base } = await loadState();
       // A confirmed-empty account is a new user: start with no history.
-      setSessions(data?.sessions || []);
-      setProgram(data?.program ? normalizeProgram(data.program) : PROGRAM);
-      setDrafts(data?.drafts || {});
-      setWeighins(data?.weighins || []);
-      setPrefs({ ...DEFAULT_PREFS, ...data?.prefs });
+      const s = fromData(data);
+      setSessions(s.sessions);
+      setProgram(s.program);
+      setDrafts(s.drafts);
+      setWeighins(s.weighins);
+      setPrefs(s.prefs);
+      // In the same shape as app state, so a merge only sees real edits (not filled-in defaults).
+      saver.current.start({ ...base, data: base.data && fromData(base.data) });
       if (offline) setSync("offline");
       setReady(true);
     } catch {
@@ -55,8 +68,18 @@ export default function App() {
   }, []);
   useEffect(() => { load(); }, [load]);
 
+  /* Another device saved since this one loaded. Take its changes, keeping anything changed here
+     since `basis` (the state the merge was made against). */
+  const onRemote = (data, basis) => {
+    const next = fromData(data), was = fromData(basis);
+    setSessions((cur) => merge3(was.sessions, cur, next.sessions));
+    setProgram((cur) => merge3(was.program, cur, next.program));
+    setDrafts((cur) => merge3(was.drafts, cur, next.drafts));
+    setWeighins((cur) => merge3(was.weighins, cur, next.weighins));
+    setPrefs((cur) => merge3(was.prefs, cur, next.prefs));
+  };
   const saver = useRef(null);
-  if (!saver.current) saver.current = createSaver(setSync);
+  if (!saver.current) saver.current = createSaver(setSync, onRemote, fromData);
 
   useEffect(() => {
     if (ready) saver.current.save({ sessions, program, drafts, weighins, prefs });
@@ -66,6 +89,15 @@ export default function App() {
   useEffect(() => { if (ready) applyIcon(prefs.icon); }, [ready, prefs.icon]);
   useEffect(() => { if (ready) applyTheme(prefs.theme); }, [ready, prefs.theme]);
   const setPref = useCallback((k, v) => setPrefs((p) => ({ ...p, [k]: v })), []);
+
+  /* The home screen app can sleep in the background for days: on waking, catch up with any other device's saves. */
+  useEffect(() => {
+    if (!ready) return;
+    const refresh = () => { if (document.visibilityState === "visible") saver.current.refresh(); };
+    document.addEventListener("visibilitychange", refresh);
+    addEventListener("focus", refresh);
+    return () => { document.removeEventListener("visibilitychange", refresh); removeEventListener("focus", refresh); };
+  }, [ready]);
 
   /* Retry unsynced changes when the connection comes back, the app returns to the foreground, or every 30 s. */
   useEffect(() => {
