@@ -69,24 +69,24 @@ export default function Today({ name, sessions, program, drafts, weighins, prefs
   // always in the hello when a workout's in progress, since that headline has no name).
   const nameInTitle = !draft && Math.floor(new Date(t + "T12:00:00").getTime() / 864e5) % 2 === 1;
   const to = name && nameInTitle ? `, ${name}` : "";
-  const headline = draft ? `${p.name} in progress.` : daysOff != null && daysOff >= 5 ? `${daysOff} days off${to}. Back to it.` : `${p.name} day${to}. Let's lift.`;
+  const headline = draft ? "Pick up where you left off." : daysOff != null && daysOff >= 5 ? `${daysOff} days off${to}. Back to it.` : `${p.name} day${to}. Let's lift.`;
 
   return (
     <main className="screen has-tabs">
       <header className="top today-top">
-        <div className="today-head">
-          <div className="today-date-row">
-            <span className="lbl">{new Date(t + "T12:00:00").toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" })}</span>
-            {/* The coach says hi, which also shows the coach is tappable. */}
-            <a className="coach-hello" href="#/coaches" aria-hidden="true" tabIndex={-1} style={{ "--c": COACHES[lead]?.color }}>{greeting(nameInTitle ? null : name, daysOff)}</a>
+        <div className="today-row">
+          <span className="lbl">{new Date(t + "T12:00:00").toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" })}</span>
+          {/* The coach and their hello read as one unit; the hello also shows the coach is tappable. */}
+          <div className="today-coach" style={{ "--c": COACHES[lead]?.color }}>
+            <a className="coach-hello" href="#/coaches" aria-hidden="true" tabIndex={-1}>{greeting(nameInTitle ? null : name, daysOff)}</a>
+            <a className="coach-link" href="#/coaches" aria-label="Meet your coaches">
+              {/* 5+ days away and the lead coach misses you. */}
+              <Coach id={lead} mood={daysOff != null && daysOff >= 5 ? "sleepy" : "idle"} size={34} badge decorative />
+            </a>
           </div>
-          <h1>{headline}</h1>
+          <InfoButton screen="today" />
         </div>
-        <a className="coach-link" href="#/coaches" aria-label="Meet your coaches">
-          {/* 5+ days away and the lead coach misses you. */}
-          <Coach id={lead} mood={daysOff != null && daysOff >= 5 ? "sleepy" : "idle"} size={38} badge decorative />
-        </a>
-        <InfoButton screen="today" />
+        <h1>{headline}</h1>
       </header>
 
       <div className="body" data-day={day}>

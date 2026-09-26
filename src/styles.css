@@ -256,10 +256,14 @@ button.chip { min-height: 38px; padding: 0 14px; border: 2px solid var(--rule); 
 .coach-bubble.says-down::after { left: 18px; bottom: -13px; width: 22px; height: 14px; clip-path: path("M0 0 H22 C16 4 12 9 9 14 C7 8 4 3 0 0 Z"); }
 
 /* ═══════════════ TODAY ═══════════════ */
-.today-top { padding-top: calc(16px + var(--safe-t)); padding-bottom: 6px; }
-.today-head { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
-.today-head h1 { font-weight: 800; font-size: 26px; line-height: 1.1; letter-spacing: -0.02em; }
-.coach-link { width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center; background: var(--surface); border: 2px solid var(--rule); box-shadow: 0 4px 0 var(--lip); overflow: visible; }
+.today-top { flex-direction: column; align-items: stretch; gap: 4px; padding-top: calc(12px + var(--safe-t)); padding-bottom: 16px; }
+.today-row { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.today-row .lbl { flex: none; }
+.today-top h1 { font-weight: 800; font-size: 26px; line-height: 1.1; letter-spacing: -0.02em; }
+/* A plain tinted disc, no ring or lip: the coach is the detail, not the frame. */
+.coach-link { flex: none; width: 42px; height: 42px; border-radius: 50%; display: grid; place-items: center; background: color-mix(in srgb, var(--c, #5BD68A) 16%, transparent); overflow: visible; }
+.today-top .info-btn { width: 36px; height: 36px; margin-right: -6px; color: var(--faint); }
+.today-top .info-btn svg { width: 18px; height: 18px; }
 .hero-card { position: relative; overflow: hidden; display: flex; flex-direction: column; gap: 14px; padding: 20px; border-radius: var(--r-xl); background: var(--day); color: var(--on-day); box-shadow: 0 7px 0 var(--day-lip); }
 .hero-card::before, .hero-card::after { content: ""; position: absolute; border-radius: 50%; background: color-mix(in srgb, var(--on-day) 13%, transparent); pointer-events: none; }
 .hero-card::before { width: 170px; height: 170px; right: -40px; top: -50px; }
@@ -696,9 +700,8 @@ button.coach-card:active { transform: translateY(3px); box-shadow: 0 2px 0 var(-
 .phase-line span { font-size: 13.5px; color: var(--mute); font-weight: 500; }
 
 /* Today: the coach says hi from the date row; the tail points at the coach button. */
-.today-date-row { display: flex; align-items: center; gap: 8px; min-width: 0; }
-.today-date-row .lbl { flex: none; }
-.coach-hello { position: relative; margin-left: auto; margin-right: -4px; max-width: 58%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 5px 11px; border-radius: 14px 14px 4px 14px; background: color-mix(in srgb, var(--c, #5BD68A) 24%, var(--surface)); color: var(--ink); font-size: 13px; font-weight: 800; text-decoration: none; transform-origin: 100% 100%; animation: hello-in 520ms 250ms cubic-bezier(.2, 1.5, .4, 1) both; }
+.today-coach { display: flex; align-items: center; gap: 6px; min-width: 0; margin-left: auto; }
+.coach-hello { position: relative; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 5px 11px; border-radius: 14px 4px 14px 14px; background: color-mix(in srgb, var(--c, #5BD68A) 14%, var(--surface)); color: var(--ink); font-size: 13px; font-weight: 700; text-decoration: none; transform-origin: 100% 0; animation: hello-in 520ms 250ms cubic-bezier(.2, 1.5, .4, 1) both; }
 @keyframes hello-in { from { transform: scale(.3); opacity: 0; } }
 
 /* History calendar: a dot per workout, coloured by its day; tap a day to see it below. */
