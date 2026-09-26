@@ -5,9 +5,10 @@
 
 const same = (a, b) => a === b || JSON.stringify(a) === JSON.stringify(b);
 const isObj = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
-// Lists whose items have a stable identity merge item by item; other lists are replaced whole.
+// Lists whose items have a unique, stable identity merge item by item; other lists are replaced whole.
 const idOf = (x) => (isObj(x) ? x.id ?? x.date : undefined);
-const keyedList = (...lists) => lists.every((l) => Array.isArray(l) && l.every((x) => idOf(x) !== undefined));
+const keyedList = (...lists) => lists.every((l) => Array.isArray(l) && l.every((x) => idOf(x) !== undefined)
+  && new Set(l.map((x) => String(idOf(x)))).size === l.length);
 
 function mergeKeyed(base, ours, theirs, keys, get) {
   const out = [];

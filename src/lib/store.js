@@ -77,6 +77,7 @@ export function createSaver(onStatus, onRemote, shape = (d) => d) {
   let base = { data: null, stamp: null };
   let latest = null;
   let running = false;
+  let refreshing = false;
 
   async function flush() {
     if (running || !latest) return;
@@ -122,7 +123,8 @@ export function createSaver(onStatus, onRemote, shape = (d) => d) {
     retry: flush,
     /** Picks up another device's saves, e.g. when the app comes back to the foreground. */
     async refresh() {
-      if (running || latest || !window.storage.stamp) return;
+      if (refreshing || running || latest || !window.storage.stamp) return;
+      refreshing = true; // waking fires both visibilitychange and focus
       try {
         const stamp = await window.storage.stamp(STORE_KEY);
         if (!stamp || stamp === base.stamp || running || latest) return;
@@ -132,7 +134,8 @@ export function createSaver(onStatus, onRemote, shape = (d) => d) {
         base = { data: shape(remote.data), stamp: remote.stamp };
         writeLocal(await keyP, { data: remote.data, savedAt: remote.savedAt, dirty: false, stamp: remote.stamp });
         onRemote?.(base.data, was);
-      } catch {} // offline: the next save or resume tries again
+      } catch { // offline: the next save or resume tries again
+      } finally { refreshing = false; }
     },
   };
 }
