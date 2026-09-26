@@ -117,7 +117,8 @@ export default function SetupChat({ coach, program, profile, name, next, left = 
       : `I'm ${c.name}. No ${group} lifts in your plan yet. Want to add some?`;
 
   const doneLine = next
-    ? `${tankIntro ? "You're set up." : "Saved."} ${COACHES[next].name} handles ${COACHES[next].group.toLowerCase()} next${left > 1 ? `, then ${left - 1} more` : ""}. About 30 seconds each, now or whenever.`
+    ? `${tankIntro ? "You're set up." : "Saved."} Next up: ${COACHES[next].name}, your ${COACHES[next].group.toLowerCase()} coach` +
+      (left > 1 ? `. After that, ${left - 1} more coach${left > 2 ? "es" : ""} to meet. About 30 seconds each, now or later.` : ", and the last coach to meet. About 30 seconds, now or later.")
     : "That's the whole crew. Your plan's ready. Go lift.";
 
   const stepNo = TANK_STEPS.indexOf(step) + 1;
