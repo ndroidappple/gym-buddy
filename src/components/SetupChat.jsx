@@ -52,11 +52,20 @@ export default function SetupChat({ coach, program, profile, name, onDone, onClo
     onDone({ program: programOut, coach, ...extra });
     setStep("done");
   };
+  // Tank's goals, weight, days and plan are saved the moment the plan is answered, so closing the
+  // sheet on the lifts step that follows can't lose them (or leave Tank asking to be met again).
+  const tankProfile = () => ({ profile: { goals, note: note.trim(), days, doneAt: Date.now() }, weight: answers.weight });
+  const answerPlan = (programOut, a) => {
+    if (a) setLog((l) => [...l, { q: "Here's how I'd set you up.", a }]);
+    setWorking(programOut);
+    onDone({ program: programOut, coach, ...tankProfile() });
+    setStep("lifts");
+  };
   const saveLifts = (useDefaults) => {
     const drop = useDefaults ? [] : mine.filter((x) => off.has(`${x.day}|${x.n}`));
     const r = applyPicks(working, coach, { drop, add: useDefaults ? [] : added });
     setLog((l) => [...l, { q: liftsQuestion, a: useDefaults || !r.lines.length ? "Keep the defaults." : r.lines.join(". ") + "." }]);
-    finish(r.program, tankIntro ? { profile: { goals, note: note.trim(), days, doneAt: Date.now() }, weight: answers.weight } : {});
+    finish(r.program, tankIntro ? tankProfile() : {});
   };
 
   const liftsQuestion = everyDay
@@ -179,11 +188,11 @@ export default function SetupChat({ coach, program, profile, name, onDone, onClo
           {step === "plan" && plan && (
             plan.lines.length ? (
               <>
-                <button type="button" className="btn btn-day" onClick={() => { setWorking(plan.program); setLog((l) => [...l, { q: "Here's how I'd set you up.", a: "Set it up." }]); setStep("lifts"); }}>
+                <button type="button" className="btn btn-day" onClick={() => answerPlan(plan.program, "Set it up.")}>
                   <Check size={17} strokeWidth={3} aria-hidden="true" /> Set it up</button>
-                <button type="button" className="btn btn-ghost" onClick={() => { setLog((l) => [...l, { q: "Here's how I'd set you up.", a: "Keep my program." }]); setStep("lifts"); }}>Keep my program</button>
+                <button type="button" className="btn btn-ghost" onClick={() => answerPlan(working, "Keep my program.")}>Keep my program</button>
               </>
-            ) : <button type="button" className="btn btn-day" onClick={() => setStep("lifts")}>Next</button>
+            ) : <button type="button" className="btn btn-day" onClick={() => answerPlan(working)}>Next</button>
           )}
           {step === "lifts" && (
             everyDay ? (
