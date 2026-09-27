@@ -1,7 +1,7 @@
 import { LIBRARY, isCardio, DAYS, activeDays } from "../data/program.js";
 import { CUES } from "../data/cues.js";
 
-/* Program changes a coach proposes in chat. Nothing here touches saved data: applyChanges returns
+/* Program changes a coach proposes in chat (lifts, sets/reps/rest, and workout names). Nothing here touches saved data: applyChanges returns
    the would-be program plus plain-English lines for the confirm card, and errors for anything that
    doesn't match the lifter's actual program (so a confused model can't make a silent edit). */
 
@@ -49,6 +49,16 @@ export function applyChanges(program, changes) {
     const key = dayKey(next, c?.day);
     if (!key) { errors.push(`There's no "${c?.day}" day in your program.`); continue; }
     const day = next[key];
+    if (c.action === "rename") {
+      const name = String(c.new_name || "").replace(/\s+/g, " ").trim().slice(0, 20);
+      if (!name) { errors.push(`Rename ${day.name} to what?`); continue; }
+      if (same(name, day.name)) { errors.push(`${day.name} already has that name.`); continue; }
+      const taken = DAYS.find((k) => k !== key && next[k] && !next[k].off && same(next[k].name, name));
+      if (taken) { errors.push(`Another workout is already called ${next[taken].name}.`); continue; }
+      next = { ...next, [key]: { ...day, name } };
+      lines.push(`Rename ${day.name} to ${name}`);
+      continue;
+    }
     const xs = day.exercises;
     const i = findIn(xs, c.exercise);
     const put = (list) => { next = { ...next, [key]: { ...day, exercises: list } }; };

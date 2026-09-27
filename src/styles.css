@@ -594,6 +594,7 @@ button.chip { min-height: 38px; padding: 0 14px; border: 2px solid var(--rule); 
 .chat-empty { display: flex; flex-direction: column; gap: 10px; }
 .chat-suggest { display: flex; flex-wrap: wrap; gap: 6px; }
 .chat-suggest .chip { white-space: normal; text-align: left; min-height: 40px; height: auto; padding: 8px 14px; }
+.chat-replies { justify-content: flex-end; padding-left: 32px; }
 /* The beam clips its wrapper, so the lip shadow lives on the wrapper, not the form. */
 .chat-input-wrap { flex: none; border-radius: 26px; box-shadow: 0 4px 0 var(--lip); }
 .chat-input { display: flex; align-items: flex-end; gap: 8px; padding: 6px; border-radius: 26px; background: var(--surface); border: 2px solid var(--rule); }

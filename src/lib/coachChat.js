@@ -92,9 +92,8 @@ export async function askCoach({ coach, messages, context, onText, signal, mode 
     raw += decoder.decode(value, { stream: true });
     onText(raw.split(PROPOSAL_MARK)[0]);
   }
-  // Text first, then each proposed program change on its own line after the mark.
-  // Text first, then records after the mark: program-change proposals, and a final status when the
-  // reply failed or came back empty ("rate" = a real 429, "empty" = nothing written, "error").
+  // Text first, then records after the mark: program-change proposals, tap-to-reply options, and a
+  // final status when the reply failed or came back empty ("rate" = a real 429, "empty" = nothing written, "error").
   const [text, ...rest] = raw.split(PROPOSAL_MARK);
   const records = rest.map((line) => { try { return JSON.parse(line.trim()); } catch { return null; } }).filter(Boolean);
   const proposals = records.map((r) => r.changes).filter((c) => Array.isArray(c) && c.length);
@@ -103,7 +102,9 @@ export async function askCoach({ coach, messages, context, onText, signal, mode 
     const kind = status === "rate" ? "rate" : status === "error" ? "busy" : "empty";
     throw Object.assign(new Error(kind), { kind });
   }
-  return { text, changes: proposals.flat() };
+  const replies = [...new Set(records.flatMap((r) => (Array.isArray(r.replies) ? r.replies : []))
+    .filter((x) => typeof x === "string").map((x) => x.trim().slice(0, 60)).filter(Boolean))].slice(0, 3);
+  return { text, changes: proposals.flat(), replies };
 }
 
 /** What Tank reads to review a program the lifter brought in: their goals, days, and every workout. */
