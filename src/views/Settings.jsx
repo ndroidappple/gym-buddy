@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { ChevronRight, Download, LogOut, Moon, Gauge, Smartphone, Share, SquarePlus, EllipsisVertical, Check, Sparkles, Scale, Vibrate, Bell } from "lucide-react";
+import { ChevronRight, Download, LogOut, Moon, Gauge, Smartphone, Share, SquarePlus, EllipsisVertical, Check, Sparkles, Scale, Vibrate, Bell, Pencil, ClipboardPaste } from "lucide-react";
 import { Sheet, InfoButton } from "../components/ui.jsx";
 import { ICONS, iconSrc } from "../lib/icons.js";
 import { DAYS } from "../data/program.js";
@@ -7,9 +7,9 @@ import { href } from "../lib/router.js";
 import { shortDate, canVibrate } from "../lib/util.js";
 import { supabase } from "../supabase-client.js";
 
-export default function Settings({ program, sessions, prefs, setPref }) {
+export default function Settings({ program, sessions, prefs, setPref, onRename }) {
   const [email, setEmail] = useState("");
-  const [sheet, setSheet] = useState(null); // "icon" | "install"
+  const [sheet, setSheet] = useState(null); // "icon" | "install" | "rename"
   const icon = ICONS.find((i) => i.id === prefs.icon) || ICONS[0];
   useEffect(() => { supabase.auth.getUser().then(({ data }) => setEmail(data.user?.email || "")); }, []);
 
@@ -27,6 +27,17 @@ export default function Settings({ program, sessions, prefs, setPref }) {
                 <ChevronRight size={18} aria-hidden="true" className="muted" />
               </a>
             ))}
+            <button className="list-row" data-help="rename" onClick={() => setSheet("rename")}>
+              <Pencil size={18} aria-hidden="true" />
+              <span className="name">Rename workouts<span className="sub">{DAYS.filter((d) => !program[d].off).map((d) => program[d].name).join(", ")}</span></span>
+              <ChevronRight size={18} aria-hidden="true" className="muted" />
+            </button>
+            {/* Tank's paste-and-review steps on their own, for a lifter who's already set up. */}
+            <a className="list-row" data-help="import" href={href("coaches", "tank", "import")}>
+              <ClipboardPaste size={18} aria-hidden="true" />
+              <span className="name">Bring in your own program<span className="sub">Paste a program you already run. Tank can review it.</span></span>
+              <ChevronRight size={18} aria-hidden="true" className="muted" />
+            </a>
             {/* Phases live on Progress; this is the side door. */}
             <a className="list-row" href={href("progress", "phase")}>
               <Scale size={18} aria-hidden="true" />
@@ -122,7 +133,33 @@ export default function Settings({ program, sessions, prefs, setPref }) {
         </Sheet>
       )}
       {sheet === "install" && <InstallSheet onClose={() => setSheet(null)} />}
+      {sheet === "rename" && <RenameSheet program={program} onRename={onRename} onClose={() => setSheet(null)} />}
     </main>
+  );
+}
+
+/* Every workout's name in one place. Names are saved together on Save; a blank field keeps the old name. */
+function RenameSheet({ program, onRename, onClose }) {
+  const days = DAYS.filter((d) => !program[d].off);
+  const [names, setNames] = useState(() => Object.fromEntries(days.map((d) => [d, program[d].name])));
+  const save = (e) => {
+    e.preventDefault();
+    for (const d of days) onRename(d, names[d] || "");
+    onClose();
+  };
+  return (
+    <Sheet title="Rename workouts" sub="Past sessions show the new name too." onClose={onClose} labelledBy="rename-title">
+      <form className="rename-form" onSubmit={save}>
+        {days.map((d, i) => (
+          <label key={d} className="field rename-field" data-day={d}>
+            <span className="lbl"><span className="dot" aria-hidden="true" />Day {i + 1} · {program[d].detail}</span>
+            <input className="input" value={names[d]} maxLength={20} enterKeyHint="done" placeholder={program[d].name}
+              onChange={(e) => setNames((n) => ({ ...n, [d]: e.target.value }))} />
+          </label>
+        ))}
+        <button type="submit" className="btn btn-ink">Save names</button>
+      </form>
+    </Sheet>
   );
 }
 
