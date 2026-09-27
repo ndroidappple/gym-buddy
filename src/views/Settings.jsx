@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { ChevronRight, Download, LogOut, Moon, Gauge, Smartphone, Share, SquarePlus, EllipsisVertical, Check, Sparkles, Scale, Vibrate, Bell, Pencil, ClipboardPaste } from "lucide-react";
 import { Sheet, InfoButton } from "../components/ui.jsx";
 import { ICONS, iconSrc } from "../lib/icons.js";
-import { DAYS } from "../data/program.js";
+import { DAYS, allDays, activeDays } from "../data/program.js";
 import { href } from "../lib/router.js";
 import { shortDate, canVibrate } from "../lib/util.js";
 import { supabase } from "../supabase-client.js";
@@ -20,7 +20,8 @@ export default function Settings({ program, sessions, prefs, setPref, onRename }
         <section className="section">
           <h2 className="lbl">Program</h2>
           <div className="list" data-help="program">
-            {DAYS.map((d) => (
+            {/* Built-in days show even when switched off; extra days only while in the rotation. */}
+            {allDays(program).filter((d) => DAYS.includes(d) || !program[d].off).map((d) => (
               <a key={d} className="list-row" href={href("settings", "program", d)} data-day={d}>
                 <span className="dot" aria-hidden="true" />
                 <span className="name">{program[d].name}<span className="sub">{program[d].off ? "Not in your rotation" : `${program[d].detail} · ${program[d].exercises.length} lifts`}</span></span>
@@ -29,7 +30,7 @@ export default function Settings({ program, sessions, prefs, setPref, onRename }
             ))}
             <button className="list-row" data-help="rename" onClick={() => setSheet("rename")}>
               <Pencil size={18} aria-hidden="true" />
-              <span className="name">Rename workouts<span className="sub">{DAYS.filter((d) => !program[d].off).map((d) => program[d].name).join(", ")}</span></span>
+              <span className="name">Rename workouts<span className="sub">{activeDays(program).map((d) => program[d].name).join(", ")}</span></span>
               <ChevronRight size={18} aria-hidden="true" className="muted" />
             </button>
             {/* Tank's paste-and-review steps on their own, for a lifter who's already set up. */}
@@ -140,7 +141,7 @@ export default function Settings({ program, sessions, prefs, setPref, onRename }
 
 /* Every workout's name in one place. Names are saved together on Save; a blank field keeps the old name. */
 function RenameSheet({ program, onRename, onClose }) {
-  const days = DAYS.filter((d) => !program[d].off);
+  const days = activeDays(program);
   const [names, setNames] = useState(() => Object.fromEntries(days.map((d) => [d, program[d].name])));
   const save = (e) => {
     e.preventDefault();

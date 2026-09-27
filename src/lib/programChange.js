@@ -1,4 +1,4 @@
-import { LIBRARY, isCardio, DAYS, activeDays } from "../data/program.js";
+import { LIBRARY, isCardio, allDays, activeDays } from "../data/program.js";
 import { CUES } from "../data/cues.js";
 
 /* Program changes a coach proposes in chat (lifts, sets/reps/rest, and workout names). Nothing here touches saved data: applyChanges returns
@@ -27,7 +27,7 @@ const spec = (ex) => `${ex.sets} × ${ex.reps[0]}–${ex.reps[1]}${isCardio(ex.n
 
 /** Resolves "push", "Push" or a renamed day's name to its key. */
 function dayKey(program, day) {
-  const keys = DAYS.filter((k) => program[k]); // never the custom workout
+  const keys = allDays(program); // never the custom workout
   return keys.find((k) => same(k, day) || same(program[k].name, day)) || null;
 }
 
@@ -53,7 +53,7 @@ export function applyChanges(program, changes) {
       const name = String(c.new_name || "").replace(/\s+/g, " ").trim().slice(0, 20);
       if (!name) { errors.push(`Rename ${day.name} to what?`); continue; }
       if (same(name, day.name)) { errors.push(`${day.name} already has that name.`); continue; }
-      const taken = DAYS.find((k) => k !== key && next[k] && !next[k].off && same(next[k].name, name));
+      const taken = activeDays(next).find((k) => k !== key && same(next[k].name, name));
       if (taken) { errors.push(`Another workout is already called ${next[taken].name}.`); continue; }
       next = { ...next, [key]: { ...day, name } };
       lines.push(`Rename ${day.name} to ${name}`);

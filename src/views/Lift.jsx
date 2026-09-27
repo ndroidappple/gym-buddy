@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { ChevronLeft } from "lucide-react";
-import { DAYS, isCardio } from "../data/program.js";
+import { allDays, isCardio } from "../data/program.js";
 import { href } from "../lib/router.js";
 import { liftSeries, trend, repPRs, num, fmtW, fmtSet, cardioTotals, compact, shortDate, bestSet, byDateDesc, isIsolation } from "../lib/util.js";
 import { InfoButton, LineChart, Trend } from "../components/ui.jsx";
@@ -54,7 +54,7 @@ function LiftDetail({ name, sessions, program, back }) {
   const [metric, setMetric] = useState(iso ? "top" : "orm");
   const series = useMemo(() => liftSeries(sessions, name), [sessions, name]);
   const reps = useMemo(() => repPRs(sessions, name), [sessions, name]);
-  const day = DAYS.find((d) => program[d].exercises.some((e) => e.n === name)) || series[series.length - 1]?.day;
+  const day = allDays(program).find((d) => program[d].exercises.some((e) => e.n === name)) || series[series.length - 1]?.day;
   const m = METRICS.find((x) => x.key === metric);
 
   const best = series.length ? Math.max(...series.map((x) => x.orm)) : 0;

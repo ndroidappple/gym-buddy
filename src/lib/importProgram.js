@@ -1,4 +1,4 @@
-import { DAYS, LIBRARY, PROGRAM, isCardio } from "../data/program.js";
+import { DAYS, EXTRA_DAYS, MAX_DAYS, LIBRARY, PROGRAM, isCardio } from "../data/program.js";
 import { CUES } from "../data/cues.js";
 import { COACHES, coachFor } from "../data/coaches.js";
 
@@ -9,10 +9,11 @@ import { COACHES, coachFor } from "../data/coaches.js";
      Lat Pulldown or Assisted Pull-Up — 3 × 8–12
 
    Everything is parsed here, in the app, so it's instant and free; only the optional review
-   goes to a coach. Workouts fill the program's day slots in order (the slot only sets the colour). */
+   goes to a coach. Workouts fill the program's day slots in order (the slot only sets the colour):
+   the four built-in ones, then extra slots for a fifth, sixth or seventh workout. */
 
 export const MAX_PASTE = 6000; // characters; a long 4-day program with notes is ~1,500
-export const MAX_WORKOUTS = DAYS.length;
+export const MAX_WORKOUTS = MAX_DAYS;
 const MAX_LIFTS = 15; // per workout
 const MAX_NAME = 20; // workout name, so it fits the Today card
 
@@ -122,21 +123,19 @@ export function parseProgram(text) {
     out.push({ name, exercises });
   }
   if (!out.length) errors.push("I couldn't find any lifts. Put each one on its own line with sets × reps, like \"Leg Press — 3 × 8–12\".");
-  if (out.length > MAX_WORKOUTS) errors.push(`That's ${out.length} workouts. I can run up to ${MAX_WORKOUTS} in a rotation. Trim it to your main ${MAX_WORKOUTS} and paste again.`);
+  if (out.length > MAX_WORKOUTS) errors.push(`That's ${out.length} workouts. A rotation can have up to ${MAX_WORKOUTS}, one for each day of the week. Trim it and paste again.`);
   return { workouts: out, notes, errors };
 }
 
 /** The program with the pasted workouts in the day slots, in order. Unused slots go out of the
-    rotation. Each day keeps its imported lifts as `orig`, so "Restore" goes back to them. */
+    rotation (an extra slot is kept rather than deleted, so past sessions logged under it keep
+    their name). Each day keeps its imported lifts as `orig`, so "Restore" goes back to them. */
 export function programFromImport(program, workouts) {
-  let next = { ...program };
-  DAYS.forEach((d, i) => {
+  const next = { ...program };
+  [...DAYS, ...EXTRA_DAYS].forEach((d, i) => {
     const w = workouts[i];
-    if (w) {
-      next[d] = { ...next[d], name: w.name, detail: detailFor(w.exercises), exercises: w.exercises, orig: w.exercises, off: false };
-    } else {
-      next[d] = { ...next[d], off: true };
-    }
+    if (w) next[d] = { ...next[d], name: w.name, detail: detailFor(w.exercises), exercises: w.exercises, orig: w.exercises, off: false };
+    else if (next[d]) next[d] = { ...next[d], off: true };
   });
   return next;
 }

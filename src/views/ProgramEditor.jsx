@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { ChevronLeft, ChevronUp, ChevronDown, Trash2, Plus, Pencil } from "lucide-react";
 import { InfoButton, ExercisePicker, ConfirmSheet, Sheet } from "../components/ui.jsx";
-import { isCardio, specLine } from "../data/program.js";
+import { isCardio, specLine, PROGRAM } from "../data/program.js";
 
 export default function ProgramEditor({ day, program, back, ops }) {
   const p = program[day];
@@ -36,7 +36,7 @@ export default function ProgramEditor({ day, program, back, ops }) {
           ))}
         </div>
         <button className="btn btn-ghost" data-help="add-lift" onClick={() => setSheet("picker")}><Plus size={18} aria-hidden="true" /> Add a lift</button>
-        <button className="btn-quiet" onClick={() => setSheet("restore")}>Restore {p.name} to its original lifts</button>
+        {(p.orig || PROGRAM[day]) && <button className="btn-quiet" onClick={() => setSheet("restore")}>Restore {p.name} to its original lifts</button>}
       </div>
 
       {sheet === "picker" && (

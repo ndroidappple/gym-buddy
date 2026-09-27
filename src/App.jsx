@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { PROGRAM, DAYS, CUSTOM, normalizeProgram } from "./data/program.js";
+import { PROGRAM, allDays, CUSTOM, normalizeProgram } from "./data/program.js";
 import { useRoute, href } from "./lib/router.js";
 import { Toast, TabBar, Boot, LoadError, SyncNote } from "./components/ui.jsx";
 import { loadState, createSaver } from "./lib/store.js";
@@ -221,7 +221,7 @@ export default function App() {
   let view;
   switch (route.name) {
     case "session": {
-      if (!DAYS.includes(route.day) && route.day !== CUSTOM) { view = <Today {...common} />; break; }
+      if (!allDays(program).includes(route.day) && route.day !== CUSTOM) { view = <Today {...common} />; break; }
       const existing = route.id ? sessions.find((s) => s.id === route.id) : null;
       if (route.id && !existing) { view = <Today {...common} />; break; }
       view = (
@@ -241,7 +241,7 @@ export default function App() {
     case "progress": view = <Progress key={route.open || "p"} {...common} openPhase={route.open === "phase"} />; break;
     case "lift": view = <Lift {...common} name={route.lift} />; break;
     case "settings": view = <Settings {...common} onRename={programOps.rename} />; break;
-    case "program": view = DAYS.includes(route.day) ? <ProgramEditor {...common} day={route.day} ops={programOps} /> : <Settings {...common} />; break;
+    case "program": view = allDays(program).includes(route.day) ? <ProgramEditor {...common} day={route.day} ops={programOps} /> : <Settings {...common} />; break;
     case "export": view = <Export {...common} />; break;
     case "coaches": view = <Coaches key={(route.coach || "grid") + (route.mode || "")} {...common} openCoach={route.coach} openMode={route.mode} onSetupDone={finishSetup} onSetupProgress={saveSetupProgress} />; break;
     default: view = <Today {...common} />;

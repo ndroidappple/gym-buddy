@@ -46,10 +46,16 @@ const CUSTOM_DAY = { name: "Custom", detail: "Your pick of lifts", exercises: []
 export const normalizeProgram = (p) => { const q = refreshCues(p); return q[CUSTOM] ? q : { ...q, [CUSTOM]: CUSTOM_DAY }; };
 
 export const PROGRAM = normalizeProgram(BASE_PROGRAM);
-/** Every program day slot. A day can be switched off (`off: true`), e.g. a 3-day split. */
+/** The four built-in day slots. A day can be switched off (`off: true`), e.g. a 3-day split. */
 export const DAYS = ["push", "pull", "legs", "shoulders"];
+/** Extra slots, only present in a program that uses them (a pasted-in program with 5+ workouts).
+    Each has its own colour in styles.css. */
+export const EXTRA_DAYS = ["day5", "day6", "day7"];
+export const MAX_DAYS = DAYS.length + EXTRA_DAYS.length;
+/** Every day slot this program has, in rotation order (never the custom workout). */
+export const allDays = (program) => [...DAYS, ...EXTRA_DAYS.filter((d) => program?.[d])];
 /** The days in the rotation right now, in order. */
-export const activeDays = (program) => DAYS.filter((d) => program?.[d] && !program[d].off);
+export const activeDays = (program) => allDays(program).filter((d) => program?.[d] && !program[d].off);
 
 /** Cardio entries log minutes (+ optional miles) instead of weight × reps. */
 export const isCardio = (name) => CARDIO.has(name);
