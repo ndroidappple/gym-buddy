@@ -1,7 +1,7 @@
 import { supabase } from "../supabase-client.js";
 import { COACHES, coachFor } from "../data/coaches.js";
 import { isCardio, activeDays } from "../data/program.js";
-import { describeProgram } from "./programChange.js";
+import { describeProgram, applyChanges } from "./programChange.js";
 import { GOALS } from "./setup.js";
 import { PHASE_TYPES, phaseStatus, statusLine } from "./phase.js";
 import { fmtSet, liftSeries, trend, num, fmtW, bestSet, bodyweightSeries, byDateDesc, daysBetween, today, nextDayAfter, readyToIncrease } from "./util.js";
@@ -64,7 +64,7 @@ export function buildContext({ coach, sessions, program, weighins, profile, phas
 const PROPOSAL_MARK = "\u001E"; // must match api/coach.js
 const withName = (context, first) => (first ? `Lifter's first name: ${first}.\n${context}` : context);
 
-export async function askCoach({ coach, messages, context, onText, signal }) {
+export async function askCoach({ coach, messages, context, onText, signal, mode }) {
   if (!navigator.onLine) throw Object.assign(new Error("offline"), { kind: "offline" });
   const { data } = await supabase.auth.getSession();
   let res;
@@ -72,7 +72,7 @@ export async function askCoach({ coach, messages, context, onText, signal }) {
     res = await fetch("/api/coach", {
       method: "POST",
       headers: { "content-type": "application/json", authorization: `Bearer ${data.session?.access_token || ""}` },
-      body: JSON.stringify({ coach, messages, context: withName(context, data.session?.user?.user_metadata?.first_name) }),
+      body: JSON.stringify({ coach, mode, messages, context: withName(context, data.session?.user?.user_metadata?.first_name) }),
       signal,
     });
   } catch (e) {
@@ -92,9 +92,8 @@ export async function askCoach({ coach, messages, context, onText, signal }) {
     raw += decoder.decode(value, { stream: true });
     onText(raw.split(PROPOSAL_MARK)[0]);
   }
-  // Text first, then each proposed program change on its own line after the mark.
-  // Text first, then records after the mark: program-change proposals, and a final status when the
-  // reply failed or came back empty ("rate" = a real 429, "empty" = nothing written, "error").
+  // Text first, then records after the mark: program-change proposals, tap-to-reply options, and a
+  // final status when the reply failed or came back empty ("rate" = a real 429, "empty" = nothing written, "error").
   const [text, ...rest] = raw.split(PROPOSAL_MARK);
   const records = rest.map((line) => { try { return JSON.parse(line.trim()); } catch { return null; } }).filter(Boolean);
   const proposals = records.map((r) => r.changes).filter((c) => Array.isArray(c) && c.length);
@@ -103,5 +102,38 @@ export async function askCoach({ coach, messages, context, onText, signal }) {
     const kind = status === "rate" ? "rate" : status === "error" ? "busy" : "empty";
     throw Object.assign(new Error(kind), { kind });
   }
-  return { text, changes: proposals.flat() };
+  const replies = [...new Set(records.flatMap((r) => (Array.isArray(r.replies) ? r.replies : []))
+    .filter((x) => typeof x === "string").map((x) => x.trim().slice(0, 60)).filter(Boolean))].slice(0, 3);
+  return { text, changes: proposals.flat(), replies };
+}
+
+/** What Tank reads to review a program the lifter brought in: their goals, days, and every workout. */
+export function reviewContext(program, profile = {}) {
+  const goals = (profile.goals || []).map((g) => GOALS.find((x) => x.id === g)?.label).filter(Boolean);
+  return [
+    `Goals: ${goals.join(", ") || "not given (assume building muscle)"}.`,
+    `Trains about ${profile.days || activeDays(program).length} days a week, rotating through the workouts below in order.`,
+    "Program (day key (name): lift sets x rep range, rest):",
+    describeProgram(program),
+  ].join("\n");
+}
+
+/**
+ * Tank looks over the lifter's own program. Resolves to { text, suggestions } where each suggestion is
+ * { change, line, why } and already checked against the program (anything that doesn't match is
+ * dropped), so the checklist only offers changes that will apply. Throws like askCoach.
+ */
+export async function reviewProgram({ program, profile, onText, signal }) {
+  const ask = () => askCoach({
+    coach: "tank", mode: "review", signal, onText: onText || (() => {}),
+    messages: [{ role: "user", content: "I've been running this program. Look it over and suggest anything that would make it better for my goals." }],
+    context: reviewContext(program, profile),
+  });
+  // A blank reply is usually a one-off (long thinking); try once more before giving up.
+  const { text, changes } = await ask().catch((e) => (e.kind === "empty" ? ask() : Promise.reject(e)));
+  const suggestions = changes.flatMap((change) => {
+    const r = applyChanges(program, [change]);
+    return r.lines.length ? [{ change, line: r.lines[0], why: typeof change.why === "string" ? change.why.trim() : "" }] : [];
+  });
+  return { text: text.trim(), suggestions };
 }

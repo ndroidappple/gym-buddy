@@ -1,6 +1,6 @@
 import {
   Play, ArrowLeftRight, Target, CalendarCheck, Scale, Trophy, TrendingUp, Flag, List, CalendarDays, Pencil,
-  Gauge, LineChart, Hash, History, Dumbbell, Plus, FileSpreadsheet, Users, MessageCircle, Sparkles, SlidersHorizontal, Download,
+  Gauge, LineChart, Hash, History, Dumbbell, Plus, FileSpreadsheet, Users, MessageCircle, Sparkles, SlidersHorizontal, Download, ClipboardPaste,
 } from "lucide-react";
 
 /* What each screen is for, shown from the (i) in its header as a short tap-through: one feature per
@@ -58,6 +58,8 @@ export const HELP = {
     title: "Settings",
     steps: [
       { name: "Program", Icon: Dumbbell, spot: "program", text: "Each day's lifts, sets, reps and rest." },
+      { name: "Rename workouts", Icon: Pencil, spot: "rename", text: "Call your days whatever you call them." },
+      { name: "Bring in your own program", Icon: ClipboardPaste, spot: "import", text: "Paste a program you already run. Tank can review it." },
       { name: "Redo setup", Icon: Sparkles, spot: "redo", text: "Meet your coaches again to reshape your plan." },
       { name: "Reps in reserve", Icon: Gauge, spot: "rir", text: "Rate how many more reps you had in you." },
       { name: "Export", Icon: Download, spot: "export", text: "Download a copy of all your data." },

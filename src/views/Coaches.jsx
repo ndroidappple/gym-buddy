@@ -11,9 +11,14 @@ import CoachChat from "../components/CoachChat.jsx";
 import SetupChat from "../components/SetupChat.jsx";
 
 
-export default function Coaches({ program, sessions, weighins, prefs, name, go, back, onProgramChange, onSetupDone, onSetupProgress, openCoach }) {
-  // { coach, ask? }: ask = a first question to send straight to the live chat.
-  const [open, setOpen] = useState(() => (openCoach && COACHES[openCoach] ? { coach: openCoach, setup: needsSetup(prefs, openCoach) } : null));
+export default function Coaches({ program, sessions, weighins, prefs, name, go, back, onProgramChange, onSetupDone, onSetupProgress, openCoach, openMode }) {
+  // { coach, ask?, importOnly? }: ask = a first question to send straight to the live chat;
+  // importOnly = Tank's bring-in-your-program steps, opened from Settings.
+  const [open, setOpen] = useState(() => {
+    if (!openCoach || !COACHES[openCoach]) return null;
+    if (openMode === "import") return { coach: "tank", setup: true, importOnly: true };
+    return { coach: openCoach, setup: needsSetup(prefs, openCoach) };
+  });
   const counts = useMemo(() => {
     const m = {};
     new Set(activeDays(program).flatMap((d) => program[d].exercises.map((e) => e.n))).forEach((n) => { const id = coachFor(n); m[id] = (m[id] || 0) + 1; });
@@ -59,9 +64,9 @@ export default function Coaches({ program, sessions, weighins, prefs, name, go, 
         </div>
       </div>
       {setupOpen && (
-        <SetupChat key={open.coach} coach={open.coach} program={program} profile={prefs.profile} name={name}
+        <SetupChat key={open.coach + (open.importOnly ? "-import" : "")} coach={open.coach} importOnly={open.importOnly} onImport={onProgramChange} program={program} profile={prefs.profile} name={name}
           next={after[0] || null} left={after.length}
-          onSave={onSetupProgress} onDone={onSetupDone} onClose={() => setOpen(null)} onNext={openChat}
+          onSave={onSetupProgress} onDone={onSetupDone} onClose={() => (open.importOnly ? back("#/settings") : setOpen(null))} onNext={openChat}
           onFinish={() => { setOpen(null); go(href("today")); }} />
       )}
       {open && !setupOpen && (

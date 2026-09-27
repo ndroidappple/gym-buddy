@@ -23,6 +23,10 @@
   --legs: #FFC53D;  --on-legs: #1C1A22;  --legs-ink: #8A6400;  --legs-lip: #D9A21F;
   --shoulders: #2EC27E; --on-shoulders: #FFFFFF; --shoulders-ink: #15744A; --shoulders-lip: #1F9C63;
   --custom: #8C7BF2; --on-custom: #FFFFFF; --custom-ink: #5F4ED0; --custom-lip: #6554D8;
+  /* Extra days 5-7, only used by a pasted-in program with more than four workouts. */
+  --day5: #FF8A3D; --on-day5: #1C1A22; --day5-ink: #A04E0C; --day5-lip: #D96F24;
+  --day6: #2CC6DA; --on-day6: #10232A; --day6-ink: #0E7482; --day6-lip: #1CA0B2;
+  --day7: #F05BA8; --on-day7: #FFFFFF; --day7-ink: #B02C72; --day7-lip: #CC3F88;
   --stamp: #8A6400;
   --stamp-bg: #FFF1C2;
   --danger: #D63A31;
@@ -63,6 +67,8 @@
 
   --push-ink: #FF8A84; --pull-ink: #86B2FF; --legs-ink: #FFC53D; --shoulders-ink: #4FD69A; --custom-ink: #B6A9FF;
   --push-lip: #B8342F; --pull-lip: #2757C2; --legs-lip: #B8861A; --shoulders-lip: #178050;
+  --day5-ink: #FFA66B; --day6-ink: #6FDCEA; --day7-ink: #FF8CC6;
+  --day5-lip: #B8561A; --day6-lip: #13808F; --day7-lip: #A8306E;
   --stamp: #FFC53D;
   --stamp-bg: #3A3016;
   --danger: #FF6B5E;
@@ -76,6 +82,9 @@
 [data-day="pull"] { --day: var(--pull); --on-day: var(--on-pull); --day-ink: var(--pull-ink); --day-lip: var(--pull-lip); }
 [data-day="legs"] { --day: var(--legs); --on-day: var(--on-legs); --day-ink: var(--legs-ink); --day-lip: var(--legs-lip); }
 [data-day="shoulders"] { --day: var(--shoulders); --on-day: var(--on-shoulders); --day-ink: var(--shoulders-ink); --day-lip: var(--shoulders-lip); }
+[data-day="day5"] { --day: var(--day5); --on-day: var(--on-day5); --day-ink: var(--day5-ink); --day-lip: var(--day5-lip); }
+[data-day="day6"] { --day: var(--day6); --on-day: var(--on-day6); --day-ink: var(--day6-ink); --day-lip: var(--day6-lip); }
+[data-day="day7"] { --day: var(--day7); --on-day: var(--on-day7); --day-ink: var(--day7-ink); --day-lip: var(--day7-lip); }
 [data-day="custom"] { --day: var(--custom); --on-day: var(--on-custom); --day-ink: var(--custom-ink); --day-lip: var(--custom-lip); }
 
 /* ═══════════════ BASE ═══════════════ */
@@ -594,6 +603,7 @@ button.chip { min-height: 38px; padding: 0 14px; border: 2px solid var(--rule); 
 .chat-empty { display: flex; flex-direction: column; gap: 10px; }
 .chat-suggest { display: flex; flex-wrap: wrap; gap: 6px; }
 .chat-suggest .chip { white-space: normal; text-align: left; min-height: 40px; height: auto; padding: 8px 14px; }
+.chat-replies { justify-content: flex-end; padding-left: 32px; }
 /* The beam clips its wrapper, so the lip shadow lives on the wrapper, not the form. */
 .chat-input-wrap { flex: none; border-radius: 26px; box-shadow: 0 4px 0 var(--lip); }
 .chat-input { display: flex; align-items: flex-end; gap: 8px; padding: 6px; border-radius: 26px; background: var(--surface); border: 2px solid var(--rule); }
@@ -660,6 +670,17 @@ button.coach-card:active { transform: translateY(3px); box-shadow: 0 2px 0 var(-
 .setup-actions { flex: none; display: flex; gap: 8px; }
 .setup-actions > .btn { flex: 1; min-height: 50px; }
 .setup-actions > .chat-input { flex: 1; }
+.rename-form { display: flex; flex-direction: column; gap: 14px; }
+.rename-field .lbl { display: flex; align-items: center; gap: 8px; }
+.setup-paste { flex-direction: column; }
+.setup-paste form { display: flex; flex-direction: column; gap: 8px; }
+.setup-paste .textarea { min-height: 140px; max-height: 38vh; font-size: 15px; }
+.setup-row { display: flex; gap: 8px; }
+.setup-row > .btn { flex: 1; min-height: 50px; }
+/* Two answers side by side: the main one gets the room, so its label stays on one line. */
+.setup-actions > .btn, .setup-row > .btn { white-space: nowrap; }
+.setup-actions > .btn:first-child:not(:only-child), .setup-row > .btn:first-child { flex: 1.6; }
+.setup-import ul { font-weight: 600; }
 .setup-weight { flex: 1; min-width: 0; height: 40px; border: 0; background: none; padding: 0 10px; font-size: 17px; font-weight: 700; }
 .setup-weight:focus { outline: none; }
 .setup-skip { font-size: 13px; font-weight: 800; }

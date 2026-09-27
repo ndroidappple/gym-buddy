@@ -23,11 +23,14 @@ const TROUBLE = {
   busy: "Couldn't get an answer through. Ask me again in a moment.",
 };
 
+/* Failures worth one more tap; the others need the lifter to do something first. */
+const TRYABLE = new Set(["rate", "empty", "busy", "offline"]);
+
 /** Chat with one coach. Answers stream in; the coach looks locked in while thinking and fired up when it lands.
     `exercise` is the lift the chat was opened from, so the first suggestion is about that lift. */
 export default function CoachChat({ coach, exercise, starter, sessions, program, weighins, profile, phase, onProgramChange, onClose }) {
   const c = COACHES[coach];
-  // {role, content, trouble?, changes?, preview?: {lines, errors}, decision?: "applied" | "dismissed"}
+  // {role, content, trouble?, replies?, changes?, preview?: {lines, errors}, decision?: "applied" | "dismissed"}
   const [messages, setMessages] = useState([]);
   const undos = useRef({}); // message index -> undo for an applied program change
   const [draft, setDraft] = useState("");
@@ -65,6 +68,8 @@ export default function CoachChat({ coach, exercise, starter, sessions, program,
       `How was my last ${c.group.toLowerCase()} work?`,
       // Opened mid-workout (from a lift) the day's focus matters; from Meet your coaches, the program does.
       exercise || !onProgramChange ? "What should I focus on today?" : `Adjust my program's ${c.group.toLowerCase()} work`,
+      // Tank runs the program as a whole, so renaming workouts is his to offer.
+      ...(coach === "tank" && onProgramChange && !exercise ? ["Rename my workouts"] : []),
     ];
   }, [program, coach, c.group, exercise, onProgramChange]);
 
@@ -86,14 +91,14 @@ export default function CoachChat({ coach, exercise, starter, sessions, program,
     });
     try {
       // A blank reply is usually a one-off (the model ran long thinking); ask once more before saying so.
-      const { text: reply, changes } = await ask().catch((e) => (e.kind === "empty" ? ask() : Promise.reject(e)));
+      const { text: reply, changes, replies } = await ask().catch((e) => (e.kind === "empty" ? ask() : Promise.reject(e)));
       if (changes.length && onProgramChange) {
-        put({ content: reply.trim() || "Here's the change I'd make.", changes, preview: applyChanges(program, changes) });
-      }
+        put({ content: reply.trim() || "Here's the change I'd make.", changes, preview: applyChanges(program, changes), replies });
+      } else put({ replies });
       setStatus("answered");
     } catch (e) {
       if (e.name === "AbortError") return;
-      put({ content: TROUBLE[e.kind] || TROUBLE.busy, trouble: true });
+      put({ content: TROUBLE[e.kind] || TROUBLE.busy, trouble: true, kind: e.kind, retry: q });
       setStatus("idle");
     }
   };
@@ -115,6 +120,15 @@ export default function CoachChat({ coach, exercise, starter, sessions, program,
   }, [starter]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const mood = status === "thinking" ? "focused" : status === "answered" ? "hyped" : "idle";
+
+  /* Tap-to-reply buttons under the latest answer, so the lifter rarely has to type: the coach's own
+     suggestions, else a retry after a failed answer, else the starter questions not yet asked. */
+  const last = messages[messages.length - 1];
+  const askedAlready = new Set(messages.filter((m) => m.role === "user").map((m) => m.content));
+  const replies = !last || last.role !== "assistant" || busy ? []
+    : last.trouble ? (last.retry && TRYABLE.has(last.kind) ? ["Try again"] : [])
+    : (last.replies?.length ? last.replies : suggestions.filter((x) => !askedAlready.has(x))).slice(0, 3);
+  const tapReply = (r) => (r === "Try again" && last?.retry ? send(last.retry) : send(r));
 
   return (
     <Sheet title={`Ask ${c.name}`} sub={`${c.group} coach`} onClose={onClose} labelledBy="coach-chat-title" className="sheet-chat">
@@ -144,6 +158,11 @@ export default function CoachChat({ coach, exercise, starter, sessions, program,
                 onApply={() => apply(i)} onDismiss={() => decide(i, "dismissed")} onUndo={() => undo(i)} />}
             </React.Fragment>
           ))}
+          {replies.length > 0 && (
+            <div className="chat-suggest chat-replies" role="group" aria-label="Quick replies">
+              {replies.map((r) => <button key={r} type="button" className="chip" onClick={() => tapReply(r)}>{r}</button>)}
+            </div>
+          )}
         </div>
         {/* Line beam from send until the answer finishes; the line type ignores reduced motion, so gate it here. */}
         <BorderBeam size="line" theme={theme} active={busy && !reduced} className="chat-input-wrap">

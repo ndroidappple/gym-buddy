@@ -1,4 +1,4 @@
-import { DAYS, LIBRARY, activeDays, isCardio } from "../data/program.js";
+import { DAYS, EXTRA_DAYS, PROGRAM, allDays, LIBRARY, activeDays, isCardio } from "../data/program.js";
 import { CUES } from "../data/cues.js";
 import { COACH_ORDER, coachFor } from "../data/coaches.js";
 
@@ -66,9 +66,18 @@ function toFourDays(program) {
 /** The program Tank's setup would give: split for the days, rep style for the goals, cardio finisher
     when getting lean. Returns { program, lines } where lines describe every change in plain English. */
 export function planFor(program, { goals = [], days = 4 } = {}) {
-  let next = days <= 3 ? toThreeDays(program) : toFourDays(program);
-  const lines = [];
-  if (next.shoulders.off !== program.shoulders.off) {
+  // A pasted-in program (redoing setup and asking Tank to build one instead) starts from the built-in
+  // split, with any extra days out of the rotation. "Keep mine" keeps the pasted one.
+  const pasted = activeDays(program).some((d) => program[d].orig);
+  let start = program;
+  if (pasted) {
+    start = { ...program };
+    for (const d of DAYS) start[d] = PROGRAM[d];
+    for (const d of EXTRA_DAYS) if (start[d]) start[d] = { ...start[d], off: true };
+  }
+  let next = days <= 3 ? toThreeDays(start) : toFourDays(start);
+  const lines = pasted ? [`Swap your pasted program for GymBuddy's ${days <= 3 ? "Push, Pull, Legs" : "Push, Pull, Legs, Shoulders"} split.`] : [];
+  if (!pasted && next.shoulders.off !== program.shoulders.off) {
     lines.push(next.shoulders.off
       ? "3-day split: Push, Pull, Legs. Your key shoulder lifts move into Push and Pull."
       : "4-day split: Push, Pull, Legs, Shoulders.");
@@ -76,7 +85,7 @@ export function planFor(program, { goals = [], days = 4 } = {}) {
   const style = styleFor(goals);
   const finisher = style === "lean";
   let restyled = 0;
-  for (const d of DAYS) {
+  for (const d of allDays(next)) {
     const exercises = next[d].exercises
       .filter((e) => finisher || !e.finisher)
       .map((e) => { const s = styled(e, style); if (s.reps[0] !== e.reps[0] || s.rest !== e.rest) restyled++; return s; });
@@ -91,7 +100,7 @@ export function planFor(program, { goals = [], days = 4 } = {}) {
       standard: "Rep ranges back to the standard muscle-building ranges",
     }[style] + (eg ? ` (e.g. ${eg.n}: ${eg.sets} × ${eg.reps[0]}–${eg.reps[1]}, ${eg.rest}s rest).` : "."));
   }
-  const hadFinisher = DAYS.some((d) => program[d].exercises.some((e) => e.finisher));
+  const hadFinisher = allDays(program).some((d) => program[d].exercises.some((e) => e.finisher));
   if (finisher && !hadFinisher) lines.push("A 10–15 min incline walk at the end of each day.");
   if (!finisher && hadFinisher) lines.push("Drop the incline-walk finisher.");
   return { program: next, lines };

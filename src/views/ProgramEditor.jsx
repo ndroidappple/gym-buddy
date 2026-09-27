@@ -1,7 +1,7 @@
 import React, { useState } from "react";
-import { ChevronLeft, ChevronUp, ChevronDown, Trash2, Plus } from "lucide-react";
-import { InfoButton, ExercisePicker, ConfirmSheet } from "../components/ui.jsx";
-import { isCardio, specLine } from "../data/program.js";
+import { ChevronLeft, ChevronUp, ChevronDown, Trash2, Plus, Pencil } from "lucide-react";
+import { InfoButton, ExercisePicker, ConfirmSheet, Sheet } from "../components/ui.jsx";
+import { isCardio, specLine, PROGRAM } from "../data/program.js";
 
 export default function ProgramEditor({ day, program, back, ops }) {
   const p = program[day];
@@ -13,6 +13,7 @@ export default function ProgramEditor({ day, program, back, ops }) {
       <header className="top ruled">
         <button className="icon-btn boxed" onClick={() => back("#/settings")} aria-label="Back"><ChevronLeft size={20} /></button>
         <h1 className="top-title" data-day={day}>{p.name}</h1>
+        <button className="icon-btn" onClick={() => setSheet("rename")} aria-label={`Rename ${p.name}`}><Pencil size={17} /></button>
         <span className="spacer" />
         <span className="mono small muted">{p.exercises.length} lifts</span>
         <InfoButton screen="program" />
@@ -35,7 +36,7 @@ export default function ProgramEditor({ day, program, back, ops }) {
           ))}
         </div>
         <button className="btn btn-ghost" data-help="add-lift" onClick={() => setSheet("picker")}><Plus size={18} aria-hidden="true" /> Add a lift</button>
-        <button className="btn-quiet" onClick={() => setSheet("restore")}>Restore {p.name} to its original lifts</button>
+        {(p.orig || PROGRAM[day]) && <button className="btn-quiet" onClick={() => setSheet("restore")}>Restore {p.name} to its original lifts</button>}
       </div>
 
       {sheet === "picker" && (
@@ -43,11 +44,24 @@ export default function ProgramEditor({ day, program, back, ops }) {
           existingNames={p.exercises.map((e) => e.n)} onClose={() => setSheet(null)}
           onPick={(ex) => { ops.add(day, ex); setSheet(null); }} />
       )}
+      {sheet === "rename" && <RenameDay name={p.name} onSave={(n) => ops.rename(day, n)} onClose={() => setSheet(null)} />}
       {sheet === "restore" && (
         <ConfirmSheet title={`Restore ${p.name}?`} body={`${p.name} goes back to its original lifts, sets and rest times. Other days are not changed.`}
           confirm="Restore" onClose={() => setSheet(null)} onConfirm={() => ops.restore(day)} />
       )}
     </main>
+  );
+}
+
+function RenameDay({ name, onSave, onClose }) {
+  const [value, setValue] = useState(name);
+  return (
+    <Sheet title={`Rename ${name}`} sub="Past sessions show the new name too." onClose={onClose} labelledBy="rename-day-title">
+      <form className="rename-form" onSubmit={(e) => { e.preventDefault(); onSave(value); onClose(); }}>
+        <input className="input" value={value} maxLength={20} enterKeyHint="done" aria-label="Workout name" onChange={(e) => setValue(e.target.value)} />
+        <button type="submit" className="btn btn-ink" disabled={!value.trim()}>Save name</button>
+      </form>
+    </Sheet>
   );
 }
 

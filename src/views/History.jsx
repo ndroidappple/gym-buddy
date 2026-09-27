@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { InfoButton, EmptyState } from "../components/ui.jsx";
 import { Pencil, CalendarDays, List, ChevronLeft, ChevronRight } from "lucide-react";
-import { DAYS, CUSTOM } from "../data/program.js";
+import { allDays, CUSTOM } from "../data/program.js";
 import { href } from "../lib/router.js";
 import { fmtSet, bestSet, byDateDesc, longDate, compact, sessionVolume, sessionSetCount, plural, priorSessions, allTimeBest, bestE1rm, e1rm, num, today, iso } from "../lib/util.js";
 
@@ -54,7 +54,7 @@ export default function History({ sessions, program }) {
         ) : (<>
         <div className="filters" role="group" aria-label="Filter by day">
           <button className="chip" aria-pressed={!filter} onClick={() => setFilter(null)}>All</button>
-          {[...DAYS, CUSTOM].filter((d) => !program[d].off || sessions.some((x) => x.day === d)).filter((d) => d !== CUSTOM || sessions.some((x) => x.day === d)).map((d) => (
+          {[...allDays(program), CUSTOM].filter((d) => !program[d].off || sessions.some((x) => x.day === d)).filter((d) => d !== CUSTOM || sessions.some((x) => x.day === d)).map((d) => (
             <button key={d} className="chip" data-day={d} aria-pressed={filter === d} onClick={() => setFilter(filter === d ? null : d)}>
               <span className="dot" aria-hidden="true" />{program[d].name}
             </button>

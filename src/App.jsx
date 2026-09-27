@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { PROGRAM, DAYS, CUSTOM, normalizeProgram } from "./data/program.js";
+import { PROGRAM, allDays, CUSTOM, normalizeProgram } from "./data/program.js";
 import { useRoute, href } from "./lib/router.js";
 import { Toast, TabBar, Boot, LoadError, SyncNote } from "./components/ui.jsx";
 import { loadState, createSaver } from "./lib/store.js";
@@ -171,16 +171,23 @@ export default function App() {
       patchDay(day, (list) => list.filter((e) => e.n !== name));
       notify(`${name} removed`, () => patchDay(day, (list) => { const c = [...list]; c.splice(i, 0, ex); return c; }));
     },
+    rename: (day, name) => {
+      const n = name.trim().slice(0, 20);
+      if (!n || n === program[day].name) return;
+      setProgram((p) => ({ ...p, [day]: { ...p[day], name: n } }));
+    },
     update: (day, name, patch) => patchDay(day, (xs) => xs.map((e) => (e.n === name ? { ...e, ...patch } : e))),
     move: (day, name, dir) => patchDay(day, (xs) => {
       const i = xs.findIndex((e) => e.n === name), j = i + dir;
       if (j < 0 || j >= xs.length) return xs;
       const c = [...xs]; [c[i], c[j]] = [c[j], c[i]]; return c;
     }),
+    // Back to the lifts the day started with: the lifter's imported ones if they brought their own program.
+    // The day keeps its name and whether it's in the rotation.
     restore: (day) => {
       const before = program[day];
-      setProgram((p) => ({ ...p, [day]: PROGRAM[day] }));
-      notify(`${PROGRAM[day].name} restored to defaults`, () => setProgram((p) => ({ ...p, [day]: before })));
+      setProgram((p) => ({ ...p, [day]: before.orig ? { ...p[day], exercises: before.orig } : { ...PROGRAM[day], name: p[day].name, off: p[day].off } }));
+      notify(`${before.name} restored`, () => setProgram((p) => ({ ...p, [day]: before })));
     },
   };
 
@@ -205,7 +212,8 @@ export default function App() {
     if (weight) setWeighins((ws) => [...ws.filter((w) => w.date !== today()), { date: today(), bw: weight }]);
   };
   // Tank's answers as they're given, so closing setup part way keeps them. Tank stays unmet until the plan step.
-  const saveSetupProgress = ({ profile, weight }) => {
+  const saveSetupProgress = ({ profile, weight, program: next }) => {
+    if (next) setProgram(next);
     if (profile) setPrefs((p) => ({ ...p, profile: { ...p.profile, ...profile } }));
     if (weight) setWeighins((ws) => [...ws.filter((w) => w.date !== today()), { date: today(), bw: weight }]);
   };
@@ -213,7 +221,7 @@ export default function App() {
   let view;
   switch (route.name) {
     case "session": {
-      if (!DAYS.includes(route.day) && route.day !== CUSTOM) { view = <Today {...common} />; break; }
+      if (!allDays(program).includes(route.day) && route.day !== CUSTOM) { view = <Today {...common} />; break; }
       const existing = route.id ? sessions.find((s) => s.id === route.id) : null;
       if (route.id && !existing) { view = <Today {...common} />; break; }
       view = (
@@ -232,10 +240,10 @@ export default function App() {
     case "history": view = <History {...common} />; break;
     case "progress": view = <Progress key={route.open || "p"} {...common} openPhase={route.open === "phase"} />; break;
     case "lift": view = <Lift {...common} name={route.lift} />; break;
-    case "settings": view = <Settings {...common} />; break;
-    case "program": view = DAYS.includes(route.day) ? <ProgramEditor {...common} day={route.day} ops={programOps} /> : <Settings {...common} />; break;
+    case "settings": view = <Settings {...common} onRename={programOps.rename} />; break;
+    case "program": view = allDays(program).includes(route.day) ? <ProgramEditor {...common} day={route.day} ops={programOps} /> : <Settings {...common} />; break;
     case "export": view = <Export {...common} />; break;
-    case "coaches": view = <Coaches key={route.coach || "grid"} {...common} openCoach={route.coach} onSetupDone={finishSetup} onSetupProgress={saveSetupProgress} />; break;
+    case "coaches": view = <Coaches key={(route.coach || "grid") + (route.mode || "")} {...common} openCoach={route.coach} openMode={route.mode} onSetupDone={finishSetup} onSetupProgress={saveSetupProgress} />; break;
     default: view = <Today {...common} />;
   }
 
