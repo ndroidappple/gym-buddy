@@ -74,10 +74,10 @@ export function repPRs(sessions, lift) {
   return Object.entries(m).map(([r, v]) => ({ r: +r, ...v })).sort((a, b) => a.r - b.r);
 }
 
-/** Monday-first dates of the current week. */
+/** Sunday-first dates of the current week. */
 export function weekDates(ref = new Date()) {
   const d = new Date(ref);
-  const offset = (d.getDay() + 6) % 7;
+  const offset = d.getDay(); // Sunday is 0
   d.setDate(d.getDate() - offset);
   return Array.from({ length: 7 }, (_, i) => { const x = new Date(d); x.setDate(d.getDate() + i); return iso(x); });
 }

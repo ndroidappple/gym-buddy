@@ -16,7 +16,7 @@ export const HELP = {
       { name: "Change", Icon: ArrowLeftRight, spot: "change", text: "Train a different day or a custom workout instead." },
       { name: "Targets", Icon: Target, text: "Each lift aims one rep or one set past last time. [↑] means add weight." },
       { name: "This week", Icon: CalendarCheck, spot: "week", text: "Dots mark the days you trained." },
-      { name: "Weigh-in", Icon: Scale, spot: "weigh", text: "Once a week, for your bodyweight chart. [✕] skips to Monday." },
+      { name: "Weigh-in", Icon: Scale, spot: "weigh", text: "Once a week, for your bodyweight chart. [✕] skips to Sunday." },
     ],
   },
   summary: {
