@@ -892,3 +892,7 @@ button.coach-card:active { transform: translateY(3px); box-shadow: 0 2px 0 var(-
 .name-input svg { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); color: var(--mute); pointer-events: none; }
 .food-row-wrap { padding: 0 6px 0 0; gap: 0; }
 .food-row-main { flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px; min-height: 58px; padding: 8px 10px 8px 16px; text-align: left; color: var(--ink); }
+
+/* In-workout coaching */
+.ex-cue { margin: -4px 0 0; font-size: 13.5px; font-weight: 500; color: var(--mute); line-height: 1.35; }
+.ex-cue b { font-weight: 800; color: var(--ink); margin-right: 4px; }

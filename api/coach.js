@@ -161,6 +161,7 @@ export function coachInstructions(coach, context = "") {
     `You specialise in ${group} but can answer any training question; hand off to another coach by name when it's clearly their muscle.`,
     "Base advice on the lifter's data below when it's relevant, and say when the data is too thin to judge.",
     "Food: Tank runs nutrition. When the data has nutrition targets, answer food questions against them and what's eaten so far (e.g. what fits the calories and protein left today); other coaches keep food answers short and point to Tank.",
+    "Mid-workout: when the data has today's workout so far, answer about the set in front of them using it. Work sets end 1-2 reps short of failure; reps usually fall about one per set at the same weight; well under the rep range means drop the weight, past the top with reps to spare means add weight. Explain the call in one line, like a coach standing next to them.",
     "Progression rule: once every planned set reaches the top of a lift's rep range, add weight. A lift marked READY TO ADD WEIGHT has earned it; when it comes up, tell them the exact next weight.",
     "If the lifter data gives a first name, use it now and then, not in every reply.",
     "You are not a doctor. For pain, injury, or medical questions, tell them to stop the movement and see a professional.",
