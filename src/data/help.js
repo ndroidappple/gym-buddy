@@ -28,8 +28,8 @@ export const HELP = {
       { name: "First time", Icon: Flag, text: "A new lift sets the baseline to beat next time." },
     ],
   },
-  history: {
-    title: "History",
+  workouts: {
+    title: "Workouts",
     steps: [
       { name: "Workouts", Icon: List, spot: "workout", text: "Sets, total weight and PRs for every workout you've logged." },
       { name: "Calendar", Icon: CalendarDays, spot: "calendar", text: "A month view. Tap a day to see it." },
@@ -39,6 +39,7 @@ export const HELP = {
   progress: {
     title: "Progress",
     steps: [
+      { name: "Trends", Icon: TrendingUp, spot: "views", text: "How your lifts and weight are moving. [Workouts] lists every session." },
       { name: "Est. max", Icon: Gauge, text: "The most you could likely lift once. 80 lb × 12 ≈ 112 lb." },
       { name: "Trend", Icon: TrendingUp, spot: "trend", text: "How much a lift has moved lately. [Baseline] means logged once." },
       { name: "PR", Icon: Trophy, spot: "pr", text: "A glowing row is a PR from your last workout. A [PR] stamp, the last two weeks." },
@@ -60,6 +61,7 @@ export const HELP = {
       { name: "Program", Icon: Dumbbell, spot: "program", text: "Each day's lifts, sets, reps and rest." },
       { name: "Rename workouts", Icon: Pencil, spot: "rename", text: "Call your days whatever you call them." },
       { name: "Bring in your own program", Icon: ClipboardPaste, spot: "import", text: "Paste a program you already run. Tank can review it." },
+      { name: "Your coaches", Icon: Users, spot: "coaches", text: "Ask a question or change your plan." },
       { name: "Redo setup", Icon: Sparkles, spot: "redo", text: "Meet your coaches again to reshape your plan." },
       { name: "Reps in reserve", Icon: Gauge, spot: "rir", text: "Rate how many more reps you had in you." },
       { name: "Export", Icon: Download, spot: "export", text: "Download a copy of all your data." },

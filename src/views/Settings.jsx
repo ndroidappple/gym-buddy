@@ -1,15 +1,15 @@
 import React, { useEffect, useState } from "react";
-import { ChevronRight, Download, LogOut, Moon, Gauge, Smartphone, Share, SquarePlus, EllipsisVertical, Check, Sparkles, Scale, Vibrate, Bell, Pencil, ClipboardPaste } from "lucide-react";
-import { Sheet, InfoButton } from "../components/ui.jsx";
+import { ChevronRight, Download, LogOut, Moon, Gauge, Smartphone, Share, SquarePlus, EllipsisVertical, Check, Sparkles, Scale, Vibrate, Bell, Pencil, ClipboardPaste, Users } from "lucide-react";
+import { Sheet, InfoButton, ConfirmSheet } from "../components/ui.jsx";
 import { ICONS, iconSrc } from "../lib/icons.js";
 import { DAYS, allDays, activeDays } from "../data/program.js";
 import { href } from "../lib/router.js";
 import { shortDate, canVibrate } from "../lib/util.js";
 import { supabase } from "../supabase-client.js";
 
-export default function Settings({ program, sessions, prefs, setPref, onRename }) {
+export default function Settings({ program, sessions, prefs, setPref, onRename, go }) {
   const [email, setEmail] = useState("");
-  const [sheet, setSheet] = useState(null); // "icon" | "install" | "rename"
+  const [sheet, setSheet] = useState(null); // "icon" | "install" | "rename" | "redo"
   const icon = ICONS.find((i) => i.id === prefs.icon) || ICONS[0];
   useEffect(() => { supabase.auth.getUser().then(({ data }) => setEmail(data.user?.email || "")); }, []);
 
@@ -39,19 +39,28 @@ export default function Settings({ program, sessions, prefs, setPref, onRename }
               <span className="name">Bring in your own program<span className="sub">Paste a program you already run. Tank can review it.</span></span>
               <ChevronRight size={18} aria-hidden="true" className="muted" />
             </a>
+          </div>
+        </section>
+
+        <section className="section">
+          <h2 className="lbl">Coaches &amp; goals</h2>
+          <div className="list">
+            <a className="list-row" data-help="coaches" href={href("coaches")}>
+              <Users size={18} aria-hidden="true" />
+              <span className="name">Your coaches<span className="sub">Ask a question or change your plan.</span></span>
+              <ChevronRight size={18} aria-hidden="true" className="muted" />
+            </a>
             {/* Phases live on Progress; this is the side door. */}
             <a className="list-row" href={href("progress", "phase")}>
               <Scale size={18} aria-hidden="true" />
               <span className="name">Bulk or cut phase<span className="sub">{prefs.phase ? `${prefs.phase.type === "cut" ? "Cut" : "Bulk"} to ${prefs.phase.target} lb · ends ${shortDate(prefs.phase.end)}` : "Set a short-term bodyweight goal."}</span></span>
               <ChevronRight size={18} aria-hidden="true" className="muted" />
             </a>
-            {/* Clears setup progress only; the program changes again only if the lifter confirms in the chats. */}
-            <a className="list-row" data-help="redo" href={href("coaches", "tank")}
-              onClick={() => { setPref("profile", { ...prefs.profile, doneAt: null }); setPref("coachSetup", {}); }}>
+            <button className="list-row" data-help="redo" onClick={() => setSheet("redo")}>
               <Sparkles size={18} aria-hidden="true" />
               <span className="name">Redo setup with your coaches<span className="sub">Goals, training days and the lifts each coach runs.</span></span>
               <ChevronRight size={18} aria-hidden="true" className="muted" />
-            </a>
+            </button>
           </div>
         </section>
 
@@ -134,6 +143,12 @@ export default function Settings({ program, sessions, prefs, setPref, onRename }
         </Sheet>
       )}
       {sheet === "install" && <InstallSheet onClose={() => setSheet(null)} />}
+      {/* Clears setup progress only; the program changes again only if the lifter confirms in the chats. */}
+      {sheet === "redo" && (
+        <ConfirmSheet title="Redo setup?" body="You'll meet each coach again. Your program and history stay as they are unless you change them in the chats."
+          confirm="Start setup" danger={false} onClose={() => setSheet(null)}
+          onConfirm={() => { setPref("profile", { ...prefs.profile, doneAt: null }); setPref("coachSetup", {}); go(href("coaches", "tank")); }} />
+      )}
       {sheet === "rename" && <RenameSheet program={program} onRename={onRename} onClose={() => setSheet(null)} />}
     </main>
   );

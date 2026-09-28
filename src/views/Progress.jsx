@@ -1,18 +1,65 @@
 import React, { useMemo, useState } from "react";
-import { Scale } from "lucide-react";
+import { Scale, CalendarDays, List } from "lucide-react";
 import { isCardio, activeDays } from "../data/program.js";
 import { href } from "../lib/router.js";
 import { liftSeries, trend, num, fmtW, bestSet, isIsolation, shortDate, bodyweightSeries, daysBetween, today } from "../lib/util.js";
-import { InfoButton, Sparkline, Trend, EmptyState } from "../components/ui.jsx";
+import { InfoButton, Sparkline, Trend, EmptyState, Sheet } from "../components/ui.jsx";
 import PhaseCard from "../components/PhaseCard.jsx";
 import PhaseSheet from "../components/PhaseSheet.jsx";
+import Workouts from "./Workouts.jsx";
 
 /* A lift is "on a PR" when its latest session beat every earlier one (not its first) in the last two weeks.
    Only PRs from the most recent workout glow; older ones keep a still stamp, so the glow stays news. */
 const PR_DAYS = 14;
 
-export default function Progress({ sessions, program, weighins, prefs, setPref, notify, onWeighin, onProgramChange, openPhase }) {
-  const [starting, setStarting] = useState(!!openPhase && !prefs?.phase);
+/* Progress has two views: Trends (is it working?) and Workouts (what did I do?, formerly the
+   History tab). The view is in the URL (#/progress/trends, #/progress/workouts) so back from a lift or
+   a session lands on the same view; a plain #/progress opens whichever was used last on this device. */
+const SEG_KEY = "ironlog-progress-view"; // "trends" | "workouts"
+const CAL_KEY = "ironlog-history-view"; // "list" | "calendar" (key kept from the History tab)
+const readLocal = (k, d) => { try { return localStorage.getItem(k) || d; } catch { return d; } };
+const writeLocal = (k, v) => { try { localStorage.setItem(k, v); } catch {} };
+
+export default function Progress({ open, go, ...props }) {
+  const { sessions } = props;
+  const seg = open === "workouts" ? "workouts" : open === "trends" || open === "phase" ? "trends" : readLocal(SEG_KEY, "trends") === "workouts" ? "workouts" : "trends";
+  const pick = (v) => { writeLocal(SEG_KEY, v); if (v !== seg) go(href("progress", v), { replace: true }); };
+  const [calendar, setCalendar] = useState(() => readLocal(CAL_KEY, "list") === "calendar");
+  const toggleCalendar = () => { writeLocal(CAL_KEY, calendar ? "list" : "calendar"); setCalendar(!calendar); };
+  const workouts = seg === "workouts";
+
+  return (
+    <main className="screen has-tabs">
+      <header className="top">
+        <h1 className="page-title">Progress</h1>
+        <span className="spacer" />
+        {workouts && sessions.length > 0 && (
+          <button className="icon-btn" data-help="calendar" onClick={toggleCalendar} aria-pressed={calendar}
+            aria-label={calendar ? "Show as a list" : "Show as a calendar"}>
+            {calendar ? <List size={20} strokeWidth={2.4} /> : <CalendarDays size={20} strokeWidth={2.4} />}
+          </button>
+        )}
+        <InfoButton screen={workouts ? "workouts" : "progress"} />
+      </header>
+      <div className="body">
+        <div className="segctl" data-help="views" role="group" aria-label="Progress view">
+          <button aria-pressed={!workouts} onClick={() => pick("trends")}>Trends</button>
+          <button aria-pressed={workouts} onClick={() => pick("workouts")}>Workouts{sessions.length > 0 && <span className="seg-count"> · {sessions.length}</span>}</button>
+        </div>
+        {workouts
+          ? <Workouts sessions={sessions} program={props.program} calendar={calendar} />
+          : <Trends {...props} openPhase={open === "phase"} onPhaseSheetClosed={() => open === "phase" && go(href("progress", "trends"), { replace: true })} />}
+      </div>
+    </main>
+  );
+}
+
+/** Trends: the bulk/cut phase, bodyweight, and every lift's est. max trend with PRs. */
+function Trends({ sessions, program, weighins, prefs, setPref, notify, onWeighin, onProgramChange, openPhase, onPhaseSheetClosed }) {
+  const [starting, setStartingRaw] = useState(!!openPhase && !prefs?.phase);
+  // Opened from Settings (#/progress/phase): once the sheet closes, drop "phase" from the URL so
+  // coming back here (e.g. from a lift) doesn't pop the sheet open again.
+  const setStarting = (v) => { setStartingRaw(v); if (!v) onPhaseSheetClosed?.(); };
   const phase = prefs?.phase || null;
   const updatePhase = (patch) => setPref("phase", { ...phase, ...patch });
   // Ending files the phase (with its recap) under phaseHistory; Undo puts it back.
@@ -48,75 +95,71 @@ export default function Progress({ sessions, program, weighins, prefs, setPref, 
   const all = groups.flatMap((g) => g.logged).filter((r) => r.pct != null);
   const up = all.filter((r) => r.pct >= 1).length;
   const bw = useMemo(() => bodyweightSeries(sessions, weighins), [sessions, weighins]);
+  const [weighing, setWeighing] = useState(false);
 
   return (
-    <main className="screen has-tabs">
-      <header className="top">
-        <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 2 }}>
-          <h1 className="page-title">Progress</h1>
-          {all.length > 0 && <span className="lbl" style={{ fontSize: 15 }}>{up} of {all.length} lifts moving up</span>}
-        </div>
-        <InfoButton screen="progress" />
-      </header>
-      <div className="body">
-        <PhaseCard phase={phase} sessions={sessions} weighins={weighins} program={program}
-          onStart={() => setStarting(true)} onLog={onWeighin} onUpdate={updatePhase} onEnd={endPhase} onProgramChange={onProgramChange} />
-        <Bodyweight series={bw} phase={phase} />
-        {starting && (
-          <PhaseSheet lastWeight={bw[bw.length - 1]?.bw} onClose={() => setStarting(false)}
-            onStart={(p) => {
-              setPref("phase", p);
-              // The phase starts from today's weight; log it so the chart and pace begin there.
-              if (!weighins.some((w) => w.date === p.start && w.bw === p.startWeight)) onWeighin(p.start, p.startWeight);
-              setStarting(false);
-            }} />
-        )}
+    <>
+      {all.length > 0 && <p className="lbl trends-sum">{up} of {all.length} lifts moving up</p>}
+      <PhaseCard phase={phase} sessions={sessions} weighins={weighins} program={program}
+        onStart={() => setStarting(true)} onLog={onWeighin} onUpdate={updatePhase} onEnd={endPhase} onProgramChange={onProgramChange} />
+      <Bodyweight series={bw} phase={phase} onLog={() => setWeighing(true)} />
+      {weighing && <WeighSheet last={bw[bw.length - 1]} onClose={() => setWeighing(false)} onSave={(v) => { onWeighin(today(), v); setWeighing(false); }} />}
+      {starting && (
+        <PhaseSheet lastWeight={bw[bw.length - 1]?.bw} onClose={() => setStarting(false)}
+          onStart={(p) => {
+            setPref("phase", p);
+            // The phase starts from today's weight; log it so the chart and pace begin there.
+            if (!weighins.some((w) => w.date === p.start && w.bw === p.startWeight)) onWeighin(p.start, p.startWeight);
+            setStarting(false);
+          }} />
+      )}
 
-        {sessions.length === 0 && (
-          <EmptyState coach="wings" title="Your lifts will show up here" action="Start your first workout" href="#/today">
-            After your first workout, each lift gets a trend line and a PR marker. Two workouts in, you'll see which lifts are moving up.
-          </EmptyState>
-        )}
+      {sessions.length === 0 && (
+        <EmptyState coach="wings" title="Your lifts will show up here" action="Start your first workout" href="#/today">
+          After your first workout, each lift gets a trend line and a PR marker. Two workouts in, you'll see which lifts are moving up.
+        </EmptyState>
+      )}
 
-        {sessions.length > 0 && groups.map((g) => (g.logged.length || g.unlogged.length) ? (
-          <section key={g.name} className="section" data-day={g.day || undefined}>
-            <h2 className="lbl" style={{ display: "flex", alignItems: "center", gap: 8 }}><span className="dot" aria-hidden="true" />{g.name}</h2>
-            <div className="card-list">
-              {g.logged.map((r) => (
-                // PRs from the latest workout get the animated gold rim (.pr-rim); with motion off it holds still.
-                <a key={r.n} className={"lift-row" + (r.fresh ? " pr-rim" : "")} data-help={r.fresh || r.pr ? "pr" : "lift"} href={href("lift", r.n)}>
-                  <span className="name">{r.pr && <span className="stamp pr-stamp">PR</span>}{r.n}
-                    <span className="sub">{r.top ? `Best ${fmtW(r.top.w)} × ${r.top.r}` : `Est. max ${num(r.best)} lb`} · {r.vals.length} session{r.vals.length > 1 ? "s" : ""}</span>
-                  </span>
-                  <Sparkline values={r.vals} />
-                  <Trend pct={r.pct} help="trend" />
-                </a>
-              ))}
-              {g.unlogged.length > 0 && (
-                <div className="lift-row unlogged">
-                  <span className="name" style={{ whiteSpace: "normal" }}>Not logged yet
-                    <span className="sub">{g.unlogged.join(", ")}</span>
-                  </span>
-                </div>
-              )}
-            </div>
-          </section>
-        ) : null)}
-      </div>
-    </main>
+      {sessions.length > 0 && groups.map((g) => (g.logged.length || g.unlogged.length) ? (
+        <section key={g.name} className="section" data-day={g.day || undefined}>
+          <h2 className="lbl" style={{ display: "flex", alignItems: "center", gap: 8 }}><span className="dot" aria-hidden="true" />{g.name}</h2>
+          <div className="card-list">
+            {g.logged.map((r) => (
+              // PRs from the latest workout get the animated gold rim (.pr-rim); with motion off it holds still.
+              <a key={r.n} className={"lift-row" + (r.fresh ? " pr-rim" : "")} data-help={r.fresh || r.pr ? "pr" : "lift"} href={href("lift", r.n)}>
+                <span className="name">{r.pr && <span className="stamp pr-stamp">PR</span>}{r.n}
+                  <span className="sub">{r.top ? `Best ${fmtW(r.top.w)} × ${r.top.r}` : `Est. max ${num(r.best)} lb`} · {r.vals.length} session{r.vals.length > 1 ? "s" : ""}</span>
+                </span>
+                <Sparkline values={r.vals} />
+                <Trend pct={r.pct} help="trend" />
+              </a>
+            ))}
+            {g.unlogged.length > 0 && (
+              <div className="lift-row unlogged">
+                <span className="name" style={{ whiteSpace: "normal" }}>Not logged yet
+                  <span className="sub">{g.unlogged.join(", ")}</span>
+                </span>
+              </div>
+            )}
+          </div>
+        </section>
+      ) : null)}
+    </>
   );
 }
 
 /* Weigh-ins and session bodyweight together. The card is a way in, not a verdict: the change is shown, never colored. */
-function Bodyweight({ series, phase }) {
+function Bodyweight({ series, phase, onLog }) {
+  // During a phase the phase card above has its own weigh-in field.
   if (phase) return <PhaseChart series={series} phase={phase} />;
   if (series.length < 2) {
     return (
       <div className="card bw-empty">
         <span className="weigh-icon" aria-hidden="true"><Scale size={22} /></span>
-        <span className="small" style={{ fontWeight: 600 }}>
-          {series.length ? `${num(series[0].bw)} lb logged. One more weigh-in and your chart starts.` : "Log a weigh-in on Today to start your bodyweight chart."}
+        <span className="small" style={{ fontWeight: 600, flex: 1 }}>
+          {series.length ? `${num(series[0].bw)} lb logged. One more weigh-in and your chart starts.` : "Log your bodyweight to start the chart."}
         </span>
+        <button type="button" className="btn btn-ghost bw-log" onClick={onLog}>Log</button>
       </div>
     );
   }
@@ -135,6 +178,7 @@ function Bodyweight({ series, phase }) {
           <span className="big">{num(last.bw)} <small>lb</small></span>
         </div>
         <span className="pill">{change}</span>
+        <button type="button" className="pill bw-log-pill" onClick={onLog} aria-label="Log a weigh-in">+ Log</button>
       </div>
       <svg viewBox={`0 0 ${W} ${H}`} aria-hidden="true">
         <polyline points={pts.map((p) => p.join(",")).join(" ")} fill="none" stroke="#FFFFFF" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
@@ -143,6 +187,22 @@ function Bodyweight({ series, phase }) {
       </svg>
       <div className="ends"><span style={{ flex: 1 }}>{shortDate(first.date)}</span><span>{shortDate(last.date)}</span></div>
     </section>
+  );
+}
+
+/** Log today's bodyweight from Progress, any day (Today only nudges weekly). */
+function WeighSheet({ last, onSave, onClose }) {
+  const [v, setV] = useState("");
+  const n = parseFloat(v);
+  const ok = n > 50 && n < 800;
+  return (
+    <Sheet title="Log a weigh-in" sub={last ? `Last: ${num(last.bw)} lb on ${shortDate(last.date)}. Same day replaces it.` : "Today's bodyweight in lb."} onClose={onClose} labelledBy="weigh-sheet-title">
+      <form className="rename-form" onSubmit={(e) => { e.preventDefault(); if (ok) onSave(Math.round(n * 10) / 10); }}>
+        <input className="input" type="number" inputMode="decimal" step="0.1" value={v} placeholder={last ? num(last.bw) : "lb"}
+          aria-label="Bodyweight in pounds" onChange={(e) => setV(e.target.value)} />
+        <button type="submit" className="btn btn-ink" disabled={!ok}>Save</button>
+      </form>
+    </Sheet>
   );
 }
 

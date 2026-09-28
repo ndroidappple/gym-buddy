@@ -389,7 +389,7 @@ export default function Session({ day, existing, draft, sessions, program, weigh
       {chat && <CoachChat coach={chat.coach} exercise={chat.exercise} sessions={sessions} program={program} weighins={weighins} profile={prefs.profile} phase={prefs.phase} onProgramChange={onProgramChange} onClose={() => setChat(null)} />}
       {sheet === "delete" && (
         <ConfirmSheet title="Delete session?" body={`${dayProgram.name} on ${shortDate(existing.date)} and all its sets will be removed.`}
-          confirm="Delete" onClose={() => setSheet(null)} onConfirm={() => { onDelete(existing); back("#/history"); }} />
+          confirm="Delete" onClose={() => setSheet(null)} onConfirm={() => { onDelete(existing); back("#/progress/workouts"); }} />
       )}
     </main>
   );
