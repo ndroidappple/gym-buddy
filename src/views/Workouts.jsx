@@ -1,16 +1,14 @@
 import React, { useMemo, useState } from "react";
-import { InfoButton, EmptyState } from "../components/ui.jsx";
-import { Pencil, CalendarDays, List, ChevronLeft, ChevronRight } from "lucide-react";
+import { EmptyState } from "../components/ui.jsx";
+import { Pencil, ChevronLeft, ChevronRight } from "lucide-react";
 import { allDays, CUSTOM } from "../data/program.js";
 import { href } from "../lib/router.js";
 import { fmtSet, bestSet, byDateDesc, longDate, compact, sessionVolume, sessionSetCount, plural, priorSessions, allTimeBest, bestE1rm, e1rm, num, today, iso } from "../lib/util.js";
 
-const VIEW_KEY = "ironlog-history-view"; // "list" | "calendar", per device
-
-export default function History({ sessions, program }) {
+/** Progress → Workouts: every logged workout as a list or a month calendar, filterable by day.
+    The list/calendar switch lives in the Progress header (`calendar`). */
+export default function Workouts({ sessions, program, calendar }) {
   const [filter, setFilter] = useState(null);
-  const [view, setView] = useState(() => { try { return localStorage.getItem(VIEW_KEY) || "list"; } catch { return "list"; } });
-  const pickView = (v) => { setView(v); try { localStorage.setItem(VIEW_KEY, v); } catch {} };
   const sorted = useMemo(() => [...sessions].sort(byDateDesc), [sessions]);
   const shown = filter ? sorted.filter((s) => s.day === filter) : sorted;
 
@@ -32,46 +30,32 @@ export default function History({ sessions, program }) {
     return m;
   }, [sessions]);
 
-  const calendar = view === "calendar";
   return (
-    <main className="screen has-tabs">
-      <header className="top">
-        <h1 className="page-title">History</h1><span className="spacer" />
-        {sessions.length > 0 && (<>
-          <span className="mono small muted">{sessions.length} sessions</span>
-          <button className="icon-btn" data-help="calendar" onClick={() => pickView(calendar ? "list" : "calendar")} aria-pressed={calendar}
-            aria-label={calendar ? "Show as a list" : "Show as a calendar"}>
-            {calendar ? <List size={20} strokeWidth={2.4} /> : <CalendarDays size={20} strokeWidth={2.4} />}
+    <>
+      {sessions.length === 0 ? (
+        <EmptyState title="No workouts yet" action="Start your first workout" href="#/today">
+          Every workout you log shows up here: sets, total weight lifted and any PRs. Tap the pencil on one to fix a mistake.
+        </EmptyState>
+      ) : (<>
+      <div className="filters" role="group" aria-label="Filter by day">
+        <button className="chip" aria-pressed={!filter} onClick={() => setFilter(null)}>All</button>
+        {[...allDays(program), CUSTOM].filter((d) => !program[d].off || sessions.some((x) => x.day === d)).filter((d) => d !== CUSTOM || sessions.some((x) => x.day === d)).map((d) => (
+          <button key={d} className="chip" data-day={d} aria-pressed={filter === d} onClick={() => setFilter(filter === d ? null : d)}>
+            <span className="dot" aria-hidden="true" />{program[d].name}
           </button>
-        </>)}
-        <InfoButton screen="history" />
-      </header>
-      <div className="body">
-        {sessions.length === 0 ? (
-          <EmptyState title="No workouts yet" action="Start your first workout" href="#/today">
-            Every workout you log shows up here: sets, total weight lifted and any PRs. Tap the pencil on one to fix a mistake.
-          </EmptyState>
-        ) : (<>
-        <div className="filters" role="group" aria-label="Filter by day">
-          <button className="chip" aria-pressed={!filter} onClick={() => setFilter(null)}>All</button>
-          {[...allDays(program), CUSTOM].filter((d) => !program[d].off || sessions.some((x) => x.day === d)).filter((d) => d !== CUSTOM || sessions.some((x) => x.day === d)).map((d) => (
-            <button key={d} className="chip" data-day={d} aria-pressed={filter === d} onClick={() => setFilter(filter === d ? null : d)}>
-              <span className="dot" aria-hidden="true" />{program[d].name}
-            </button>
-          ))}
-        </div>
-
-        {calendar
-          ? <MonthCalendar sessions={shown} program={program} prs={prs} />
-          : (
-            <>
-              {shown.length === 0 && <p className="muted">No {filter ? program[filter].name : ""} sessions logged yet.</p>}
-              {shown.map((s) => <HistCard key={s.id} s={s} program={program} prs={prs} />)}
-            </>
-          )}
-        </>)}
+        ))}
       </div>
-    </main>
+
+      {calendar
+        ? <MonthCalendar sessions={shown} program={program} prs={prs} />
+        : (
+          <>
+            {shown.length === 0 && <p className="muted">No {filter ? program[filter].name : ""} sessions logged yet.</p>}
+            {shown.map((s) => <HistCard key={s.id} s={s} program={program} prs={prs} />)}
+          </>
+        )}
+      </>)}
+    </>
   );
 }
 

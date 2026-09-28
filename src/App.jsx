@@ -13,7 +13,6 @@ import { setSound } from "./lib/sound.js";
 import Today from "./views/Today.jsx";
 import Session from "./views/Session.jsx";
 import Summary from "./views/Summary.jsx";
-import History from "./views/History.jsx";
 import Progress from "./views/Progress.jsx";
 import Lift from "./views/Lift.jsx";
 import Settings from "./views/Settings.jsx";
@@ -23,7 +22,7 @@ import Coaches from "./views/Coaches.jsx";
 import NamePrompt from "./components/NamePrompt.jsx";
 import Welcome from "./components/Welcome.jsx";
 
-const TAB_VIEWS = ["today", "history", "progress", "settings", "lift"];
+const TAB_VIEWS = ["today", "progress", "settings", "lift"];
 
 /** Saved account data as app state, with defaults filled in. */
 const fromData = (data) => ({
@@ -237,8 +236,7 @@ export default function App() {
       view = s ? <Summary {...common} session={s} onUpdate={upsertSession} /> : <Today {...common} />;
       break;
     }
-    case "history": view = <History {...common} />; break;
-    case "progress": view = <Progress key={route.open || "p"} {...common} openPhase={route.open === "phase"} />; break;
+    case "progress": view = <Progress key={route.open || "p"} {...common} open={route.open} />; break;
     case "lift": view = <Lift {...common} name={route.lift} />; break;
     case "settings": view = <Settings {...common} onRename={programOps.rename} />; break;
     case "program": view = allDays(program).includes(route.day) ? <ProgramEditor {...common} day={route.day} ops={programOps} /> : <Settings {...common} />; break;

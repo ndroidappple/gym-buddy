@@ -247,7 +247,7 @@ function WeighIn({ last, skip, onSave }) {
 function PhaseLine({ phase, sessions, weighins }) {
   const s = phaseStatus(phase, sessions, weighins);
   return (
-    <a className="card phase-line" href={href("progress")}>
+    <a className="card phase-line" href={href("progress", "trends")}>
       <b>{PHASE_TYPES[phase.type].label} · week {s.week} of {s.weeks}</b>
       <span>{statusLine(phase, s)}</span>
     </a>

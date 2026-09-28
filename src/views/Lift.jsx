@@ -22,7 +22,7 @@ function CardioLog({ name, sessions, program, back }) {
   return (
     <main className="screen has-tabs">
       <header className="top">
-        <button className="icon-btn boxed" onClick={() => back("#/progress")} aria-label="Back"><ChevronLeft size={20} /></button>
+        <button className="icon-btn boxed" onClick={() => back("#/progress/trends")} aria-label="Back"><ChevronLeft size={20} /></button>
         <span className="spacer" />
         <InfoButton screen="lift" />
       </header>
@@ -71,7 +71,7 @@ function LiftDetail({ name, sessions, program, back }) {
   return (
     <main className="screen has-tabs" data-day={day}>
       <header className="top">
-        <button className="icon-btn boxed" onClick={() => back("#/progress")} aria-label="Back"><ChevronLeft size={20} /></button>
+        <button className="icon-btn boxed" onClick={() => back("#/progress/trends")} aria-label="Back"><ChevronLeft size={20} /></button>
         <span className="spacer" />
         {day && <span className="chip"><span className="dot" aria-hidden="true" />{program[day].name}</span>}
         <InfoButton screen="lift" />

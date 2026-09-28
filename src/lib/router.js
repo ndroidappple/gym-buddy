@@ -1,6 +1,9 @@
 import { useEffect, useState, useCallback } from "react";
 
-const TABS = ["today", "history", "progress", "settings"];
+const TABS = ["today", "progress", "settings"];
+
+/** The History tab became Progress → Workouts: rewrite old links in place so the address matches. */
+const upgrade = () => { if (/^#\/?history\/?$/.test(location.hash)) history.replaceState(history.state, "", "#/progress/workouts"); };
 
 export function parse(hash) {
   const parts = hash.replace(/^#\/?/, "").split("/").filter(Boolean).map(decodeURIComponent);
@@ -15,6 +18,8 @@ export function parse(hash) {
       if (a === "export") return { name: "export" };
       return { name: "settings" };
     case "progress": return { name, open: a };
+    // The History tab is now Progress → Workouts; old links still land there.
+    case "history": return { name: "progress", open: "workouts" };
     default: return TABS.includes(name) ? { name } : { name: "today" };
   }
 }
@@ -28,11 +33,12 @@ let counter = 0;
 
 /** Hash routing so the phone's back gesture and browser back stay inside the app. */
 export function useRoute() {
-  const [route, setRoute] = useState(() => parse(location.hash));
+  const [route, setRoute] = useState(() => { upgrade(); return parse(location.hash); });
   useEffect(() => {
     if (history.state?.ironlogIdx == null) history.replaceState({ ironlogIdx: 0 }, "");
     counter = pos();
     const on = () => {
+      upgrade();
       if (history.state?.ironlogIdx == null) history.replaceState({ ironlogIdx: ++counter }, "");
       else counter = pos();
       setRoute(parse(location.hash));

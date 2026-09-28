@@ -1,6 +1,6 @@
 import React, { useEffect, useLayoutEffect, useRef, useState, useMemo } from "react";
 import { createPortal } from "react-dom";
-import { X, Home, CalendarDays, TrendingUp, Settings as Gear, Plus, Info, ChevronLeft, ArrowUpRight } from "lucide-react";
+import { X, Home, TrendingUp, Settings as Gear, Plus, Info, ChevronLeft, ArrowUpRight } from "lucide-react";
 import { HELP } from "../data/help.js";
 import { vibrate } from "../lib/util.js";
 import { LIBRARY, specLine } from "../data/program.js";
@@ -142,12 +142,13 @@ export function InfoButton({ screen }) {
   );
 }
 
-export function ConfirmSheet({ title, body, confirm, onConfirm, onClose }) {
+/** `danger` (the default) is for deletes and resets; pass false for a confirm that loses nothing. */
+export function ConfirmSheet({ title, body, confirm, onConfirm, onClose, danger = true }) {
   return (
     <Sheet title={title} sub={body} onClose={onClose} labelledBy="confirm-title">
       <div className="btn-row">
         <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
-        <button className="btn btn-danger" onClick={() => { onConfirm(); onClose(); }}>{confirm}</button>
+        <button className={"btn " + (danger ? "btn-danger" : "btn-ink")} onClick={() => { onConfirm(); onClose(); }}>{confirm}</button>
       </div>
     </Sheet>
   );
@@ -168,7 +169,6 @@ export function Toast({ toast, onDismiss, raised }) {
 
 const TABS = [
   { key: "today", label: "Today", Icon: Home },
-  { key: "history", label: "History", Icon: CalendarDays },
   { key: "progress", label: "Progress", Icon: TrendingUp },
   { key: "settings", label: "Settings", Icon: Gear },
 ];
