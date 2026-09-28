@@ -885,3 +885,10 @@ button.coach-card:active { transform: translateY(3px); box-shadow: 0 2px 0 var(-
 .meal-breakdown { margin: 0; padding: 10px 14px; border-radius: var(--r); background: var(--surface); border: 2px solid var(--rule); list-style: none; display: flex; flex-direction: column; gap: 4px; font-size: 13.5px; font-weight: 600; }
 .meal-breakdown li { display: flex; gap: 8px; }
 .meal-breakdown li span { margin-left: auto; font-weight: 800; }
+
+/* Editable names */
+.name-input { position: relative; display: block; }
+.name-input .input { padding-right: 40px; font-weight: 700; }
+.name-input svg { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); color: var(--mute); pointer-events: none; }
+.food-row-wrap { padding: 0 6px 0 0; gap: 0; }
+.food-row-main { flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px; min-height: 58px; padding: 8px 10px 8px 16px; text-align: left; color: var(--ink); }

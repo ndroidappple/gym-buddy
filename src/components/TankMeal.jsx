@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { ArrowUp, Check, Utensils } from "lucide-react";
+import { ArrowUp, Check, Utensils, Pencil } from "lucide-react";
 import { ThinkingOrb } from "thinking-orbs";
 import Coach from "./Coach.jsx";
 import { COACHES } from "../data/coaches.js";
@@ -130,7 +130,8 @@ function MealCard({ meal, name, onName }) {
   return (
     <div className="proposal meal-card" role="group" aria-label={`${meal.name}: ${fmt(t.kcal)} calories`}>
       <span className="proposal-head"><Utensils size={16} strokeWidth={2.6} aria-hidden="true" />
-        <input className="meal-name" value={name} maxLength={60} onChange={(e) => onName(e.target.value)} aria-label="Meal name" /></span>
+        <input className="meal-name" value={name} maxLength={60} onChange={(e) => onName(e.target.value)} aria-label="Meal name" />
+        <Pencil size={15} aria-hidden="true" className="muted" /></span>
       <ul className="meal-items">
         {meal.items.map((x, i) => (
           <li key={i}>

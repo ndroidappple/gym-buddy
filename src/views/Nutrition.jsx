@@ -3,6 +3,7 @@ import { ChevronLeft, ChevronRight, Plus, Copy } from "lucide-react";
 import { InfoButton, Sheet, EmptyState } from "../components/ui.jsx";
 import AddFood, { Portion, QuickAdd, amountLabel } from "../components/AddFood.jsx";
 import { MEALS, totals, byDate, weekSummary, addDays } from "../lib/nutrition.js";
+import { savedFoodFor } from "../lib/food.js";
 import { href } from "../lib/router.js";
 import { today, longDate, plural } from "../lib/util.js";
 
@@ -98,8 +99,14 @@ export default function Nutrition({ food, prefs, notify }) {
       {entry && (
         <Sheet title={entry.source === "quick" ? "Edit calories" : "Edit food"} onClose={() => setEditing(null)} labelledBy="edit-food-title">
           {entry.basis
-            ? <Portion item={entry} amount={entry.amount} unit={entry.unit} meal={entry.meal} onMeal={(meal) => food.updateEntry(entry.id, { meal })} action="Save"
-                onSave={({ amount, unit, n: x }) => { food.updateEntry(entry.id, { amount, unit, grams: x.grams, kcal: x.kcal, protein: x.protein, carbs: x.carbs, fat: x.fat }); setEditing(null); }}
+            ? <Portion item={entry} editName amount={entry.amount} unit={entry.unit} meal={entry.meal} onMeal={(meal) => food.updateEntry(entry.id, { meal })} action="Save"
+                onSave={({ amount, unit, n: x, name }) => {
+                  food.updateEntry(entry.id, { name, amount, unit, grams: x.grams, kcal: x.kcal, protein: x.protein, carbs: x.carbs, fat: x.fat });
+                  // Logged from a saved food (e.g. one Tank made): keep the saved one's name in step.
+                  const saved = savedFoodFor(food.foods, entry);
+                  if (saved && name !== entry.name) food.updateFood(saved.id, { name });
+                  setEditing(null);
+                }}
                 onDelete={() => remove(entry)} />
             : <QuickAdd entry={entry} meal={entry.meal} onMeal={(meal) => food.updateEntry(entry.id, { meal })} action="Save"
                 onSave={(row) => { food.updateEntry(entry.id, row); setEditing(null); }} onDelete={() => remove(entry)} />}

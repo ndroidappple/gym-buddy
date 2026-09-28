@@ -167,6 +167,22 @@ export function cleanMeal(m) {
   }).filter((x) => x.kcal > 0 || x.protein > 0);
   if (!items.length) return null;
   const sum = (k) => Math.round(items.reduce((a, x) => a + x[k], 0) * (k === "kcal" ? 1 : 10)) / (k === "kcal" ? 1 : 10);
-  const name = String(m.name || "").trim().slice(0, 60) || items.map((x) => x.food).join(", ").slice(0, 60);
+  const name = shortName(m.name) || shortName(items.slice(0, 2).map((x) => x.food).join(" & "));
   return { name, items, total: { kcal: sum("kcal"), protein: sum("protein"), carbs: sum("carbs"), fat: sum("fat") }, estimated: items.some((x) => x.estimated) };
+}
+
+/** A food name for a list: amounts, brackets and "with …" tails removed, Title Case, and cut at a
+    word to at most 28 characters. "PB protein oatmeal with apple (1/2 cup)" -> "PB Protein Oatmeal". */
+export function shortName(s) {
+  let t = String(s || "").replace(/\([^)]*\)/g, " ");
+  // "Oatmeal with peanut butter, apple…": keep the dish; a one-word dish keeps its first addition too.
+  const m = t.match(/^(.*?)\s+(?:with|w\/|plus)\s+(.*)$/i);
+  if (m) t = m[1].trim().split(/\s+/).length === 1 ? `${m[1].trim()} & ${m[2].split(/,|\band\b|&/i)[0].trim()}` : m[1];
+  t = t
+    .replace(/\b\d+([./]\d+)?\s*(g|grams?|oz|ml|cups?|tbsp|tsp|scoops?|slices?|pieces?)?\b/gi, " ")
+    .replace(/\b(meal|breakfast|lunch|dinner|snack)\b$/i, "")
+    .replace(/\s+/g, " ").trim();
+  t = t.replace(/\b([a-z])([a-z]*)/g, (w, a, b) => (["and", "or", "of", "on", "in", "with"].includes(w) ? w : a.toUpperCase() + b));
+  if (t.length > 28) t = t.slice(0, 29).replace(/\s+\S*$/, "").replace(/[\s&,-]+$/, "");
+  return t.slice(0, 28);
 }

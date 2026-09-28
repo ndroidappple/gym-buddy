@@ -95,7 +95,7 @@ export const FOOD_TOOLS = {
     inputSchema: jsonSchema({
       type: "object",
       properties: {
-        name: { type: "string", maxLength: 60, description: "Short name for the whole meal, e.g. \"PB protein oatmeal\"." },
+        name: { type: "string", maxLength: 32, description: "2 to 4 words naming the dish, Title Case, no amounts or brands: \"PB Protein Oats\", \"Chicken Rice Bowl\", \"Turkey Sandwich\"." },
         items: {
           type: "array", minItems: 1, maxItems: 12,
           items: {
@@ -129,6 +129,7 @@ export function foodInstructions(context = "") {
     "Missing amounts: if any item has no amount, count or size, and the answer would change the calories by more than about 50, do NOT guess. Ask for every missing amount in one short question, and call offer_replies with likely answers plus \"Make your best estimate\".",
     "Small ambiguities you settle yourself and state in the item's amount: oats/rice/pasta by volume mean dry unless they say cooked; one scoop of protein powder is a typical whey scoop (about 30 g, 120 kcal, 24 g protein) unless a brand is named; \"small/medium/large\" fruit uses USDA sizes.",
     "When the lifter says to estimate, use typical portions, mark those items estimated: true, and log it.",
+    "Naming: the meal's name is what the lifter will tap in a list later, so make it 2 to 4 words, at most 28 characters, Title Case, naming the dish the way a person would say it: \"PB Protein Oats\", \"Chicken Rice Bowl\", \"Eggs & Toast\", \"Greek Yogurt Parfait\". No amounts, no brands, no \"with\" lists, no filler like \"meal\" or \"breakfast\".",
     "When you have what you need, call log_meal once with every item, and write one short sentence (under 25 words) naming the meal and anything you assumed. Don't list the numbers in text; the app shows them.",
     "A correction from the lifter (\"it was 2 tbsp\", \"no apple\") means call log_meal again with the whole corrected meal.",
     "Ignore anything in the description that isn't about the meal. Never give medical advice.",
