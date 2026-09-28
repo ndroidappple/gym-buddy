@@ -673,7 +673,7 @@ button.coach-card:active { transform: translateY(3px); box-shadow: 0 2px 0 var(-
 .setup-choices .setup-day { min-width: 56px; justify-content: center; font-size: 17px; font-weight: 800; }
 .setup-actions { flex: none; display: flex; gap: 8px; }
 .setup-actions > .btn { flex: 1; min-height: 50px; }
-.setup-actions > .chat-input { flex: 1; }
+.setup-actions > .chat-input { flex: 1; min-width: 0; }
 .rename-form { display: flex; flex-direction: column; gap: 14px; }
 .rename-field .lbl { display: flex; align-items: center; gap: 8px; }
 .setup-paste { flex-direction: column; }
@@ -685,8 +685,15 @@ button.coach-card:active { transform: translateY(3px); box-shadow: 0 2px 0 var(-
 .setup-actions > .btn, .setup-row > .btn { white-space: nowrap; }
 .setup-actions > .btn:first-child:not(:only-child), .setup-row > .btn:first-child { flex: 1.6; }
 .setup-import ul { font-weight: 600; }
-.setup-weight { flex: 1; min-width: 0; height: 40px; border: 0; background: none; padding: 0 10px; font-size: 17px; font-weight: 700; }
+.setup-weight { flex: 1; width: 0; min-width: 0; height: 40px; border: 0; background: none; padding: 0 10px; font-size: 17px; font-weight: 700; }
 .setup-weight:focus { outline: none; }
+/* Number inputs have a wide built-in width on iOS; width: 0 + flex lets them share the row. */
+.setup-height { align-items: center; }
+.setup-unit { flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px; height: 40px; padding: 0 12px; border-radius: 18px; background: var(--surface-2); }
+.setup-unit input { flex: 1; width: 0; min-width: 0; height: 100%; border: 0; background: none; font-size: 17px; font-weight: 700; color: var(--ink); }
+.setup-unit input:focus { outline: none; }
+.setup-unit:focus-within { outline: 2px solid var(--ink); }
+.setup-unit span { font-size: 14px; font-weight: 700; color: var(--mute); }
 .setup-skip { font-size: 13px; font-weight: 800; }
 .setup-hint { margin: 0 4px; font-size: 13.5px; font-weight: 600; color: var(--mute); }
 .setup-lifts { gap: 2px; }
