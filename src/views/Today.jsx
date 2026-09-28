@@ -185,7 +185,7 @@ function greeting(name, daysOff) {
   return h < 12 ? `Morning${who}!` : h < 17 ? (name ? `Hey ${name}!` : "Hey there!") : `Evening${who}!`;
 }
 
-const SKIP_KEY = "ironlog-weigh-skip"; // the Monday of the skipped week, or "d:<date>" for a skip during a phase
+const SKIP_KEY = "ironlog-weigh-skip"; // the Sunday of the skipped week, or "d:<date>" for a skip during a phase
 function loadPick() {
   try { return JSON.parse(localStorage.getItem(PICK_KEY)) || null; } catch { return null; }
 }
@@ -197,7 +197,7 @@ function useWeighIn(sessions, weighins, phase) {
   const t = today();
   // Weekly normally; every few days during a bulk or cut (never daily, though daily logging works).
   const every = weighInEvery(phase);
-  // ✕ skips until next Monday, or for a couple of days during a phase.
+  // ✕ skips until next Sunday, or for a couple of days during a phase.
   const week = weekDates()[0];
   const skipMark = phase ? `d:${t}` : week;
   const [skipped, setSkipped] = useState(() => {

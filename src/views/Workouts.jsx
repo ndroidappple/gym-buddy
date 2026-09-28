@@ -59,7 +59,7 @@ export default function Workouts({ sessions, program, calendar }) {
   );
 }
 
-/* A month grid (Monday first, like Today's week) with a dot per workout in that day's colour.
+/* A month grid (Sunday first, like Today's week) with a dot per workout in that day's colour.
    Tapping a day shows its workouts below, as the same cards the list uses. */
 function MonthCalendar({ sessions, program, prs }) {
   const byDate = useMemo(() => {
@@ -73,13 +73,13 @@ function MonthCalendar({ sessions, program, prs }) {
 
   const [y, m] = month.split("-").map(Number);
   const first = new Date(y, m - 1, 1, 12);
-  const lead = (first.getDay() + 6) % 7; // blanks before the 1st, Monday-first
+  const lead = first.getDay(); // blanks before the 1st, Sunday-first
   const daysIn = new Date(y, m, 0).getDate();
   const cells = [...Array(lead).fill(null), ...Array.from({ length: daysIn }, (_, i) => iso(new Date(y, m - 1, i + 1, 12)))];
   const shift = (n) => { const d = new Date(y, m - 1 + n, 1, 12); setMonth(iso(d).slice(0, 7)); };
   const t = today();
   const count = cells.filter((d) => d && byDate[d]).length;
-  const weekdays = Array.from({ length: 7 }, (_, i) => new Date(2024, 0, 1 + i).toLocaleDateString(undefined, { weekday: "narrow" }));
+  const weekdays = Array.from({ length: 7 }, (_, i) => new Date(2023, 11, 31 + i).toLocaleDateString(undefined, { weekday: "narrow" }));
 
   return (
     <>
