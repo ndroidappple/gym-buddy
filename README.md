@@ -54,7 +54,7 @@ src/
   lib/router.js            # hash routing (#/today, #/session/push, #/lift/…)
   lib/sound.js             # rest-timer chime
   components/ui.jsx        # sheet, toast, tab bar, charts, exercise picker
-  views/                   # Today, Session, Summary, History, Progress, Lift,
+  views/                   # Today, Session, Summary, Progress (+ Workouts), Lift,
                            # Settings, ProgramEditor, Export
 ```
 
