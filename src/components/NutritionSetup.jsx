@@ -119,9 +119,17 @@ export default function NutritionSetup({ prefs, program, sessions, weighins, nam
             </form>
           )}
           {step === "height" && (
-            <form className="chat-input" onSubmit={submitHeight}>
-              <input className="setup-weight" type="number" inputMode="numeric" autoFocus value={text.ft} onChange={(e) => { setText((t) => ({ ...t, ft: e.target.value })); setBad(false); }} placeholder="ft" aria-label="Feet" />
-              <input className="setup-weight" type="number" inputMode="decimal" value={text.inch} onChange={(e) => { setText((t) => ({ ...t, inch: e.target.value })); setBad(false); }} placeholder="in" aria-label="Inches" />
+            // Two small labelled fields and a send button that always fits: the number keypad has no
+            // return key on iPhone, so the button is the only way to submit.
+            <form className="chat-input setup-height" onSubmit={submitHeight}>
+              <label className="setup-unit">
+                <input type="number" inputMode="numeric" autoFocus value={text.ft} onChange={(e) => { setText((t) => ({ ...t, ft: e.target.value })); setBad(false); }} aria-label="Feet" />
+                <span aria-hidden="true">ft</span>
+              </label>
+              <label className="setup-unit">
+                <input type="number" inputMode="decimal" value={text.inch} onChange={(e) => { setText((t) => ({ ...t, inch: e.target.value })); setBad(false); }} aria-label="Inches" />
+                <span aria-hidden="true">in</span>
+              </label>
               <button type="submit" aria-label="Send" disabled={!text.ft}><ArrowUp size={20} strokeWidth={2.8} /></button>
             </form>
           )}
