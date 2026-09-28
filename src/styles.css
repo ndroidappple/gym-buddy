@@ -781,3 +781,70 @@ button.coach-card:active { transform: translateY(3px); box-shadow: 0 2px 0 var(-
 /* The exercise card's bubble doubles as the way to ask its coach. */
 .bubble-btn { display: block; text-align: left; cursor: pointer; transition: transform 100ms ease; }
 .bubble-btn:active { transform: scale(0.98); }
+
+/* ═══════════════ NUTRITION ═══════════════ */
+:root { --protein: #5BD68A; --carbs: #FFC93D; --fat: #FF9A4D; }
+.day-switch { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.day-switch b { font-size: 16px; font-weight: 800; }
+.day-switch .icon-btn:disabled { opacity: .3; }
+.nut-card { display: flex; flex-direction: column; gap: 16px; padding: 18px; border-radius: var(--r-xl); background: var(--surface); border: 2px solid var(--rule); box-shadow: 0 5px 0 var(--lip); }
+.nut-top { display: flex; align-items: center; gap: 18px; }
+.nut-ring { width: 104px; height: 104px; flex: none; }
+.nut-ring circle { fill: none; stroke-width: 11; stroke-linecap: round; }
+.ring-bg { stroke: var(--surface-2); }
+.ring-fg { stroke: var(--accent); transition: stroke-dasharray 400ms ease; }
+.ring-fg.over { stroke: var(--danger); }
+.nut-left { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.nut-left .big { font-size: 38px; font-weight: 800; line-height: 1; letter-spacing: -0.02em; }
+.nut-left .lbl { font-size: 14px; }
+.nut-left .small { color: var(--mute); font-weight: 600; }
+.macros { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.macro { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.macro-top { display: flex; flex-direction: column; font-size: 12.5px; font-weight: 700; color: var(--mute); }
+.macro-top b { color: var(--ink); font-size: 16px; font-weight: 800; }
+.macro-top small { color: var(--mute); font-size: 12px; font-weight: 600; }
+.macro-bar { height: 8px; border-radius: 99px; background: var(--surface-2); overflow: hidden; }
+.macro-bar i { display: block; height: 100%; border-radius: 99px; background: var(--m); transition: width 400ms ease; }
+.macro[data-macro="protein"] { --m: var(--protein); }
+.macro[data-macro="carbs"] { --m: var(--carbs); }
+.macro[data-macro="fat"] { --m: var(--fat); }
+.meal .section-head { align-items: center; }
+.meal-kcal { font-weight: 600; }
+.meal-add { min-height: 34px; }
+.meal-copy { display: inline-flex; align-items: center; gap: 6px; align-self: flex-start; min-height: 40px; font-size: 14px; }
+.food-row .name { font-weight: 700; }
+.food-kcal { font-weight: 800; font-variant-numeric: tabular-nums; }
+.nut-week { display: flex; flex-direction: column; gap: 6px; padding: 14px 12px 10px; }
+.nut-bars { position: relative; height: 110px; display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; justify-items: center; }
+.nut-target { position: absolute; left: 0; right: 0; border-top: 2px dashed var(--mute); opacity: .6; pointer-events: none; }
+.nut-days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; text-align: center; font-size: 12px; font-weight: 700; color: var(--mute); }
+.nut-days .now { color: var(--ink); }
+.nut-col { height: 100%; width: 100%; max-width: 26px; display: flex; align-items: flex-end; }
+.nut-col i { display: block; width: 100%; border-radius: 6px 6px 3px 3px; background: var(--accent); min-height: 0; }
+.nut-col i.over { background: var(--fat); }
+.sheet-tall { height: min(760px, calc(100% - var(--safe-t) - 8px)); }
+.food-back { align-self: flex-start; display: inline-flex; align-items: center; gap: 4px; min-height: 36px; margin-top: -6px; }
+.food-search { display: flex; align-items: center; gap: 10px; padding: 0 14px; min-height: 50px; border-radius: var(--r); background: var(--surface); border: 2px solid var(--rule); color: var(--mute); }
+.food-search:focus-within { outline: 3px solid var(--ink); outline-offset: -2px; }
+.food-search input { flex: 1; min-width: 0; border: 0; background: none; font-size: 16px; color: var(--ink); height: 46px; }
+.food-search input:focus { outline: none; }
+.food-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.food-actions .chip { min-height: 38px; padding: 6px 14px; }
+.food-form { display: flex; flex-direction: column; gap: 14px; }
+.food-title { display: flex; flex-direction: column; gap: 2px; font-size: 18px; }
+.food-amount { display: flex; align-items: center; gap: 10px; }
+.food-amount .input { flex: 1; text-align: center; font-size: 22px; font-weight: 800; }
+.food-amount .icon-btn { font-size: 22px; font-weight: 800; }
+.food-macros { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.food-macros div { display: flex; flex-direction: column; align-items: center; padding: 10px 4px; border-radius: var(--r); background: var(--surface); border: 2px solid var(--rule); }
+.food-macros b { font-size: 17px; font-weight: 800; }
+.food-macros span { font-size: 12px; color: var(--mute); font-weight: 700; }
+.food-meals { padding: 0; }
+.grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.setup-stack { flex: 1; display: flex; flex-direction: column; gap: 8px; }
+.setup-actions.even > .btn:first-child:not(:only-child) { flex: 1; }
+.setup-option { justify-content: flex-start; text-align: left; min-height: 56px; }
+.setup-option span { display: flex; flex-direction: column; line-height: 1.2; }
+.setup-option small { font-size: 12.5px; font-weight: 600; opacity: .75; }
+.nut-adjust { margin-top: 4px; }
+.food-line { margin-top: -4px; }

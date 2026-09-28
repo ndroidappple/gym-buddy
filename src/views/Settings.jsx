@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { ChevronRight, Download, LogOut, Moon, Gauge, Smartphone, Share, SquarePlus, EllipsisVertical, Check, Sparkles, Scale, Vibrate, Bell, Pencil, ClipboardPaste, Users } from "lucide-react";
+import { ChevronRight, Download, LogOut, Moon, Gauge, Smartphone, Share, SquarePlus, EllipsisVertical, Check, Sparkles, Scale, Vibrate, Bell, Pencil, ClipboardPaste, Users, Utensils, Target } from "lucide-react";
 import { Sheet, InfoButton, ConfirmSheet } from "../components/ui.jsx";
 import { ICONS, iconSrc } from "../lib/icons.js";
 import { DAYS, allDays, activeDays } from "../data/program.js";
@@ -61,6 +61,24 @@ export default function Settings({ program, sessions, prefs, setPref, onRename, 
               <span className="name">Redo setup with your coaches<span className="sub">Goals, training days and the lifts each coach runs.</span></span>
               <ChevronRight size={18} aria-hidden="true" className="muted" />
             </button>
+          </div>
+        </section>
+
+        <section className="section">
+          <h2 className="lbl">Nutrition</h2>
+          <div className="list">
+            {/* Turning it off only hides it: the food log and targets stay saved. */}
+            <Toggle help="nutrition" Icon={Utensils} label="Track food & macros"
+              sub={prefs.nutrition?.on ? "Nutrition tab is on. Turning it off keeps your log." : "Adds a Nutrition tab. Tank sets your daily targets."}
+              on={!!prefs.nutrition?.on}
+              onChange={(v) => { setPref("nutrition", { ...prefs.nutrition, on: v }); if (v && !prefs.nutrition?.targets) go(href("nutrition", "setup")); }} />
+            {prefs.nutrition?.on && prefs.nutrition.targets && (
+              <a className="list-row" href={href("nutrition", "setup")}>
+                <Target size={18} aria-hidden="true" />
+                <span className="name">Daily targets<span className="sub">{prefs.nutrition.targets.kcal.toLocaleString()} kcal · {prefs.nutrition.targets.protein} g protein. Redo with Tank.</span></span>
+                <ChevronRight size={18} aria-hidden="true" className="muted" />
+              </a>
+            )}
           </div>
         </section>
 

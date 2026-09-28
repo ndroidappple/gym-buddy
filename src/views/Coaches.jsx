@@ -11,7 +11,7 @@ import CoachChat from "../components/CoachChat.jsx";
 import SetupChat from "../components/SetupChat.jsx";
 
 
-export default function Coaches({ program, sessions, weighins, prefs, name, go, back, onProgramChange, onSetupDone, onSetupProgress, openCoach, openMode }) {
+export default function Coaches({ program, sessions, weighins, prefs, name, go, back, nutrition, onProgramChange, onSetupDone, onSetupProgress, openCoach, openMode }) {
   // { coach, ask?, importOnly? }: ask = a first question to send straight to the live chat;
   // importOnly = Tank's bring-in-your-program steps, opened from Settings.
   const [open, setOpen] = useState(() => {
@@ -71,7 +71,7 @@ export default function Coaches({ program, sessions, weighins, prefs, name, go, 
       )}
       {open && !setupOpen && (
         <CoachChat key={open.coach + (open.ask ? "-ask" : "")} coach={open.coach} starter={open.ask} sessions={sessions} program={program}
-          weighins={weighins} profile={prefs.profile} phase={prefs.phase} onProgramChange={onProgramChange} onClose={() => setOpen(null)} />
+          weighins={weighins} profile={prefs.profile} phase={prefs.phase} nutrition={nutrition} onProgramChange={onProgramChange} onClose={() => setOpen(null)} />
       )}
     </main>
   );

@@ -19,10 +19,14 @@ import Settings from "./views/Settings.jsx";
 import ProgramEditor from "./views/ProgramEditor.jsx";
 import Export from "./views/Export.jsx";
 import Coaches from "./views/Coaches.jsx";
+import Nutrition from "./views/Nutrition.jsx";
+import NutritionSetup from "./components/NutritionSetup.jsx";
+import { useFood } from "./lib/food.js";
+import { nutritionContext, totals } from "./lib/nutrition.js";
 import NamePrompt from "./components/NamePrompt.jsx";
 import Welcome from "./components/Welcome.jsx";
 
-const TAB_VIEWS = ["today", "progress", "settings", "lift"];
+const TAB_VIEWS = ["today", "nutrition", "progress", "settings", "lift"];
 
 /** Saved account data as app state, with defaults filled in. */
 const fromData = (data) => ({
@@ -47,6 +51,9 @@ export default function App() {
   const onNameSettled = useCallback(() => setNameSettled(true), []);
   const [toast, setToast] = useState(null);
   const { route, go, back } = useRoute();
+  // Food log: its own tables, loaded only while tracking is on (see lib/food.js).
+  const nutritionOn = !!prefs.nutrition?.on;
+  const food = useFood(ready && nutritionOn);
 
   const load = useCallback(async () => {
     setLoadFailed(false);
@@ -216,7 +223,10 @@ export default function App() {
     if (profile) setPrefs((p) => ({ ...p, profile: { ...p.profile, ...profile } }));
     if (weight) setWeighins((ws) => [...ws.filter((w) => w.date !== today()), { date: today(), bw: weight }]);
   };
-  const common = { sessions, program, drafts, weighins, prefs, setPref, name, go, back, notify, onWeighin: logWeighin, onProgramChange: applyCoachProgram };
+  // What the coaches see about food: targets, today so far and the week's averages.
+  const nutrition = nutritionOn && prefs.nutrition.targets ? nutritionContext(prefs.nutrition, food.entries) : null;
+  const foodToday = nutrition ? { sum: totals(food.entries.filter((e) => e.date === today())), targets: prefs.nutrition.targets } : null;
+  const common = { sessions, program, drafts, weighins, prefs, setPref, name, go, back, notify, onWeighin: logWeighin, onProgramChange: applyCoachProgram, nutrition, foodToday };
   let view;
   switch (route.name) {
     case "session": {
@@ -240,7 +250,23 @@ export default function App() {
     case "lift": view = <Lift {...common} name={route.lift} />; break;
     case "settings": view = <Settings {...common} onRename={programOps.rename} />; break;
     case "program": view = allDays(program).includes(route.day) ? <ProgramEditor {...common} day={route.day} ops={programOps} /> : <Settings {...common} />; break;
-    case "export": view = <Export {...common} />; break;
+    case "export": view = <Export {...common} food={nutritionOn ? food : null} />; break;
+    case "nutrition": {
+      // Off: Settings is where it's turned on. Setup opens over the tab and returns to it.
+      if (!nutritionOn && route.open !== "setup") { view = <Settings {...common} onRename={programOps.rename} />; break; }
+      const closeSetup = () => go(href("nutrition"), { replace: true });
+      view = (
+        <>
+          <Nutrition {...common} food={food} />
+          {route.open === "setup" && (
+            <NutritionSetup prefs={prefs} program={program} sessions={sessions} weighins={weighins} name={name}
+              onWeighin={(bw) => setWeighins((ws) => [...ws.filter((w) => w.date !== today()), { date: today(), bw }])}
+              onSave={(n) => { setPref("nutrition", n); closeSetup(); notify("Targets saved"); }} onClose={closeSetup} />
+          )}
+        </>
+      );
+      break;
+    }
     case "coaches": view = <Coaches key={(route.coach || "grid") + (route.mode || "")} {...common} openCoach={route.coach} openMode={route.mode} onSetupDone={finishSetup} onSetupProgress={saveSetupProgress} />; break;
     default: view = <Today {...common} />;
   }
@@ -251,8 +277,8 @@ export default function App() {
   return (
     <div className="app">
       {view}
-      {showTabs && <TabBar active={activeTab} onSelect={selectTab} />}
-      {sync === "offline" && <SyncNote raised={showTabs} />}
+      {showTabs && <TabBar active={activeTab} onSelect={selectTab} nutrition={nutritionOn} />}
+      {(sync === "offline" || food.status === "offline") && <SyncNote raised={showTabs} />}
       <NamePrompt onName={setName} onSettled={onNameSettled} />
       {nameSettled && !prefs.welcomed && route.name !== "coaches" && (
         <Welcome name={name} onStart={() => { setPref("welcomed", true); go(href("coaches", "tank")); }} onLater={() => setPref("welcomed", true)} />

@@ -1,6 +1,6 @@
 import {
   Play, ArrowLeftRight, Target, CalendarCheck, Scale, Trophy, TrendingUp, Flag, List, CalendarDays, Pencil,
-  Gauge, LineChart, Hash, History, Dumbbell, Plus, FileSpreadsheet, Users, MessageCircle, Sparkles, SlidersHorizontal, Download, ClipboardPaste,
+  Gauge, LineChart, Hash, History, Dumbbell, Plus, FileSpreadsheet, Users, MessageCircle, Sparkles, SlidersHorizontal, Download, ClipboardPaste, Utensils, PieChart, Copy,
 } from "lucide-react";
 
 /* What each screen is for, shown from the (i) in its header as a short tap-through: one feature per
@@ -55,6 +55,15 @@ export const HELP = {
       { name: "Recent sessions", Icon: History, spot: "sessions", text: "Tap one to open that workout." },
     ],
   },
+  nutrition: {
+    title: "Nutrition",
+    steps: [
+      { name: "Calories left", Icon: PieChart, spot: "summary", text: "What's left of today's calories, and your protein, carbs and fat." },
+      { name: "Add", Icon: Plus, spot: "meal", text: "Log food to a meal: recent foods, search, or [Quick add calories]." },
+      { name: "Copy", Icon: Copy, text: "An empty meal can copy yesterday's in one tap." },
+      { name: "This week", Icon: CalendarDays, spot: "week", text: "Each day against your target. The line is your calorie target." },
+    ],
+  },
   settings: {
     title: "Settings",
     steps: [
@@ -63,6 +72,7 @@ export const HELP = {
       { name: "Bring in your own program", Icon: ClipboardPaste, spot: "import", text: "Paste a program you already run. Tank can review it." },
       { name: "Your coaches", Icon: Users, spot: "coaches", text: "Ask a question or change your plan." },
       { name: "Redo setup", Icon: Sparkles, spot: "redo", text: "Meet your coaches again to reshape your plan." },
+      { name: "Track food & macros", Icon: Utensils, spot: "nutrition", text: "Adds a Nutrition tab with daily calorie and macro targets." },
       { name: "Reps in reserve", Icon: Gauge, spot: "rir", text: "Rate how many more reps you had in you." },
       { name: "Export", Icon: Download, spot: "export", text: "Download a copy of all your data." },
     ],
