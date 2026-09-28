@@ -7,8 +7,10 @@ import { PHASE_TYPES, phaseStatus, statusLine } from "./phase.js";
 import { fmtSet, liftSeries, trend, num, fmtW, bestSet, bodyweightSeries, byDateDesc, daysBetween, today, nextDayAfter, readyToIncrease } from "./util.js";
 
 /** A compact, plain-text picture of the lifter for the coach: their lifts, recent bests, trends, bodyweight. */
-export function buildContext({ coach, sessions, program, weighins, profile, phase }) {
+export function buildContext({ coach, sessions, program, weighins, profile, phase, nutrition }) {
   const lines = [];
+  // Food tracking, when it's on: targets, today so far, the week.
+  if (nutrition) lines.push(nutrition);
   // A bulk or cut in progress, with the pace read from the weigh-in trend.
   if (phase) {
     const s = phaseStatus(phase, sessions, weighins);

@@ -1,6 +1,6 @@
 import React, { useEffect, useLayoutEffect, useRef, useState, useMemo } from "react";
 import { createPortal } from "react-dom";
-import { X, Home, TrendingUp, Settings as Gear, Plus, Info, ChevronLeft, ArrowUpRight } from "lucide-react";
+import { X, Home, TrendingUp, Settings as Gear, Utensils, Plus, Info, ChevronLeft, ArrowUpRight } from "lucide-react";
 import { HELP } from "../data/help.js";
 import { vibrate } from "../lib/util.js";
 import { LIBRARY, specLine } from "../data/program.js";
@@ -167,8 +167,9 @@ export function Toast({ toast, onDismiss, raised }) {
   );
 }
 
-const TABS = [
+const ALL_TABS = [
   { key: "today", label: "Today", Icon: Home },
+  { key: "nutrition", label: "Nutrition", Icon: Utensils }, // only while food tracking is on
   { key: "progress", label: "Progress", Icon: TrendingUp },
   { key: "settings", label: "Settings", Icon: Gear },
 ];
@@ -180,7 +181,7 @@ const TABS = [
    computed from the bar's width (not measured) so the pill lands right while the columns animate. */
 const TAB_PAD = 7, TAB_GAP = 4, ACTIVE_FR = 2; // keep in sync with .tabbar padding and gap
 const HOLD_MS = 200, DRAG_SLOP = 12; // hold time / finger travel (px) before the pill follows the finger
-function tabGeometry(navW, idx) {
+function tabGeometry(TABS, navW, idx) {
   const unit = (navW - 2 * TAB_PAD - TAB_GAP * (TABS.length - 1)) / (TABS.length - 1 + ACTIVE_FR);
   let left = TAB_PAD;
   return TABS.map((_, i) => {
@@ -191,12 +192,13 @@ function tabGeometry(navW, idx) {
   });
 }
 
-export function TabBar({ active, onSelect }) {
+export function TabBar({ active, onSelect, nutrition = false }) {
+  const TABS = ALL_TABS.filter((t) => t.key !== "nutrition" || nutrition);
   const nav = useRef(null);
   const [navW, setNavW] = useState(0);
   const [drag, setDrag] = useState(null); // pill centre x while a finger is down
   const idx = Math.max(0, TABS.findIndex((t) => t.key === active));
-  const geo = navW ? tabGeometry(navW, idx) : null;
+  const geo = navW ? tabGeometry(TABS, navW, idx) : null;
 
   useLayoutEffect(() => {
     const measure = () => setNavW(nav.current.clientWidth);

@@ -41,6 +41,19 @@ separate from the Claude artifact version's storage — those never synced.
 Use **Settings → Export** in the app to
 get a CSV or JSON copy any time — that part works identically everywhere.
 
+### Nutrition (optional)
+
+Turned on in **Settings → Nutrition → Track food & macros**. Food is not in the
+`storage_kv` blob: it grows by thousands of rows a year, so it has its own tables,
+`food_entries` and `foods` (migration in `supabase/migrations/`), with the same
+own-rows-only row-level security. The app keeps a copy on the phone and an outbox
+that retries until each change reaches Supabase (`src/lib/food.js`).
+
+Food search goes through `api/food.js` (a Vercel Function): USDA FoodData Central
+for everyday foods and Open Food Facts for packaged ones. Set **`FDC_API_KEY`** in
+the Vercel project (free key: https://fdc.nal.usda.gov/api-key-signup); without it
+the shared, heavily rate-limited `DEMO_KEY` is used.
+
 ## Project structure
 
 ```

@@ -10,7 +10,7 @@ import { weighInEvery, phaseStatus, statusLine, PHASE_TYPES } from "../lib/phase
 import Coach from "../components/Coach.jsx";
 import { byDateDesc, bestSet, fmtW, num, shortDate, weekDates, today, nextDayAfter, bodyweightSeries, daysBetween, plural, readyToIncrease, nextGoal, fmtGoal } from "../lib/util.js";
 
-export default function Today({ name, sessions, program, drafts, weighins, prefs, onWeighin }) {
+export default function Today({ name, sessions, program, drafts, weighins, prefs, onWeighin, foodToday }) {
   const sorted = useMemo(() => [...sessions].sort(byDateDesc), [sessions]);
   const draftDay = [...activeDays(program), CUSTOM].find((d) => drafts[d]);
   const t = today();
@@ -170,6 +170,14 @@ export default function Today({ name, sessions, program, drafts, weighins, prefs
             })}
           </div>
         </section>
+
+        {/* Food tracking on: one glance at the day, the detail is on Nutrition. */}
+        {foodToday && (
+          <a className="card phase-line food-line" href={href("nutrition")}>
+            <b>Food today</b>
+            <span>{Math.round(foodToday.sum.kcal).toLocaleString()} of {foodToday.targets.kcal.toLocaleString()} kcal · {Math.round(foodToday.sum.protein)} of {foodToday.targets.protein} g protein</span>
+          </a>
+        )}
       </div>
     </main>
   );

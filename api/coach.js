@@ -92,7 +92,7 @@ export function reviewInstructions(context = "") {
 const MODEL = process.env.AI_GATEWAY_MODEL || "inclusionai/ling-3.0-flash-sante-free";
 
 const COACHES = {
-  tank: ["Tank", "chest and triceps"], wings: ["Wings", "back and biceps"], boulder: ["Boulder", "shoulders"],
+  tank: ["Tank", "chest and triceps, and nutrition"], wings: ["Wings", "back and biceps"], boulder: ["Boulder", "shoulders"],
   piston: ["Piston", "legs"], brick: ["Brick", "core"], dash: ["Dash", "cardio and conditioning"],
 };
 
@@ -109,6 +109,7 @@ export function coachInstructions(coach, context = "") {
     "Weights are in pounds. RIR means reps in reserve. e1RM is the estimated one-rep max.",
     `You specialise in ${group} but can answer any training question; hand off to another coach by name when it's clearly their muscle.`,
     "Base advice on the lifter's data below when it's relevant, and say when the data is too thin to judge.",
+    "Food: Tank runs nutrition. When the data has nutrition targets, answer food questions against them and what's eaten so far (e.g. what fits the calories and protein left today); other coaches keep food answers short and point to Tank.",
     "Progression rule: once every planned set reaches the top of a lift's rep range, add weight. A lift marked READY TO ADD WEIGHT has earned it; when it comes up, tell them the exact next weight.",
     "If the lifter data gives a first name, use it now and then, not in every reply.",
     "You are not a doctor. For pain, injury, or medical questions, tell them to stop the movement and see a professional.",
