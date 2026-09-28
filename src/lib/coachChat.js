@@ -3,6 +3,7 @@ import { COACHES, coachFor } from "../data/coaches.js";
 import { isCardio, activeDays } from "../data/program.js";
 import { describeProgram, applyChanges } from "./programChange.js";
 import { GOALS } from "./setup.js";
+import { cleanMeal } from "./nutrition.js";
 import { PHASE_TYPES, phaseStatus, statusLine } from "./phase.js";
 import { fmtSet, liftSeries, trend, num, fmtW, bestSet, bodyweightSeries, byDateDesc, daysBetween, today, nextDayAfter, readyToIncrease } from "./util.js";
 
@@ -100,13 +101,14 @@ export async function askCoach({ coach, messages, context, onText, signal, mode 
   const records = rest.map((line) => { try { return JSON.parse(line.trim()); } catch { return null; } }).filter(Boolean);
   const proposals = records.map((r) => r.changes).filter((c) => Array.isArray(c) && c.length);
   const status = records.find((r) => r.status)?.status;
-  if (!text.trim() && !proposals.length) {
+  const meal = records.filter((r) => r.meal).map((r) => r.meal).pop() || null;
+  if (!text.trim() && !proposals.length && !meal) {
     const kind = status === "rate" ? "rate" : status === "error" ? "busy" : "empty";
     throw Object.assign(new Error(kind), { kind });
   }
   const replies = [...new Set(records.flatMap((r) => (Array.isArray(r.replies) ? r.replies : []))
     .filter((x) => typeof x === "string").map((x) => x.trim().slice(0, 60)).filter(Boolean))].slice(0, 3);
-  return { text, changes: proposals.flat(), replies };
+  return { text, changes: proposals.flat(), replies, meal };
 }
 
 /** What Tank reads to review a program the lifter brought in: their goals, days, and every workout. */
@@ -138,4 +140,15 @@ export async function reviewProgram({ program, profile, onText, signal }) {
     return r.lines.length ? [{ change, line: r.lines[0], why: typeof change.why === "string" ? change.why.trim() : "" }] : [];
   });
   return { text: text.trim(), suggestions };
+}
+
+/**
+ * One turn of logging a meal with Tank. `messages` is the conversation so far (the lifter's
+ * description, any questions and answers). Resolves { text, replies, meal } where meal is null
+ * while Tank still needs amounts, else the checked meal from cleanMeal(). Throws like askCoach.
+ */
+export async function describeMeal({ messages, mealSlot, onText, signal }) {
+  const ask = () => askCoach({ coach: "tank", mode: "food", messages, signal, onText: onText || (() => {}), context: mealSlot ? `Logging to: ${mealSlot}.` : "" });
+  const r = await ask().catch((e) => (e.kind === "empty" ? ask() : Promise.reject(e)));
+  return { text: r.text.trim(), replies: r.replies, meal: r.meal ? cleanMeal(r.meal) : null };
 }

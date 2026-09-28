@@ -150,3 +150,23 @@ export function nutritionContext(n, entries) {
     w.loggedDays ? `This week (${w.loggedDays} days logged): average ${w.avgKcal} kcal and ${w.avgProtein} g protein a day.` : "No food logged yet this week.",
   ].join("\n");
 }
+
+/**
+ * A meal from Tank, checked: numbers clamped, and any item whose calories disagree with its macros
+ * (4 kcal/g protein and carbs, 9 kcal/g fat) by more than 20% gets the macro-based figure instead.
+ * Totals are summed here, never taken from the model. Returns { name, items, total, estimated } or null.
+ */
+export function cleanMeal(m) {
+  const n = (v, hi) => Math.min(hi, Math.max(0, Number.isFinite(+v) ? +v : 0));
+  const items = (Array.isArray(m?.items) ? m.items : []).slice(0, 12).map((x) => {
+    const protein = Math.round(n(x.protein, 500) * 10) / 10, carbs = Math.round(n(x.carbs, 500) * 10) / 10, fat = Math.round(n(x.fat, 500) * 10) / 10;
+    const fromMacros = protein * 4 + carbs * 4 + fat * 9;
+    let kcal = Math.round(n(x.kcal, 5000));
+    if (fromMacros > 0 && Math.abs(kcal - fromMacros) > Math.max(20, fromMacros * 0.2)) kcal = Math.round(fromMacros);
+    return { food: String(x.food || "Food").slice(0, 60), amount: String(x.amount || "").slice(0, 40), grams: x.grams > 0 ? Math.round(x.grams) : null, kcal, protein, carbs, fat, estimated: !!x.estimated };
+  }).filter((x) => x.kcal > 0 || x.protein > 0);
+  if (!items.length) return null;
+  const sum = (k) => Math.round(items.reduce((a, x) => a + x[k], 0) * (k === "kcal" ? 1 : 10)) / (k === "kcal" ? 1 : 10);
+  const name = String(m.name || "").trim().slice(0, 60) || items.map((x) => x.food).join(", ").slice(0, 60);
+  return { name, items, total: { kcal: sum("kcal"), protein: sum("protein"), carbs: sum("carbs"), fat: sum("fat") }, estimated: items.some((x) => x.estimated) };
+}
