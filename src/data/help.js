@@ -59,7 +59,8 @@ export const HELP = {
     title: "Nutrition",
     steps: [
       { name: "Calories left", Icon: PieChart, spot: "summary", text: "What's left of today's calories, and your protein, carbs and fat." },
-      { name: "Add", Icon: Plus, spot: "meal", text: "Log food to a meal: recent foods, search, or [Quick add calories]." },
+      { name: "Add", Icon: Plus, spot: "meal", text: "Log food: [Add with Tank], a recent food, search, or enter it manually." },
+      { name: "Add with Tank", Icon: MessageCircle, text: "Describe a meal in your own words. Tank itemizes it and saves it as one food." },
       { name: "Copy", Icon: Copy, text: "An empty meal can copy yesterday's in one tap." },
       { name: "This week", Icon: CalendarDays, spot: "week", text: "Each day against your target. The line is your calorie target." },
     ],

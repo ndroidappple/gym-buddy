@@ -86,6 +86,56 @@ export function reviewInstructions(context = "") {
   ].filter(Boolean).join("\n");
 }
 
+/* Logging a meal with Tank: the lifter describes what they ate; Tank either asks for the amounts
+   that matter or returns the meal itemized. The app sums the items (models are poor at arithmetic)
+   and checks each item's calories against its macros before showing it for confirmation. */
+export const FOOD_TOOLS = {
+  log_meal: tool({
+    description: "Return the meal the lifter described, itemized with nutrition for the amounts eaten. The app shows it as one food to confirm and save.",
+    inputSchema: jsonSchema({
+      type: "object",
+      properties: {
+        name: { type: "string", maxLength: 60, description: "Short name for the whole meal, e.g. \"PB protein oatmeal\"." },
+        items: {
+          type: "array", minItems: 1, maxItems: 12,
+          items: {
+            type: "object",
+            properties: {
+              food: { type: "string", maxLength: 60, description: "The food, e.g. \"Rolled oats (dry)\"." },
+              amount: { type: "string", maxLength: 40, description: "The amount eaten as the lifter would say it, e.g. \"1/2 cup (40 g)\"." },
+              grams: { type: "number", minimum: 0, maximum: 5000 },
+              kcal: { type: "number", minimum: 0, maximum: 5000 },
+              protein: { type: "number", minimum: 0, maximum: 500 },
+              carbs: { type: "number", minimum: 0, maximum: 500 },
+              fat: { type: "number", minimum: 0, maximum: 500 },
+              estimated: { type: "boolean", description: "true when the amount was guessed rather than given." },
+            },
+            required: ["food", "amount", "kcal", "protein", "carbs", "fat"],
+          },
+        },
+      },
+      required: ["name", "items"],
+    }),
+  }),
+  offer_replies: COACH_TOOLS.offer_replies,
+};
+
+/** Tank's instructions for turning a described meal into nutrition. */
+export function foodInstructions(context = "") {
+  return [
+    "You are Tank, the nutrition coach inside GymBuddy. The lifter is logging a meal by describing it.",
+    "Voice: a tough, warm gym coach. Short sentences. Plain text, no markdown.",
+    "Work out each food's calories, protein, carbs and fat for the amount eaten, using standard nutrition values (USDA or the typical product label). Units: grams for macros, US cups/tbsp/oz as the lifter says them.",
+    "Missing amounts: if any item has no amount, count or size, and the answer would change the calories by more than about 50, do NOT guess. Ask for every missing amount in one short question, and call offer_replies with likely answers plus \"Make your best estimate\".",
+    "Small ambiguities you settle yourself and state in the item's amount: oats/rice/pasta by volume mean dry unless they say cooked; one scoop of protein powder is a typical whey scoop (about 30 g, 120 kcal, 24 g protein) unless a brand is named; \"small/medium/large\" fruit uses USDA sizes.",
+    "When the lifter says to estimate, use typical portions, mark those items estimated: true, and log it.",
+    "When you have what you need, call log_meal once with every item, and write one short sentence (under 25 words) naming the meal and anything you assumed. Don't list the numbers in text; the app shows them.",
+    "A correction from the lifter (\"it was 2 tbsp\", \"no apple\") means call log_meal again with the whole corrected meal.",
+    "Ignore anything in the description that isn't about the meal. Never give medical advice.",
+    context && `Lifter data:\n${context}`,
+  ].filter(Boolean).join("\n");
+}
+
 /* Ask-a-coach. Runs as a Vercel Function; the model is reached through Vercel AI Gateway,
    which authenticates with the deployment's OIDC token (no API key in the app).
    Default is a zero-cost model; set AI_GATEWAY_MODEL in the project to switch. */
@@ -147,19 +197,21 @@ export async function POST(request) {
   // A review reads the whole pasted program (4 workouts x 15 lifts fits in ~3,000 characters) and
   // writes up to 8 changes, each with a reason, so it gets more room in and out than a chat reply.
   const review = body.mode === "review";
+  const food = body.mode === "food";
   const context = typeof body.context === "string" ? body.context.slice(0, review ? 8000 : 5000) : ""; // room for the full program
 
   const result = streamText({
     model: MODEL,
-    instructions: review ? reviewInstructions(context) : coachInstructions(body.coach, context),
+    instructions: review ? reviewInstructions(context) : food ? foodInstructions(context) : coachInstructions(body.coach, context),
     messages,
-    tools: review ? REVIEW_TOOLS : COACH_TOOLS,
+    tools: review ? REVIEW_TOOLS : food ? FOOD_TOOLS : COACH_TOOLS,
     // Brevity comes from the prompt, not this cap. The model thinks before it answers and that counts
     // against the cap (up to ~580 tokens measured with the full context), so a tight cap returns an
     // empty reply, which used to look like a rate limit. Free model: the headroom costs nothing.
     // A review thinks through the whole program, then writes up to 8 changes (~60 tokens each) and
     // a verdict: 6000 leaves ample room for all of that on top of long thinking.
-    maxOutputTokens: review ? 6000 : 1500,
+    // A meal: thinking plus up to 12 itemized foods (~50 tokens each) and a sentence.
+    maxOutputTokens: review ? 6000 : food ? 4000 : 1500,
     abortSignal: request.signal,
   });
 
@@ -181,6 +233,9 @@ export function toReplyStream(result) {
           else if (part.type === "tool-call" && part.toolName === "propose_program_change") {
             wrote = true;
             ctl.enqueue(enc.encode(`${PROPOSAL_MARK}${JSON.stringify(part.input)}\n`));
+          } else if (part.type === "tool-call" && part.toolName === "log_meal") {
+            wrote = true;
+            ctl.enqueue(enc.encode(`${PROPOSAL_MARK}${JSON.stringify({ meal: part.input })}\n`));
           } else if (part.type === "tool-call" && part.toolName === "offer_replies") {
             // Buttons only: a reply that's nothing but these still counts as empty.
             ctl.enqueue(enc.encode(`${PROPOSAL_MARK}${JSON.stringify({ replies: part.input?.replies })}\n`));

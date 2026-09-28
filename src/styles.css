@@ -855,3 +855,33 @@ button.coach-card:active { transform: translateY(3px); box-shadow: 0 2px 0 var(-
 .setup-option small { font-size: 12.5px; font-weight: 600; opacity: .75; }
 .nut-adjust { margin-top: 4px; }
 .food-line { margin-top: -4px; }
+
+/* Add with Tank */
+.tank-add { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: var(--r); text-align: left; background: color-mix(in srgb, #5BD68A 14%, var(--surface)); border: 2px solid color-mix(in srgb, #5BD68A 55%, var(--rule)); box-shadow: 0 3px 0 var(--lip); color: var(--ink); }
+.tank-add span { display: flex; flex-direction: column; gap: 2px; }
+.tank-add b { font-size: 16px; font-weight: 800; }
+.tank-add small { font-size: 13px; color: var(--mute); font-weight: 600; }
+.check-row { display: flex; align-items: center; gap: 12px; font-weight: 700; }
+.check-row input { width: 22px; height: 22px; flex: none; accent-color: var(--ink); }
+.check-row span { display: flex; flex-direction: column; line-height: 1.25; }
+.check-row small { font-size: 12.5px; color: var(--mute); font-weight: 500; }
+.tank-meal { flex: 1; min-height: 0; }
+.tank-meal .chat-input textarea { min-height: 44px; }
+.tank-meal-hello { display: flex; align-items: flex-end; gap: 8px; }
+.tank-meal-hello .coach-bubble { flex: 1; }
+.meal-card { gap: 10px; }
+.meal-name { flex: 1; min-width: 0; font: inherit; font-weight: 800; font-size: 15px; background: none; border: 0; border-bottom: 2px dashed var(--rule); color: var(--ink); padding: 2px 0; }
+.meal-name:focus { outline: none; border-bottom-color: var(--ink); }
+.meal-card .meal-items { list-style: none; padding: 0; gap: 8px; }
+.meal-card .meal-items li { display: flex; align-items: flex-start; gap: 10px; }
+.meal-item { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.meal-item small { font-size: 12.5px; color: var(--mute); font-weight: 600; }
+.meal-kcal-n { font-weight: 800; font-variant-numeric: tabular-nums; }
+.meal-total { display: flex; flex-direction: column; gap: 2px; padding-top: 8px; border-top: 2px solid var(--rule); }
+.meal-total b { font-size: 18px; font-weight: 800; }
+.meal-total span { font-size: 13px; color: var(--mute); font-weight: 700; }
+.tank-meal-save { display: flex; flex-direction: column; gap: 10px; padding: 0 4px; }
+.meal-old { margin: 0 4px; }
+.meal-breakdown { margin: 0; padding: 10px 14px; border-radius: var(--r); background: var(--surface); border: 2px solid var(--rule); list-style: none; display: flex; flex-direction: column; gap: 4px; font-size: 13.5px; font-weight: 600; }
+.meal-breakdown li { display: flex; gap: 8px; }
+.meal-breakdown li span { margin-left: auto; font-weight: 800; }
