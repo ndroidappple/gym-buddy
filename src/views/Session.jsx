@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { ChevronLeft, Check, Plus, Minus, Trash2 } from "lucide-react";
 import { BorderBeam } from "border-beam";
-import { fmtSet, uid, e1rm, fmtW, today, shortDate, mmss, byDateDesc, priorSessions, allTimeBest, bestSet, vibrate, readyToIncrease, nextGoal, fmtGoal, weightStep } from "../lib/util.js";
+import { fmtSet, uid, e1rm, fmtW, today, shortDate, mmss, byDateDesc, priorSessions, allTimeBest, bestSet, vibrate, readyToIncrease, nextGoal, fmtGoal, weightStep, bodyweightSeries, daysBetween } from "../lib/util.js";
 import { primeAudio, chime } from "../lib/sound.js";
 import { Sheet, ConfirmSheet, ExercisePicker } from "../components/ui.jsx";
 import Coach, { MOODS } from "../components/Coach.jsx";
@@ -50,6 +50,8 @@ export default function Session({ day, existing, draft, sessions, program, weigh
   const lastFor = useCallback((lift) => before.find((s) => s.sets[lift]?.length) || null, [before]);
   /** This lift's sets from earlier sessions, newest first (for the coach's read on fatigue and form). */
   const historyFor = useCallback((lift) => before.filter((s) => s.sets[lift]?.length).map((s) => s.sets[lift]), [before]);
+  // Bodyweight counts in the load for pull-ups and dips: today's entry, else the latest on record.
+  const bodyweight = useMemo(() => (bw !== "" && +bw > 0 ? +bw : bodyweightSeries(sessions, weighins).at(-1)?.bw || 180), [bw, sessions, weighins]);
 
   const exercises = useMemo(() => {
     const list = [...dayProgram.exercises, ...extras.map((e) => ({ ...e, today: true }))];
@@ -231,7 +233,7 @@ export default function Session({ day, existing, draft, sessions, program, weigh
     const doneToday = grid[ex.n].map((r, j) => (j === i ? r : r.done ? r : null)).filter((r) => r && hasVal(r.w) && hasVal(r.r))
       .map((r) => ({ w: +r.w, r: +r.r, rir: hasVal(r.rir) ? +r.rir : null }));
     const left = grid[ex.n].filter((r, j) => j !== i && !r.done).length;
-    const call = existing ? null : nextSetAdvice({ ex, done: doneToday, asked: row.asked, left, history: historyFor(ex.n), best: allTimeBest(before, ex.n), pr });
+    const call = existing ? null : nextSetAdvice({ ex, done: doneToday, asked: row.asked, left, history: historyFor(ex.n), best: allTimeBest(before, ex.n), pr, bodyweight });
     if (call) setAdvice((a) => ({ ...a, [ex.n]: call }));
 
     setGrid((g) => {
@@ -343,7 +345,7 @@ export default function Session({ day, existing, draft, sessions, program, weigh
           if (focus === ex.n) {
             // Before the first set: last time, today's goal, and warm-ups if it's the first lift of the day.
             const firstLift = !Object.entries(grid).some(([n, rs]) => n !== ex.n && rs.some((r) => r.done));
-            const opening = !existing && !isCardio(ex.n) && !rows.some((r) => r.done) ? openingAdvice({ ex, history: historyFor(ex.n), firstLift }) : null;
+            const opening = !existing && !isCardio(ex.n) && !rows.some((r) => r.done) ? openingAdvice({ ex, history: historyFor(ex.n), firstLift, daysSince: last ? daysBetween(last.date, date) : null }) : null;
             const pendingIdx = activeIdx != null && rows[activeIdx] && !rows[activeIdx].done ? activeIdx : rows.findIndex((r) => !r.done);
             return (
               <ExerciseCard key={ex.n} ex={ex} rows={rows} target={target} goal={goal} targetDate={last?.date} bump={bump} call={call} opening={opening}
