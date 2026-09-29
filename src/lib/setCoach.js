@@ -1,4 +1,5 @@
 import { e1rm, fmtW, weightStep, isIsolation, nextGoal, readyToIncrease, lifting } from "./util.js";
+import { freshness, freshMax, loadNote, DEFAULT_K } from "./fatigue.js";
 
 /* The in-workout coach: after every logged set, what the next set should be and why.
    Runs on the phone (instant, works on gym wifi), from rules a good hypertrophy coach uses:
@@ -16,6 +17,9 @@ import { e1rm, fmtW, weightStep, isIsolation, nextGoal, readyToIncrease, lifting
    - Numbers that look like typos (80 reps, 1850 lb) get "check that set", not a new plan.
    - Bodyweight lifts (pull-ups, dips, push-ups) count the lifter's bodyweight in the math, so
      added weight is judged as the real load.
+   - Fatigue-aware: a lift done after other work for the same muscle is compared with a session
+     where it was done at a similar point, or its targets are scaled for the difference, and "off
+     day" / "strong today" are judged on fresh-equivalent numbers (see lib/fatigue.js).
    Predictions use Epley: e1RM = load × (1 + reps/30). Stress-tested by scripts/stress-set-coach.mjs. */
 
 export const BODYWEIGHT = /pull-?ups?|chin-?ups?|\bdips?\b|push-?ups?|inverted row|muscle-?ups?/i;
@@ -70,9 +74,16 @@ function stepDown(w, wanted, step) {
  * Advice before the first set: last time's work sets, the goal for today, and warm-ups for the first
  * heavy lift of the day. Returns { w, r, line } or null for a first-ever lift.
  */
-export function openingAdvice({ ex, history, firstLift, daysSince = null }) {
-  const last = history[0];
-  if (!last?.length) return null;
+export function openingAdvice({ ex, history, firstLift, daysSince = null, fatigue = null }) {
+  if (!history[0]?.length) return null;
+  // Compare like with like: the most recent of the last 6 sessions done at a similar point (within
+  // 3 sets of fatigue), when that isn't simply the latest one.
+  const k = fatigue?.k ?? DEFAULT_K;
+  const now = fatigue?.now ?? 0;
+  const past = fatigue?.past || [];
+  const alike = fatigue ? past.slice(0, 6).findIndex((l) => Math.abs(l - now) <= 3) : 0;
+  const idx = alike > 0 && history[alike]?.length ? alike : 0;
+  const last = history[idx];
   const work = workSets(last);
   const step = weightStep(ex.n);
   // Back after a layoff: 3+ weeks means match last time (no PR hunting); 6+ weeks means start ~10% lighter.
@@ -86,6 +97,21 @@ export function openingAdvice({ ex, history, firstLift, daysSince = null }) {
   const bump = readyToIncrease(ex, work);
   const goal = bump ? { w: bump.to, r: ex.reps[0] } : nextGoal(ex, work);
   if (!goal) return null;
+  const note = loadNote(now, ex.n);
+  if (idx > 0) {
+    // An older session done this late is the fair comparison.
+    const when = note ? `this late (${note})` : "fresh";
+    return { w: goal.w, r: goal.r, line: `Last time you did it ${when}: ${listSets(work)}. Beat that: ${fmtW(goal.w)} × ${goal.r}.` };
+  }
+  const then = past[0] ?? 0;
+  if (fatigue && Math.abs(now - then) >= 3 && goal.w > 0 && !bump) {
+    // Done at a different point than last time: scale the goal to the same effort.
+    const adj = Math.max(ex.reps[0], Math.min(ex.reps[1], Math.floor(30 * ((e1rm(goal.w, goal.r) * freshness(now, k)) / freshness(then, k) / goal.w - 1) + 1e-9)));
+    if (adj !== goal.r) {
+      const when = now > then ? `${note} today` : "fresher today";
+      return { w: goal.w, r: adj, line: `Last time ${listSets(work)}${then >= 3 ? ` (${loadNote(then, ex.n)})` : " (done fresh)"}. ${when[0].toUpperCase()}${when.slice(1)}, ${fmtW(goal.w)} × ${adj} is the same effort as beating it.` };
+    }
+  }
   const aim = bump
     ? `You earned it: ${fmtW(bump.to)} lb today. Aim for ${ex.reps[0]}+ on set 1.`
     : `Beat it by one: ${fmtW(goal.w)} × ${goal.r}${goal.sets > 1 ? ` on ${goal.sets} sets` : ""}.`;
@@ -109,7 +135,7 @@ export function openingAdvice({ ex, history, firstLift, daysSince = null }) {
  * Returns { w, r, line, kind } for the next set (kind: up | hold | down | check), or, when no sets
  * are left, { line, kind: "done" }.
  */
-export function nextSetAdvice({ ex, done, asked, left, history = [], best = 0, pr = false, bodyweight: bw = 180 }) {
+export function nextSetAdvice({ ex, done, asked, left, history = [], best = 0, pr = false, bodyweight: bw = 180, load: fatigueLoad = 0, k = DEFAULT_K }) {
   const [lo, hi] = ex.reps;
   const s = done[done.length - 1];
   const w = +s.w, r = +s.r;
@@ -138,12 +164,17 @@ export function nextSetAdvice({ ex, done, asked, left, history = [], best = 0, p
   const vsAsk = asked && +asked.w === w && asked.r ? r - asked.r : null;
   const vsLast = same && +same.w === w ? r - same.r : null;
   let said;
+  const lateNote = done.length === 1 && w > 0 && r > 0 ? loadNote(fatigueLoad, ex.n) : null;
+  const freshReps = lateNote ? Math.floor(30 * (freshMax(e1rm(w, r), fatigueLoad, k) / w - 1) + 1e-9) : 0;
   if (r === 0) said = `No reps at ${fmtW(w)}.`;
+  else if (pr && lateNote) said = `PR: ${fmtW(w)} × ${r}, ${lateNote}!`;
   else if (pr) said = `PR: ${fmtW(w)} × ${r}!`;
   else if (vsAsk != null && vsAsk >= 0) said = vsAsk > 0 ? `${r}, ${vsAsk} past the target.` : `${r}, right on target.`;
   else if (vsAsk != null) said = `${r}, ${-vsAsk} short of ${asked.r}.`;
   else if (vsLast != null) said = vsLast > 0 ? `${r}, ${vsLast} more than last time.` : vsLast === 0 ? `${r}, same as last time.` : `${r} today vs ${same.r} last time.`;
   else said = `${fmtW(w)} × ${r}.`;
+  // A late lift: say what it's worth fresh, so a lower number isn't read as going backwards.
+  if (lateNote && !pr && freshReps > r) said += ` ${lateNote[0].toUpperCase()}${lateNote.slice(1)}, that's a fresh ~${freshReps}.`;
 
   // No sets left: wrap up with what next time should be.
   if (left <= 0) {
@@ -166,7 +197,8 @@ export function nextSetAdvice({ ex, done, asked, left, history = [], best = 0, p
   // Effort estimate for this set: counts reps left in the tank when the lifter logs RIR (else assumes ~1).
   const max = e1rm(load, r + (rir ?? 1));
   const todayBest = Math.max(...done.map((x) => e1rm(+x.w, +x.r)));
-  const form = best > 0 && w > 0 ? todayBest / best : null; // 1.00 = matching your best (best is kept on the plate weight)
+  // 1.00 = matching your best. Today's sets are counted as if fresh (best should be fresh-equivalent too).
+  const form = best > 0 && w > 0 ? freshMax(todayBest, fatigueLoad, k) / best : null;
   const offDay = form != null && form < 0.9 && done.length === 1;
   const onFire = form != null && form >= 0.98;
   // Without an RIR rating the next set never asks for more reps than this one at the same weight.
@@ -227,6 +259,7 @@ export function nextSetAdvice({ ex, done, asked, left, history = [], best = 0, p
   let why;
   if (offDay) why = `You're about ${Math.round((1 - form) * 100)}% under your best today. Normal off day: hold ${fmtW(w)}, own every rep, don't chase numbers.`;
   else if (r < lo) why = `One short of your range. Stay at ${fmtW(w)} and fight for ${lo}; if it's a grind, drop to ${fmtW(stepDown(w, w - step, step) ?? w)}.`;
+  else if (vsAsk != null && vsAsk < 0 && lateNote) why = `That's the earlier sets, not your strength. Stay at ${fmtW(w)} and bank ${t} solid reps.`;
   else if (vsAsk != null && vsAsk < 0 && done.length === 1) why = `Not a PR day, and that's fine. Stay at ${fmtW(w)} and bank ${t} solid reps.`;
   else if (vsAsk != null && vsAsk < 0) why = `Fatigue's normal. Stay at ${fmtW(w)} and get ${t}.`;
   else if (onFire && !lastSet) why = `You're strong today. Stay at ${fmtW(w)} and push for ${t}.`;

@@ -5,6 +5,7 @@ import { href } from "../lib/router.js";
 import { liftSeries, trend, num, fmtW, bestSet, isIsolation, shortDate, bodyweightSeries, daysBetween, today } from "../lib/util.js";
 import { InfoButton, Sparkline, Trend, EmptyState, Sheet } from "../components/ui.jsx";
 import PhaseCard from "../components/PhaseCard.jsx";
+import { adjustedSeries } from "../lib/fatigue.js";
 import PhaseSheet from "../components/PhaseSheet.jsx";
 import Workouts from "./Workouts.jsx";
 
@@ -82,11 +83,12 @@ function Trends({ sessions, program, weighins, prefs, setPref, notify, onWeighin
     return out.map((g) => {
       const rows = g.lifts.filter((n) => !isCardio(n)).map((n) => {
         const series = liftSeries(sessions, n);
-        const vals = series.map((x) => x.orm);
+        // Trend and sparkline compare fresh-equivalent numbers, so a lift done late isn't read as a drop.
+        const vals = adjustedSeries(sessions, n).map((x) => x.fresh);
         const last = series[series.length - 1];
         const pr = series.length > 1 && last.pr && daysBetween(last.date, today()) <= PR_DAYS;
         const top = isIsolation(n) && bestSet(series.flatMap((x) => x.sets));
-        return { n, vals, best: vals.length ? Math.max(...vals) : 0, top, pct: trend(vals), pr, fresh: pr && last.date === latest };
+        return { n, vals, best: series.length ? Math.max(...series.map((x) => x.orm)) : 0, top, pct: trend(vals), pr, fresh: pr && last.date === latest };
       });
       return { ...g, logged: rows.filter((r) => r.vals.length), unlogged: rows.filter((r) => !r.vals.length).map((r) => r.n) };
     });

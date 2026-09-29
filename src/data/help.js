@@ -41,7 +41,7 @@ export const HELP = {
     steps: [
       { name: "Trends", Icon: TrendingUp, spot: "views", text: "How your lifts and weight are moving. [Workouts] lists every session." },
       { name: "Est. max", Icon: Gauge, text: "The most you could likely lift once. 80 lb × 12 ≈ 112 lb." },
-      { name: "Trend", Icon: TrendingUp, spot: "trend", text: "How much a lift has moved lately. [Baseline] means logged once." },
+      { name: "Trend", Icon: TrendingUp, spot: "trend", text: "How much a lift has moved lately, counting fatigue: a lift done late isn't a drop." },
       { name: "PR", Icon: Trophy, spot: "pr", text: "A glowing row is a PR from your last workout. A [PR] stamp, the last two weeks." },
       { name: "Bulk or cut", Icon: Scale, spot: "phase", text: "Set a target weight. Your coaches track your pace." },
       { name: "Your lifts", Icon: Dumbbell, spot: "lift", text: "Tap one for its chart and records." },
@@ -62,6 +62,7 @@ export const HELP = {
       { name: "Add", Icon: Plus, spot: "meal", text: "Log food: [Add with Tank], a recent food, search, or enter it manually." },
       { name: "Add with Tank", Icon: MessageCircle, text: "Describe a meal in your own words. Tank itemizes it and saves it as one food." },
       { name: "Copy", Icon: Copy, text: "An empty meal can copy yesterday's in one tap." },
+      { name: "Ask", Icon: MessageCircle, spot: "ask", text: "Ask Tank what to eat, about your macros, or how your week's going." },
       { name: "This week", Icon: CalendarDays, spot: "week", text: "Each day against your target. The line is your calorie target." },
     ],
   },
