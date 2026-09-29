@@ -145,6 +145,7 @@ export function useFood(enabled) {
   const updateEntry = useCallback((id, patch) => queue("food_entries", "entries", "upsert", { ...stateRef.current.entries[id], ...patch, id }), [queue]);
   const removeEntry = useCallback((id) => queue("food_entries", "entries", "delete", { id }), [queue]);
   const addFood = useCallback((row) => { const id = row.id || newId(); queue("foods", "foods", "upsert", { ...row, id }); return id; }, [queue]);
+  const updateFood = useCallback((id, patch) => queue("foods", "foods", "upsert", { ...stateRef.current.foods[id], ...patch, id }), [queue]);
   const removeFood = useCallback((id) => queue("foods", "foods", "delete", { id }), [queue]);
 
   return {
@@ -152,9 +153,12 @@ export function useFood(enabled) {
     entries: Object.values(state.entries),
     foods: Object.values(state.foods),
     status: enabled ? status : "synced",
-    addEntry, updateEntry, removeEntry, addFood, removeFood,
+    addEntry, updateEntry, removeEntry, addFood, updateFood, removeFood,
   };
 }
+
+/** The saved food an entry was logged from (by Tank or from "Your foods"), if it still exists. */
+export const savedFoodFor = (foods, entry) => (entry?.source_ref && ["custom", "ai"].includes(entry.source) ? foods.find((f) => f.id === entry.source_ref) || null : null);
 
 /** Recently logged foods, newest first, one per name + brand, for one-tap re-logging. */
 export function recentFoods(entries, limit = 25) {

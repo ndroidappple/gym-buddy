@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { ChevronLeft, Check, Plus, Minus, Trash2 } from "lucide-react";
 import { BorderBeam } from "border-beam";
-import { fmtSet, uid, e1rm, fmtW, today, shortDate, mmss, byDateDesc, priorSessions, allTimeBest, bestSet, vibrate, readyToIncrease, nextGoal, fmtGoal, weightStep } from "../lib/util.js";
+import { fmtSet, uid, e1rm, fmtW, today, shortDate, mmss, byDateDesc, priorSessions, allTimeBest, bestSet, vibrate, readyToIncrease, nextGoal, fmtGoal, weightStep, bodyweightSeries, daysBetween } from "../lib/util.js";
 import { primeAudio, chime } from "../lib/sound.js";
 import { Sheet, ConfirmSheet, ExercisePicker } from "../components/ui.jsx";
 import Coach, { MOODS } from "../components/Coach.jsx";
@@ -9,6 +9,7 @@ import CoachChat from "../components/CoachChat.jsx";
 import { useReducedMotion } from "../lib/motion.js";
 import { useTheme } from "../lib/theme.js";
 import { MessageCircle } from "lucide-react";
+import { nextSetAdvice, openingAdvice } from "../lib/setCoach.js";
 import { COACHES, coachFor } from "../data/coaches.js";
 import { isCardio, specLine } from "../data/program.js";
 
@@ -27,6 +28,8 @@ export default function Session({ day, existing, draft, sessions, program, weigh
   const [chat, setChat] = useState(null); // {coach, exercise} being asked
   const [flash, setFlash] = useState(null); // {ex, i} — the set that was just logged
   const [reaction, setReaction] = useState(null); // {ex, mood} — the coach's brief reaction to a logged set
+  // The coach's call after each logged set, per lift: { w, r, line, kind } (see lib/setCoach.js).
+  const [advice, setAdvice] = useState(() => draft?.advice || {});
   const [editing, setEditing] = useState(false); // numbers being adjusted on the active set
   const reactionTimer = useRef(null);
   useEffect(() => () => clearTimeout(reactionTimer.current), []);
@@ -45,6 +48,10 @@ export default function Session({ day, existing, draft, sessions, program, weigh
   const here = useMemo(() => ({ id: existing?.id || "new", date, finishedAt: existing?.finishedAt || Date.now() }), [existing, date]);
   const before = useMemo(() => priorSessions(sessions, here).sort(byDateDesc), [sessions, here]);
   const lastFor = useCallback((lift) => before.find((s) => s.sets[lift]?.length) || null, [before]);
+  /** This lift's sets from earlier sessions, newest first (for the coach's read on fatigue and form). */
+  const historyFor = useCallback((lift) => before.filter((s) => s.sets[lift]?.length).map((s) => s.sets[lift]), [before]);
+  // Bodyweight counts in the load for pull-ups and dips: today's entry, else the latest on record.
+  const bodyweight = useMemo(() => (bw !== "" && +bw > 0 ? +bw : bodyweightSeries(sessions, weighins).at(-1)?.bw || 180), [bw, sessions, weighins]);
 
   const exercises = useMemo(() => {
     const list = [...dayProgram.exercises, ...extras.map((e) => ({ ...e, today: true }))];
@@ -68,16 +75,16 @@ export default function Session({ day, existing, draft, sessions, program, weigh
     const ref = lastFor(ex.n)?.sets[ex.n] || [];
     // Earned a weight increase last time: every set starts at the new weight, reps start fresh.
     const bump = readyToIncrease(ex, ref);
-    if (bump) return Array.from({ length: ex.sets }, () => ({ w: String(bump.to), r: "", rir: "", done: false }));
+    if (bump) return Array.from({ length: ex.sets }, () => ({ w: String(bump.to), r: "", rir: "", done: false, asked: { w: bump.to, r: ex.reps[0] } }));
     const count = Math.max(ex.sets, ref.length);
     const lastW = ref.length ? String(ref[ref.length - 1].w) : "";
     // Last time's numbers, with the goal (see nextGoal) filled into its set: logging as-is makes progress.
     const goal = nextGoal(ex, ref);
-    return Array.from({ length: count }, (_, i) => ({
-      w: goal && i === goal.idx ? String(goal.w) : ref[i] ? String(ref[i].w) : lastW,
-      r: goal && i === goal.idx ? String(goal.r) : ref[i] ? String(ref[i].r) : "",
-      rir: "", done: false,
-    }));
+    return Array.from({ length: count }, (_, i) => {
+      const w = goal && i === goal.idx ? String(goal.w) : ref[i] ? String(ref[i].w) : lastW;
+      const r = goal && i === goal.idx ? String(goal.r) : ref[i] ? String(ref[i].r) : "";
+      return { w, r, rir: "", done: false, asked: w !== "" && r !== "" ? { w: +w, r: +r } : null };
+    });
   }, [existing, lastFor]);
 
   const [grid, setGrid] = useState(() => {
@@ -155,11 +162,11 @@ export default function Session({ day, existing, draft, sessions, program, weigh
         const sets = collectSets();
         if (Object.keys(sets).length) onUpdate({ ...existing, date, bw: bw !== "" ? parseFloat(bw) : null, note: note.trim() || null, sets });
       } else {
-        onSaveDraft(day, { grid, date, bw, note, extras, skipped, timer, startedAt });
+        onSaveDraft(day, { grid, date, bw, note, extras, skipped, timer, startedAt, advice });
       }
     }, 500);
     return () => clearTimeout(t);
-  }, [grid, date, bw, note, extras, skipped, timer, startedAt]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [grid, date, bw, note, extras, skipped, timer, startedAt, advice]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /* ── keep the screen awake while training ── */
   useEffect(() => {
@@ -222,21 +229,30 @@ export default function Session({ day, existing, draft, sessions, program, weigh
     const same = lastSets?.[i]; // the same set last time
     const below = !pr && !!same && score < e1rm(same.w, same.r) - 0.05;
 
+    // The coach reads the set (vs what was asked, earlier sets today, and history) and calls the next one.
+    const doneToday = grid[ex.n].map((r, j) => (j === i ? r : r.done ? r : null)).filter((r) => r && hasVal(r.w) && hasVal(r.r))
+      .map((r) => ({ w: +r.w, r: +r.r, rir: hasVal(r.rir) ? +r.rir : null }));
+    const left = grid[ex.n].filter((r, j) => j !== i && !r.done).length;
+    const call = existing ? null : nextSetAdvice({ ex, done: doneToday, asked: row.asked, left, history: historyFor(ex.n), best: allTimeBest(before, ex.n), pr, bodyweight });
+    if (call) setAdvice((a) => ({ ...a, [ex.n]: call }));
+
     setGrid((g) => {
       const rows = [...g[ex.n]];
       rows[i] = { ...rows[i], done: true, pr, beat, matched };
       const nx = rows.findIndex((r, j) => j > i && !r.done);
-      if (nx >= 0 && !hasVal(rows[nx].w)) rows[nx] = { ...rows[nx], w: row.w };
+      // The next set takes the coach's numbers, unless the lifter already typed their own.
+      if (nx >= 0 && call?.w != null && !rows[nx].touched) rows[nx] = { ...rows[nx], w: String(call.w), r: String(call.r), asked: { w: call.w, r: call.r } };
+      else if (nx >= 0 && !hasVal(rows[nx].w)) rows[nx] = { ...rows[nx], w: row.w };
       return { ...g, [ex.n]: rows };
     });
     // Finishing the planned sets at the top of the rep range earns more weight next time.
     const doneNow = grid[ex.n].map((r, j) => (j === i ? { ...r, done: true } : r)).filter((r) => r.done && hasVal(r.w) && hasVal(r.r));
     const earned = doneNow.length >= ex.sets && readyToIncrease(ex, doneNow.map((r) => ({ w: +r.w, r: +r.r })));
-    if (earned) notify(`${ex.n}: ${earned.sets} × ${earned.reps} done. Go up to ${fmtW(earned.to)} lb next time.`);
+    if (earned && !call) notify(`${ex.n}: ${earned.sets} × ${earned.reps} done. Go up to ${fmtW(earned.to)} lb next time.`); // the coach's wrap-up says it otherwise
     if (!startedAt) setStartedAt(Date.now());
     setFlash({ ex: ex.n, i });
     vibrate(pr ? [40, 60, 40, 60, 80] : 20);
-    setTimer({ endsAt: Date.now() + ex.rest * 1000, total: ex.rest, coach: coachFor(ex.n) });
+    setTimer({ endsAt: Date.now() + ex.rest * 1000, total: ex.rest, coach: coachFor(ex.n), next: call?.w != null ? `${fmtW(call.w)} × ${call.r}` : null });
     setActiveIdx(null);
     setEditing(false);
     // The coach reacts first, then settles into recovering while the rest timer runs.
@@ -255,6 +271,7 @@ export default function Session({ day, existing, draft, sessions, program, weigh
 
   const reopen = (n, i) => {
     setRow(n, i, { done: false, pr: false, beat: false, matched: false });
+    setAdvice((a) => { const c = { ...a }; delete c[n]; return c; }); // re-read once it's logged again
     setFocus(n);
     setActiveIdx(i);
   };
@@ -324,13 +341,17 @@ export default function Session({ day, existing, draft, sessions, program, weigh
           const target = bestSet(last?.sets[ex.n]);
           const bump = readyToIncrease(ex, last?.sets[ex.n]);
           const goal = bump || isCardio(ex.n) ? null : nextGoal(ex, last?.sets[ex.n]);
+          const call = advice[ex.n];
           if (focus === ex.n) {
+            // Before the first set: last time, today's goal, and warm-ups if it's the first lift of the day.
+            const firstLift = !Object.entries(grid).some(([n, rs]) => n !== ex.n && rs.some((r) => r.done));
+            const opening = !existing && !isCardio(ex.n) && !rows.some((r) => r.done) ? openingAdvice({ ex, history: historyFor(ex.n), firstLift, daysSince: last ? daysBetween(last.date, date) : null }) : null;
             const pendingIdx = activeIdx != null && rows[activeIdx] && !rows[activeIdx].done ? activeIdx : rows.findIndex((r) => !r.done);
             return (
-              <ExerciseCard key={ex.n} ex={ex} rows={rows} target={target} goal={goal} targetDate={last?.date} bump={bump}
+              <ExerciseCard key={ex.n} ex={ex} rows={rows} target={target} goal={goal} targetDate={last?.date} bump={bump} call={call} opening={opening}
                 refSets={last?.sets[ex.n] || []} activeIdx={pendingIdx} flash={flash?.ex === ex.n ? flash.i : null}
                 mood={reaction?.ex === ex.n ? reaction.mood : resting ? "resting" : editing ? "focused" : "idle"}
-                onEdit={(i, patch) => { setRow(ex.n, i, patch); setEditing(true); }} onLog={(i) => logSet(ex, i)}
+                onEdit={(i, patch) => { setRow(ex.n, i, { ...patch, touched: true }); setEditing(true); }} onLog={(i) => logSet(ex, i)}
                 onPick={(i) => { setActiveIdx(i); setEditing(false); }} onReopen={(i) => reopen(ex.n, i)}
                 onAddSet={() => addSet(ex.n)} onRemoveSet={(i) => removeSet(ex.n, i)}
                 onHint={() => notify("Hold a set to edit it, or swipe left to delete it.")}
@@ -338,7 +359,7 @@ export default function Session({ day, existing, draft, sessions, program, weigh
                 showRir={prefs.rir} onAsk={() => setChat({ coach: coachFor(ex.n), exercise: ex.n })} onCollapse={() => setFocus(null)} />
             );
           }
-          return <Collapsed key={ex.n} ex={ex} rows={rows} goal={goal} bump={bump} skipped={skipped.includes(ex.n)} justClosed={closed.current === ex.n}
+          return <Collapsed key={ex.n} ex={ex} rows={rows} goal={goal} bump={bump} call={call} skipped={skipped.includes(ex.n)} justClosed={closed.current === ex.n}
             onOpen={() => { if (skipped.includes(ex.n)) setSkipped((s) => s.filter((x) => x !== ex.n)); setFocus(ex.n); setActiveIdx(null); }} />;
         })}
 
@@ -386,7 +407,8 @@ export default function Session({ day, existing, draft, sessions, program, weigh
           <button className="btn btn-ink" onClick={() => setSheet(null)}>Done</button>
         </Sheet>
       )}
-      {chat && <CoachChat coach={chat.coach} exercise={chat.exercise} sessions={sessions} program={program} weighins={weighins} profile={prefs.profile} phase={prefs.phase} nutrition={nutrition} onProgramChange={onProgramChange} onClose={() => setChat(null)} />}
+      {chat && <CoachChat coach={chat.coach} exercise={chat.exercise} sessions={sessions} program={program} weighins={weighins} profile={prefs.profile} phase={prefs.phase} nutrition={nutrition}
+        live={liveContext(exercises, grid, advice)} onProgramChange={onProgramChange} onClose={() => setChat(null)} />}
       {sheet === "delete" && (
         <ConfirmSheet title="Delete session?" body={`${dayProgram.name} on ${shortDate(existing.date)} and all its sets will be removed.`}
           confirm="Delete" onClose={() => setSheet(null)} onConfirm={() => { onDelete(existing); back("#/progress/workouts"); }} />
@@ -395,7 +417,18 @@ export default function Session({ day, existing, draft, sessions, program, weigh
   );
 }
 
-function Collapsed({ ex, rows, goal, bump, skipped, justClosed, onOpen }) {
+/** This workout so far, for the coach chat: each lift's logged sets and the coach's current call. */
+function liveContext(exercises, grid, advice) {
+  const lines = exercises.map((ex) => {
+    const done = (grid[ex.n] || []).filter((r) => r.done && !isCardio(ex.n) && hasVal(r.w) && hasVal(r.r));
+    if (!done.length) return null;
+    const sets = done.map((r) => `${fmtW(+r.w)}x${r.r}${hasVal(r.rir) ? ` RIR ${r.rir}` : ""}${r.asked && (+r.asked.w !== +r.w || +r.asked.r !== +r.r) ? ` (asked ${fmtW(r.asked.w)}x${r.asked.r})` : ""}`).join(", ");
+    return `- ${ex.n} (plan ${ex.sets}x${ex.reps[0]}-${ex.reps[1]}): ${sets}${advice[ex.n] ? `. Your call for the next set: ${advice[ex.n].line}` : ""}`;
+  }).filter(Boolean);
+  return lines.length ? `In today's workout so far:\n${lines.join("\n")}` : "";
+}
+
+function Collapsed({ ex, rows, goal, bump, call, skipped, justClosed, onOpen }) {
   const done = rows.filter((r) => r.done);
   const complete = rows.length > 0 && done.length === rows.length;
   const prs = done.filter((r) => r.pr).length;
@@ -405,6 +438,7 @@ function Collapsed({ ex, rows, goal, bump, skipped, justClosed, onOpen }) {
   if (skipped) sub = "Skipped today · tap to add back";
   else if (cardio) sub = done.length ? done.map((r) => fmtSet({ min: +r.min, mi: hasVal(r.mi) ? +r.mi : null })).join(" + ") : `Cardio · ${ex.reps[0]}–${ex.reps[1]} min`;
   else if (complete) sub = `${done.length} sets · top set ${fmtW(best.w)} × ${best.r}`;
+  else if (call?.w != null && done.length) sub = `${done.length}/${rows.length} sets · next ${fmtW(call.w)} × ${call.r}`;
   else if (bump) sub = `${done.length}/${rows.length} sets · go up to ${fmtW(bump.to)} lb`;
   else if (goal) sub = `${done.length}/${rows.length} sets · try ${fmtGoal(goal)}`;
   else sub = `${done.length}/${rows.length} sets`;
@@ -431,15 +465,20 @@ function SetRing({ done, total, skipped }) {
   );
 }
 
-function ExerciseCard({ ex, showRir, rows, target, goal, targetDate, onHint, bump, refSets, activeIdx, flash, mood, onAsk, onEdit, onLog, onPick, onReopen, onAddSet, onRemoveSet, onSkip, skipLabel, onCollapse }) {
+function ExerciseCard({ ex, showRir, rows, target, goal, targetDate, onHint, bump, call, opening, refSets, activeIdx, flash, mood, onAsk, onEdit, onLog, onPick, onReopen, onAddSet, onRemoveSet, onSkip, skipLabel, onCollapse }) {
   const id = coachFor(ex.n);
   const coach = COACHES[id];
   // Calm moods read the form cue; reactions say their own line. Until the first set is logged,
   // a lift that earned more weight gets the coach telling you to go up instead.
+  // The coach's call after a set stays up until the next one; before the first set, the opening plan.
+  // The face still reacts (PR, hyped, encourage); the words are always the coaching.
   const calm = mood === "idle" || mood === "focused";
-  const goUp = bump && calm && !rows.some((r) => r.done);
-  const line = goUp ? `You hit ${bump.sets} × ${bump.reps} at ${fmtW(bump.from)} lb. Go up to ${fmtW(bump.to)} today.`
+  const started = rows.some((r) => r.done);
+  const line = started && call ? call.line
+    : opening ? opening.line
+    : bump && !started ? `You hit ${bump.sets} × ${bump.reps} at ${fmtW(bump.from)} lb. Go up to ${fmtW(bump.to)} today.`
     : calm && ex.cue ? ex.cue : MOODS[mood].line;
+  const showCue = ex.cue && line !== ex.cue;
   const cardio = isCardio(ex.n);
   const lastEntry = cardio ? refSets[0] : null;
   return (
@@ -462,10 +501,13 @@ function ExerciseCard({ ex, showRir, rows, target, goal, targetDate, onHint, bum
         </button>
         {cardio
           ? lastEntry && <span className="target" title={`Last time, ${shortDate(targetDate)}`}>Beat {fmtSet(lastEntry)}</span>
+          : started && call?.w != null ? <span className={"target" + (call.kind === "up" ? " up" : "")}>Next · {fmtW(call.w)} × {call.r}</span>
+          : started && call?.kind === "done" ? null
           : bump ? <span className="target up" title={`All ${bump.sets} sets hit ${bump.reps} on ${shortDate(targetDate)}`}>Go up · {fmtW(bump.to)} lb</span>
           : goal && <span className="target" title={`Best set on ${shortDate(targetDate)}: ${fmtW(target.w)} × ${target.r}`}>Try {fmtGoal(goal)}</span>}
       </div>
       {!(cardio ? lastEntry : target) && <p className="target-none">First time logging this one. Today sets the baseline.</p>}
+      {showCue && <p className="ex-cue"><b>Cue</b> {ex.cue}</p>}
 
       <div>
         {rows.map((r, i) => {
@@ -675,7 +717,7 @@ function RestDock({ timer, setTimer }) {
       <div className={"rest" + (over ? " over" : "")} role="timer" aria-label="Rest timer">
         <Coach id={timer.coach || "tank"} mood={over ? "focused" : "resting"} size={46} decorative />
         <div className="rest-text">
-          <span className="rest-line">{over ? "Rest over. Next set!" : MOODS.resting.line}</span>
+          <span className="rest-line">{timer.next ? `${over ? "Go" : "Next"}: ${timer.next}` : over ? "Rest over. Next set!" : MOODS.resting.line}</span>
           <span className="clock" aria-live={over ? "assertive" : "off"} aria-label={over ? "Rest over" : `${mmss(left)} of ${mmss(timer.total)} rest left`}>{over ? "Go" : mmss(left)}</span>
         </div>
         {!over && <button className="rb" onClick={() => adjust(-15)} aria-label="Remove 15 seconds">−15</button>}

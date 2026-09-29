@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Search, Plus, PenLine, ChevronLeft, Trash2, Check } from "lucide-react";
+import { Search, Plus, PenLine, Pencil, ChevronLeft, Trash2, Check } from "lucide-react";
 import Coach from "./Coach.jsx";
 import TankMeal from "./TankMeal.jsx";
 import { Sheet } from "./ui.jsx";
@@ -95,11 +95,15 @@ function Find({ food, onPick, onTank, onManual }) {
     return () => { clearTimeout(t); ctl.abort(); };
   }, [query]);
 
-  const row = (x, key, sub) => (
-    <button key={key} type="button" className="list-row food-row" onClick={() => onPick(x)}>
-      <span className="name">{x.name}<span className="sub">{sub}</span></span>
-      <Plus size={18} aria-hidden="true" className="muted" />
-    </button>
+  const [editingFood, setEditingFood] = useState(null); // a saved food being renamed
+  const row = (x, key, sub, savedFood) => (
+    <div key={key} className="list-row food-row food-row-wrap">
+      <button type="button" className="food-row-main" onClick={() => onPick(x)}>
+        <span className="name">{x.name}<span className="sub">{sub}</span></span>
+        <Plus size={18} aria-hidden="true" className="muted" />
+      </button>
+      {savedFood && <button type="button" className="icon-btn" onClick={() => setEditingFood(savedFood)} aria-label={`Rename or delete ${x.name}`}><Pencil size={16} /></button>}
+    </div>
   );
   const per = (x) => (x.basis?.per100 ? `${fmt(x.basis.per100.kcal)} kcal / 100 g` : x.basis?.perServing ? `${fmt(x.basis.perServing.kcal)} kcal / ${x.basis.servingLabel || "serving"}` : "");
 
@@ -124,7 +128,7 @@ function Find({ food, onPick, onTank, onManual }) {
           {mine.length > 0 && (
             <section className="section">
               <h3 className="lbl">Your foods</h3>
-              <div className="list">{mine.map((f) => row({ ...asFood({ ...f, source: "custom" }) }, `mine:${f.id}`, [f.brand, per(f)].filter(Boolean).join(" · ")))}</div>
+              <div className="list">{mine.map((f) => row({ ...asFood({ ...f, source: "custom" }) }, `mine:${f.id}`, [f.brand, per(f)].filter(Boolean).join(" · "), f))}</div>
             </section>
           )}
           <section className="section">
@@ -136,6 +140,7 @@ function Find({ food, onPick, onTank, onManual }) {
         </>
       )}
 
+      {editingFood && <EditSavedFood food={food} item={editingFood} onClose={() => setEditingFood(null)} />}
       {query && (
         <>
           {local.length > 0 && <div className="list">{local.map((x) => row(x, x.key, [x.tag, x.brand].filter(Boolean).join(" · ")))}</div>}
@@ -173,7 +178,8 @@ function Macros({ n }) {
 }
 
 /** Amount and unit for a food with a known basis, with the result shown live. Also used to edit an entry. */
-export function Portion({ item, amount: a0, unit: u0, meal, onMeal, action, onSave, onDelete }) {
+export function Portion({ item, amount: a0, unit: u0, meal, onMeal, action, onSave, onDelete, editName = false }) {
+  const [name, setName] = useState(item.name);
   const units = unitsFor(item.basis);
   const d = defaultPortion(item.basis);
   const [amount, setAmount] = useState(String(a0 ?? d.amount));
@@ -191,8 +197,10 @@ export function Portion({ item, amount: a0, unit: u0, meal, onMeal, action, onSa
   };
   const bump = (dir) => setAmount((v) => String(Math.max(step, Math.round(((+v || 0) + dir * step) * 100) / 100)));
   return (
-    <form className="food-form" onSubmit={(e) => { e.preventDefault(); if (ok) onSave({ amount: +amount, unit, n }); }}>
-      <div className="food-title"><b>{item.name}</b>{item.brand && <span className="muted small">{item.brand}</span>}</div>
+    <form className="food-form" onSubmit={(e) => { e.preventDefault(); if (ok) onSave({ amount: +amount, unit, n, name: name.trim() || item.name }); }}>
+      {editName
+        ? <NameField value={name} onChange={setName} />
+        : <div className="food-title"><b>{item.name}</b>{item.brand && <span className="muted small">{item.brand}</span>}</div>}
       {item.basis?.items?.length > 0 && (
         <ul className="meal-breakdown">{item.basis.items.map((x, i) => <li key={i}>{x.food} · {x.estimated ? "~" : ""}{x.amount}<span>{Math.round(x.kcal)}</span></li>)}</ul>
       )}
@@ -274,5 +282,32 @@ function ManualFood({ meal, onMeal, action, onSave }) {
       <MealChips meal={meal} onMeal={onMeal} />
       <button type="submit" className="btn btn-ink" disabled={!ok}><Check size={18} strokeWidth={3} aria-hidden="true" /> {action}</button>
     </form>
+  );
+}
+
+/** A name field that looks editable: used wherever a food's name can be changed. */
+export function NameField({ value, onChange, label = "Name" }) {
+  return (
+    <label className="field name-field"><span className="lbl">{label}</span>
+      <span className="name-input"><input className="input" value={value} maxLength={60} onChange={(e) => onChange(e.target.value)} enterKeyHint="done" />
+        <Pencil size={16} aria-hidden="true" /></span></label>
+  );
+}
+
+/** Rename or delete one of your saved foods. Past log entries keep the name they were logged with. */
+function EditSavedFood({ food, item, onClose }) {
+  const [name, setName] = useState(item.name);
+  const [confirm, setConfirm] = useState(false);
+  const save = (e) => { e.preventDefault(); if (name.trim()) food.updateFood(item.id, { name: name.trim() }); onClose(); };
+  return (
+    <Sheet title="Your food" sub="Renaming changes it for next time; past entries keep their name." onClose={onClose} labelledBy="saved-food-title">
+      <form className="food-form" onSubmit={save}>
+        <NameField value={name} onChange={setName} />
+        <button type="submit" className="btn btn-ink" disabled={!name.trim()}>Save name</button>
+        {confirm
+          ? <button type="button" className="btn btn-danger" onClick={() => { food.removeFood(item.id); onClose(); }}>Delete {item.name}</button>
+          : <button type="button" className="btn-quiet danger" onClick={() => setConfirm(true)}><Trash2 size={16} aria-hidden="true" style={{ verticalAlign: -3 }} /> Delete from your foods</button>}
+      </form>
+    </Sheet>
   );
 }

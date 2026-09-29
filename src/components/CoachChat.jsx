@@ -28,7 +28,7 @@ const TRYABLE = new Set(["rate", "empty", "busy", "offline"]);
 
 /** Chat with one coach. Answers stream in; the coach looks locked in while thinking and fired up when it lands.
     `exercise` is the lift the chat was opened from, so the first suggestion is about that lift. */
-export default function CoachChat({ coach, exercise, starter, sessions, program, weighins, profile, phase, nutrition, onProgramChange, onClose }) {
+export default function CoachChat({ coach, exercise, starter, sessions, program, weighins, profile, phase, nutrition, live, onProgramChange, onClose }) {
   const c = COACHES[coach];
   // {role, content, trouble?, replies?, changes?, preview?: {lines, errors}, decision?: "applied" | "dismissed"}
   const [messages, setMessages] = useState([]);
@@ -86,7 +86,7 @@ export default function CoachChat({ coach, exercise, starter, sessions, program,
     const put = (patch) => setMessages((ms) => { const c2 = [...ms]; c2[c2.length - 1] = { ...c2[c2.length - 1], ...patch }; return c2; });
     const ask = () => askCoach({
       coach, messages: history, signal: abort.current.signal,
-      context: buildContext({ coach, sessions, program, weighins, profile, phase, nutrition }),
+      context: [live, buildContext({ coach, sessions, program, weighins, profile, phase, nutrition })].filter(Boolean).join("\n"),
       onText: (t) => { setStatus("streaming"); put({ content: t }); },
     });
     try {
