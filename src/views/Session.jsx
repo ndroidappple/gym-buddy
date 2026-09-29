@@ -10,6 +10,8 @@ import { useReducedMotion } from "../lib/motion.js";
 import { useTheme } from "../lib/theme.js";
 import { MessageCircle } from "lucide-react";
 import { nextSetAdvice, openingAdvice } from "../lib/setCoach.js";
+import { anchorOf, doInstead, swapsFor } from "../lib/busy.js";
+import BusySheet from "../components/BusySheet.jsx";
 import { COACHES, coachFor } from "../data/coaches.js";
 import { isCardio, specLine } from "../data/program.js";
 
@@ -19,6 +21,12 @@ export default function Session({ day, existing, draft, sessions, program, weigh
   const dayProgram = program[day];
   const [extras, setExtras] = useState(() => draft?.extras || []);
   const [skipped, setSkipped] = useState(() => draft?.skipped || []);
+  // Machine busy: lifts put off until later (shown last), and lifts swapped for another today ({ orig: swap }).
+  const [later, setLater] = useState(() => draft?.later || []);
+  const [swaps, setSwaps] = useState(() => draft?.swaps || {});
+  // The order lifts were actually done in: [{ n, at }] as each lift's first set is logged.
+  const [order, setOrder] = useState(() => draft?.order || existing?.order || []);
+  const [busy, setBusy] = useState(null); // the lift whose machine is taken, while its sheet is open
   const [date, setDate] = useState(existing?.date || draft?.date || today());
   const [bw, setBw] = useState(existing?.bw != null ? String(existing.bw) : draft?.bw ?? "");
   const [note, setNote] = useState(existing?.note || draft?.note || "");
@@ -102,6 +110,21 @@ export default function Session({ day, existing, draft, sessions, program, weigh
     });
   }, [exercises, buildRows]);
 
+  // Lifts put off for a busy machine come after the rest, in the order they were put off.
+  // A swap stands where the lift it replaced was.
+  const ordered = useMemo(() => {
+    const base = [];
+    for (const e of exercises.filter((x) => !x.swappedFor)) {
+      base.push(e);
+      const sw = exercises.find((x) => x.swappedFor === e.n);
+      if (sw) base.push(sw);
+    }
+    for (const e of exercises) if (e.swappedFor && !base.includes(e)) base.push(e);
+    return [...base.filter((e) => !later.includes(e.n)), ...later.map((n) => base.find((e) => e.n === n)).filter(Boolean)];
+  }, [exercises, later]);
+  const anchor = useMemo(() => anchorOf(dayProgram.exercises), [dayProgram]);
+  /** The next lift to open after `n`: the next one still to do in the working order. */
+  const nextAfter = (n) => { const i = ordered.findIndex((e) => e.n === n); return [...ordered.slice(i + 1), ...ordered.slice(0, i)].find((e) => e.n !== n && isPending(e.n)) || null; };
   const isPending = (n) => !skipped.includes(n) && (grid[n] || []).some((r) => !r.done);
   const [focus, setFocus] = useState(() => (existing ? null : exercises.find((e) => isPending(e.n))?.n ?? null));
   const [activeIdx, setActiveIdx] = useState(null);
@@ -162,11 +185,11 @@ export default function Session({ day, existing, draft, sessions, program, weigh
         const sets = collectSets();
         if (Object.keys(sets).length) onUpdate({ ...existing, date, bw: bw !== "" ? parseFloat(bw) : null, note: note.trim() || null, sets });
       } else {
-        onSaveDraft(day, { grid, date, bw, note, extras, skipped, timer, startedAt, advice });
+        onSaveDraft(day, { grid, date, bw, note, extras, skipped, timer, startedAt, advice, later, swaps, order });
       }
     }, 500);
     return () => clearTimeout(t);
-  }, [grid, date, bw, note, extras, skipped, timer, startedAt, advice]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [grid, date, bw, note, extras, skipped, timer, startedAt, advice, later, swaps, order]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /* ── keep the screen awake while training ── */
   useEffect(() => {
@@ -207,14 +230,12 @@ export default function Session({ day, existing, draft, sessions, program, weigh
     setReaction({ ex: ex.n, mood: beat ? "proud" : "hyped" });
     clearTimeout(reactionTimer.current);
     reactionTimer.current = setTimeout(() => setReaction(null), 2400);
-    if (!grid[ex.n].some((r, j) => j !== i && !r.done)) {
-      const idx = exercises.findIndex((e) => e.n === ex.n);
-      const next = [...exercises.slice(idx + 1), ...exercises.slice(0, idx)].find((e) => isPending(e.n));
-      setFocus(next ? next.n : null);
-    }
+    if (!grid[ex.n].some((r, j) => j !== i && !r.done)) setFocus(nextAfter(ex.n)?.n ?? null);
   };
 
+  const noteOrder = (n) => setOrder((o) => (o.some((x) => x.n === n) ? o : [...o, { n, at: Date.now() }]));
   const logSet = (ex, i) => {
+    if (!existing) noteOrder(ex.n);
     if (isCardio(ex.n)) { logCardio(ex, i); return; }
     const row = grid[ex.n][i];
     if (!hasVal(row.w) || !hasVal(row.r)) return;
@@ -262,11 +283,7 @@ export default function Session({ day, existing, draft, sessions, program, weigh
     reactionTimer.current = setTimeout(() => setReaction(null), pr ? 3200 : below ? 3000 : 2200);
 
     const stillPending = grid[ex.n].some((r, j) => j !== i && !r.done);
-    if (!stillPending) {
-      const idx = exercises.findIndex((e) => e.n === ex.n);
-      const next = [...exercises.slice(idx + 1), ...exercises.slice(0, idx)].find((e) => isPending(e.n));
-      setFocus(next ? next.n : null);
-    }
+    if (!stillPending) setFocus(nextAfter(ex.n)?.n ?? null);
   };
 
   const reopen = (n, i) => {
@@ -296,10 +313,30 @@ export default function Session({ day, existing, draft, sessions, program, weigh
 
   const skip = (n) => {
     setSkipped((s) => [...s, n]);
-    const idx = exercises.findIndex((e) => e.n === n);
-    const next = exercises.slice(idx + 1).find((e) => e.n !== n && isPending(e.n));
-    setFocus(next ? next.n : null);
+    setFocus(nextAfter(n)?.n ?? null);
     notify(`Skipped ${n} for today`, () => { setSkipped((s) => s.filter((x) => x !== n)); setFocus(n); });
+  };
+
+  /* ── machine busy ── */
+  const putOff = (n) => setLater((l) => [...l.filter((x) => x !== n), n]);
+  const busyDoNow = (n, other) => { putOff(n); setBusy(null); setFocus(other); setActiveIdx(null); notify(`${n} moved to later. Back to it when the machine frees up.`); };
+  const busyLater = (n) => {
+    putOff(n); setBusy(null);
+    const pending = ordered.filter((e) => e.n !== n && isPending(e.n)).map((e) => e.n);
+    setFocus(doInstead(n, pending, anchor)[0]?.n ?? null);
+    setActiveIdx(null);
+  };
+  // Swap for today: the stand-in takes the lift's sets, reps and rest; the original sits out today.
+  const busySwap = (n, sw) => {
+    const orig = exercises.find((e) => e.n === n);
+    setExtras((xs) => [...xs, { ...sw, sets: orig.sets, reps: orig.reps, rest: orig.rest, swappedFor: n }]);
+    setSkipped((s) => [...s.filter((x) => x !== n), n]);
+    setSwaps((s) => ({ ...s, [n]: sw.n }));
+    setBusy(null); setFocus(sw.n); setActiveIdx(null);
+    notify(`${sw.n} instead of ${n} today`, () => {
+      setExtras((xs) => xs.filter((e) => e.n !== sw.n)); setSkipped((s) => s.filter((x) => x !== n));
+      setSwaps((s) => { const c = { ...s }; delete c[n]; return c; }); setFocus(n);
+    });
   };
 
   const removeExtra = (n) => {
@@ -314,7 +351,10 @@ export default function Session({ day, existing, draft, sessions, program, weigh
   const finish = () => {
     const sets = collectSets();
     if (!Object.keys(sets).length) return;
-    onFinish({ id: uid(), day, date, bw: bw !== "" ? parseFloat(bw) : null, note: note.trim() || null, sets, startedAt: startedAt || Date.now(), finishedAt: Date.now() });
+    // The order lifts were done in, and any swaps, travel with the session (for fair comparisons later).
+    const done = order.filter((o) => sets[o.n]);
+    onFinish({ id: uid(), day, date, bw: bw !== "" ? parseFloat(bw) : null, note: note.trim() || null, sets, startedAt: startedAt || Date.now(), finishedAt: Date.now(),
+      ...(done.length ? { order: done } : {}), ...(Object.keys(swaps).length ? { swaps } : {}) });
   };
 
   const metaBits = [shortDate(date), bw !== "" ? `${bw} lb bodyweight` : null, note.trim() ? "note" : null].filter(Boolean);
@@ -335,7 +375,7 @@ export default function Session({ day, existing, draft, sessions, program, weigh
       </div>
 
       <div className="body" style={{ gap: 10 }}>
-        {exercises.map((ex) => {
+        {ordered.map((ex) => {
           const rows = grid[ex.n] || [];
           const last = lastFor(ex.n);
           const target = bestSet(last?.sets[ex.n]);
@@ -356,10 +396,11 @@ export default function Session({ day, existing, draft, sessions, program, weigh
                 onAddSet={() => addSet(ex.n)} onRemoveSet={(i) => removeSet(ex.n, i)}
                 onHint={() => notify("Hold a set to edit it, or swipe left to delete it.")}
                 onSkip={ex.today ? () => removeExtra(ex.n) : ex.orphan ? null : () => skip(ex.n)} skipLabel={ex.today ? "Remove" : "Skip today"}
+                onBusy={existing || !isPending(ex.n) ? null : () => setBusy(ex.n)}
                 showRir={prefs.rir} onAsk={() => setChat({ coach: coachFor(ex.n), exercise: ex.n })} onCollapse={() => setFocus(null)} />
             );
           }
-          return <Collapsed key={ex.n} ex={ex} rows={rows} goal={goal} bump={bump} call={call} skipped={skipped.includes(ex.n)} justClosed={closed.current === ex.n}
+          return <Collapsed key={ex.n} ex={ex} rows={rows} goal={goal} bump={bump} call={call} later={later.includes(ex.n) && isPending(ex.n)} swappedTo={swaps[ex.n]} skipped={skipped.includes(ex.n)} justClosed={closed.current === ex.n}
             onOpen={() => { if (skipped.includes(ex.n)) setSkipped((s) => s.filter((x) => x !== ex.n)); setFocus(ex.n); setActiveIdx(null); }} />;
         })}
 
@@ -407,6 +448,12 @@ export default function Session({ day, existing, draft, sessions, program, weigh
           <button className="btn btn-ink" onClick={() => setSheet(null)}>Done</button>
         </Sheet>
       )}
+      {busy && (
+        <BusySheet lift={busy} isAnchor={busy === anchor} started={grid[busy]?.some((r) => r.done)}
+          doNow={doInstead(busy, ordered.filter((e) => e.n !== busy && isPending(e.n)).map((e) => e.n), anchor).slice(0, 3)}
+          swaps={swapsFor(busy, { program, sessions, exclude: exercises.map((e) => e.n), limit: 4 })}
+          onDoNow={(n) => busyDoNow(busy, n)} onSwap={(sw) => busySwap(busy, sw)} onLater={() => busyLater(busy)} onClose={() => setBusy(null)} />
+      )}
       {chat && <CoachChat coach={chat.coach} exercise={chat.exercise} sessions={sessions} program={program} weighins={weighins} profile={prefs.profile} phase={prefs.phase} nutrition={nutrition}
         live={liveContext(exercises, grid, advice)} onProgramChange={onProgramChange} onClose={() => setChat(null)} />}
       {sheet === "delete" && (
@@ -428,14 +475,20 @@ function liveContext(exercises, grid, advice) {
   return lines.length ? `In today's workout so far:\n${lines.join("\n")}` : "";
 }
 
-function Collapsed({ ex, rows, goal, bump, call, skipped, justClosed, onOpen }) {
+/** The small tag after a lift's name: a swap, a lift put off for a busy machine, or an add-on for today. */
+const Tag = ({ ex, later }) => (ex.swappedFor ? <span className="ex-tag" title={`Instead of ${ex.swappedFor} today`}>swap</span>
+  : later ? <span className="ex-tag later">come back</span>
+  : ex.today ? <span className="ex-tag">today</span> : null);
+
+function Collapsed({ ex, rows, goal, bump, call, later, swappedTo, skipped, justClosed, onOpen }) {
   const done = rows.filter((r) => r.done);
   const complete = rows.length > 0 && done.length === rows.length;
   const prs = done.filter((r) => r.pr).length;
   const best = bestSet(done.filter((r) => hasVal(r.w) && hasVal(r.r)).map((r) => ({ w: +r.w, r: +r.r })));
   const cardio = isCardio(ex.n);
   let sub;
-  if (skipped) sub = "Skipped today · tap to add back";
+  if (skipped && swappedTo) sub = `Swapped for ${swappedTo} today`;
+  else if (skipped) sub = "Skipped today · tap to add back";
   else if (cardio) sub = done.length ? done.map((r) => fmtSet({ min: +r.min, mi: hasVal(r.mi) ? +r.mi : null })).join(" + ") : `Cardio · ${ex.reps[0]}–${ex.reps[1]} min`;
   else if (complete) sub = `${done.length} sets · top set ${fmtW(best.w)} × ${best.r}`;
   else if (call?.w != null && done.length) sub = `${done.length}/${rows.length} sets · next ${fmtW(call.w)} × ${call.r}`;
@@ -445,7 +498,7 @@ function Collapsed({ ex, rows, goal, bump, call, skipped, justClosed, onOpen }) 
   return (
     <button className={"ex-collapsed" + (skipped ? " skipped" : complete ? "" : " pending") + (justClosed ? " just-closed" : "")} onClick={onOpen}>
       <SetRing done={done.length} total={rows.length} skipped={skipped} />
-      <span className="name">{ex.n}{ex.today && <span className="ex-tag">today</span>}<span className="sub">{sub}</span></span>
+      <span className="name">{ex.n}<Tag ex={ex} later={later} /><span className="sub">{sub}</span></span>
       {prs > 0 && !skipped && <span className="stamp">PR{prs > 1 ? ` ×${prs}` : ""}</span>}
     </button>
   );
@@ -465,7 +518,7 @@ function SetRing({ done, total, skipped }) {
   );
 }
 
-function ExerciseCard({ ex, showRir, rows, target, goal, targetDate, onHint, bump, call, opening, refSets, activeIdx, flash, mood, onAsk, onEdit, onLog, onPick, onReopen, onAddSet, onRemoveSet, onSkip, skipLabel, onCollapse }) {
+function ExerciseCard({ ex, showRir, rows, target, goal, targetDate, onHint, bump, call, opening, refSets, activeIdx, flash, mood, onAsk, onEdit, onLog, onPick, onReopen, onAddSet, onRemoveSet, onSkip, skipLabel, onBusy, onCollapse }) {
   const id = coachFor(ex.n);
   const coach = COACHES[id];
   // Calm moods read the form cue; reactions say their own line. Until the first set is logged,
@@ -496,7 +549,7 @@ function ExerciseCard({ ex, showRir, rows, target, goal, targetDate, onHint, bum
       </div>
       <div className="ex-head">
         <button style={{ flex: 1, textAlign: "left", minWidth: 0 }} onClick={onCollapse} aria-label={`${ex.n}, collapse`}>
-          <div className="ex-name">{ex.n}{ex.today && <span className="ex-tag">today</span>}{ex.orphan && <span className="ex-tag">off program</span>}</div>
+          <div className="ex-name">{ex.n}<Tag ex={ex} />{ex.orphan && <span className="ex-tag">off program</span>}</div>
           <div className="ex-spec">{specLine(ex)}</div>
         </button>
         {cardio
@@ -556,6 +609,7 @@ function ExerciseCard({ ex, showRir, rows, target, goal, targetDate, onHint, bum
       <div className="ex-foot">
         <button className="btn-quiet" onClick={onAddSet}><Plus size={16} aria-hidden="true" style={{ verticalAlign: -3 }} /> {cardio ? "Add interval" : "Add set"}</button>
         <span className="spacer" />
+        {onBusy && <button className="btn-quiet" onClick={onBusy}>Machine busy?</button>}
         {onSkip && <button className="btn-quiet" onClick={onSkip}>{skipLabel}</button>}
       </div>
     </section>
