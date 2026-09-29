@@ -467,7 +467,7 @@ button.chip { min-height: 38px; padding: 0 14px; border: 2px solid var(--rule); 
 .segctl button[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
 .seg-count { font-weight: 600; opacity: .7; }
 .trends-sum { margin: 0; font-size: 15px; }
-.bw-log { flex: none; min-height: 40px; padding: 0 16px; }
+.bw-log { flex: none; width: auto; min-height: 40px; padding: 0 16px; font-size: 15px; } /* .btn is full-width by default */
 .bw-log-pill { background: rgba(255,255,255,.18); color: inherit; font-weight: 800; }
 .chart { padding: 12px 8px 6px; position: relative; }
 .chart svg { display: block; width: 100%; height: auto; overflow: visible; }
