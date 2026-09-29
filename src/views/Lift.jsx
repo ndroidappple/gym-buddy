@@ -4,6 +4,7 @@ import { allDays, isCardio } from "../data/program.js";
 import { href } from "../lib/router.js";
 import { liftSeries, trend, repPRs, num, fmtW, fmtSet, cardioTotals, compact, shortDate, bestSet, byDateDesc, isIsolation } from "../lib/util.js";
 import { InfoButton, LineChart, Trend } from "../components/ui.jsx";
+import { adjustedSeries, loadNote } from "../lib/fatigue.js";
 
 const METRICS = [
   { key: "orm", label: "Est. max", fmt: num },
@@ -52,15 +53,21 @@ function CardioLog({ name, sessions, program, back }) {
 function LiftDetail({ name, sessions, program, back }) {
   const iso = isIsolation(name);
   const [metric, setMetric] = useState(iso ? "top" : "orm");
-  const series = useMemo(() => liftSeries(sessions, name), [sessions, name]);
+  const series = useMemo(() => {
+    // Each session's fatigue (work done before this lift) and its fresh-equivalent est. max.
+    const adj = new Map(adjustedSeries(sessions, name).map((x) => [x.id, x]));
+    return liftSeries(sessions, name).map((x) => ({ ...x, fresh: adj.get(x.id)?.fresh ?? x.orm, load: adj.get(x.id)?.load ?? 0 }));
+  }, [sessions, name]);
+  const anyLate = series.some((x) => x.load >= 3);
+  const metrics = anyLate ? [...METRICS.slice(0, 1), { key: "fresh", label: "Fresh est.", fmt: num }, ...METRICS.slice(1)] : METRICS;
   const reps = useMemo(() => repPRs(sessions, name), [sessions, name]);
   const day = allDays(program).find((d) => program[d].exercises.some((e) => e.n === name)) || series[series.length - 1]?.day;
-  const m = METRICS.find((x) => x.key === metric);
+  const m = metrics.find((x) => x.key === metric) || metrics[0];
 
   const best = series.length ? Math.max(...series.map((x) => x.orm)) : 0;
   const bestTop = bestSet(series.flatMap((x) => x.sets));
-  const pct = trend(series.map((x) => x.orm));
-  const running = { top: 0, vol: 0 };
+  const pct = trend(series.map((x) => x.fresh)); // like with like: adjusted for fatigue
+  const running = { top: 0, vol: 0, fresh: 0 };
   const points = series.map((x) => {
     const v = x[metric];
     const pr = metric === "orm" ? x.pr : v > running[metric];
@@ -104,12 +111,12 @@ function LiftDetail({ name, sessions, program, back }) {
 
             <div className="section">
               <div className="segctl" data-help="metric" role="group" aria-label="Chart metric">
-                {METRICS.map((x) => <button key={x.key} aria-pressed={metric === x.key} onClick={() => setMetric(x.key)}>{x.label}</button>)}
+                {metrics.map((x) => <button key={x.key} aria-pressed={metric === x.key} onClick={() => setMetric(x.key)}>{x.label}</button>)}
               </div>
               {points.length >= 2
                 ? <LineChart key={metric} points={points} format={m.fmt} ariaLabel={`${m.label} over ${points.length} sessions, from ${m.fmt(points[0].value)} to ${m.fmt(points[points.length - 1].value)}`} />
                 : <p className="small muted">One session so far. The chart appears after the second.</p>}
-              <p className="mono small muted">Filled dots set a new best. Tap a dot to read it.</p>
+              <p className="mono small muted">{metric === "fresh" ? "Est. max as if done fresh: sets for the same muscle before it are counted as fatigue." : "Filled dots set a new best. Tap a dot to read it."}</p>
             </div>
 
             <section className="section" data-help="rep-records">
@@ -128,7 +135,8 @@ function LiftDetail({ name, sessions, program, back }) {
                   const b = bestSet(x.sets);
                   return (
                     <a key={x.id} className="hist-line" href={href("session", x.day, x.id)} style={{ color: "inherit", textDecoration: "none" }} data-day={x.day}>
-                      <span className="name"><span className="dot" aria-hidden="true" style={{ marginRight: 8 }} />{shortDate(x.date)}{x.pr && <> <span className="stamp" style={{ marginLeft: 6 }}>PR</span></>}</span>
+                      <span className="name"><span className="dot" aria-hidden="true" style={{ marginRight: 8 }} />{shortDate(x.date)}{x.pr && <> <span className="stamp" style={{ marginLeft: 6 }}>PR</span></>}
+                        {loadNote(x.load, name) && <span className="late-note">{loadNote(x.load, name)}</span>}</span>
                       <span className="sets">{x.sets.map((s) => `${fmtW(s.w)}×${s.r}`).join("  ")}<br />best {fmtW(b.w)} × {b.r}</span>
                     </a>
                   );

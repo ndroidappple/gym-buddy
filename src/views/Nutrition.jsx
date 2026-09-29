@@ -1,8 +1,11 @@
 import React, { useMemo, useState } from "react";
-import { ChevronLeft, ChevronRight, Plus, Copy } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Copy, MessageCircle } from "lucide-react";
+import Coach from "../components/Coach.jsx";
+import CoachChat from "../components/CoachChat.jsx";
+import { COACHES } from "../data/coaches.js";
 import { InfoButton, Sheet, EmptyState } from "../components/ui.jsx";
 import AddFood, { Portion, QuickAdd, amountLabel } from "../components/AddFood.jsx";
-import { MEALS, totals, byDate, weekSummary, addDays } from "../lib/nutrition.js";
+import { MEALS, totals, byDate, weekSummary, addDays, nutritionChatContext } from "../lib/nutrition.js";
 import { savedFoodFor } from "../lib/food.js";
 import { href } from "../lib/router.js";
 import { today, longDate, plural } from "../lib/util.js";
@@ -12,7 +15,8 @@ import { today, longDate, plural } from "../lib/util.js";
 
 const fmt = (n) => Math.round(n).toLocaleString();
 
-export default function Nutrition({ food, prefs, notify }) {
+export default function Nutrition({ food, prefs, notify, sessions, weighins, program }) {
+  const [asking, setAsking] = useState(false);
   const n = prefs.nutrition || {};
   const t = n.targets;
   const [date, setDate] = useState(today());
@@ -66,6 +70,17 @@ export default function Nutrition({ food, prefs, notify }) {
 
         <Summary sum={sum} t={t} />
 
+        {/* Tank answers food questions here, like the coaches do mid-workout. */}
+        <div className="ex-coach nut-ask" style={{ "--c": COACHES.tank.color }} data-help="ask">
+          <Coach id="tank" size={48} mood="idle" />
+          <button type="button" className="coach-bubble bubble-btn" onClick={() => setAsking(true)}>
+            {isToday && sum.kcal < t.kcal && t.protein - sum.protein > 20
+              ? `${Math.round(t.protein - sum.protein)} g protein to go today. Ask me what to eat.`
+              : "Questions about food? Ask me."}
+          </button>
+          <button className="ask-btn compact" onClick={() => setAsking(true)} aria-label="Ask Tank, your nutrition coach"><MessageCircle size={18} strokeWidth={2.6} aria-hidden="true" /><span>Ask</span></button>
+        </div>
+
         {MEALS.map((m) => {
           const list = dayEntries.filter((e) => e.meal === m.id).sort((a, b) => (a.created_at || "").localeCompare(b.created_at || ""));
           const kcal = totals(list).kcal;
@@ -95,6 +110,10 @@ export default function Nutrition({ food, prefs, notify }) {
         <p className="small muted">Targets: {fmt(t.kcal)} kcal · {t.protein} g protein · {t.carbs} g carbs · {t.fat} g fat. <a href={href("nutrition", "setup")}>Change</a></p>
       </div>
 
+      {asking && (
+        <CoachChat coach="tank" topic="nutrition" sessions={sessions} program={program} weighins={weighins} profile={prefs.profile} phase={prefs.phase}
+          foodContext={nutritionChatContext({ n, entries: food.entries, phase: prefs.phase, sessions, weighins })} onClose={() => setAsking(false)} />
+      )}
       {adding && <AddFood food={food} meal={adding} date={date} notify={notify} onClose={() => setAdding(null)} />}
       {entry && (
         <Sheet title={entry.source === "quick" ? "Edit calories" : "Edit food"} onClose={() => setEditing(null)} labelledBy="edit-food-title">

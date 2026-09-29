@@ -186,3 +186,31 @@ export function shortName(s) {
   if (t.length > 28) t = t.slice(0, 29).replace(/\s+\S*$/, "").replace(/[\s&,-]+$/, "");
   return t.slice(0, 28);
 }
+
+/**
+ * What Tank sees when asked from the Nutrition tab: targets, today's foods and totals, the last 7
+ * days, the goal or bulk/cut, and bodyweight. Plain text for the model.
+ */
+export function nutritionChatContext({ n, entries, phase, sessions, weighins }) {
+  const day = entries.filter((e) => e.date === today()).sort((a, b) => (a.created_at || "").localeCompare(b.created_at || ""));
+  const t = n.targets;
+  const sum = totals(day);
+  const left = { kcal: t.kcal - sum.kcal, protein: t.protein - sum.protein, carbs: t.carbs - sum.carbs, fat: t.fat - sum.fat };
+  const r = Math.round;
+  const lines = [
+    nutritionContext(n, entries),
+    `Left today: ${r(left.kcal)} kcal, ${r(left.protein)} g protein, ${r(left.carbs)} g carbs, ${r(left.fat)} g fat.`,
+    day.length ? `Eaten today: ${day.map((e) => `${e.meal} ${e.name} (${r(e.kcal)} kcal, P${r(e.protein)} C${r(e.carbs)} F${r(e.fat)})`).join("; ")}.` : "Nothing logged yet today.",
+  ];
+  const week = [];
+  for (let i = 6; i >= 1; i--) {
+    const d = addDays(today(), -i);
+    const x = totals(entries.filter((e) => e.date === d));
+    if (x.kcal) week.push(`${d}: ${r(x.kcal)} kcal, ${r(x.protein)} g protein`);
+  }
+  if (week.length) lines.push(`Previous days: ${week.join("; ")}.`);
+  if (phase && !phase.endedAt) lines.push(`Running a ${phase.type}: ${phase.startWeight} -> ${phase.target} lb, planned ${phase.rate} lb/week, ends ${phase.end}.`);
+  const bw = latestWeight(sessions, weighins);
+  if (bw) lines.push(`Latest bodyweight: ${bw.bw} lb (${bw.age} days ago).`);
+  return lines.join("\n");
+}

@@ -28,7 +28,12 @@ const TRYABLE = new Set(["rate", "empty", "busy", "offline"]);
 
 /** Chat with one coach. Answers stream in; the coach looks locked in while thinking and fired up when it lands.
     `exercise` is the lift the chat was opened from, so the first suggestion is about that lift. */
-export default function CoachChat({ coach, exercise, starter, sessions, program, weighins, profile, phase, nutrition, live, onProgramChange, onClose }) {
+/** Starters for the nutrition chat, from the Nutrition tab. */
+const FOOD_STARTERS = ["What should I eat to hit my protein today?", "How's my eating this week?", "A high-protein snack idea", "Am I eating right for my goal?"];
+
+/** `topic="nutrition"`: Tank as the nutrition coach, from the Nutrition tab, with `foodContext` as his data. */
+export default function CoachChat({ coach, exercise, starter, sessions, program, weighins, profile, phase, nutrition, live, topic, foodContext, onProgramChange, onClose }) {
+  const food = topic === "nutrition";
   const c = COACHES[coach];
   // {role, content, trouble?, replies?, changes?, preview?: {lines, errors}, decision?: "applied" | "dismissed"}
   const [messages, setMessages] = useState([]);
@@ -61,6 +66,7 @@ export default function CoachChat({ coach, exercise, starter, sessions, program,
   }, [status]);
 
   const suggestions = useMemo(() => {
+    if (food) return FOOD_STARTERS;
     const mine = activeDays(program).flatMap((d) => program[d].exercises.map((e) => e.n)).filter((n) => coachFor(n) === coach);
     const lift = exercise || mine[0];
     return [
@@ -71,7 +77,7 @@ export default function CoachChat({ coach, exercise, starter, sessions, program,
       // Tank runs the program as a whole, so renaming workouts is his to offer.
       ...(coach === "tank" && onProgramChange && !exercise ? ["Rename my workouts"] : []),
     ];
-  }, [program, coach, c.group, exercise, onProgramChange]);
+  }, [program, coach, c.group, exercise, onProgramChange, food]);
 
   const send = async (text) => {
     const q = text.trim();
@@ -85,8 +91,8 @@ export default function CoachChat({ coach, exercise, starter, sessions, program,
     abort.current = new AbortController();
     const put = (patch) => setMessages((ms) => { const c2 = [...ms]; c2[c2.length - 1] = { ...c2[c2.length - 1], ...patch }; return c2; });
     const ask = () => askCoach({
-      coach, messages: history, signal: abort.current.signal,
-      context: [live, buildContext({ coach, sessions, program, weighins, profile, phase, nutrition })].filter(Boolean).join("\n"),
+      coach, messages: history, signal: abort.current.signal, mode: food ? "nutrition" : undefined,
+      context: food ? foodContext : [live, buildContext({ coach, sessions, program, weighins, profile, phase, nutrition })].filter(Boolean).join("\n"),
       onText: (t) => { setStatus("streaming"); put({ content: t }); },
     });
     try {
@@ -131,13 +137,13 @@ export default function CoachChat({ coach, exercise, starter, sessions, program,
   const tapReply = (r) => (r === "Try again" && last?.retry ? send(last.retry) : send(r));
 
   return (
-    <Sheet title={`Ask ${c.name}`} sub={`${c.group} coach`} onClose={onClose} labelledBy="coach-chat-title" className="sheet-chat">
+    <Sheet title={`Ask ${c.name}`} sub={food ? "Nutrition coach" : `${c.group} coach`} onClose={onClose} labelledBy="coach-chat-title" className="sheet-chat">
       <div className="chat" style={{ "--c": c.color }}>
         <div className="chat-coach"><Coach id={coach} mood={mood} size={88} /></div>
         <div className="chat-list" ref={listRef} aria-live="polite">
           {messages.length === 0 && (
             <div className="chat-empty">
-              <p className="coach-bubble">What do you want to know? Ask me anything about your training.</p>
+              <p className="coach-bubble">{food ? "Food questions? Ask me: what to eat, your macros, how your week's going." : "What do you want to know? Ask me anything about your training."}</p>
               <div className="chat-suggest">
                 {suggestions.map((s) => <button key={s} className="chip" onClick={() => send(s)}>{s}</button>)}
               </div>
@@ -174,7 +180,7 @@ export default function CoachChat({ coach, exercise, starter, sessions, program,
             <button type="submit" aria-label="Send" disabled={!draft.trim() || busy}><ArrowUp size={20} strokeWidth={2.8} /></button>
           </form>
         </BorderBeam>
-        <p className="chat-note">Answers use your logged sets. AI can be wrong. Not medical advice.</p>
+        <p className="chat-note">{food ? "Answers use your food log and targets." : "Answers use your logged sets."} AI can be wrong. Not medical advice.</p>
       </div>
     </Sheet>
   );

@@ -11,6 +11,7 @@ import { useTheme } from "../lib/theme.js";
 import { MessageCircle } from "lucide-react";
 import { nextSetAdvice, openingAdvice } from "../lib/setCoach.js";
 import { anchorOf, doInstead, swapsFor } from "../lib/busy.js";
+import { loadFrom, loadIn, learnK, adjustedSeries } from "../lib/fatigue.js";
 import BusySheet from "../components/BusySheet.jsx";
 import { COACHES, coachFor } from "../data/coaches.js";
 import { isCardio, specLine } from "../data/program.js";
@@ -58,6 +59,17 @@ export default function Session({ day, existing, draft, sessions, program, weigh
   const lastFor = useCallback((lift) => before.find((s) => s.sets[lift]?.length) || null, [before]);
   /** This lift's sets from earlier sessions, newest first (for the coach's read on fatigue and form). */
   const historyFor = useCallback((lift) => before.filter((s) => s.sets[lift]?.length).map((s) => s.sets[lift]), [before]);
+  /** Fatigue for a lift: what's been done before it today, how it's been done before, this lifter's rate. */
+  const fatigueFor = (lift) => {
+    // Lifts started before this one (all logged lifts, if this one hasn't started yet).
+    const mine = order.findIndex((o) => o.n === lift);
+    const earlier = (mine >= 0 ? order.slice(0, mine) : order).map((o) => o.n)
+      .map((n) => ({ n, sets: (grid[n] || []).filter((r) => r.done && hasVal(r.w) && hasVal(r.r)).map((r) => ({ w: +r.w, r: +r.r })) }));
+    const past = before.filter((s) => s.sets[lift]?.length);
+    const k = learnK(past, lift);
+    const fresh = adjustedSeries(past, lift, k);
+    return { now: loadFrom(earlier, lift), past: past.map((s) => loadIn(s, lift)), k, best: fresh.length ? Math.max(...fresh.map((x) => x.fresh)) : 0 };
+  };
   // Bodyweight counts in the load for pull-ups and dips: today's entry, else the latest on record.
   const bodyweight = useMemo(() => (bw !== "" && +bw > 0 ? +bw : bodyweightSeries(sessions, weighins).at(-1)?.bw || 180), [bw, sessions, weighins]);
 
@@ -127,6 +139,23 @@ export default function Session({ day, existing, draft, sessions, program, weigh
   const nextAfter = (n) => { const i = ordered.findIndex((e) => e.n === n); return [...ordered.slice(i + 1), ...ordered.slice(0, i)].find((e) => e.n !== n && isPending(e.n)) || null; };
   const isPending = (n) => !skipped.includes(n) && (grid[n] || []).some((r) => !r.done);
   const [focus, setFocus] = useState(() => (existing ? null : exercises.find((e) => isPending(e.n))?.n ?? null));
+  /** The coach's plan before a lift's first set (last time, today's goal, warm-ups, fatigue), or null. */
+  const openingFor = (ex, rows) => {
+    if (existing || isCardio(ex.n) || rows.some((r) => r.done)) return null;
+    const last = lastFor(ex.n);
+    const firstLift = !Object.entries(grid).some(([n, rs]) => n !== ex.n && rs.some((r) => r.done));
+    return openingAdvice({ ex, history: historyFor(ex.n), firstLift, daysSince: last ? daysBetween(last.date, date) : null, fatigue: fatigueFor(ex.n) });
+  };
+  // When a lift opens, its first set takes the coach's opening numbers (which count today's fatigue),
+  // unless the lifter already typed their own.
+  useEffect(() => {
+    const ex = focus && exercises.find((e) => e.n === focus);
+    if (!ex) return;
+    const o = openingFor(ex, grid[ex.n] || []);
+    const first = (grid[ex.n] || [])[0];
+    if (!o || !first || first.touched || (first.asked && +first.asked.w === o.w && +first.asked.r === o.r)) return;
+    setGrid((g) => ({ ...g, [ex.n]: g[ex.n].map((r, j) => (j === 0 ? { ...r, w: String(o.w), r: String(o.r), asked: { w: o.w, r: o.r } } : r)) }));
+  }, [focus]); // eslint-disable-line react-hooks/exhaustive-deps
   const [activeIdx, setActiveIdx] = useState(null);
   // Remember which card just closed so it can animate shut, then glide the newly opened card into view.
   const prevFocus = useRef(focus);
@@ -254,7 +283,8 @@ export default function Session({ day, existing, draft, sessions, program, weigh
     const doneToday = grid[ex.n].map((r, j) => (j === i ? r : r.done ? r : null)).filter((r) => r && hasVal(r.w) && hasVal(r.r))
       .map((r) => ({ w: +r.w, r: +r.r, rir: hasVal(r.rir) ? +r.rir : null }));
     const left = grid[ex.n].filter((r, j) => j !== i && !r.done).length;
-    const call = existing ? null : nextSetAdvice({ ex, done: doneToday, asked: row.asked, left, history: historyFor(ex.n), best: allTimeBest(before, ex.n), pr, bodyweight });
+    const fat = existing ? null : fatigueFor(ex.n);
+    const call = existing ? null : nextSetAdvice({ ex, done: doneToday, asked: row.asked, left, history: historyFor(ex.n), best: fat.best || allTimeBest(before, ex.n), pr, bodyweight, load: fat.now, k: fat.k });
     if (call) setAdvice((a) => ({ ...a, [ex.n]: call }));
 
     setGrid((g) => {
@@ -384,8 +414,7 @@ export default function Session({ day, existing, draft, sessions, program, weigh
           const call = advice[ex.n];
           if (focus === ex.n) {
             // Before the first set: last time, today's goal, and warm-ups if it's the first lift of the day.
-            const firstLift = !Object.entries(grid).some(([n, rs]) => n !== ex.n && rs.some((r) => r.done));
-            const opening = !existing && !isCardio(ex.n) && !rows.some((r) => r.done) ? openingAdvice({ ex, history: historyFor(ex.n), firstLift, daysSince: last ? daysBetween(last.date, date) : null }) : null;
+            const opening = openingFor(ex, rows);
             const pendingIdx = activeIdx != null && rows[activeIdx] && !rows[activeIdx].done ? activeIdx : rows.findIndex((r) => !r.done);
             return (
               <ExerciseCard key={ex.n} ex={ex} rows={rows} target={target} goal={goal} targetDate={last?.date} bump={bump} call={call} opening={opening}

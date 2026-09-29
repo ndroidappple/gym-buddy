@@ -104,6 +104,8 @@ run("pyramid history (warm-ups logged)", "bench", { done: [{ w: 185, r: 8 }], le
 
 run("bench: big fall-off between sets", "bench", { done: [{ w: 185, r: 9 }, { w: 185, r: 5 }], left: 2, history: benchH, best: bestOf(benchH) });
 run("bench: went lighter, hit top", "bench", { done: [{ w: 165, r: 11 }], asked: { w: 185, r: 9 }, left: 3, history: benchH, best: bestOf(benchH) });
+run("pec deck after 9 chest sets", { n: "Machine Pec Dec", sets: 3, reps: [10, 15] }, { done: [{ w: 100, r: 11 }], asked: { w: 100, r: 13 }, left: 2, history: [[{ w: 100, r: 14 }]], best: e1rm(100, 14), load: 9, k: 0.012 });
+run("pec deck PR after 9 chest sets", { n: "Machine Pec Dec", sets: 3, reps: [10, 15] }, { done: [{ w: 100, r: 15 }], left: 2, history: [[{ w: 100, r: 14 }]], best: e1rm(100, 14), load: 9, k: 0.012, pr: true });
 for (const [label, ex, hist, first, days] of [["opening after 4 weeks off", "bench", benchH, true, 28], ["opening after 8 weeks off", "bench", benchH, true, 56],["opening bench", "bench", benchH, true], ["opening first-ever", "squat", [], true], ["opening bodyweight", "pullup", [[{ w: 0, r: 8 }, { w: 0, r: 7 }]], true], ["opening lateral 5 lb", "lateral", [[{ w: 5, r: 15 }]], false]]) {
   const o = openingAdvice({ ex: LIFTS[ex], history: hist, firstLift: first, daysSince: days ?? null });
   if (verbose) console.log(`\n[${label}] -> ${o ? `${o.w} x ${o.r}: ${o.line}` : "none"}`);
@@ -124,6 +126,9 @@ for (let t = 0; t < RUNS; t++) {
   const hist = rand() < 0.3 ? [] : [Array.from({ length: ex.sets }, (_, i) => ({ w: base, r: Math.max(1, ex.reps[0] + Math.floor(rand() * 5) - 2 - i) }))];
   const best = bestOf(hist);
   const done = [];
+  // Sometimes done late in the workout, with a personal fatigue rate anywhere in the learned range.
+  const load = rand() < 0.4 ? Math.floor(rand() * 15) : 0;
+  const k = rand() * 0.025;
   let asked = hist[0]?.[0] ? { w: base, r: hist[0][0].r + 1 } : null;
   let w = base;
   const total = ex.sets + (rand() < 0.2 ? 1 : 0);
@@ -133,7 +138,7 @@ for (let t = 0; t < RUNS; t++) {
     const r = Math.max(0, rand() < 0.08 ? Math.floor(rand() * 40) : target + Math.floor(rand() * 5) - 3);
     const rir = rand() < 0.3 ? Math.floor(rand() * 5) : null;
     done.push({ w, r, ...(rir != null ? { rir } : {}) });
-    const args = { done: [...done], asked, left: total - done.length, history: hist, best, pr: best > 0 && e1rm(w, r) > best };
+    const args = { done: [...done], asked, left: total - done.length, history: hist, best, pr: best > 0 && e1rm(w, r) > best, load, k };
     const out = nextSetAdvice({ ex, ...args });
     calls++;
     check(`fuzz#${t}.${i}`, ex, args, out);
