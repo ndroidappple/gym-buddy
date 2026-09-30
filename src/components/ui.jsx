@@ -302,7 +302,80 @@ function niceTicks(min, max, count = 4) {
   return t;
 }
 
-/** Line chart drawn to scale. Points: {label, value, pr?}. Tap a point to read it. */
+/* Press and hold a chart to read it: after a short hold the nearest point is picked, and sliding
+   the finger scrubs along the line. A quick swipe still scrolls the page. A mouse just hovers.
+   xs are the points' x positions in the SVG's viewBox, W its width. */
+const SCRUB_HOLD_MS = 250, SCRUB_SLOP = 10;
+export function useScrub(xs, W, onRelease) {
+  const [idx, setIdx] = useState(null);
+  const ref = useRef(null);
+  const [el, setEl] = useState(null); // the chart can mount after the hook (e.g. once a second weigh-in lands)
+  const press = useRef(null); // { id, x0, y0, active, timer } while a finger is down
+  const last = useRef(null);
+  const swallowClick = useRef(false);
+  const nearest = (clientX) => {
+    const r = ref.current.getBoundingClientRect();
+    const vx = ((clientX - r.left) / r.width) * W;
+    return xs.reduce((b, x, i) => (Math.abs(x - vx) < Math.abs(xs[b] - vx) ? i : b), 0);
+  };
+  const show = (i) => { if (last.current !== i) vibrate(4); last.current = i; setIdx(i); };
+  const end = () => {
+    const p = press.current;
+    if (!p) return;
+    clearTimeout(p.timer);
+    press.current = null;
+    if (p.active) { swallowClick.current = true; setTimeout(() => { swallowClick.current = false; }, 400); onRelease?.(last.current); }
+    last.current = null;
+    setIdx(null);
+  };
+  // Once the hold has picked up, the finger belongs to the chart: stop the page from scrolling.
+  // React's touch listeners are passive, so this one is added by hand.
+  useEffect(() => {
+    if (!el) return;
+    const stop = (e) => { if (press.current?.active) e.preventDefault(); };
+    el.addEventListener("touchmove", stop, { passive: false });
+    return () => { el.removeEventListener("touchmove", stop); if (press.current) clearTimeout(press.current.timer); };
+  }, [el]);
+  const attach = useRef((n) => { ref.current = n; setEl(n); }).current;
+  const bind = {
+    ref: attach,
+    onPointerDown: (e) => {
+      if (e.pointerType === "mouse" || !xs.length) return;
+      if (press.current) clearTimeout(press.current.timer);
+      const p = { id: e.pointerId, x0: e.clientX, y0: e.clientY, x: e.clientX, active: false };
+      p.timer = setTimeout(() => { p.active = true; show(nearest(p.x)); }, SCRUB_HOLD_MS);
+      press.current = p;
+    },
+    onPointerMove: (e) => {
+      if (!xs.length) return;
+      if (e.pointerType === "mouse") { show(nearest(e.clientX)); return; }
+      const p = press.current;
+      if (!p || e.pointerId !== p.id) return;
+      p.x = e.clientX;
+      if (p.active) show(nearest(e.clientX));
+      else if (Math.hypot(e.clientX - p.x0, e.clientY - p.y0) > SCRUB_SLOP) { clearTimeout(p.timer); press.current = null; }
+    },
+    onPointerUp: end,
+    onPointerCancel: end,
+    onPointerLeave: (e) => { if (e.pointerType === "mouse") { last.current = null; setIdx(null); } },
+    onContextMenu: (e) => e.preventDefault(),
+    onClickCapture: (e) => { if (swallowClick.current) { e.stopPropagation(); e.preventDefault(); } },
+  };
+  return [idx, bind];
+}
+
+/** Floating readout over a point at (x, y) in a W×H viewBox. It slides along its own width as x
+    moves across, so it never hangs off either edge. */
+export function ChartTip({ x, y, W, H, children }) {
+  const px = (x / W) * 100;
+  return (
+    <div className="chart-tip" role="status" style={{ left: `${px}%`, top: `${(y / H) * 100}%`, transform: `translate(-${px}%, calc(-100% - 14px))` }}>
+      {children}
+    </div>
+  );
+}
+
+/** Line chart drawn to scale. Points: {label, value, pr?}. Tap a dot, or hold and slide, to read it. */
 export function LineChart({ points, format = (v) => v, height = 150, ariaLabel }) {
   const [sel, setSel] = useState(null);
   const W = 300, H = height, L = 34, R = 8, T = 10, B = 22;
@@ -311,31 +384,36 @@ export function LineChart({ points, format = (v) => v, height = 150, ariaLabel }
   const lo = ticks[0], hi = ticks[ticks.length - 1], span = hi - lo || 1;
   const x = (i) => L + (points.length === 1 ? (W - L - R) / 2 : (i / (points.length - 1)) * (W - L - R));
   const y = (v) => T + (1 - (v - lo) / span) * (H - T - B);
+  const [scrub, bind] = useScrub(points.map((_, i) => x(i)), W, (i) => setSel(i));
   const line = points.map((p, i) => `${x(i)},${y(p.value)}`).join(" ");
   const area = `M${x(0)},${H - B} L${line.replace(/ /g, " L")} L${x(points.length - 1)},${H - B} Z`;
-  const s = sel != null ? points[sel] : null;
+  const on = scrub ?? sel;
+  const s = on != null ? points[on] : null;
   return (
     <div className="chart">
-      {s && <div className="chart-tip">{s.label} · {format(s.value)}{s.pr ? " · PR" : ""}</div>}
-      <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={ariaLabel}>
-        {ticks.map((t) => (
-          <g key={t}>
-            <line x1={L} x2={W - R} y1={y(t)} y2={y(t)} style={{ stroke: "var(--rule)", strokeWidth: 1 }} />
-            <text x={L - 6} y={y(t) + 3.5} textAnchor="end" style={{ fill: "var(--mute)", fontSize: 10, fontWeight: 600 }}>{format(t)}</text>
-          </g>
-        ))}
-        <path d={area} style={{ fill: "var(--day, var(--ink))", opacity: 0.12 }} />
-        <polyline points={line} style={{ fill: "none", stroke: "var(--day, var(--ink))", strokeWidth: 3.5, strokeLinejoin: "round", strokeLinecap: "round" }} />
-        {points.map((p, i) => (
-          <g key={i} onClick={() => setSel(sel === i ? null : i)} style={{ cursor: "pointer" }}>
-            <circle cx={x(i)} cy={y(p.value)} r="14" style={{ fill: "transparent" }} />
-            <circle cx={x(i)} cy={y(p.value)} r={sel === i ? 6 : p.pr ? 4.5 : 3.5}
-              style={{ fill: p.pr ? "var(--day, var(--ink))" : "var(--surface)", stroke: "var(--day, var(--ink))", strokeWidth: 2 }} />
-          </g>
-        ))}
-        <text x={x(0)} y={H - 5} textAnchor={points.length === 1 ? "middle" : "start"} style={{ fill: "var(--mute)", fontSize: 10, fontWeight: 600 }}>{points[0].label}</text>
-        {points.length > 1 && <text x={x(points.length - 1)} y={H - 5} textAnchor="end" style={{ fill: "var(--mute)", fontSize: 10, fontWeight: 600 }}>{points[points.length - 1].label}</text>}
-      </svg>
+      <div className="scrub" {...bind}>
+        {s && <ChartTip x={x(on)} y={y(s.value)} W={W} H={H}><b>{format(s.value)}{s.pr ? " · PR" : ""}</b><span>{s.label}</span></ChartTip>}
+        <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={ariaLabel}>
+          {ticks.map((t) => (
+            <g key={t}>
+              <line x1={L} x2={W - R} y1={y(t)} y2={y(t)} style={{ stroke: "var(--rule)", strokeWidth: 1 }} />
+              <text x={L - 6} y={y(t) + 3.5} textAnchor="end" style={{ fill: "var(--mute)", fontSize: 10, fontWeight: 600 }}>{format(t)}</text>
+            </g>
+          ))}
+          <path d={area} style={{ fill: "var(--day, var(--ink))", opacity: 0.12 }} />
+          {s && <line x1={x(on)} x2={x(on)} y1={T} y2={H - B} style={{ stroke: "var(--mute)", strokeWidth: 1.5, strokeDasharray: "3 4" }} />}
+          <polyline points={line} style={{ fill: "none", stroke: "var(--day, var(--ink))", strokeWidth: 3.5, strokeLinejoin: "round", strokeLinecap: "round" }} />
+          {points.map((p, i) => (
+            <g key={i} onClick={() => setSel(sel === i ? null : i)} style={{ cursor: "pointer" }}>
+              <circle cx={x(i)} cy={y(p.value)} r="14" style={{ fill: "transparent" }} />
+              <circle cx={x(i)} cy={y(p.value)} r={on === i ? 6 : p.pr ? 4.5 : 3.5}
+                style={{ fill: p.pr ? "var(--day, var(--ink))" : "var(--surface)", stroke: "var(--day, var(--ink))", strokeWidth: 2 }} />
+            </g>
+          ))}
+          <text x={x(0)} y={H - 5} textAnchor={points.length === 1 ? "middle" : "start"} style={{ fill: "var(--mute)", fontSize: 10, fontWeight: 600 }}>{points[0].label}</text>
+          {points.length > 1 && <text x={x(points.length - 1)} y={H - 5} textAnchor="end" style={{ fill: "var(--mute)", fontSize: 10, fontWeight: 600 }}>{points[points.length - 1].label}</text>}
+        </svg>
+      </div>
     </div>
   );
 }

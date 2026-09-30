@@ -3,7 +3,7 @@ import { Scale, CalendarDays, List } from "lucide-react";
 import { isCardio, activeDays } from "../data/program.js";
 import { href } from "../lib/router.js";
 import { liftSeries, trend, num, fmtW, bestSet, isIsolation, shortDate, bodyweightSeries, daysBetween, today } from "../lib/util.js";
-import { InfoButton, Sparkline, Trend, EmptyState, Sheet } from "../components/ui.jsx";
+import { InfoButton, Sparkline, Trend, EmptyState, Sheet, useScrub, ChartTip } from "../components/ui.jsx";
 import PhaseCard from "../components/PhaseCard.jsx";
 import { adjustedSeries } from "../lib/fatigue.js";
 import PhaseSheet from "../components/PhaseSheet.jsx";
@@ -182,13 +182,32 @@ function Bodyweight({ series, phase, onLog }) {
         <span className="pill">{change}</span>
         <button type="button" className="pill bw-log-pill" onClick={onLog} aria-label="Log a weigh-in">+ Log</button>
       </div>
-      <svg viewBox={`0 0 ${W} ${H}`} aria-hidden="true">
+      <BwScrub W={W} H={H} pts={pts} tip={(i) => {
+        const d = i > 0 ? series[i].bw - series[i - 1].bw : null;
+        return <><b>{num(series[i].bw)} lb</b><span>{shortDate(series[i].date)}{d != null && ` · ${Math.abs(d) < 0.05 ? "±0" : `${d > 0 ? "▲" : "▼"} ${num(Math.abs(d))}`}`}</span></>;
+      }}>
         <polyline points={pts.map((p) => p.join(",")).join(" ")} fill="none" stroke="#FFFFFF" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
         {pts.slice(0, -1).map(([x, y], i) => <circle key={i} cx={x} cy={y} r="4" fill="var(--accent)" stroke="#FFFFFF" strokeWidth="2.5" />)}
         <circle cx={pts[pts.length - 1][0]} cy={pts[pts.length - 1][1]} r="7" fill="#FFFFFF" />
-      </svg>
+      </BwScrub>
       <div className="ends"><span style={{ flex: 1 }}>{shortDate(first.date)}</span><span>{shortDate(last.date)}</span></div>
     </section>
+  );
+}
+
+/* The bodyweight line in its card, readable by press-and-hold. pts are [x, y] in the viewBox. */
+function BwScrub({ W, H, pts, tip, children }) {
+  const [i, bind] = useScrub(pts.map((p) => p[0]), W);
+  const on = i != null ? pts[i] : null;
+  return (
+    <div className="scrub" {...bind}>
+      {on && <ChartTip x={on[0]} y={on[1]} W={W} H={H}>{tip(i)}</ChartTip>}
+      <svg viewBox={`0 0 ${W} ${H}`} aria-hidden="true">
+        {on && <line x1={on[0]} x2={on[0]} y1={0} y2={H} stroke="#FFFFFF" strokeOpacity=".45" strokeWidth="1.5" strokeDasharray="3 4" />}
+        {children}
+        {on && <circle cx={on[0]} cy={on[1]} r="8" fill="#FFFFFF" stroke="var(--accent-lip)" strokeWidth="3" />}
+      </svg>
+    </div>
   );
 }
 
@@ -229,12 +248,15 @@ function PhaseChart({ series, phase }) {
         </div>
         <span className="pill">Target {num(phase.target)}</span>
       </div>
-      <svg viewBox={`0 0 ${W} ${H}`} aria-hidden="true">
+      <BwScrub W={W} H={H} pts={pts.map((x) => [X(x.date), Y(x.bw)])} tip={(i) => {
+        const d = pts[i].date, pace = phase.startWeight + (phase.target - phase.startWeight) * (daysBetween(phase.start, d) / Math.max(1, daysBetween(phase.start, phase.end)));
+        return <><b>{num(pts[i].bw)} lb</b><span>{shortDate(d)} · pace {num(Math.round(pace * 10) / 10)}</span></>;
+      }}>
         <line x1={X(phase.start)} y1={Y(phase.startWeight)} x2={X(phase.end)} y2={Y(phase.target)} stroke="#FFFFFF" strokeOpacity=".55" strokeWidth="2.5" strokeDasharray="5 6" strokeLinecap="round" />
         <circle cx={X(phase.end)} cy={Y(phase.target)} r="5" fill="none" stroke="#FFFFFF" strokeWidth="2.5" />
         {pts.length > 1 && <polyline points={pts.map((x) => `${X(x.date)},${Y(x.bw)}`).join(" ")} fill="none" stroke="#FFFFFF" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />}
         {pts.map((x, i) => <circle key={x.date} cx={X(x.date)} cy={Y(x.bw)} r={i === pts.length - 1 ? 7 : 4} fill={i === pts.length - 1 ? "#FFFFFF" : "var(--accent)"} stroke="#FFFFFF" strokeWidth="2.5" />)}
-      </svg>
+      </BwScrub>
       <div className="ends"><span style={{ flex: 1 }}>{shortDate(from)}</span><span>Target {shortDate(to)}</span></div>
     </section>
   );

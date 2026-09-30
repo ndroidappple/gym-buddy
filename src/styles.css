@@ -472,7 +472,13 @@ button.chip { min-height: 38px; padding: 0 14px; border: 2px solid var(--rule); 
 .bw-log-pill { background: rgba(255,255,255,.18); color: inherit; font-weight: 800; }
 .chart { padding: 12px 8px 6px; position: relative; }
 .chart svg { display: block; width: 100%; height: auto; overflow: visible; }
-.chart-tip { position: absolute; top: 8px; right: 10px; font-size: 13px; font-weight: 700; background: var(--ink); color: var(--bg); padding: 4px 10px; border-radius: 999px; }
+/* Hold-to-read charts (useScrub): no text selection, callout or magnifier while holding. */
+.scrub { position: relative; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+.chart-tip { position: absolute; z-index: 2; pointer-events: none; display: flex; flex-direction: column; align-items: center; white-space: nowrap;
+  font-size: 12px; font-weight: 600; line-height: 1.25; background: var(--ink); color: var(--bg); padding: 6px 11px; border-radius: 12px; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25); }
+.chart-tip b { font-size: 15px; font-weight: 800; }
+.chart-tip span { opacity: 0.75; }
+.bw-card .chart-tip { background: #FFFFFF; color: var(--accent-lip); }
 .table-row { display: grid; grid-template-columns: 84px 1fr auto; gap: 8px; align-items: baseline; font-size: 14px; padding: 10px 4px; border-bottom: 2px solid var(--rule); }
 .table-row b { font-size: 18px; font-weight: 800; }
 
