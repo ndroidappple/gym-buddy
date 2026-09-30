@@ -236,7 +236,6 @@ button.chip { min-height: 38px; padding: 0 14px; border: 2px solid var(--rule); 
 .cz-brow { transition: transform 280ms cubic-bezier(.3, 1.6, .5, 1); }
 .cz-lid { transition: transform 220ms ease; }
 .cz-joint { transform-origin: 0 0; transition: transform 380ms cubic-bezier(.3, 1.5, .5, 1); }
-.cz-bicep { transform-box: fill-box; transform-origin: 50% 50%; transition: transform 380ms cubic-bezier(.3, 1.8, .5, 1); }
 .cz-fade { transition: opacity 160ms ease; }
 .cz-mouth { transform-box: fill-box; transform-origin: 50% 50%; transition: opacity 160ms ease, transform 260ms cubic-bezier(.3, 1.7, .5, 1); }
 .cz-aim { transition: transform 140ms ease-out; }
@@ -257,6 +256,7 @@ button.chip { min-height: 38px; padding: 0 14px; border: 2px solid var(--rule); 
 .coach-drip { animation: c-drip 1.8s ease-in infinite; }
 .coach-zzz { animation: c-zzz 2.6s ease-in-out infinite; }
 .coach-whoosh { animation: c-whoosh .5s ease-in-out infinite alternate; }
+.coach-vein { transform-box: fill-box; transform-origin: 50% 50%; animation: c-vein .7s ease-in-out infinite; }
 @keyframes c-breathe { 50% { transform: scale(1.035, .975); } }
 @keyframes c-tense { 25% { transform: translateX(-.7px); } 75% { transform: translateX(.7px); } }
 @keyframes c-hop { 0%, 100% { transform: translateY(0) scale(1); } 15% { transform: scale(1.08, .9); } 45% { transform: translateY(-14px) scale(.96, 1.05); } 75% { transform: scale(1.06, .94); } }
@@ -273,6 +273,7 @@ button.chip { min-height: 38px; padding: 0 14px; border: 2px solid var(--rule); 
 @keyframes c-drip { 0% { transform: translateY(0); opacity: 0; } 20% { opacity: 1; } 100% { transform: translateY(14px); opacity: 0; } }
 @keyframes c-zzz { 0% { transform: translate(0, 0); opacity: 0; } 30% { opacity: 1; } 100% { transform: translate(8px, -14px); opacity: 0; } }
 @keyframes c-whoosh { to { opacity: .3; } }
+@keyframes c-vein { 50% { transform: scale(1.25); } }
 /* Coaches in lists hold their pose; blinking keeps them alive. */
 .coach-still .coach-body, .coach-still .coach-look, .coach-still .cz-tails { animation: none; }
 .coach-stack { display: flex; }
