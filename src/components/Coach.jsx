@@ -48,7 +48,7 @@ function Shape({ type, ...p }) {
     case "ghost": return <path {...p} d="M17 52 A33 33 0 0 1 83 52 V84 Q83 90 77 87 L72 84 Q66 81 61 86 Q55 91 50 86 Q45 81 39 86 Q34 91 28 86 L23 87 Q17 90 17 84 Z" />;
     case "rock": return <path {...p} strokeLinejoin="round" strokeWidth="5" d="M27 25 L45 15 L65 18 L81 29 L89 49 L85 71 L70 86 L47 91 L26 85 L13 66 L12 44 Z" />;
     case "hexagon": return <path {...p} strokeLinejoin="round" strokeWidth="10" d="M50 15 L81 32.5 L81 67.5 L50 85 L19 67.5 L19 32.5 Z" />;
-    case "mech": return <rect {...p} x="15" y="22" width="70" height="64" rx="18" />;
+    case "hex": return <path {...p} strokeLinejoin="round" strokeWidth="10" d="M33 20 L67 20 L84 51 L67 82 L33 82 L16 51 Z" />;
     case "heart": return <path {...p} strokeLinejoin="round" strokeWidth="6" d="M50 90 C24 74 13 60 13 43 C13 27 27 18 39 20 C45 21 48 25 50 29 C52 25 55 21 61 20 C73 18 87 27 87 43 C87 60 76 74 50 90 Z" />;
     case "circle": return <circle {...p} cx="50" cy="52" r="36" />;
     default: return <rect {...p} x="15" y="16" width="70" height="70" rx="22" />;
@@ -59,15 +59,15 @@ function Shape({ type, ...p }) {
    sides and never cover the face. An arm is built in its own frame (shoulder at 0,0, hanging down +y, bicep
    on -x so it faces up when flexed) from four bold shapes, each lit like the body: a shade base with the lit
    color nudged toward the light and clipped, so the dark edge separates it from a body of the same color. */
-const ANCHOR = { clover: [13, 62], ghost: [21, 62], rock: [19, 60], mech: [19, 62], square: [19, 60], heart: [18, 54] };
+const ANCHOR = { clover: [13, 62], ghost: [21, 62], rock: [19, 60], hex: [22, 58], square: [19, 60], heart: [18, 54] };
 // [shoulder, elbow] in degrees. Flexed: upper arm out to the side, forearm up. Down: elbows out, fists at the hips.
 const POSE = { down: [40, -58], flex: [100, 96] };
-// Each coach's wrist gear echoes their headgear; Piston gets steel arms with a red elbow bolt, Brick square fists.
+// Each coach's wrist gear echoes their headgear; Brick gets square fists.
 const KIT = {
   tank: { band: "#FF5E57", stripe: "#fff" },
   wings: { band: "#1FB5A8", stripe: "#128A80" },
   boulder: { band: "#4C8DFF", stripe: "#fff" },
-  piston: { steel: true, band: "#7C8691", bolt: "#FF5E57" },
+  piston: { band: "#7B61FF", stripe: "#fff" },
   brick: { band: "#F4F1EA", stripe: "#FF5E57", stripe2: "#23408E", block: true },
   dash: { band: INK, stripe: "#FF6F91" },
 };
@@ -77,7 +77,6 @@ const BI = 4 + 4.5 * BULK, TRI = 1.2 + 1.6 * BULK, SW = 2.2 + 2.4 * BULK;
 const HW0 = 6.5, HE = 4.4 + 0.6 * BULK, HW = 3.6 + 0.4 * BULK;
 const UPPER = `M${-HW0} 0 C${-HW0 - BI} ${U * 0.28} ${-HE - BI * 1.15} ${U * 0.78} ${-HE} ${U} A${HE} ${HE} 0 0 0 ${HE} ${U} C${HE + TRI} ${U * 0.7} ${HW0 + TRI} ${U * 0.3} ${HW0} 0 Z`;
 const FORE = `M${-HE} 0 C${-HE - SW} ${F * 0.3} ${-HW - SW * 0.25} ${F * 0.72} ${-HW} ${F} L${HW} ${F} C${HW + SW * 0.3} ${F * 0.62} ${HE + SW * 0.55} ${F * 0.25} ${HE} 0 Z`;
-const FORE_STEEL = `M${-HE + 0.6} 0 L${-HW} ${F} L${HW} ${F} L${HE - 0.6} 0 Z`;
 const FW = 12 + 2.4 * BULK, FH = 11 + 1.4 * BULK;
 
 /* A shape in shade, then again in the lit color nudged up-left and clipped to itself. */
@@ -96,7 +95,6 @@ function Arm({ uid, side, pose, id, body, color, shade }) {
   const [ax, ay] = ANCHOR[body] || ANCHOR.square;
   const [shoulder, elbow] = POSE[pose] || POSE.down;
   const kit = KIT[id] || {};
-  const upC = kit.steel ? "#A9B2BC" : color, upS = kit.steel ? "#6B747E" : shade;
   const k = `${uid}${side > 0 ? "r" : "l"}`;
   const cuff = { x: -HW - 1.3, width: 2 * HW + 2.6 };
   return (
@@ -104,18 +102,16 @@ function Arm({ uid, side, pose, id, body, color, shade }) {
       {/* Pivots are written into the transform (not transform-origin) so they stay right inside the rotated shoulder. */}
       <g className="cz-joint" style={{ transform: `translate(${ax}px, ${ay}px) rotate(${shoulder}deg)` }}>
         <g className="cz-joint" style={{ transform: `translate(0px, ${U}px) rotate(${elbow}deg)` }}>
-          <Lit id={`${k}f`} d={kit.steel ? FORE_STEEL : FORE} color={upC} shade={upS} />
-          {kit.steel && <path d={`M${-HE + 0.9} 4 H${HE - 0.9} M${-HW - 0.2} 9 H${HW + 0.2}`} stroke={upS} strokeWidth="1.2" />}
+          <Lit id={`${k}f`} d={FORE} color={color} shade={shade} />
           <rect {...cuff} y={F - 4.2} height="4.4" rx="1.4" fill={kit.band} />
           {kit.stripe && <rect {...cuff} y={F - 3.2} height="0.9" fill={kit.stripe} />}
           {kit.stripe2 && <rect {...cuff} y={F - 1.6} height="0.9" fill={kit.stripe2} />}
           <Lit id={`${k}h`} x={-FW / 2} y={F - 1} width={FW} height={FH} rx={kit.block ? 2.4 : FH / 2.3} color={color} shade={shade} />
           <path d={`M${-FW / 2 + 2.6} ${F + FH * 0.42} Q-1 ${F + FH * 0.62} ${FW / 2 - 3.4} ${F + FH * 0.4}`} stroke={shade} strokeWidth="1.4" fill="none" strokeLinecap="round" />
         </g>
-        <Lit id={`${k}u`} d={UPPER} color={upC} shade={upS} />
+        <Lit id={`${k}u`} d={UPPER} color={color} shade={shade} />
         {/* Where the arm meets the body it sits in the body's shadow. */}
         <path d={UPPER} fill={`url(#${uid}ao)`} />
-        {kit.steel && <g><circle cx="0" cy={U} r="3.4" fill={kit.bolt} /><circle cx="-1" cy={U - 1} r="1" fill="#fff" opacity=".5" /></g>}
       </g>
     </g>
   );
@@ -171,14 +167,11 @@ function Gear({ coach }) {
           <path d="M16.9 38.6 L44 27.8 L66 29.2 L84 38.6" stroke="#fff" strokeWidth="1.2" fill="none" strokeLinejoin="round" opacity=".7" />
         </g>
       );
-    case "mech": // Piston: riveted steel brow plate and the antenna.
+    case "hex": // Piston: a hex dumbbell head with a purple sweatband across the flat top.
       return (
         <g>
-          <rect x="47.5" y="9" width="5" height="14" rx="2.5" fill="#7C8691" />
-          <circle cx="50" cy="8" r="5.5" fill="#FF5E57" /><circle cx="48.3" cy="6.4" r="1.6" {...SHINE} />
-          <rect x="15" y="26" width="70" height="9" rx="3" fill="#A9B2BC" />
-          <rect x="15" y="26" width="70" height="3" rx="1.5" {...SHINE} />
-          {[20, 35, 65, 80].map((x) => <circle key={x} cx={x} cy="31.5" r="1.6" fill="#6B747E" />)}
+          <rect x="27" y="25" width="46" height="8.5" rx="2" fill="#7B61FF" />
+          <rect x="27" y="27.6" width="46" height="1.6" fill="#fff" opacity=".7" />
         </g>
       );
     case "heart": // Dash: headphones over both lobes.
@@ -272,7 +265,7 @@ if (typeof window !== "undefined") {
  */
 /* Centre of each coach's idle artwork in viewBox units (measured). The full viewBox leaves headroom
    for hats and effects, so the body sits low; `badge` crops a square around the body instead. */
-const BADGE_CENTER = { tank: [48.4, 52.8], wings: [50, 59.3], boulder: [50, 54], piston: [50, 54], brick: [50, 58.3], dash: [50, 60.1] };
+const BADGE_CENTER = { tank: [48.4, 52.8], wings: [50, 59.3], boulder: [50, 54], piston: [50, 51], brick: [50, 58.3], dash: [50, 60.1] };
 const BADGE_SPAN = 112;
 
 export default function Coach({ id = "tank", mood = "idle", size = 64, still = false, decorative = false, badge = false, className = "" }) {

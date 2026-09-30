@@ -6,7 +6,7 @@ export const COACHES = {
   tank: { name: "Tank", group: "Chest & triceps", body: "clover", color: "#5BD68A" },
   wings: { name: "Wings", group: "Back & biceps", body: "ghost", color: "#B9A6FF" },
   boulder: { name: "Boulder", group: "Shoulders", body: "rock", color: "#FFC93D" },
-  piston: { name: "Piston", group: "Legs", body: "mech", color: "#FF9A4D" },
+  piston: { name: "Piston", group: "Legs", body: "hex", color: "#FF9A4D" },
   brick: { name: "Brick", group: "Core", body: "square", color: "#6FA8FF" },
   dash: { name: "Dash", group: "Cardio", body: "heart", color: "#FF6F91" },
 };
