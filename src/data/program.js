@@ -37,8 +37,8 @@ const BASE_PROGRAM = {
   ]},
 };
 /* A custom workout: starts empty, lifts are added for that session only. It lives in the program so
-   names and colours resolve like any day, but it's never edited as a day. It still takes a slot in
-   the rotation (see nextDayAfter). */
+   names and colours resolve like any day, but it's never edited as a day, and it doesn't use up a
+   day in the rotation (see nextDayAfter). */
 export const CUSTOM = "custom";
 const CUSTOM_DAY = { name: "Custom", detail: "Your pick of lifts", exercises: [], virtual: true };
 
