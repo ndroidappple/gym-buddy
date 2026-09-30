@@ -483,8 +483,8 @@ export default function Session({ day, existing, draft, sessions, program, weigh
           swaps={swapsFor(busy, { program, sessions, exclude: exercises.map((e) => e.n), limit: 4 })}
           onDoNow={(n) => busyDoNow(busy, n)} onSwap={(sw) => busySwap(busy, sw)} onLater={() => busyLater(busy)} onClose={() => setBusy(null)} />
       )}
-      {chat && <CoachChat coach={chat.coach} exercise={chat.exercise} sessions={sessions} program={program} weighins={weighins} profile={prefs.profile} phase={prefs.phase} nutrition={nutrition}
-        live={liveContext(exercises, grid, advice)} onProgramChange={onProgramChange} onClose={() => setChat(null)} />}
+      {chat && <CoachChat key={`${chat.coach}|${chat.exercise}`} coach={chat.coach} exercise={chat.exercise} sessions={sessions} program={program} weighins={weighins} profile={prefs.profile} phase={prefs.phase} nutrition={nutrition}
+        live={liveContext(exercises, grid, advice, chat.exercise)} onProgramChange={onProgramChange} onClose={() => setChat(null)} />}
       {sheet === "delete" && (
         <ConfirmSheet title="Delete session?" body={`${dayProgram.name} on ${shortDate(existing.date)} and all its sets will be removed.`}
           confirm="Delete" onClose={() => setSheet(null)} onConfirm={() => { onDelete(existing); back("#/progress/workouts"); }} />
@@ -494,14 +494,21 @@ export default function Session({ day, existing, draft, sessions, program, weigh
 }
 
 /** This workout so far, for the coach chat: each lift's logged sets and the coach's current call. */
-function liveContext(exercises, grid, advice) {
+function liveContext(exercises, grid, advice, current) {
+  // The lift they asked from comes first and is named as the one they're on, so "should my arms be
+  // parallel?" is answered for that lift, not whichever one was logged last.
+  const cur = exercises.find((e) => e.n === current);
+  const head = cur ? [
+    `RIGHT NOW the lifter is on: ${cur.n} (plan ${cur.sets}x${cur.reps[0]}-${cur.reps[1]}${isCardio(cur.n) ? " min" : ""}, ${(grid[cur.n] || []).filter((r) => r.done).length} of ${(grid[cur.n] || []).length} sets done${cur.cue ? `; form cue: ${cur.cue}` : ""}).`,
+    `Their question is about ${cur.n} unless they name another lift. Name ${cur.n} in form answers.`,
+  ] : [];
   const lines = exercises.map((ex) => {
     const done = (grid[ex.n] || []).filter((r) => r.done && !isCardio(ex.n) && hasVal(r.w) && hasVal(r.r));
     if (!done.length) return null;
     const sets = done.map((r) => `${fmtW(+r.w)}x${r.r}${hasVal(r.rir) ? ` RIR ${r.rir}` : ""}${r.asked && (+r.asked.w !== +r.w || +r.asked.r !== +r.r) ? ` (asked ${fmtW(r.asked.w)}x${r.asked.r})` : ""}`).join(", ");
     return `- ${ex.n} (plan ${ex.sets}x${ex.reps[0]}-${ex.reps[1]}): ${sets}${advice[ex.n] ? `. Your call for the next set: ${advice[ex.n].line}` : ""}`;
   }).filter(Boolean);
-  return lines.length ? `In today's workout so far:\n${lines.join("\n")}` : "";
+  return [...head, ...(lines.length ? [`In today's workout so far:`, ...lines] : [])].join("\n");
 }
 
 /** The small tag after a lift's name: a swap, a lift put off for a busy machine, or an add-on for today. */
