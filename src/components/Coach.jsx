@@ -17,10 +17,10 @@ export const MOODS = {
 };
 export const MOOD_ORDER = ["idle", "focused", "hyped", "resting", "pr", "encourage", "sleepy", "proud"];
 
-/* Face and pose per mood. lid: 0 open, 1 closed. eyes: "open" | "happy" (∩) | "shut" (∪). */
+/* Face and pose per mood. lid: 0 open, 1 closed; lidTilt slants the lids down toward the nose (anger). eyes: "open" | "happy" (∩) | "shut" (∪). */
 const FACE = {
   idle: { brow: [-3, 4], lid: 0.08, eyes: "open", mouth: "smile", arms: "down", anim: "breathe" },
-  focused: { brow: [2, -16], lid: 0.45, eyes: "open", mouth: "line", arms: "down", anim: "tense", fixed: true },
+  focused: { brow: [4, 26], lid: 0.3, lidTilt: 22, pupil: 4.2, eyes: "open", mouth: "grit", arms: "down", anim: "tense", fx: "vein", fixed: true },
   hyped: { brow: [-3, 6], lid: 0, eyes: "happy", mouth: "grin", arms: "flex", anim: "hop", fx: "lines", blush: true },
   resting: { brow: [-1, 0], lid: 1, eyes: "shut", mouth: "o", arms: "down", anim: "slow", fx: "sweat" },
   pr: { brow: [-3, 10], lid: 0, eyes: "open", big: true, mouth: "roar", arms: "flex", anim: "jump", fx: "stars", blush: true, fixed: true },
@@ -55,22 +55,69 @@ function Shape({ type, ...p }) {
   }
 }
 
-/* A jointed arm: shoulder → upper arm → elbow → forearm → fist. Rotations ease, so flexing reads as motion. */
-function Arm({ side, pose, color, shade }) {
-  const flex = pose === "flex";
-  // Shoulder at (20,58); elbow at (20,74). Flexed: upper arm out to the side, forearm up. Down: hands at the hips.
-  const shoulder = flex ? 96 : 20, elbow = flex ? 102 : -14;
+/* Arms sit behind the body: each shoulder is tucked just inside the outline, so the arms grow out of the
+   sides and never cover the face. An arm is built in its own frame (shoulder at 0,0, hanging down +y, bicep
+   on -x so it faces up when flexed) from four bold shapes, each lit like the body: a shade base with the lit
+   color nudged toward the light and clipped, so the dark edge separates it from a body of the same color. */
+const ANCHOR = { clover: [13, 62], ghost: [21, 62], star: [21, 45], mech: [19, 62], square: [19, 60], heart: [18, 54] };
+// [shoulder, elbow] in degrees. Flexed: upper arm out to the side, forearm up. Down: elbows out, fists at the hips.
+const POSE = { down: [40, -58], flex: [100, 96] };
+// Boulder's arms come out of the star's side points, which sit higher, so its angles differ.
+const POSE_BODY = { star: { down: [28, -40], flex: [96, 98] } };
+// Each coach's wrist gear echoes their headgear; Piston gets steel arms with a red elbow bolt, Brick square fists.
+const KIT = {
+  tank: { band: "#FF5E57", stripe: "#fff" },
+  wings: { band: "#1FB5A8", stripe: "#128A80" },
+  boulder: { band: "#4C8DFF", stripe: "#fff" },
+  piston: { steel: true, band: "#7C8691", bolt: "#FF5E57" },
+  brick: { band: "#F4F1EA", stripe: "#FF5E57", stripe2: "#23408E", block: true },
+  dash: { band: INK, stripe: "#FF6F91" },
+};
+// Arm geometry at 70% muscle (BULK 0-1): upper arm U and forearm F long, plus how far the bicep, tricep and forearm bulge.
+const U = 20, F = 15, BULK = 0.7;
+const BI = 4 + 4.5 * BULK, TRI = 1.2 + 1.6 * BULK, SW = 2.2 + 2.4 * BULK;
+const HW0 = 6.5, HE = 4.4 + 0.6 * BULK, HW = 3.6 + 0.4 * BULK;
+const UPPER = `M${-HW0} 0 C${-HW0 - BI} ${U * 0.28} ${-HE - BI * 1.15} ${U * 0.78} ${-HE} ${U} A${HE} ${HE} 0 0 0 ${HE} ${U} C${HE + TRI} ${U * 0.7} ${HW0 + TRI} ${U * 0.3} ${HW0} 0 Z`;
+const FORE = `M${-HE} 0 C${-HE - SW} ${F * 0.3} ${-HW - SW * 0.25} ${F * 0.72} ${-HW} ${F} L${HW} ${F} C${HW + SW * 0.3} ${F * 0.62} ${HE + SW * 0.55} ${F * 0.25} ${HE} 0 Z`;
+const FORE_STEEL = `M${-HE + 0.6} 0 L${-HW} ${F} L${HW} ${F} L${HE - 0.6} 0 Z`;
+const FW = 12 + 2.4 * BULK, FH = 11 + 1.4 * BULK;
+
+/* A shape in shade, then again in the lit color nudged up-left and clipped to itself. */
+function Lit({ id, color, shade, ...shape }) {
+  const El = shape.d ? "path" : "rect";
+  return (
+    <>
+      <defs><clipPath id={id}><El {...shape} /></clipPath></defs>
+      <El {...shape} fill={shade} />
+      <g clipPath={`url(#${id})`}><El {...shape} fill={color} transform="translate(-1.3 -1.6)" /></g>
+    </>
+  );
+}
+
+function Arm({ uid, side, pose, id, body, color, shade }) {
+  const [ax, ay] = ANCHOR[body] || ANCHOR.square;
+  const [shoulder, elbow] = (POSE_BODY[body] || POSE)[pose] || POSE.down;
+  const kit = KIT[id] || {};
+  const upC = kit.steel ? "#A9B2BC" : color, upS = kit.steel ? "#6B747E" : shade;
+  const k = `${uid}${side > 0 ? "r" : "l"}`;
+  const cuff = { x: -HW - 1.3, width: 2 * HW + 2.6 };
   return (
     <g transform={side > 0 ? "translate(100 0) scale(-1 1)" : undefined}>
       {/* Pivots are written into the transform (not transform-origin) so they stay right inside the rotated shoulder. */}
-      <g className="cz-joint" style={{ transform: `translate(20px, 58px) rotate(${shoulder}deg) translate(-20px, -58px)` }}>
-        <rect x="14.5" y="56" width="11" height="21" rx="5.5" fill={color} />
-        <circle className="cz-bicep" cx="16" cy="67" r="7.5" fill={color} style={{ transform: `scale(${flex ? 1 : 0.3})` }} />
-        <g className="cz-joint" style={{ transform: `translate(20px, 75px) rotate(${elbow}deg) translate(-20px, -75px)` }}>
-          <rect x="15" y="73" width="10" height="16" rx="5" fill={color} />
-          <circle cx="20" cy="91" r="7.5" fill={color} />
-          <path d="M16 90 Q20 94 24 90" stroke={shade} strokeWidth="1.6" fill="none" strokeLinecap="round" />
+      <g className="cz-joint" style={{ transform: `translate(${ax}px, ${ay}px) rotate(${shoulder}deg)` }}>
+        <g className="cz-joint" style={{ transform: `translate(0px, ${U}px) rotate(${elbow}deg)` }}>
+          <Lit id={`${k}f`} d={kit.steel ? FORE_STEEL : FORE} color={upC} shade={upS} />
+          {kit.steel && <path d={`M${-HE + 0.9} 4 H${HE - 0.9} M${-HW - 0.2} 9 H${HW + 0.2}`} stroke={upS} strokeWidth="1.2" />}
+          <rect {...cuff} y={F - 4.2} height="4.4" rx="1.4" fill={kit.band} />
+          {kit.stripe && <rect {...cuff} y={F - 3.2} height="0.9" fill={kit.stripe} />}
+          {kit.stripe2 && <rect {...cuff} y={F - 1.6} height="0.9" fill={kit.stripe2} />}
+          <Lit id={`${k}h`} x={-FW / 2} y={F - 1} width={FW} height={FH} rx={kit.block ? 2.4 : FH / 2.3} color={color} shade={shade} />
+          <path d={`M${-FW / 2 + 2.6} ${F + FH * 0.42} Q-1 ${F + FH * 0.62} ${FW / 2 - 3.4} ${F + FH * 0.4}`} stroke={shade} strokeWidth="1.4" fill="none" strokeLinecap="round" />
         </g>
+        <Lit id={`${k}u`} d={UPPER} color={upC} shade={upS} />
+        {/* Where the arm meets the body it sits in the body's shadow. */}
+        <path d={UPPER} fill={`url(#${uid}ao)`} />
+        {kit.steel && <g><circle cx="0" cy={U} r="3.4" fill={kit.bolt} /><circle cx="-1" cy={U - 1} r="1" fill="#fff" opacity=".5" /></g>}
       </g>
     </g>
   );
@@ -157,12 +204,22 @@ function Gear({ coach }) {
   }
 }
 
+// Where the anger vein throbs: the temple, clear of each coach's headgear.
+const VEIN = { clover: [80, 43], heart: [71, 31], star: [76, 47], default: [78, 46] };
+
 const MOUTHS = {
   smile: <path d="M41.5 64 Q50 72 58.5 64" fill="none" stroke={INK} strokeWidth="3.4" strokeLinecap="round" />,
   smirk: <path d="M42 66 Q51 71 59 62" fill="none" stroke={INK} strokeWidth="3.4" strokeLinecap="round" />,
   line: <path d="M43.5 66 L56.5 66" fill="none" stroke={INK} strokeWidth="3.4" strokeLinecap="round" />,
   tiny: <path d="M47.5 67 L52.5 67" fill="none" stroke={INK} strokeWidth="3" strokeLinecap="round" />,
   wobble: <path d="M42.5 67.5 Q46 63.5 50 67 Q54 70.5 57.5 66.5" fill="none" stroke={INK} strokeWidth="3.2" strokeLinecap="round" />,
+  grit: (
+    <g>
+      <rect x="39.5" y="61.5" width="21" height="9.5" rx="3.6" fill={INK} />
+      <rect x="41.3" y="63" width="17.4" height="6.5" rx="1.8" fill="#fff" />
+      <path d="M41.3 66.25 H58.7 M45.6 63 V69.5 M50 63 V69.5 M54.4 63 V69.5" stroke={INK} strokeWidth="1.1" />
+    </g>
+  ),
   o: <ellipse cx="50" cy="66.5" rx="3.6" ry="4.2" fill={INK} />,
   grin: (
     <g>
@@ -211,7 +268,6 @@ export default function Coach({ id = "tank", mood = "idle", size = 64, still = f
   const pupils = useRef([]);
   const delay = useRef(`${(-Math.random() * 5).toFixed(2)}s`).current;
   const shade = tone(c.color, -0.22);
-  const arm = tone(c.color, -0.12);
 
   // Eyes follow the finger while it's nearby and recent; otherwise the idle wander takes over.
   useEffect(() => {
@@ -246,6 +302,7 @@ export default function Coach({ id = "tank", mood = "idle", size = 64, still = f
       className={`coach${still ? " coach-still" : ""}${poke ? " coach-poked" : ""} ${className}`} style={{ "--d": delay }}
       onPointerDown={decorative ? undefined : () => setPoke(true)} {...a11y}>
       <defs>
+        <linearGradient id={`${uid}ao`} x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor={INK} stopOpacity=".32" /><stop offset=".45" stopColor={INK} stopOpacity="0" /></linearGradient>
         <clipPath id={`${uid}c`}><Shape type={c.body} stroke="none" /></clipPath>
         {eyeX.map((x, i) => <clipPath key={i} id={`${uid}e${i}`}><ellipse cx={x} cy="54" rx="8.8" ry="9.8" /></clipPath>)}
       </defs>
@@ -267,14 +324,14 @@ export default function Coach({ id = "tank", mood = "idle", size = 64, still = f
 
         {/* Flat shading: the body in its shadow color, then the lit body nudged up-left and clipped to the outline,
             leaving a crescent of shade along the bottom-right; a soft highlight sits top-left. */}
+        {/* Arms go first so the body covers the shoulders. They're a step darker than the body: further back. */}
+        <Arm uid={uid} side={-1} pose={f.arms} id={id} body={c.body} color={tone(c.color, -0.1)} shade={tone(c.color, -0.3)} />
+        <Arm uid={uid} side={1} pose={f.arms} id={id} body={c.body} color={tone(c.color, -0.1)} shade={tone(c.color, -0.3)} />
         <Shape type={c.body} fill={shade} stroke={shade} />
         <g clipPath={`url(#${uid}c)`}>
           <Shape type={c.body} fill={c.color} stroke={c.color} transform="translate(-4 -5)" />
           <ellipse cx="30" cy="27" rx="11" ry="6" fill="#fff" opacity=".28" transform="rotate(-30 30 27)" />
         </g>
-        {/* Arms sit in front of the body so a flex reads clearly; flexed fists rise beside the head, clear of the face. */}
-        <Arm side={-1} pose={f.arms} color={arm} shade={shade} />
-        <Arm side={1} pose={f.arms} color={arm} shade={shade} />
 
         <Gear coach={c} />
 
@@ -287,13 +344,13 @@ export default function Coach({ id = "tank", mood = "idle", size = 64, still = f
               <ellipse cx={x} cy="54" rx="8.8" ry="9.8" fill="#fff" />
               <g className={still || f.fixed ? undefined : "coach-look"} style={{ transform: lookDown }}>
                 <g ref={(el) => { pupils.current[i] = el; }} className="cz-aim">
-                  <circle cx={x + 1} cy="55" r={f.big ? 6 : 5.2} fill={INK} className="cz-pupil" />
+                  <circle cx={x + 1} cy="55" r={f.big ? 6 : f.pupil || 5.2} fill={INK} className="cz-pupil" />
                 </g>
               </g>
               <g className="coach-blink-lid">
-                <g className="cz-lid" style={{ transform: `translateY(${-21 + 21 * f.lid}px)` }}>
-                  <rect x={x - 10} y="43" width="20" height="21" fill={c.color} />
-                  <path d={`M${x - 10} 64 L${x + 10} 64`} stroke={INK} strokeWidth="2.8" />
+                <g className="cz-lid" style={{ transform: `translateY(${-21 + 21 * f.lid}px) rotate(${(i ? -1 : 1) * (f.lidTilt || 0)}deg)`, transformOrigin: `${x}px 64px` }}>
+                  <rect x={x - 16} y="30" width="32" height="34" fill={c.color} />
+                  <path d={`M${x - 16} 64 L${x + 16} 64`} stroke={INK} strokeWidth="2.8" />
                 </g>
               </g>
             </g>
@@ -326,6 +383,13 @@ export default function Coach({ id = "tank", mood = "idle", size = 64, still = f
           <g key={k} className="cz-mouth" style={{ opacity: f.mouth === k ? 1 : 0, transform: `scale(${f.mouth === k ? 1 : 0.5})` }}>{el}</g>
         ))}
 
+        {f.fx === "vein" && (
+          <g transform={`translate(${(VEIN[c.body] || VEIN.default).join(" ")})`}>
+            <g className={still ? undefined : "coach-vein"} fill="none" stroke="#E0342C" strokeWidth="2.6" strokeLinecap="round">
+              <path d="M-6 -2 Q-2 -2 -2 -6" /><path d="M2 -6 Q2 -2 6 -2" /><path d="M6 2 Q2 2 2 6" /><path d="M-2 6 Q-2 2 -6 2" />
+            </g>
+          </g>
+        )}
         {f.fx === "sweat" && <path className="coach-drip" d="M82 40 q4.5 7 0 10.5 q-4.5 -3.5 0 -10.5" fill="#6FB7FF" />}
         {f.fx === "medal" && <g><path d="M44 76 L50 86 L56 76" fill="none" stroke="#4C8DFF" strokeWidth="4" /><circle cx="50" cy="90" r="7.5" fill="#FFC53D" stroke="#D9A21F" strokeWidth="2" /><circle cx="48" cy="88" r="2" fill="#fff" opacity=".6" /></g>}
       </g>
