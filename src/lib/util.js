@@ -82,17 +82,14 @@ export function weekDates(ref = new Date()) {
   return Array.from({ length: 7 }, (_, i) => { const x = new Date(d); x.setDate(d.getDate() + i); return iso(x); });
 }
 
-/** The next day in the rotation. Custom workouts (and days since switched off) take a slot too:
-    Push next, do a custom workout, and Pull is next. */
+/** The next day in the rotation: the day done longest ago, so every other day comes around before
+    one repeats. Days never done come first, in program order; ties go to program order too.
+    Custom workouts don't use up a day. */
 export function nextDayAfter(sessions, program) {
   const days = program ? activeDays(program) : DAYS;
-  let skipped = 0;
-  for (const s of [...sessions].sort(byDateDesc)) {
-    const i = days.indexOf(s.day);
-    if (i >= 0) return days[(i + 1 + skipped) % days.length];
-    skipped++;
-  }
-  return days[skipped % days.length];
+  const last = {}; // day -> its place in history, higher is more recent
+  [...sessions].sort(byDateAsc).forEach((s, i) => { last[s.day] = i; });
+  return days.reduce((best, d) => ((last[d] ?? -1) < (last[best] ?? -1) ? d : best), days[0]);
 }
 
 /** Bodyweight over time from weekly weigh-ins and session entries, oldest first, one point per date (a weigh-in wins). */
