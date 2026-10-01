@@ -842,9 +842,20 @@ button.coach-card:active { transform: translateY(3px); box-shadow: 0 2px 0 var(-
 .food-search:focus-within { outline: 3px solid var(--ink); outline-offset: -2px; }
 .food-search input { flex: 1; min-width: 0; border: 0; background: none; font-size: 16px; color: var(--ink); height: 46px; }
 .food-search input:focus { outline: none; }
+.food-search .food-scan { margin-right: -10px; color: var(--ink); }
 .food-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .food-actions .chip { min-height: 38px; padding: 6px 14px; }
 .food-form { display: flex; flex-direction: column; gap: 14px; }
+/* Barcode scanner: the camera fills a wide box with a target frame; messages sit under it. */
+.scan { display: flex; flex-direction: column; gap: 12px; }
+.scan-view { position: relative; aspect-ratio: 4 / 3; border-radius: var(--r); overflow: hidden; background: #000; }
+.scan-view[hidden] { display: none; }
+.scan-view video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.scan-frame { position: absolute; left: 12%; right: 12%; top: 32%; bottom: 32%; border: 3px solid #fff; border-radius: 14px; box-shadow: 0 0 0 100vmax rgba(0, 0, 0, .35); }
+.scan-torch { position: absolute; right: 10px; top: 10px; background: rgba(0, 0, 0, .5); color: #fff; }
+.scan-torch[aria-pressed="true"] { background: #fff; color: #000; }
+.scan-msg { display: flex; flex-direction: column; gap: 10px; }
+.scan-msg p { margin: 0; font-size: 15px; line-height: 1.4; }
 .food-title { display: flex; flex-direction: column; gap: 2px; font-size: 18px; }
 .food-amount { display: flex; align-items: center; gap: 10px; }
 .food-amount .input { flex: 1; text-align: center; font-size: 22px; font-weight: 800; }

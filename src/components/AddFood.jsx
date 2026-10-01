@@ -1,15 +1,16 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Search, Plus, PenLine, Pencil, ChevronLeft, Trash2, Check } from "lucide-react";
+import { Search, Plus, PenLine, Pencil, ChevronLeft, Trash2, Check, ScanBarcode } from "lucide-react";
 import Coach from "./Coach.jsx";
 import TankMeal from "./TankMeal.jsx";
+import ScanFood from "./ScanFood.jsx";
 import { Sheet } from "./ui.jsx";
 import { MEALS, unitsFor, nutritionFor, defaultPortion } from "../lib/nutrition.js";
 import { recentFoods } from "../lib/food.js";
 import { searchFoods, SEARCH_TROUBLE } from "../lib/foodSearch.js";
 
 /* Adding food: describe it to Tank (he itemizes it into one food), recent foods and your own foods
-   (one tap, then Add), search, or enter it by hand. Every path shows exactly what will be logged
-   before Add. `food` is the useFood() store; `meal` and `date` are where it goes. */
+   (one tap, then Add), search, scan a barcode, or enter it by hand. Every path shows exactly what
+   will be logged before Add. `food` is the useFood() store; `meal` and `date` are where it goes. */
 
 const fmt = (n) => Math.round(n).toLocaleString();
 const g = (n) => `${Math.round(n)} g`;
@@ -18,9 +19,11 @@ export const amountLabel = (e) => (e.unit === "g" || e.unit === "oz" ? `${+e.amo
 
 /** A food from any source (search hit, recent entry, saved food) as { name, brand, source, ref, basis }. */
 const asFood = (x) => ({ name: x.name, brand: x.brand || null, source: x.source, ref: x.ref ?? x.source_ref ?? x.id ?? null, basis: x.basis || null });
+/** A barcode match on this phone (see foodForBarcode) as a food. */
+const scannedFood = ({ kind, item }) => (kind === "saved" ? asFood({ ...item, source: "custom" }) : asFood(item));
 
 export default function AddFood({ food, meal: meal0, date, onClose, notify }) {
-  const [view, setView] = useState({ step: "find" }); // find | portion {food} | tank | manual
+  const [view, setView] = useState({ step: "find" }); // find | portion {food} | tank | scan | manual {barcode?}
   const [meal, setMeal] = useState(meal0);
   const mealLabel = MEALS.find((m) => m.id === meal)?.label;
   const add = (row, label) => {
@@ -28,7 +31,8 @@ export default function AddFood({ food, meal: meal0, date, onClose, notify }) {
     notify?.(`${label} added to ${mealLabel}`);
     onClose();
   };
-  const title = view.step === "tank" ? "Add with Tank" : view.step === "manual" ? "Enter manually" : view.step === "portion" ? "How much?" : `Add to ${mealLabel}`;
+  const title = view.step === "tank" ? "Add with Tank" : view.step === "scan" ? "Scan a barcode" : view.step === "manual" ? (view.barcode ? "Enter from the label" : "Enter manually")
+    : view.step === "portion" ? "How much?" : `Add to ${mealLabel}`;
 
   return (
     <Sheet title={title} sub={view.step === "find" ? "Describe it to Tank, pick a recent food, or search." : view.step === "tank" ? "Say what you ate. Tank works out the macros." : null}
@@ -36,7 +40,8 @@ export default function AddFood({ food, meal: meal0, date, onClose, notify }) {
       {view.step !== "find" && (
         <button type="button" className="btn-quiet food-back" onClick={() => setView({ step: "find" })}><ChevronLeft size={16} aria-hidden="true" /> Back</button>
       )}
-      {view.step === "find" && <Find food={food} onPick={(f) => setView({ step: "portion", food: f })} onTank={() => setView({ step: "tank" })} onManual={() => setView({ step: "manual" })} />}
+      {view.step === "find" && <Find food={food} onPick={(f) => setView({ step: "portion", food: f })} onTank={() => setView({ step: "tank" })} onScan={() => setView({ step: "scan" })} onManual={() => setView({ step: "manual" })} />}
+      {view.step === "scan" && <ScanFood food={food} toFood={scannedFood} onFound={(f) => setView({ step: "portion", food: f })} onManual={(barcode) => setView({ step: "manual", barcode })} />}
       {view.step === "tank" && (
         <TankMeal meal={meal} onMeal={setMeal} action={`Add to ${mealLabel}`}
           onSave={({ meal: m, save }) => {
@@ -54,7 +59,7 @@ export default function AddFood({ food, meal: meal0, date, onClose, notify }) {
           }, view.food.name)} />
       )}
       {view.step === "manual" && (
-        <ManualFood meal={meal} onMeal={setMeal} action={`Add to ${mealLabel}`}
+        <ManualFood meal={meal} onMeal={setMeal} action={`Add to ${mealLabel}`} barcode={view.barcode}
           onSave={({ food: f, save }) => {
             const ref = save ? food.addFood(f) : null;
             const n = nutritionFor(f.basis, 1, unitsFor(f.basis)[0].label);
@@ -66,7 +71,7 @@ export default function AddFood({ food, meal: meal0, date, onClose, notify }) {
   );
 }
 
-function Find({ food, onPick, onTank, onManual }) {
+function Find({ food, onPick, onTank, onScan, onManual }) {
   const [q, setQ] = useState("");
   const [state, setState] = useState({ status: "idle", results: [] }); // idle | loading | done | error
   const abort = useRef(null);
@@ -113,6 +118,7 @@ function Find({ food, onPick, onTank, onManual }) {
         <Search size={18} aria-hidden="true" />
         <span className="sr-only">Search foods</span>
         <input type="search" autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search foods, e.g. greek yogurt" enterKeyHint="search" />
+        <button type="button" className="icon-btn food-scan" onClick={onScan} aria-label="Scan a barcode"><ScanBarcode size={20} /></button>
       </label>
       {/* The fastest way for a mixed meal: say it, Tank itemizes it. */}
       <button type="button" className="tank-add" onClick={onTank}>
@@ -120,6 +126,7 @@ function Find({ food, onPick, onTank, onManual }) {
         <span><b>Add with Tank</b><small>Describe your meal. Tank works out the macros.</small></span>
       </button>
       <div className="food-actions">
+        <button type="button" className="chip" onClick={onScan}><ScanBarcode size={15} aria-hidden="true" /> Scan barcode</button>
         <button type="button" className="chip" onClick={onManual}><PenLine size={15} aria-hidden="true" /> Enter manually</button>
       </div>
 
@@ -247,14 +254,15 @@ export function QuickAdd({ entry, meal, onMeal, action, onSave, onDelete }) {
 }
 
 /** Enter a food by hand: from a label, or just the calories. Saving it to your foods is optional;
-    with a weight, it can later be logged in g and oz too. */
-function ManualFood({ meal, onMeal, action, onSave }) {
+    with a weight, it can later be logged in g and oz too. With a `barcode` (a scan no database
+    knew), the food keeps it, so the next scan finds it; saving is on by default then. */
+function ManualFood({ meal, onMeal, action, onSave, barcode }) {
   const [name, setName] = useState("");
   const [serving, setServing] = useState("serving");
   const [grams, setGrams] = useState("");
   const [kcal, setKcal] = useState("");
   const [p, setP] = useState(""), [c, setC] = useState(""), [f, setF] = useState("");
-  const [save, setSave] = useState(false);
+  const [save, setSave] = useState(!!barcode);
   const ok = +kcal > 0 && +kcal < 20000;
   const submit = (e) => {
     e.preventDefault();
@@ -265,10 +273,12 @@ function ManualFood({ meal, onMeal, action, onSave }) {
     const basis = w > 0
       ? { per100: Object.fromEntries(Object.entries(per).map(([k, v]) => [k, Math.round((v / w) * 1000) / 10])), portions: [{ label: `${label} (${w} g)`, grams: w }] }
       : { perServing: per, servingLabel: label };
+    if (barcode) basis.barcode = barcode;
     onSave({ food: { name: name.trim() || "Quick add", brand: null, basis }, save: save && !!name.trim() });
   };
   return (
     <form className="food-form" onSubmit={submit}>
+      {barcode && <p className="setup-hint">Barcode {barcode}. Copy the label's serving and nutrition; the weight lets you log it in grams too.</p>}
       <label className="field"><span className="lbl">Name</span>
         <input className="input" autoFocus value={name} maxLength={120} onChange={(e) => setName(e.target.value)} placeholder="e.g. Chipotle bowl" /></label>
       {numField("Calories", kcal, setKcal, { required: true })}
@@ -278,7 +288,7 @@ function ManualFood({ meal, onMeal, action, onSave }) {
         {numField("Weight g (optional)", grams, setGrams)}
       </div>
       <label className="check-row"><input type="checkbox" checked={save} onChange={(e) => setSave(e.target.checked)} disabled={!name.trim()} />
-        <span>Save to my foods<small>{name.trim() ? "One tap to log it next time." : "Give it a name to save it."}</small></span></label>
+        <span>Save to my foods<small>{!name.trim() ? "Give it a name to save it." : barcode ? "Scanning it next time finds it." : "One tap to log it next time."}</small></span></label>
       <MealChips meal={meal} onMeal={onMeal} />
       <button type="submit" className="btn btn-ink" disabled={!ok}><Check size={18} strokeWidth={3} aria-hidden="true" /> {action}</button>
     </form>

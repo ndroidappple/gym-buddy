@@ -54,6 +54,17 @@ for everyday foods and Open Food Facts for packaged ones. Set **`FDC_API_KEY`** 
 the Vercel project (free key: https://fdc.nal.usda.gov/api-key-signup); without it
 the shared, heavily rate-limited `DEMO_KEY` is used.
 
+**Scan barcode** (in Add food) reads a packaged food's barcode with the back camera
+(`src/lib/barcode.js`, `src/components/ScanFood.jsx`). iPhone Safari has no built-in
+`BarcodeDetector`, so the `barcode-detector` package (zxing compiled to WASM) fills in. It
+loads only when the scanner opens, and its `.wasm` is bundled with the app instead of coming from
+a CDN. A scan checks the phone first (your saved foods, then foods you've logged), then
+`/api/food?barcode=`: Open Food Facts, then USDA Branded Foods. The barcode is stored in the
+food's `basis` JSON (no extra column), so a rescan finds it, offline too. A barcode neither
+database knows can be entered from the label once, and it's found from then on. The camera needs
+HTTPS, so test scanning on a Vercel preview, not on `vite` over the LAN. `npm run test:barcode`
+checks the barcode logic.
+
 ## Project structure
 
 ```
