@@ -8,11 +8,13 @@
     "build": "vite build",
     "preview": "vite preview",
     "test:coach": "node scripts/stress-set-coach.mjs",
+    "test:barcode": "node scripts/test-barcode.mjs",
     "icons": "node scripts/render-icons.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.117.0",
     "ai": "^7.0.114",
+    "barcode-detector": "^3.2.2",
     "border-beam": "^1.4.1",
     "lucide-react": "^0.383.0",
     "metal-fx": "^2.0.11",

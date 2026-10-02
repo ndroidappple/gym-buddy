@@ -2,9 +2,10 @@ import { createClient } from "@supabase/supabase-js";
 
 /* Food search for the Nutrition tab. Runs as a Vercel Function so the USDA key stays on the server.
    GET /api/food?q=chicken breast  -> everyday foods (USDA FoodData Central) then packaged ones (Open Food Facts)
-   GET /api/food?barcode=0123...   -> one packaged food by barcode (Open Food Facts)
+   GET /api/food?barcode=0123...   -> one packaged food by barcode (Open Food Facts, then USDA Branded Foods)
    Every result has one shape: { id, source: "usda" | "off", ref, name, brand, basis }, where basis is
-   { per100: { kcal, protein, carbs, fat }, portions: [{ label, grams }] } (see src/lib/nutrition.js).
+   { per100: { kcal, protein, carbs, fat }, portions: [{ label, grams }], barcode? } (see src/lib/nutrition.js).
+   A packaged food's barcode rides in its basis, so the app can find it again on the next scan.
    Both databases are free. USDA's key comes from FDC_API_KEY; without it the shared DEMO_KEY works
    but is rate limited, so set a real one (free at https://fdc.nal.usda.gov/api-key-signup). */
 
@@ -56,7 +57,8 @@ export function fromUsda(f) {
   return {
     id: `usda:${f.fdcId}`, source: "usda", ref: String(f.fdcId),
     name: tidy(f.description), brand: clean(f.brandName || f.brandOwner) || null,
-    basis: { per100: { kcal: Math.round(kcal), protein: r1(val(NUTRIENT.protein) || 0), carbs: r1(val(NUTRIENT.carbs) || 0), fat: r1(val(NUTRIENT.fat) || 0) }, portions },
+    basis: { per100: { kcal: Math.round(kcal), protein: r1(val(NUTRIENT.protein) || 0), carbs: r1(val(NUTRIENT.carbs) || 0), fat: r1(val(NUTRIENT.fat) || 0) }, portions,
+      ...(f.gtinUpc ? { barcode: String(f.gtinUpc).replace(/\D/g, "") } : {}) },
   };
 }
 async function searchUsda(q) {
@@ -79,7 +81,7 @@ export function fromOff(p) {
   const portions = g > 0 ? [{ label: p.serving_size ? `serving (${clean(p.serving_size)})` : `serving (${r1(g)} g)`, grams: r1(g) }] : [];
   return {
     id: `off:${p.code}`, source: "off", ref: String(p.code), name, brand,
-    basis: { per100: { kcal: Math.round(kcal), protein: r1(num(n.proteins_100g) || 0), carbs: r1(num(n.carbohydrates_100g) || 0), fat: r1(num(n.fat_100g) || 0) }, portions },
+    basis: { per100: { kcal: Math.round(kcal), protein: r1(num(n.proteins_100g) || 0), carbs: r1(num(n.carbohydrates_100g) || 0), fat: r1(num(n.fat_100g) || 0) }, portions, barcode: String(p.code) },
   };
 }
 async function searchOff(q) {
@@ -87,9 +89,34 @@ async function searchOff(q) {
   const data = await getJSON(url);
   return (data.hits || []).map(fromOff).filter(Boolean);
 }
-async function byBarcode(code) {
-  const data = await getJSON(`https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(code)}.json?fields=${OFF_FIELDS}`);
+/** The forms a barcode may be filed under: as scanned, a UPC-A without its leading 0, and the
+    14-digit GTIN (USDA stores some labels that way and its search only matches the exact string). */
+export const barcodeForms = (code) => [...new Set([code, code.length === 13 && code[0] === "0" ? code.slice(1) : null, code.padStart(14, "0")].filter(Boolean))];
+async function offByBarcode(code) {
+  let data;
+  try {
+    // Open Food Facts files a UPC-A under either form, so one request covers both.
+    data = await getJSON(`https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(code)}.json?fields=${OFF_FIELDS}`);
+  } catch (e) {
+    if (e.status === 404) return []; // its "no such product"
+    throw e;
+  }
   const hit = data.status === 1 && data.product ? fromOff({ ...data.product, code }) : null;
+  return hit ? [hit] : [];
+}
+/* USDA's Branded Foods (labels US manufacturers submit) fills gaps in Open Food Facts, store brands
+   especially. Its search matches a GTIN only as stored, so it's asked for every form of the code
+   at once (any word may match); only a record
+   whose GTIN is this barcode counts. */
+async function usdaByBarcode(code) {
+  const forms = barcodeForms(code);
+  const bare = new Set(forms.map((c) => c.replace(/^0+/, "")));
+  const url = `https://api.nal.usda.gov/fdc/v1/foods/search?api_key=${encodeURIComponent(FDC_KEY)}&query=${encodeURIComponent(forms.join(" "))}&pageSize=10&dataType=Branded`;
+  const data = await getJSON(url);
+  // Newest label first: a product reformulated over the years has one record per submission.
+  const foods = (data.foods || []).filter((f) => bare.has(String(f.gtinUpc || "").replace(/\D/g, "").replace(/^0+/, "")))
+    .sort((a, b) => String(b.publishedDate || "").localeCompare(String(a.publishedDate || "")));
+  const hit = foods.map(fromUsda).find(Boolean);
   return hit ? [hit] : [];
 }
 
@@ -114,9 +141,12 @@ export async function GET(request) {
   if (!q && !barcode) return Response.json({ error: "Search for a food." }, { status: 400 });
 
   // Either database may be slow or down; results from the other still come back.
-  const [usda, off] = await Promise.allSettled(barcode ? [Promise.resolve([]), byBarcode(barcode)] : [searchUsda(q), searchOff(q)]);
+  const [usda, off] = await Promise.allSettled(barcode ? [usdaByBarcode(barcode), offByBarcode(barcode)] : [searchUsda(q), searchOff(q)]);
   for (const [name, r] of [["usda", usda], ["off", off]]) if (r.status === "rejected") console.warn(`food search: ${name} failed`, r.reason?.message);
-  const results = combine(usda.status === "fulfilled" ? usda.value : [], off.status === "fulfilled" ? off.value : []);
+  const u = usda.status === "fulfilled" ? usda.value : [], o = off.status === "fulfilled" ? off.value : [];
+  // A barcode is one product: Open Food Facts' entry first (it has the label serving more often), else USDA's.
+  const results = barcode ? [...o, ...u].slice(0, 1) : combine(u, o);
+  // `partial` matters most for a barcode: no result while one database failed isn't a real "not found".
   const failed = usda.status === "rejected" && off.status === "rejected";
   return Response.json({ results, partial: !failed && (usda.status === "rejected" || off.status === "rejected") }, { status: failed ? 502 : 200, headers: { "cache-control": "no-store" } });
 }
