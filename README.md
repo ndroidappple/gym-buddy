@@ -65,6 +65,33 @@ database knows can be entered from the label once, and it's found from then on. 
 HTTPS, so test scanning on a Vercel preview, not on `vite` over the LAN. `npm run test:barcode`
 checks the barcode logic.
 
+### Rest alerts (optional)
+
+A push notification when a rest timer ends, so it arrives with the phone locked (**Settings →
+Rest alerts**, or the card that appears during the first rest). iPhone only allows this for the
+home screen app (iOS 16.4+). A web app can't set a notification on the phone for later, so the
+server sends it:
+
+- `src/lib/restAlerts.js` asks for permission, subscribes the phone, and schedules one alert per
+  rest timer; +15/−15 moves it, Skip/Finish/Discard cancel it. If the app is on screen in the
+  last 4 seconds, it cancels the alert and the in-app chime plays instead.
+- `supabase/migrations/20261004000000_rest_alerts.sql`: `push_subscriptions` and `rest_alerts`
+  (reached only through functions that act for the signed-in user), and a `pg_cron` job that
+  every 2 seconds posts the alerts that are due to `api/rest-alert.js`.
+- `api/rest-alert.js` (a Vercel Function) signs and sends them; `public/sw.js` shows them.
+
+Setup: in Vercel set **`VAPID_PUBLIC_KEY`** and **`VAPID_PRIVATE_KEY`** (`npx web-push
+generate-vapid-keys`) and **`REST_ALERT_SECRET`** (any long random string). In Supabase, store
+where to send and the same secret in Vault:
+
+```sql
+select vault.create_secret('https://<your app>/api/rest-alert', 'rest_alert_url');
+select vault.create_secret('<REST_ALERT_SECRET>', 'rest_alert_secret');
+```
+
+Apple doesn't allow a live countdown on the lock screen (Live Activities) or buttons on the
+notification for web apps, and delivery needs a connection when rest starts and ends.
+
 ## Project structure
 
 ```
@@ -77,6 +104,7 @@ src/
   lib/util.js              # e1RM, trends, PRs, dates, formatting
   lib/router.js            # hash routing (#/today, #/session/push, #/lift/…)
   lib/sound.js             # rest-timer chime
+  lib/restAlerts.js        # lock-screen rest alerts (push; see public/sw.js, api/rest-alert.js)
   components/ui.jsx        # sheet, toast, tab bar, charts, exercise picker
   views/                   # Today, Session, Summary, Progress (+ Workouts), Lift,
                            # Settings, ProgramEditor, Export

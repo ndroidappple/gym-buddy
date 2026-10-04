@@ -1,13 +1,14 @@
 import React, { useEffect, useState } from "react";
-import { ChevronRight, Download, LogOut, Moon, Gauge, Smartphone, Share, SquarePlus, EllipsisVertical, Check, Sparkles, Scale, Vibrate, Bell, Pencil, ClipboardPaste, Users, Utensils, Target } from "lucide-react";
+import { ChevronRight, Download, LogOut, Moon, Gauge, Smartphone, Share, SquarePlus, EllipsisVertical, Check, Sparkles, Scale, Vibrate, Bell, BellRing, Pencil, ClipboardPaste, Users, Utensils, Target } from "lucide-react";
 import { Sheet, InfoButton, ConfirmSheet } from "../components/ui.jsx";
 import { ICONS, iconSrc } from "../lib/icons.js";
 import { DAYS, allDays, activeDays } from "../data/program.js";
 import { href } from "../lib/router.js";
 import { shortDate, canVibrate } from "../lib/util.js";
 import { supabase } from "../supabase-client.js";
+import { restAlertState, enableRestAlerts, disableRestAlerts, warmRestAlerts } from "../lib/restAlerts.js";
 
-export default function Settings({ program, sessions, prefs, setPref, onRename, go }) {
+export default function Settings({ program, sessions, prefs, setPref, onRename, go, notify }) {
   const [email, setEmail] = useState("");
   const [sheet, setSheet] = useState(null); // "icon" | "install" | "rename" | "redo"
   const icon = ICONS.find((i) => i.id === prefs.icon) || ICONS[0];
@@ -97,6 +98,7 @@ export default function Settings({ program, sessions, prefs, setPref, onRename, 
           <div className="list">
             <Toggle Icon={Bell} label="Rest timer sound" sub="A short chime when rest is over." on={prefs.sound !== false}
               onChange={(v) => setPref("sound", v)} />
+            <RestAlertsRow notify={notify} onInstall={() => setSheet("install")} />
             {/* iPhone browsers can't vibrate, so the switch only shows where it does something. */}
             {canVibrate() && (
               <Toggle Icon={Vibrate} label="Vibration" sub="A buzz on logged sets, PRs and when rest ends." on={prefs.haptics !== false}
@@ -195,6 +197,35 @@ function RenameSheet({ program, onRename, onClose }) {
       </form>
     </Sheet>
   );
+}
+
+/* Rest alerts are per phone (they ride on its notification permission), so they live outside prefs. */
+function RestAlertsRow({ notify, onInstall }) {
+  const [state, setState] = useState(restAlertState);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => { if (state === "ask" || state === "off") warmRestAlerts().catch(() => {}); }, [state]);
+  if (state === "unsupported") return null;
+  const sub = {
+    install: "Add GymBuddy to your home screen first, then turn this on there.",
+    denied: "Notifications are off for GymBuddy. Turn them on in your phone's Settings › Notifications › GymBuddy.",
+  }[state] || "A notification when rest is over, even with your phone locked.";
+  const toggle = async () => {
+    if (state === "install") { onInstall(); return; }
+    if (busy || state === "denied") return;
+    setBusy(true);
+    try {
+      if (state === "on") { await disableRestAlerts(); setState("off"); }
+      else {
+        const s = await enableRestAlerts();
+        setState(s);
+        if (s === "on") notify?.("Rest alerts on. Using a Focus? Allow GymBuddy in it.");
+      }
+    } catch {
+      setState(restAlertState());
+      notify?.("Couldn't change rest alerts. Check your connection and try again.");
+    } finally { setBusy(false); }
+  };
+  return <Toggle Icon={BellRing} label="Rest alerts" sub={sub} on={state === "on"} onChange={toggle} />;
 }
 
 function Toggle({ Icon, label, sub, on, onChange, help }) {
