@@ -155,8 +155,11 @@ export function nutritionInstructions(context = "") {
 
 /* Ask-a-coach. Runs as a Vercel Function; the model is reached through Vercel AI Gateway,
    which authenticates with the deployment's OIDC token (no API key in the app).
-   Default is a zero-cost model; set AI_GATEWAY_MODEL in the project to switch. */
-const MODEL = process.env.AI_GATEWAY_MODEL || "inclusionai/ling-3.0-flash-sante-free";
+   Default is a zero-cost model; set AI_GATEWAY_MODEL in the project to switch.
+   Free models come and go (ling-3.0-flash-sante-free was withdrawn from the gateway and every ask
+   failed), so the gateway falls back to other free models, in order, when the first one fails. */
+const MODEL = process.env.AI_GATEWAY_MODEL || "inclusionai/ling-3.1-flash-free";
+const FALLBACKS = ["inclusionai/ling-3.1-flash", "poolside/laguna-s-2.1-free"].filter((m) => m !== MODEL);
 
 const COACHES = {
   tank: ["Tank", "chest and triceps, and nutrition"], wings: ["Wings", "back and biceps"], boulder: ["Boulder", "shoulders"],
@@ -232,6 +235,7 @@ export async function POST(request) {
     // a verdict: 6000 leaves ample room for all of that on top of long thinking.
     // A meal: thinking plus up to 12 itemized foods (~50 tokens each) and a sentence.
     maxOutputTokens: review ? 6000 : food ? 4000 : eat ? 2000 : 1500,
+    providerOptions: { gateway: { models: FALLBACKS } },
     abortSignal: request.signal,
   });
 
