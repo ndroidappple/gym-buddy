@@ -24,7 +24,7 @@ export const HELP = {
     steps: [
       { name: "Records", Icon: Trophy, spot: "records", text: "Lifts where you beat your best [Est. max]." },
       { name: "Est. max", Icon: Gauge, text: "The most you could likely lift once, worked out from your best set." },
-      { name: "Last time", Icon: TrendingUp, spot: "vs-last", text: "Each lift marked [Beat], [Matched] or [Below] last time." },
+      { name: "Last time", Icon: TrendingUp, spot: "vs-last", text: "Each lift's best set, [Up], [Same] or [Down] on last time." },
       { name: "First time", Icon: Flag, text: "A new lift sets the baseline to beat next time." },
     ],
   },
