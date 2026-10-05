@@ -918,3 +918,13 @@ button.coach-card:active { transform: translateY(3px); box-shadow: 0 2px 0 var(-
 .ex-tag.later { background: color-mix(in srgb, var(--day) 18%, var(--surface-2)); color: var(--day-ink); }
 .late-note { display: block; font-size: 12px; font-weight: 600; color: var(--mute); margin-left: 18px; }
 .nut-ask { margin-top: 2px; }
+
+/* Rest alerts: the bell in the rest dock (set / couldn't be set), and the one-time "turn on?" card above it. */
+.rest-bell { display: inline-block; vertical-align: -1px; margin-right: 5px; }
+.alert-ask { position: fixed; left: 12px; right: 12px; bottom: calc(108px + var(--safe-b)); max-width: 536px; margin: 0 auto; z-index: 30;
+  padding: 14px 14px 12px; border-radius: 24px; background: var(--surface); border: 2px solid var(--rule); box-shadow: 0 5px 0 var(--lip); color: var(--ink); }
+.alert-ask p { margin: 0; font-size: 15px; line-height: 1.35; }
+.alert-ask p b { display: block; font-size: 16px; margin-bottom: 2px; }
+.alert-ask-actions { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+.alert-ask-actions .btn-quiet { padding: 0 12px; }
+.alert-ask-actions .btn { flex: 1; min-height: 48px; font-size: 16px; }

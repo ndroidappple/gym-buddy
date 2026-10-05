@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
-import { ChevronLeft, Check, Plus, Minus, Trash2 } from "lucide-react";
+import { ChevronLeft, Check, Plus, Minus, Trash2, Bell, BellOff } from "lucide-react";
 import { BorderBeam } from "border-beam";
 import { fmtSet, uid, e1rm, fmtW, today, shortDate, mmss, byDateDesc, priorSessions, allTimeBest, bestSet, vibrate, readyToIncrease, nextGoal, fmtGoal, weightStep, bodyweightSeries, daysBetween } from "../lib/util.js";
 import { primeAudio, chime } from "../lib/sound.js";
+import { restAlertState, scheduleRestAlert, cancelRestAlert, enableRestAlerts, declineRestAlerts, warmRestAlerts } from "../lib/restAlerts.js";
 import { Sheet, ConfirmSheet, ExercisePicker } from "../components/ui.jsx";
 import Coach, { MOODS } from "../components/Coach.jsx";
 import CoachChat from "../components/CoachChat.jsx";
@@ -220,6 +221,41 @@ export default function Session({ day, existing, draft, sessions, program, weigh
     return () => clearTimeout(t);
   }, [grid, date, bw, note, extras, skipped, timer, startedAt, advice, later, swaps, order]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  /* ── rest alerts: a push when rest is over, sent by the server so it arrives with the phone locked ──
+     Scheduled when rest starts, moved by +15/−15, cancelled by Skip, Finish or Discard, and not sent
+     after the last set. `alertSet` drives the dock's bell: true set, false couldn't (offline). */
+  const [alerts, setAlerts] = useState(restAlertState);
+  const [alertSet, setAlertSet] = useState(null);
+  const alertPending = useRef(false);
+  useEffect(() => {
+    if (existing) return;
+    const ms = timer ? timer.endsAt - Date.now() : 0;
+    if (ms <= 0 || allDone || alerts !== "on") {
+      if (alertPending.current) cancelRestAlert();
+      alertPending.current = false;
+      setAlertSet(null);
+      return;
+    }
+    let alive = true;
+    alertPending.current = true;
+    scheduleRestAlert({ seconds: ms / 1000, title: "Rest over", body: timer.alert || "Time for your next set.", url: "/" + location.hash })
+      .then((ok) => { if (alive) setAlertSet(ok); });
+    return () => { alive = false; };
+  }, [timer?.endsAt, allDone, alerts]); // eslint-disable-line react-hooks/exhaustive-deps
+  const [askAlerts, setAskAlerts] = useState(false); // the one-time "turn on rest alerts?" card
+  useEffect(() => { if (timer && alerts === "ask" && !existing) { setAskAlerts(true); warmRestAlerts().catch(() => {}); } }, [timer, alerts, existing]);
+  const turnOnAlerts = async () => {
+    try {
+      const s = await enableRestAlerts();
+      setAlerts(s);
+      if (s === "on") notify("Rest alerts on. Using a Focus? Allow GymBuddy in it.");
+    } catch {
+      notify("Couldn't turn on rest alerts. Check your connection, then try in Settings.");
+    }
+    setAskAlerts(false);
+  };
+  const skipAlerts = () => { declineRestAlerts(); setAlerts("off"); setAskAlerts(false); };
+
   /* ── keep the screen awake while training ── */
   useEffect(() => {
     let lock = null;
@@ -303,7 +339,12 @@ export default function Session({ day, existing, draft, sessions, program, weigh
     if (!startedAt) setStartedAt(Date.now());
     setFlash({ ex: ex.n, i });
     vibrate(pr ? [40, 60, 40, 60, 80] : 20);
-    setTimer({ endsAt: Date.now() + ex.rest * 1000, total: ex.rest, coach: coachFor(ex.n), next: call?.w != null ? `${fmtW(call.w)} × ${call.r}` : null });
+    const next = call?.w != null ? `${fmtW(call.w)} × ${call.r}` : null;
+    // What the lock-screen alert says when this rest is over: the next set, or the next lift.
+    const more = grid[ex.n].some((r, j) => j !== i && !r.done);
+    const upNext = more ? null : nextAfter(ex.n)?.n;
+    const alert = more ? `Next: ${ex.n}${next ? ` ${next}` : ""}` : upNext ? `Next up: ${upNext}` : "Time for your next set.";
+    setTimer({ endsAt: Date.now() + ex.rest * 1000, total: ex.rest, coach: coachFor(ex.n), next, alert });
     setActiveIdx(null);
     setEditing(false);
     // The coach reacts first, then settles into recovering while the rest timer runs.
@@ -381,6 +422,7 @@ export default function Session({ day, existing, draft, sessions, program, weigh
   const finish = () => {
     const sets = collectSets();
     if (!Object.keys(sets).length) return;
+    cancelRestAlert();
     // The order lifts were done in, and any swaps, travel with the session (for fair comparisons later).
     const done = order.filter((o) => sets[o.n]);
     onFinish({ id: uid(), day, date, bw: bw !== "" ? parseFloat(bw) : null, note: note.trim() || null, sets, startedAt: startedAt || Date.now(), finishedAt: Date.now(),
@@ -449,15 +491,28 @@ export default function Session({ day, existing, draft, sessions, program, weigh
             <>
               {!allDone && <button className="btn btn-day" onClick={finish} disabled={!doneSlots}>Finish · {doneSlots}/{totalSlots} sets</button>}
               {!doneSlots && <p className="small muted" style={{ textAlign: "center" }}>Log at least one set to finish.</p>}
-              {dirty && <button className="btn-quiet danger" onClick={() => { onDiscardDraft(day); back(); }}>Discard this session</button>}
+              {dirty && <button className="btn-quiet danger" onClick={() => { cancelRestAlert(); onDiscardDraft(day); back(); }}>Discard this session</button>}
             </>
           )}
         </div>
-        <div style={{ height: timer || allDone ? 120 : 16 }} />
+        <div style={{ height: timer || allDone ? (askAlerts && timer && !allDone ? 250 : 120) : 16 }} />
       </div>
 
       {/* Every set in: Finish takes the dock's place, so it's one tap away instead of a scroll. */}
-      {allDone ? <FinishDock sets={doneSlots} onFinish={finish} /> : timer && <RestDock timer={timer} setTimer={setTimer} />}
+      {allDone ? <FinishDock sets={doneSlots} onFinish={finish} /> : timer && (
+        <>
+          {askAlerts && (
+            <div className="alert-ask" role="dialog" aria-labelledby="alert-ask-title">
+              <p id="alert-ask-title"><b>Rest alerts</b> Get a heads-up when rest is over, even with your phone locked.</p>
+              <div className="alert-ask-actions">
+                <button className="btn-quiet" onClick={skipAlerts}>Not now</button>
+                <button className="btn btn-ink" onClick={turnOnAlerts}>Turn on</button>
+              </div>
+            </div>
+          )}
+          <RestDock timer={timer} setTimer={setTimer} alertSet={alertSet} />
+        </>
+      )}
 
       {sheet === "picker" && (
         <ExercisePicker title="Add for today" sub={`Adds to this ${dayProgram.name} session only. Change the program in Settings.`}
@@ -785,10 +840,11 @@ function FinishDock({ sets, onFinish }) {
   );
 }
 
-function RestDock({ timer, setTimer }) {
+function RestDock({ timer, setTimer, alertSet }) {
   const [now, setNow] = useState(Date.now());
   const alerted = useRef(false);
-  useEffect(() => { alerted.current = timer.endsAt <= Date.now(); }, [timer.endsAt]);
+  const handedOff = useRef(false);
+  useEffect(() => { alerted.current = timer.endsAt <= Date.now(); handedOff.current = false; }, [timer.endsAt]);
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 250);
     return () => clearInterval(id);
@@ -798,6 +854,11 @@ function RestDock({ timer, setTimer }) {
   useEffect(() => {
     if (over && !alerted.current) { alerted.current = true; chime(); vibrate([200, 100, 200]); }
   }, [over]);
+  // On screen near the end: the chime will do, so call off the lock-screen alert. 4 s covers the
+  // server sending up to 3 s early; locking the phone inside those 4 s means no alert this time.
+  useEffect(() => {
+    if (!over && left <= 4 && alertSet && !handedOff.current && document.visibilityState === "visible") { handedOff.current = true; cancelRestAlert(); }
+  }, [left, over, alertSet]);
   const adjust = (d) => setTimer((t) => ({ ...t, endsAt: Math.max(Date.now(), t.endsAt + d * 1000), total: Math.max(15, t.total + d) }));
   const reduced = useReducedMotion();
   const theme = useTheme();
@@ -807,7 +868,11 @@ function RestDock({ timer, setTimer }) {
       <div className={"rest" + (over ? " over" : "")} role="timer" aria-label="Rest timer">
         <Coach id={timer.coach || "tank"} mood={over ? "focused" : "resting"} size={46} decorative />
         <div className="rest-text">
-          <span className="rest-line">{timer.next ? `${over ? "Go" : "Next"}: ${timer.next}` : over ? "Rest over. Next set!" : MOODS.resting.line}</span>
+          <span className="rest-line">
+            {!over && alertSet === true && <Bell size={12} strokeWidth={2.5} className="rest-bell" aria-label="Lock-screen alert set" />}
+            {!over && alertSet === false && <BellOff size={12} strokeWidth={2.5} className="rest-bell" aria-label="No lock-screen alert: no connection. Keep GymBuddy open." />}
+            {timer.next ? `${over ? "Go" : "Next"}: ${timer.next}` : over ? "Rest over. Next set!" : MOODS.resting.line}
+          </span>
           <span className="clock" aria-live={over ? "assertive" : "off"} aria-label={over ? "Rest over" : `${mmss(left)} of ${mmss(timer.total)} rest left`}>{over ? "Go" : mmss(left)}</span>
         </div>
         {!over && <button className="rb" onClick={() => adjust(-15)} aria-label="Remove 15 seconds">−15</button>}

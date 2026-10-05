@@ -6,10 +6,12 @@ import App from "./App.jsx";
 import AuthGate from "./Auth.jsx";
 import { applySavedTheme } from "./lib/theme.js";
 import { applySavedIcon } from "./lib/icons.js";
+import { registerServiceWorker } from "./lib/restAlerts.js";
 
 // Before first paint: this device's theme (dark by default) and home screen icon.
 applySavedTheme();
 applySavedIcon();
+registerServiceWorker(); // shows rest alerts
 
 // iOS Safari ignores user-scalable=no; block pinch-zoom so it behaves like a native app.
 ["gesturestart", "gesturechange"].forEach((t) => document.addEventListener(t, (e) => e.preventDefault(), { passive: false }));
