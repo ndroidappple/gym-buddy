@@ -1,3 +1,4 @@
+-- Applied to the ironlog project on 2026-10-05 (migration "rest_alerts"), with both Vault secrets set.
 -- Rest alerts: a push notification when a rest timer ends, so it arrives with the phone locked.
 -- A web app can't schedule a notification on the phone, so the server sends it:
 --   1. The app saves this phone's push address (save_push_subscription) once alerts are on.
