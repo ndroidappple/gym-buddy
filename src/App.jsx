@@ -278,7 +278,7 @@ export default function App() {
     <div className="app">
       {view}
       {showTabs && <TabBar active={activeTab} onSelect={selectTab} nutrition={nutritionOn} />}
-      {(sync === "offline" || food.status === "offline") && <SyncNote raised={showTabs} />}
+      <SyncNote show={sync === "offline" || food.status === "offline"} raised={showTabs} />
       <NamePrompt onName={setName} onSettled={onNameSettled} />
       {nameSettled && !prefs.welcomed && route.name !== "coaches" && (
         <Welcome name={name} onStart={() => { setPref("welcomed", true); go(href("coaches", "tank")); }} onLater={() => setPref("welcomed", true)} />
