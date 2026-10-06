@@ -159,17 +159,3 @@ export function useFood(enabled) {
 
 /** The saved food an entry was logged from (by Tank or from "Your foods"), if it still exists. */
 export const savedFoodFor = (foods, entry) => (entry?.source_ref && ["custom", "ai"].includes(entry.source) ? foods.find((f) => f.id === entry.source_ref) || null : null);
-
-/** Recently logged foods, newest first, one per name + brand, for one-tap re-logging. */
-export function recentFoods(entries, limit = 25) {
-  const seen = new Set();
-  const out = [];
-  for (const e of [...entries].sort((a, b) => (b.created_at || "").localeCompare(a.created_at || ""))) {
-    const k = `${e.name}|${e.brand || ""}`.toLowerCase();
-    if (seen.has(k)) continue;
-    seen.add(k);
-    out.push(e);
-    if (out.length >= limit) break;
-  }
-  return out;
-}

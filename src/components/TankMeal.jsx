@@ -32,7 +32,7 @@ export default function TankMeal({ meal: slot, onMeal, action, onSave }) {
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
   const [name, setName] = useState("");
-  const [save, setSave] = useState(true);
+  const [save, setSave] = useState(false); // logged meals show in Your foods anyway; save the ones you repeat
   const listRef = useRef(null);
   const abort = useRef(null);
   const theme = useTheme();
@@ -103,7 +103,7 @@ export default function TankMeal({ meal: slot, onMeal, action, onSave }) {
         {card && cardIsLatest && !busy && (
           <div className="tank-meal-save">
             <label className="check-row"><input type="checkbox" checked={save} onChange={(e) => setSave(e.target.checked)} />
-              <span>Save to my foods<small>Log it again in one tap next time.</small></span></label>
+              <span>Save to my foods<small>It shows in Your foods for a while anyway. Saving keeps it for good.</small></span></label>
             <div className="setup-choices food-meals" role="group" aria-label="Meal">
               {MEALS.map((m) => <button key={m.id} type="button" className="chip" aria-pressed={slot === m.id} onClick={() => onMeal(m.id)}>{m.label}</button>)}
             </div>

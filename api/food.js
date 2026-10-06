@@ -120,13 +120,27 @@ async function usdaByBarcode(code) {
   return hit ? [hit] : [];
 }
 
-/** Everyday foods first, then packaged; one of each name + brand. */
-export function combine(usda, off) {
+/** How well a food's name answers the search: the whole phrase at the start beats it as a word,
+    which beats only some of the words; long names (a yogurt that's "chai latte" flavored) sink. */
+export function relevance(name, q) {
+  const n = clean(name).toLowerCase(), phrase = clean(q).toLowerCase();
+  const words = phrase.split(" ").filter(Boolean);
+  if (!words.length) return 0;
+  const at = (w) => n.split(/[^\p{L}\p{N}]+/u).includes(w) ? 1 : n.includes(w) ? 0.5 : 0; // a whole word, or inside one
+  let s = (words.reduce((a, w) => a + at(w), 0) / words.length) * 2;
+  if (n.startsWith(phrase)) s += 3;
+  else if (new RegExp(`(^|[^\\p{L}\\p{N}])${phrase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`, "u").test(n)) s += 2;
+  return s - Math.min(2, n.length / 40);
+}
+
+/** One of each name + brand, best matches first; within a match, everyday foods before packaged. */
+export function combine(usda, off, q = "") {
   const seen = new Set();
   return [...usda, ...off].filter((f) => {
     const k = `${f.name}|${f.brand || ""}`.toLowerCase();
     return !seen.has(k) && seen.add(k);
-  }).slice(0, 30);
+  }).map((f, i) => ({ f, i, r: relevance(f.name, q) }))
+    .sort((a, b) => b.r - a.r || a.i - b.i).map((x) => x.f).slice(0, 30);
 }
 
 export async function GET(request) {
@@ -145,7 +159,7 @@ export async function GET(request) {
   for (const [name, r] of [["usda", usda], ["off", off]]) if (r.status === "rejected") console.warn(`food search: ${name} failed`, r.reason?.message);
   const u = usda.status === "fulfilled" ? usda.value : [], o = off.status === "fulfilled" ? off.value : [];
   // A barcode is one product: Open Food Facts' entry first (it has the label serving more often), else USDA's.
-  const results = barcode ? [...o, ...u].slice(0, 1) : combine(u, o);
+  const results = barcode ? [...o, ...u].slice(0, 1) : combine(u, o, q);
   // `partial` matters most for a barcode: no result while one database failed isn't a real "not found".
   const failed = usda.status === "rejected" && off.status === "rejected";
   return Response.json({ results, partial: !failed && (usda.status === "rejected" || off.status === "rejected") }, { status: failed ? 502 : 200, headers: { "cache-control": "no-store" } });

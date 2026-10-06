@@ -65,6 +65,15 @@ database knows can be entered from the label once, and it's found from then on. 
 HTTPS, so test scanning on a Vercel preview, not on `vite` over the LAN. `npm run test:barcode`
 checks the barcode logic.
 
+**Add food** lists **Your foods** once each: saved foods and everything logged in the last 120 days
+(`src/lib/yourFoods.js`), ranked by how often and how lately you've had them, with a boost for the
+meal being added to, so the latte you have most mornings leads at breakfast. Each row says why it's
+there ("4× · usually breakfast · yesterday"), and picking one starts from last time's amount. While
+searching, your matching foods come first, then the **Food database** results, best matches first
+(`relevance()` in `api/food.js`), shown per serving where the label gives one. Meals from Tank aren't
+saved by default: they show in Your foods anyway, and saving keeps one for good. `npm run test:food`
+checks the ranking.
+
 ### Rest alerts (optional)
 
 A push notification when a rest timer ends, so it arrives with the phone locked (**Settings →
