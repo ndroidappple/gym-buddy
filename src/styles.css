@@ -365,7 +365,6 @@ button.chip { min-height: 38px; padding: 0 14px; border: 2px solid var(--rule); 
 .swipe.swiping { background: var(--danger); }
 .swipe > .done-row { position: relative; touch-action: pan-y; transition: transform 200ms cubic-bezier(.2, 1.2, .4, 1); -webkit-user-select: none; user-select: none; }
 .swipe-del { position: absolute; top: 0; bottom: 0; right: 16px; display: flex; align-items: center; gap: 6px; color: #FFFFFF; font-weight: 800; font-size: 14px; }
-.finish-dock { box-shadow: none; }
 .finish-dock .btn { min-height: 60px; font-size: 19px; }
 .done-row .n { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; background: var(--surface-2); color: var(--mute); font-size: 12px; font-weight: 800; }
 .done-row .w { font-weight: 800; font-size: 19px; display: flex; align-items: center; gap: 8px; }
@@ -408,7 +407,12 @@ button.chip { min-height: 38px; padding: 0 14px; border: 2px solid var(--rule); 
 .set-ring-val { fill: none; stroke: var(--day); stroke-width: 4; stroke-linecap: round; transition: stroke-dashoffset 250ms ease; }
 .set-ring.complete { background: var(--day); color: var(--on-day); }
 
-.rest-wrap { position: fixed !important; left: 12px; right: 12px; bottom: calc(14px + var(--safe-b)); max-width: 536px; margin: 0 auto; z-index: 30; border-radius: 30px; box-shadow: 0 6px 0 var(--lip); }
+/* The bottom dock (rest timer, or Finish once every set is in): slides up from the bottom edge when
+   it arrives and back down when it goes. The rest timer's beam sits inside. */
+.dock { position: fixed; left: 12px; right: 12px; bottom: calc(14px + var(--safe-b)); max-width: 536px; margin: 0 auto; z-index: 30; animation: dock-in 300ms cubic-bezier(.2, 1.1, .35, 1); }
+.dock.late { animation-delay: 120ms; animation-fill-mode: both; }
+.dock.leaving, .alert-ask.leaving { animation: dock-out 200ms cubic-bezier(.4, 0, 1, 1) forwards; pointer-events: none; }
+.rest-beam { border-radius: 30px; box-shadow: 0 6px 0 var(--lip); }
 .rest { display: flex; align-items: center; gap: 10px; padding: 10px 10px 10px 12px; border-radius: 30px; background: var(--dock); color: var(--on-dock); }
 .rest-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .rest-line { font-size: 12.5px; font-weight: 600; color: var(--dock-mute); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -542,8 +546,14 @@ button.chip { min-height: 38px; padding: 0 14px; border: 2px solid var(--rule); 
 /* ═══════════════ SHEET / TOAST ═══════════════ */
 /* Only the wrap animates when the keyboard moves (on a curve close to iOS's own keyboard); the
    sheet sizes from the wrap in %, so everything inside moves together in one smooth motion. */
-.sheet-wrap { --kb-ease: cubic-bezier(.38, .7, .125, 1); --kb-ms: 280ms; position: fixed; left: 0; right: 0; top: var(--vv-top, 0px); height: var(--vv-h, 100dvh); background: var(--scrim); z-index: 50; display: flex; align-items: flex-end; justify-content: center; animation: fade 160ms ease-out; transition: top var(--kb-ms) var(--kb-ease), height var(--kb-ms) var(--kb-ease); }
-.sheet { width: 100%; max-width: 560px; background: var(--bg); border-radius: 28px 28px 0 0; max-height: min(90dvh, calc(100% - var(--safe-t) - 8px)); display: flex; flex-direction: column; padding-bottom: var(--safe-b); transition: padding-bottom var(--kb-ms) var(--kb-ease); animation: sheet-in 300ms cubic-bezier(.2, 1.15, .35, 1); }
+.sheet-wrap { --kb-ease: cubic-bezier(.38, .7, .125, 1); --kb-ms: 280ms; position: fixed; left: 0; right: 0; top: var(--vv-top, 0px); height: var(--vv-h, 100dvh); z-index: 50; display: flex; align-items: flex-end; justify-content: center; animation: fade 160ms ease-out; transition: top var(--kb-ms) var(--kb-ease), height var(--kb-ms) var(--kb-ease); }
+.sheet { position: relative; width: 100%; max-width: 560px; background: var(--bg); border-radius: 28px 28px 0 0; max-height: min(90dvh, calc(100% - var(--safe-t) - 8px)); display: flex; flex-direction: column; padding-bottom: var(--safe-b); transition: padding-bottom var(--kb-ms) var(--kb-ease); animation: sheet-in 300ms cubic-bezier(.2, 1.15, .35, 1); }
+/* The scrim is its own layer so a drag can fade it with the sheet's travel. */
+.sheet-scrim { position: absolute; inset: 0; background: var(--scrim); }
+.sheet.dragging { will-change: transform; }
+/* The copy a closing sheet leaves behind to animate out (ui.jsx): frozen as it was, never in the way. */
+.sheet-leaving, .sheet-leaving * { animation: none !important; transition: none !important; pointer-events: none !important; }
+.sheet-leaving::after { display: none; }
 .sheet-grab { width: 44px; height: 5px; background: var(--rule-2); border-radius: 3px; margin: 10px auto 2px; }
 .sheet-head { display: flex; align-items: flex-start; gap: 8px; padding: 8px 16px 12px; }
 .sheet-title { font-weight: 800; font-size: 24px; line-height: 1.1; letter-spacing: -0.02em; }
@@ -556,12 +566,18 @@ button.chip { min-height: 38px; padding: 0 14px; border: 2px solid var(--rule); 
 @keyframes fade { from { opacity: 0; } }
 @keyframes rise { from { transform: translateY(40px); opacity: 0.4; } }
 @keyframes sheet-in { from { transform: translateY(80px); opacity: .3; } }
+/* Leaving (keep the 200ms in step with EXIT_MS in lib/motion.js): quicker than coming in, speeding
+   up as it goes. Floating notes sink and fade; docks slide off the bottom edge. */
+@keyframes sink-out { to { transform: translateY(28px); opacity: 0; } }
+@keyframes dock-out { to { transform: translateY(calc(100% + 24px + var(--safe-b))); opacity: .6; } }
+@keyframes dock-in { from { transform: translateY(calc(100% + 24px + var(--safe-b))); } }
+.toast.leaving, .sync-note.leaving { animation: sink-out 200ms cubic-bezier(.4, 0, 1, 1) forwards; pointer-events: none; }
 
 .toast { position: fixed; left: 16px; right: 16px; bottom: calc(100px + var(--safe-b)); max-width: 528px; margin: 0 auto; z-index: 60; background: var(--ink); color: var(--bg); padding: 6px 6px 6px 18px; border-radius: 22px; display: flex; align-items: center; gap: 12px; min-height: 54px; box-shadow: 0 5px 0 var(--ink-lip); animation: rise 200ms ease-out; }
 .toast .msg { flex: 1; font-weight: 700; font-size: 15px; }
 .toast button { min-height: 42px; padding: 0 16px; border-radius: 16px; font-weight: 800; font-size: 14px; color: var(--bg); background: color-mix(in srgb, var(--bg) 16%, transparent); }
 .toast.raised { bottom: calc(96px + var(--safe-b)); }
-.sync-note { position: fixed; left: 16px; right: 16px; bottom: calc(18px + var(--safe-b)); max-width: 528px; margin: 0 auto; z-index: 30; padding: 8px 14px; border-radius: 999px; background: var(--surface); border: 2px solid var(--rule); font-size: 12.5px; font-weight: 700; color: var(--mute); text-align: center; pointer-events: none; }
+.sync-note { position: fixed; left: 16px; right: 16px; bottom: calc(18px + var(--safe-b)); max-width: 528px; margin: 0 auto; z-index: 30; padding: 8px 14px; border-radius: 999px; background: var(--surface); border: 2px solid var(--rule); font-size: 12.5px; font-weight: 700; color: var(--mute); text-align: center; pointer-events: none; animation: rise 200ms ease-out; }
 .sync-note.raised { bottom: calc(96px + var(--safe-b)); }
 
 /* ═══════════════ LOADING / AUTH ═══════════════ */
@@ -920,7 +936,7 @@ button.coach-card:active { transform: translateY(3px); box-shadow: 0 2px 0 var(-
 
 /* Rest alerts: the bell in the rest dock (set / couldn't be set), and the one-time "turn on?" card above it. */
 .rest-bell { display: inline-block; vertical-align: -1px; margin-right: 5px; }
-.alert-ask { position: fixed; left: 12px; right: 12px; bottom: calc(108px + var(--safe-b)); max-width: 536px; margin: 0 auto; z-index: 30;
+.alert-ask { position: fixed; left: 12px; right: 12px; bottom: calc(108px + var(--safe-b)); max-width: 536px; margin: 0 auto; z-index: 30; animation: rise 240ms cubic-bezier(.2, 1, .35, 1);
   padding: 14px 14px 12px; border-radius: 24px; background: var(--surface); border: 2px solid var(--rule); box-shadow: 0 5px 0 var(--lip); color: var(--ink); }
 .alert-ask p { margin: 0; font-size: 15px; line-height: 1.35; }
 .alert-ask p b { display: block; font-size: 16px; margin-bottom: 2px; }

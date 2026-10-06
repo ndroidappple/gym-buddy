@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import { InfoButton, Sheet } from "../components/ui.jsx";
 import { Scale, ArrowLeftRight, Check, X } from "lucide-react";
 import { DAYS, CUSTOM, activeDays } from "../data/program.js";
@@ -8,6 +8,7 @@ import SetupCard from "../components/SetupCard.jsx";
 import { nextCoachToMeet } from "../lib/setup.js";
 import { weighInEvery, phaseStatus, statusLine, PHASE_TYPES } from "../lib/phase.js";
 import Coach from "../components/Coach.jsx";
+import { collapse } from "../lib/motion.js";
 import { byDateDesc, bestSet, fmtW, num, shortDate, weekDates, today, nextDayAfter, bodyweightSeries, daysBetween, plural, readyToIncrease, nextGoal, fmtGoal } from "../lib/util.js";
 
 export default function Today({ name, sessions, program, drafts, weighins, prefs, onWeighin, foodToday }) {
@@ -227,14 +228,18 @@ function WeighIn({ last, skip, onSave }) {
   const ago = last ? daysBetween(last.date, t) : null;
   const value = parseFloat(bw);
   const valid = value > 0 && value < 1000;
+  // Saved or skipped, the card folds away so what's below slides up, then it's gone.
+  const card = useRef(null);
+  const [closing, setClosing] = useState(false);
+  const fold = async (then) => { setClosing(true); await collapse(card.current); then(); };
   const save = (e) => {
     e.preventDefault();
-    if (!valid) return;
-    onSave(t, Math.round(value * 10) / 10);
-    setBw("");
+    if (!valid || closing) return;
+    const w = Math.round(value * 10) / 10;
+    fold(() => { onSave(t, w); setBw(""); });
   };
   return (
-    <form className="weigh" data-help="weigh" onSubmit={save} aria-label="Weekly weigh-in">
+    <form ref={card} className="weigh" data-help="weigh" onSubmit={save} aria-label="Weekly weigh-in" inert={closing ? "" : undefined}>
       <span className="weigh-icon" aria-hidden="true"><Scale size={22} /></span>
       <div className="weigh-text">
         <b>Weigh-in due</b>
@@ -246,7 +251,7 @@ function WeighIn({ last, skip, onSave }) {
         <span className="u">lb</span>
       </label>
       <button type="submit" className="btn weigh-save" disabled={!valid}>Save</button>
-      <button type="button" className="weigh-skip" onClick={skip} aria-label="Skip this week's weigh-in"><X size={14} strokeWidth={3} aria-hidden="true" /></button>
+      <button type="button" className="weigh-skip" onClick={() => !closing && fold(skip)} aria-label="Skip this week's weigh-in"><X size={14} strokeWidth={3} aria-hidden="true" /></button>
     </form>
   );
 }

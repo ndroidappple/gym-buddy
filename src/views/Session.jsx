@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import React, { useState, useEffect, useLayoutEffect, useMemo, useRef, useCallback } from "react";
 import { ChevronLeft, Check, Plus, Minus, Trash2, Bell, BellOff } from "lucide-react";
 import { BorderBeam } from "border-beam";
 import { fmtSet, uid, e1rm, fmtW, today, shortDate, mmss, byDateDesc, priorSessions, allTimeBest, bestSet, vibrate, readyToIncrease, nextGoal, fmtGoal, weightStep, bodyweightSeries, daysBetween, setChange } from "../lib/util.js";
@@ -7,7 +7,7 @@ import { restAlertState, scheduleRestAlert, cancelRestAlert, enableRestAlerts, d
 import { Sheet, ConfirmSheet, ExercisePicker } from "../components/ui.jsx";
 import Coach, { MOODS } from "../components/Coach.jsx";
 import CoachChat from "../components/CoachChat.jsx";
-import { useReducedMotion } from "../lib/motion.js";
+import { useReducedMotion, usePresence, collapse, reducedMotion, EXIT_EASE } from "../lib/motion.js";
 import { useTheme } from "../lib/theme.js";
 import { MessageCircle } from "lucide-react";
 import { nextSetAdvice, openingAdvice } from "../lib/setCoach.js";
@@ -179,6 +179,9 @@ export default function Session({ day, existing, draft, sessions, program, weigh
   const totalSlots = active.reduce((a, e) => a + (grid[e.n]?.length || 0), 0);
   const doneSlots = active.reduce((a, e) => a + (grid[e.n]?.filter((r) => r.done).length || 0), 0);
   const allDone = !existing && totalSlots > 0 && doneSlots === totalSlots;
+  // What's docked at the bottom, kept a moment after it goes so it can slide away.
+  const [restShown, restLeaving] = usePresence(!allDone && timer);
+  const [finishShown, finishLeaving] = usePresence(allDone && doneSlots);
 
   const dirty = useMemo(() =>
     bw !== "" || note.trim() !== "" || extras.length > 0 || skipped.length > 0 ||
@@ -243,6 +246,7 @@ export default function Session({ day, existing, draft, sessions, program, weigh
     return () => { alive = false; };
   }, [timer?.endsAt, allDone, alerts]); // eslint-disable-line react-hooks/exhaustive-deps
   const [askAlerts, setAskAlerts] = useState(false); // the one-time "turn on rest alerts?" card
+  const [askShown, askLeaving] = usePresence(askAlerts && !!timer && !allDone);
   useEffect(() => { if (timer && alerts === "ask" && !existing) { setAskAlerts(true); warmRestAlerts().catch(() => {}); } }, [timer, alerts, existing]);
   const turnOnAlerts = async () => {
     try {
@@ -494,21 +498,19 @@ export default function Session({ day, existing, draft, sessions, program, weigh
         <div style={{ height: timer || allDone ? (askAlerts && timer && !allDone ? 250 : 120) : 16 }} />
       </div>
 
-      {/* Every set in: Finish takes the dock's place, so it's one tap away instead of a scroll. */}
-      {allDone ? <FinishDock sets={doneSlots} onFinish={finish} /> : timer && (
-        <>
-          {askAlerts && (
-            <div className="alert-ask" role="dialog" aria-labelledby="alert-ask-title">
-              <p id="alert-ask-title"><b>Rest alerts</b> Get a heads-up when rest is over, even with your phone locked.</p>
-              <div className="alert-ask-actions">
-                <button className="btn-quiet" onClick={skipAlerts}>Not now</button>
-                <button className="btn btn-ink" onClick={turnOnAlerts}>Turn on</button>
-              </div>
-            </div>
-          )}
-          <RestDock timer={timer} setTimer={setTimer} alertSet={alertSet} />
-        </>
+      {/* Every set in: Finish takes the dock's place, so it's one tap away instead of a scroll.
+          Each slides off the bottom as it goes; Finish rises as the rest timer leaves. */}
+      {finishShown && <FinishDock sets={finishShown} onFinish={finish} leaving={finishLeaving} after={restLeaving} />}
+      {askShown && (
+        <div className={"alert-ask" + (askLeaving ? " leaving" : "")} role="dialog" aria-labelledby="alert-ask-title" inert={askLeaving ? "" : undefined}>
+          <p id="alert-ask-title"><b>Rest alerts</b> Get a heads-up when rest is over, even with your phone locked.</p>
+          <div className="alert-ask-actions">
+            <button className="btn-quiet" onClick={skipAlerts}>Not now</button>
+            <button className="btn btn-ink" onClick={turnOnAlerts}>Turn on</button>
+          </div>
+        </div>
       )}
+      {restShown && <RestDock timer={restShown} setTimer={setTimer} alertSet={alertSet} leaving={restLeaving} />}
 
       {sheet === "picker" && (
         <ExercisePicker title="Add for today" sub={`Adds to this ${dayProgram.name} session only. Change the program in Settings.`}
@@ -783,10 +785,34 @@ function Stepper({ id, label, unit, value, mode, placeholder, onChange, onDec, o
 const HOLD_MS = 450, SWIPE_DELETE = 96;
 function DoneRow({ className, label, canDelete, onEdit, onDelete, onHint, children }) {
   const [dx, setDx] = useState(0);
+  const [gone, setGone] = useState(false); // swiped away: sliding off, then closing up
   const g = useRef(null); // the gesture in progress
   const hold = useRef(null);
+  const wrap = useRef(null);
+  const btn = useRef(null);
+  const deleted = useRef(false);
   useEffect(() => () => clearTimeout(hold.current), []);
+  // Rows are keyed by position, so after a delete this same row shows the next set: undo the exit.
+  useLayoutEffect(() => {
+    if (!deleted.current) return;
+    deleted.current = false;
+    wrap.current?.getAnimations({ subtree: true }).forEach((a) => a.cancel());
+    if (wrap.current) wrap.current.style.overflow = "";
+    setGone(false);
+    setDx(0);
+  });
+  // Finish the swipe off the left edge, close the gap so the sets below glide up, then delete.
+  const remove = async (from) => {
+    if (reducedMotion() || !btn.current?.animate) { setDx(0); onDelete(); return; }
+    setGone(true);
+    await btn.current.animate([{ transform: `translateX(${from}px)` }, { transform: "translateX(-105%)" }],
+      { duration: 160, easing: EXIT_EASE, fill: "forwards" }).finished.catch(() => {});
+    await collapse(wrap.current);
+    deleted.current = true;
+    onDelete();
+  };
   const down = (e) => {
+    if (gone) return;
     g.current = { x: e.clientX, y: e.clientY, dx: 0, moved: false, swiping: false, held: false };
     clearTimeout(hold.current);
     hold.current = setTimeout(() => {
@@ -809,16 +835,16 @@ function DoneRow({ className, label, canDelete, onEdit, onDelete, onHint, childr
     const t = g.current;
     g.current = null;
     clearTimeout(hold.current);
-    setDx(0);
+    if (!(t?.swiping && t.dx < -SWIPE_DELETE)) setDx(0);
     if (!t) return;
-    if (t.swiping) { if (t.dx < -SWIPE_DELETE) onDelete(); return; }
+    if (t.swiping) { if (t.dx < -SWIPE_DELETE) remove(t.dx); return; }
     if (!t.moved && !t.held) onHint();
   };
   const cancel = () => { g.current = null; clearTimeout(hold.current); setDx(0); };
   return (
-    <div className={"swipe" + (dx ? " swiping" : "")}>
-      {dx < 0 && <span className="swipe-del" aria-hidden="true"><Trash2 size={18} strokeWidth={2.4} />{dx < -SWIPE_DELETE ? "Release" : "Delete"}</span>}
-      <button className={className} style={dx ? { transform: `translateX(${dx}px)`, transition: "none" } : undefined}
+    <div ref={wrap} className={"swipe" + (dx || gone ? " swiping" : "")}>
+      {(dx < 0 || gone) && <span className="swipe-del" aria-hidden="true"><Trash2 size={18} strokeWidth={2.4} />{gone ? null : dx < -SWIPE_DELETE ? "Release" : "Delete"}</span>}
+      <button ref={btn} className={className} style={dx ? { transform: `translateX(${dx}px)`, transition: "none" } : undefined}
         onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={cancel}
         onClick={(e) => { if (e.detail === 0) onEdit(); }} onContextMenu={(e) => e.preventDefault()}
         aria-label={label}>
@@ -828,9 +854,11 @@ function DoneRow({ className, label, canDelete, onEdit, onDelete, onHint, childr
   );
 }
 
-function FinishDock({ sets, onFinish }) {
+function FinishDock({ sets, onFinish, leaving, after }) {
+  // Coming in as the rest timer leaves: wait for it to clear the spot (decided once, on arrival).
+  const [late] = useState(after);
   return (
-    <div className="rest-wrap finish-dock">
+    <div className={"dock finish-dock" + (late ? " late" : "") + (leaving ? " leaving" : "")} inert={leaving ? "" : undefined}>
       <button className="btn btn-day" onClick={onFinish}><Check size={20} strokeWidth={3} aria-hidden="true" /> Finish workout · {sets} sets</button>
     </div>
   );
@@ -843,7 +871,7 @@ function Change({ now, last }) {
   return <span className={"chg" + (c.dir > 0 ? " up" : "")} aria-label={c.label}>{c.dir > 0 ? "▲ " : c.dir < 0 ? "▼ " : ""}{c.text}</span>;
 }
 
-function RestDock({ timer, setTimer, alertSet }) {
+function RestDock({ timer, setTimer, alertSet, leaving }) {
   const [now, setNow] = useState(Date.now());
   const alerted = useRef(false);
   const handedOff = useRef(false);
@@ -855,19 +883,21 @@ function RestDock({ timer, setTimer, alertSet }) {
   const left = Math.max(0, Math.ceil((timer.endsAt - now) / 1000));
   const over = left === 0;
   useEffect(() => {
-    if (over && !alerted.current) { alerted.current = true; chime(); vibrate([200, 100, 200]); }
-  }, [over]);
+    if (over && !alerted.current && !leaving) { alerted.current = true; chime(); vibrate([200, 100, 200]); }
+  }, [over, leaving]);
   // On screen near the end: the chime will do, so call off the lock-screen alert. 4 s covers the
   // server sending up to 3 s early; locking the phone inside those 4 s means no alert this time.
   useEffect(() => {
-    if (!over && left <= 4 && alertSet && !handedOff.current && document.visibilityState === "visible") { handedOff.current = true; cancelRestAlert(); }
-  }, [left, over, alertSet]);
+    if (!over && !leaving && left <= 4 && alertSet && !handedOff.current && document.visibilityState === "visible") { handedOff.current = true; cancelRestAlert(); }
+  }, [left, over, alertSet, leaving]);
   const adjust = (d) => setTimer((t) => ({ ...t, endsAt: Math.max(Date.now(), t.endsAt + d * 1000), total: Math.max(15, t.total + d) }));
   const reduced = useReducedMotion();
   const theme = useTheme();
   return (
-    // Line beam runs only while resting (a 60–120 s wait); the line type ignores reduced motion, so gate it here.
-    <BorderBeam size="line" theme={theme} active={!over && !reduced} className="rest-wrap">
+    // The dock moves in and out; the beam inside can pause its own animations, so it doesn't carry them.
+    <div className={"dock" + (leaving ? " leaving" : "")} inert={leaving ? "" : undefined}>
+    {/* Line beam runs only while resting (a 60–120 s wait); the line type ignores reduced motion, so gate it here. */}
+    <BorderBeam size="line" theme={theme} active={!over && !reduced} className="rest-beam">
       <div className={"rest" + (over ? " over" : "")} role="timer" aria-label="Rest timer">
         <Coach id={timer.coach || "tank"} mood={over ? "focused" : "resting"} size={46} decorative />
         <div className="rest-text">
@@ -883,5 +913,6 @@ function RestDock({ timer, setTimer, alertSet }) {
         <button className="rb primary" onClick={() => setTimer(null)}>{over ? "Dismiss" : "Skip"}</button>
       </div>
     </BorderBeam>
+    </div>
   );
 }

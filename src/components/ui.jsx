@@ -1,8 +1,9 @@
 import React, { useEffect, useLayoutEffect, useRef, useState, useMemo } from "react";
-import { createPortal } from "react-dom";
+import { createPortal, flushSync } from "react-dom";
 import { X, Home, TrendingUp, Settings as Gear, Utensils, Plus, Info, ChevronLeft, ArrowUpRight } from "lucide-react";
 import { HELP } from "../data/help.js";
 import { vibrate } from "../lib/util.js";
+import { reducedMotion, usePresence, EXIT_MS, EXIT_EASE } from "../lib/motion.js";
 import { LIBRARY, specLine } from "../data/program.js";
 import Coach from "./Coach.jsx";
 
@@ -36,12 +37,135 @@ function useVisibleViewport(wrap) {
   }, [wrap]);
 }
 
+/* Leaving: a sheet's parent closes it by not rendering it any more (from many places: Save, Cancel,
+   a confirm, a route change), so the sheet can't hold itself open to animate. Instead, just before
+   React removes it, it leaves a copy behind that slides down while the scrim fades, then goes. */
+function copyForExit(node) {
+  const copy = node.cloneNode(true);
+  // What cloneNode doesn't carry: scroll positions, typed text, ticks, and the camera's frame.
+  const from = node.querySelectorAll("*"), to = copy.querySelectorAll("*");
+  const scrolls = [];
+  from.forEach((el, i) => {
+    if (el.scrollTop || el.scrollLeft) scrolls.push([to[i], el.scrollTop, el.scrollLeft]);
+    if (el.matches("input:not([type=file]), textarea, select")) { to[i].value = el.value; to[i].checked = el.checked; }
+    if (el.tagName === "VIDEO" && el.videoWidth) {
+      const c = document.createElement("canvas");
+      c.width = el.videoWidth; c.height = el.videoHeight; c.className = el.className;
+      c.style.cssText = "width:100%;height:100%;object-fit:cover;display:block";
+      try { c.getContext("2d").drawImage(el, 0, 0); to[i].replaceWith(c); } catch {}
+    }
+  });
+  return { copy, scrolls };
+}
+function playExit({ copy, scrolls }) {
+  copy.classList.add("sheet-leaving");
+  copy.setAttribute("aria-hidden", "true");
+  copy.inert = true;
+  copy.querySelectorAll("[id]").forEach((el) => el.removeAttribute("id"));
+  // Under any sheet that's opening as this one goes, so the new one is on top.
+  document.body.insertBefore(copy, document.body.querySelector(":scope > .sheet-wrap"));
+  for (const [el, top, left] of scrolls) { el.scrollTop = top; el.scrollLeft = left; }
+  const sheet = copy.querySelector(".sheet"), scrim = copy.querySelector(".sheet-scrim");
+  const at = getComputedStyle(sheet).transform; // where a drag left it, or none
+  const opts = { duration: EXIT_MS + 20, easing: EXIT_EASE, fill: "forwards" };
+  sheet.animate([{ transform: at === "none" ? "translateY(0)" : at }, { transform: "translateY(100%)" }], opts)
+    .finished.catch(() => {}).then(() => copy.remove());
+  scrim?.animate([{ opacity: getComputedStyle(scrim).opacity }, { opacity: 0 }], opts);
+  setTimeout(() => copy.remove(), EXIT_MS + 400); // in case the animation never reports back
+}
+function useExitCopy(wrap) {
+  const pending = useRef(null);
+  useLayoutEffect(() => {
+    // StrictMode (dev) unmounts and remounts once on open: that's not a close, so drop its copy.
+    if (pending.current) pending.current.cancelled = true;
+    const node = wrap.current;
+    return () => {
+      // Layout cleanup runs while the sheet is still in the page, scrolled where it was.
+      if (!node?.isConnected || reducedMotion() || !node.animate) return;
+      const job = { cancelled: false, snap: copyForExit(node) };
+      pending.current = job;
+      queueMicrotask(() => { if (!job.cancelled) playExit(job.snap); });
+    };
+  }, [wrap]);
+}
+
+/* Drag down to close, from the grab bar and header, or from the content when it's scrolled to the
+   top. Text fields, sliders and charts keep their own gestures. Far enough or fast enough closes;
+   otherwise it springs back. Touch only: a mouse has the ✕, Escape and the scrim. */
+const DRAG_START = 8, DRAG_CLOSE = 140, FLICK = 0.5; // px, px, px/ms
+function useDragToClose(sheetRef, wrapRef, close) {
+  useEffect(() => {
+    const sheet = sheetRef.current, wrap = wrapRef.current;
+    const scrim = wrap?.querySelector(".sheet-scrim");
+    if (!sheet || !wrap) return;
+    let g = null;
+    const settle = () => {
+      const at = sheet.style.transform;
+      sheet.style.transform = "";
+      if (scrim) scrim.style.opacity = "";
+      if (at && !reducedMotion()) sheet.animate([{ transform: at }, { transform: "translateY(0)" }], { duration: 260, easing: "cubic-bezier(.2, 1.2, .35, 1)" });
+    };
+    const start = (e) => {
+      g = null;
+      if (e.touches.length !== 1) return;
+      const t = e.target;
+      if (t.closest("input, textarea, select, [contenteditable], .scrub, [data-no-drag]")) return;
+      for (let el = t; el && el !== sheet; el = el.parentElement) if (el.scrollTop > 0) return; // scroll back up first
+      const p = e.touches[0];
+      g = { x: p.clientX, y: p.clientY, dy: 0, on: null, trail: [] };
+    };
+    const move = (e) => {
+      if (!g || g.on === false) return;
+      const p = e.touches[0];
+      if (g.on === null) {
+        const dx = p.clientX - g.x, dy = p.clientY - g.y;
+        if (Math.hypot(dx, dy) < DRAG_START) return;
+        g.on = dy > 0 && dy > Math.abs(dx);
+        if (!g.on) return;
+        g.y += DRAG_START; // the dead zone doesn't count, so the sheet doesn't jump when it starts following
+        sheet.classList.add("dragging");
+      }
+      e.preventDefault(); // the page and the sheet's content stay put while the sheet moves
+      g.dy = Math.max(0, p.clientY - g.y);
+      sheet.style.transform = `translateY(${g.dy}px)`;
+      if (scrim) scrim.style.opacity = String(1 - Math.min(1, g.dy / sheet.offsetHeight));
+      g.trail.push([p.clientY, e.timeStamp]);
+      if (g.trail.length > 5) g.trail.shift();
+    };
+    const end = (e) => {
+      const d = g;
+      g = null;
+      if (!d?.on) return;
+      e.stopPropagation(); // a drag isn't also a tap or a swipe for what's inside (the help cards)
+      sheet.classList.remove("dragging");
+      const [a, b] = [d.trail[0], d.trail[d.trail.length - 1]];
+      const speed = a && b && b[1] > a[1] ? (b[0] - a[0]) / (b[1] - a[1]) : 0;
+      if (e.type === "touchend" && (d.dy > Math.min(DRAG_CLOSE, sheet.offsetHeight * 0.35) || (speed > FLICK && d.dy > 24))) {
+        flushSync(() => close.current()); // closed now, so the exit copy starts from where the finger let go
+        if (sheet.isConnected) settle(); // the parent kept it open after all
+      } else settle();
+    };
+    sheet.addEventListener("touchstart", start, { passive: true });
+    sheet.addEventListener("touchmove", move, { passive: false });
+    sheet.addEventListener("touchend", end);
+    sheet.addEventListener("touchcancel", end);
+    return () => {
+      sheet.removeEventListener("touchstart", start);
+      sheet.removeEventListener("touchmove", move);
+      sheet.removeEventListener("touchend", end);
+      sheet.removeEventListener("touchcancel", end);
+    };
+  }, [sheetRef, wrapRef, close]);
+}
+
 export function Sheet({ title, sub, onClose, children, labelledBy = "sheet-title", className = "" }) {
   const ref = useRef(null);
   const wrap = useRef(null);
   useVisibleViewport(wrap);
+  useExitCopy(wrap);
   const close = useRef(onClose);
   close.current = onClose;
+  useDragToClose(ref, wrap, close);
   useEffect(() => {
     const prev = document.activeElement;
     const first = ref.current?.querySelector("input, textarea");
@@ -54,6 +178,7 @@ export function Sheet({ title, sub, onClose, children, labelledBy = "sheet-title
   // Portalled to <body>: a sheet opened from a sticky header would otherwise sit under the tab bar.
   return createPortal((
     <div className="sheet-wrap" ref={wrap} onClick={onClose}>
+      <div className="sheet-scrim" aria-hidden="true" />
       <div className={"sheet " + className} role="dialog" aria-modal="true" aria-labelledby={labelledBy} ref={ref} tabIndex={-1} onClick={(e) => e.stopPropagation()}>
         <div className="sheet-grab" aria-hidden="true" />
         <div className="sheet-head">
@@ -155,12 +280,14 @@ export function ConfirmSheet({ title, body, confirm, onConfirm, onClose, danger 
 }
 
 export function Toast({ toast, onDismiss, raised }) {
+  // Slides down and fades when it times out or Undo is tapped; a new message rises in its place.
+  const [t, leaving] = usePresence(toast);
   return (
     <div aria-live="polite" className="sr-live">
-      {toast && (
-        <div className={"toast" + (raised ? " raised" : "")} role="status">
-          <span className="msg">{toast.msg}</span>
-          {toast.undo && <button onClick={() => { toast.undo(); onDismiss(); }}>Undo</button>}
+      {t && (
+        <div key={t.at} className={"toast" + (raised ? " raised" : "") + (leaving ? " leaving" : "")} role="status" inert={leaving ? "" : undefined}>
+          <span className="msg">{t.msg}</span>
+          {t.undo && <button onClick={() => { t.undo(); onDismiss(); }}>Undo</button>}
         </div>
       )}
     </div>
@@ -496,9 +623,11 @@ export function LoadError({ onRetry }) {
 }
 
 /** Persistent note while changes are saved on this phone but not yet in the account. */
-export function SyncNote({ raised }) {
+export function SyncNote({ show, raised }) {
+  const [on, leaving] = usePresence(show);
+  if (!on) return null;
   return (
-    <div className={"sync-note" + (raised ? " raised" : "")} role="status">
+    <div className={"sync-note" + (raised ? " raised" : "") + (leaving ? " leaving" : "")} role="status">
       Offline · saved on this phone, will sync when you're back online
     </div>
   );
