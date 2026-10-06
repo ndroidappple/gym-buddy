@@ -1,9 +1,9 @@
-/* Checks for the Add food list: one ranked "Your foods" list (src/lib/yourFoods.js) and the
-   food database's relevance order (api/food.js).
+/* Checks for adding food: one ranked "Your foods" list (src/lib/yourFoods.js), the food
+   database's relevance order (api/food.js), and Tank's meals with alcohol (cleanMeal).
    Run: npm run test:food   (exits 1 on any failure) */
 import { yourFoods, pickYourFood, matchesQuery, whenLabel } from "../src/lib/yourFoods.js";
 import { relevance, combine } from "../api/food.js";
-import { nutritionFor } from "../src/lib/nutrition.js";
+import { nutritionFor, cleanMeal } from "../src/lib/nutrition.js";
 
 let failed = 0;
 const eq = (name, got, want) => {
@@ -108,6 +108,23 @@ const db = combine(
 eq("db: exact first, loose last, duplicates out", names(db), ["Latte", "Caffè Latte", "Coffee, latte", "Light fat free yogurt, very vanilla, chai latte", "Plattered cheese"]);
 eq("db: phrase beats scattered words", relevance("Greek yogurt, plain", "greek yogurt") > relevance("Yogurt, Greek, plain", "greek yogurt"), true);
 eq("db: missing words rank low", relevance("Greek style dressing", "greek yogurt") < relevance("Yogurt, Greek, plain", "greek yogurt"), true);
+
+// Tank meals: alcohol is 7 kcal/g in none of protein, carbs or fat, so it has its own grams.
+const meal1 = (items) => cleanMeal({ name: "Drinks", items });
+const it = (o) => ({ food: "x", amount: "1", protein: 0, carbs: 0, fat: 0, ...o });
+eq("beer with alcohol keeps its calories", meal1([it({ food: "Modelo Especial", kcal: 144, carbs: 13.7, protein: 1, alcohol: 12.2 })]).items[0].kcal, 144);
+eq("3 seltzers keep their calories", meal1([it({ food: "Vodka cans (pre-mixed)", kcal: 300, carbs: 12, alcohol: 36 })]).total, { kcal: 300, protein: 0, carbs: 12, fat: 0, alcohol: 36 });
+eq("a spirit with no macros", meal1([it({ food: "Vodka soda", kcal: 97, alcohol: 14 })]).items[0].kcal, 97);
+// The old bug: a reply without alcohol for a drink. Calories above the macros count as alcohol, not an error.
+const old = meal1([it({ food: "Modelo Especial", kcal: 144, carbs: 13.7, protein: 1 })]).items[0];
+eq("drink with no alcohol given: calories kept, alcohol worked out", [old.kcal, old.alcohol], [144, 12.2]);
+// Food is still checked against its macros, alcohol or not.
+eq("food: wrong calories corrected", meal1([it({ food: "Chicken breast", kcal: 500, protein: 31, fat: 3.6 })]).items[0].kcal, 156);
+eq("food: no alcohol invented", meal1([it({ food: "Chicken breast", kcal: 500, protein: 31, fat: 3.6 })]).items[0].alcohol, 0);
+eq("ginger ale is not a drink with alcohol", meal1([it({ food: "Ginger ale", kcal: 200, carbs: 32 })]).items[0].kcal, 128);
+eq("root beer and NA beer aren't either", [meal1([it({ food: "Root beer", kcal: 250, carbs: 40 })]).items[0].kcal, meal1([it({ food: "Heineken 0.0 non-alcoholic beer", kcal: 150, carbs: 16 })]).items[0].kcal], [160, 64]);
+eq("drink with impossible alcohol is corrected", meal1([it({ food: "Light beer", kcal: 900, carbs: 5, alcohol: 11 })]).items[0].kcal, 97);
+eq("a meal mixing food and drinks totals both", meal1([it({ food: "Burger", kcal: 650, protein: 35, carbs: 45, fat: 36 }), it({ food: "IPA", kcal: 200, carbs: 15, protein: 2, alcohol: 18 })]).total.alcohol, 18);
 
 console.log(failed ? `food picker: ${failed} failed` : "food picker: all checks passed");
 process.exit(failed ? 1 : 0);

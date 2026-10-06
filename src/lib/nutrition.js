@@ -151,24 +151,38 @@ export function nutritionContext(n, entries) {
   ].join("\n");
 }
 
+/** Grams of pure alcohol in one US standard drink (12 oz of 5% beer, 5 oz of wine, 1.5 oz of 80-proof spirit). */
+export const STANDARD_DRINK_G = 14;
+/* Names that are drinks with alcohol in them, for a reply that didn't say how much alcohol; NOT_DRINK are look-alikes without any. */
+const NOT_DRINK = /\b(ginger ale|root beer|birch beer|non[- ]?alcoholic|alcohol[- ]free|mocktails?|kombucha)\b|\b0\.0\b/i;
+const DRINK = /\b(beers?|lagers?|ipas?|ales?|stouts?|pilsners?|modelo|corona|michelob|bud(weiser)?|coors|miller|wines?|ros[eé]|prosecco|champagne|mimosas?|sangria|vodka|whiske?y|bourbon|scotch|rum|gin|tequila|mezcal|sake|soju|ciders?|seltzers?|white claw|high noon|truly|cocktails?|margaritas?|martinis?|mojitos?|negronis?|spritz|daiquiris?|old fashioned|manhattan|liqueur|schnapps|fireball|jäger(meister)?)\b/i;
+
 /**
- * A meal from Tank, checked: numbers clamped, and any item whose calories disagree with its macros
- * (4 kcal/g protein and carbs, 9 kcal/g fat) by more than 20% gets the macro-based figure instead.
+ * A meal from Tank, checked: numbers clamped, and any item whose calories disagree with what's in
+ * it (4 kcal/g protein and carbs, 9 kcal/g fat, 7 kcal/g alcohol) by more than 20% gets the
+ * worked-out figure instead. Alcohol is in none of protein, carbs or fat, so it has its own grams:
+ * without them a beer's alcohol calories would be "corrected" away. A drink Tank gave no alcohol
+ * for (an older reply) has the calories above its macros counted as alcohol instead.
  * Totals are summed here, never taken from the model. Returns { name, items, total, estimated } or null.
  */
 export function cleanMeal(m) {
   const n = (v, hi) => Math.min(hi, Math.max(0, Number.isFinite(+v) ? +v : 0));
+  const r1 = (v) => Math.round(v * 10) / 10;
   const items = (Array.isArray(m?.items) ? m.items : []).slice(0, 12).map((x) => {
-    const protein = Math.round(n(x.protein, 500) * 10) / 10, carbs = Math.round(n(x.carbs, 500) * 10) / 10, fat = Math.round(n(x.fat, 500) * 10) / 10;
-    const fromMacros = protein * 4 + carbs * 4 + fat * 9;
+    const protein = r1(n(x.protein, 500)), carbs = r1(n(x.carbs, 500)), fat = r1(n(x.fat, 500));
+    const food = String(x.food || "Food").slice(0, 60);
+    let alcohol = r1(n(x.alcohol, 500));
     let kcal = Math.round(n(x.kcal, 5000));
-    if (fromMacros > 0 && Math.abs(kcal - fromMacros) > Math.max(20, fromMacros * 0.2)) kcal = Math.round(fromMacros);
-    return { food: String(x.food || "Food").slice(0, 60), amount: String(x.amount || "").slice(0, 40), grams: x.grams > 0 ? Math.round(x.grams) : null, kcal, protein, carbs, fat, estimated: !!x.estimated };
+    const macros = protein * 4 + carbs * 4 + fat * 9;
+    if (!Number.isFinite(+x.alcohol) && DRINK.test(food) && !NOT_DRINK.test(food) && kcal > macros + 20) alcohol = r1((kcal - macros) / 7);
+    const worked = macros + alcohol * 7;
+    if (worked > 0 && Math.abs(kcal - worked) > Math.max(20, worked * 0.2)) kcal = Math.round(worked);
+    return { food, amount: String(x.amount || "").slice(0, 40), grams: x.grams > 0 ? Math.round(x.grams) : null, kcal, protein, carbs, fat, alcohol, estimated: !!x.estimated };
   }).filter((x) => x.kcal > 0 || x.protein > 0);
   if (!items.length) return null;
   const sum = (k) => Math.round(items.reduce((a, x) => a + x[k], 0) * (k === "kcal" ? 1 : 10)) / (k === "kcal" ? 1 : 10);
   const name = shortName(m.name) || shortName(items.slice(0, 2).map((x) => x.food).join(" & "));
-  return { name, items, total: { kcal: sum("kcal"), protein: sum("protein"), carbs: sum("carbs"), fat: sum("fat") }, estimated: items.some((x) => x.estimated) };
+  return { name, items, total: { kcal: sum("kcal"), protein: sum("protein"), carbs: sum("carbs"), fat: sum("fat"), alcohol: sum("alcohol") }, estimated: items.some((x) => x.estimated) };
 }
 
 /** A food name for a list: amounts, brackets and "with …" tails removed, Title Case, and cut at a
