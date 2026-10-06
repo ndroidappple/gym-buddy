@@ -23,6 +23,47 @@ export const lifting = (sets) => (sets || []).filter((x) => !isCardioSet(x));
 export const fmtSet = (x) => (isCardioSet(x) ? `${num(x.min)} min${x.mi != null ? ` · ${num(x.mi)} mi` : ""}` : `${fmtW(x.w)}×${x.r}`);
 export const cardioTotals = (sets) => (sets || []).filter(isCardioSet).reduce((t, x) => ({ min: t.min + x.min, mi: t.mi + (x.mi || 0) }), { min: 0, mi: 0 });
 
+/**
+ * A logged set against the same set last time, in plain words: { text, dir, label }.
+ * text: "+1 rep", "+5 lb", "+10 lb · −2 reps", "same". dir: 1 up, 0 even, -1 down. When weight and
+ * reps move opposite ways, the estimated max decides which way it went. Null when there's no set
+ * to compare with (a first time, or more sets than last time).
+ */
+export function setChange(now, last) {
+  if (!now || !last || isCardioSet(now) !== isCardioSet(last)) return null;
+  const parts = [], words = [];
+  // unit: [one, many] for the chip; say: (amount, up) -> words for screen readers.
+  const part = (d, [one, many], say) => {
+    if (Math.abs(d) < 0.05) return 0;
+    const n = num(Math.abs(d));
+    parts.push(`${d > 0 ? "+" : "−"}${n} ${Math.abs(d) === 1 ? one : many}`);
+    words.push(say(n, d > 0));
+    return Math.sign(d);
+  };
+  const plural = (n, w) => `${n} ${n === "1" ? w : `${w}s`}`;
+  let moves;
+  if (isCardioSet(now)) {
+    moves = [
+      part(now.min - last.min, ["min", "min"], (n, up) => `${plural(n, "minute")} ${up ? "longer" : "shorter"}`),
+      now.mi != null && last.mi != null ? part(now.mi - last.mi, ["mi", "mi"], (n, up) => `${plural(n, "mile")} ${up ? "further" : "less"}`) : 0,
+    ];
+  } else {
+    moves = [
+      part(now.w - last.w, ["lb", "lb"], (n, up) => `${n} lb ${up ? "heavier" : "lighter"}`),
+      part(now.r - last.r, ["rep", "reps"], (n, up) => plural(n, up ? "more rep" : "fewer rep")),
+    ];
+  }
+  if (!parts.length) return { text: "same", dir: 0, label: "Same as last time" };
+  const ups = moves.filter((m) => m > 0).length, downs = moves.filter((m) => m < 0).length;
+  // Mixed weight and reps: the estimated max decides. Cardio stays even when time and distance disagree.
+  let dir = ups && !downs ? 1 : downs && !ups ? -1 : 0;
+  if (ups && downs && !isCardioSet(now)) {
+    const d = e1rm(now.w, now.r) - e1rm(last.w, last.r);
+    dir = Math.abs(d) <= 0.05 ? 0 : Math.sign(d);
+  }
+  return { text: parts.join(" · "), dir, label: `${words.join(", ")} than last time`.replace(/^./, (c) => c.toUpperCase()) };
+}
+
 export const bestSet = (sets) => {
   const l = lifting(sets);
   return l.length ? l.reduce((b, s) => (e1rm(s.w, s.r) > e1rm(b.w, b.r) ? s : b)) : null;

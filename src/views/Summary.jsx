@@ -28,9 +28,9 @@ export default function Summary({ session, sessions, program, prefs, go, onUpdat
       lastVol: lastSame ? sessionVolume(lastSame) : null,
       sets: sessionSetCount(session),
       records: rows.filter((x) => x.allTime && x.score > x.allTime + 0.05),
-      beat: rows.filter((x) => !(x.allTime && x.score > x.allTime + 0.05) && x.lastScore && x.score > x.lastScore + 0.05),
-      matched: rows.filter((x) => !(x.allTime && x.score > x.allTime + 0.05) && x.lastScore && Math.abs(x.score - x.lastScore) <= 0.05),
-      below: rows.filter((x) => x.lastScore && x.score < x.lastScore - 0.05),
+      up: rows.filter((x) => !(x.allTime && x.score > x.allTime + 0.05) && x.lastScore && x.score > x.lastScore + 0.05),
+      same: rows.filter((x) => !(x.allTime && x.score > x.allTime + 0.05) && x.lastScore && Math.abs(x.score - x.lastScore) <= 0.05),
+      down: rows.filter((x) => x.lastScore && x.score < x.lastScore - 0.05),
       baseline: rows.filter((x) => !x.lastScore),
       prevRecords: lastSame ? countRecords(sessions, lastSame) : null,
       cardio: Object.entries(session.sets).filter(([n]) => isCardio(n)).map(([n, sets]) => ({ n, sets, t: cardioTotals(sets) })),
@@ -79,9 +79,9 @@ export default function Summary({ session, sessions, program, prefs, go, onUpdat
             ))}
           </Group>
         )}
-        {r.beat.length > 0 && <Group title="Beat last time" help="vs-last">{r.beat.map((x) => <Plain key={x.n} x={x} mark={`▲ ${x.vsLast.toFixed(1)}%`} />)}</Group>}
-        {r.matched.length > 0 && <Group title="Matched last time" help="vs-last">{r.matched.map((x) => <Plain key={x.n} x={x} mark="= matched" />)}</Group>}
-        {r.below.length > 0 && <Group title="Below last time" help="vs-last">{r.below.map((x) => <Plain key={x.n} x={x} mark={`▼ ${Math.abs(x.vsLast).toFixed(1)}%`} />)}</Group>}
+        {r.up.length > 0 && <Group title="Up on last time" help="vs-last">{r.up.map((x) => <Plain key={x.n} x={x} mark={`▲ ${x.vsLast.toFixed(1)}%`} />)}</Group>}
+        {r.same.length > 0 && <Group title="Same as last time" help="vs-last">{r.same.map((x) => <Plain key={x.n} x={x} mark="same" />)}</Group>}
+        {r.down.length > 0 && <Group title="Down on last time" help="vs-last">{r.down.map((x) => <Plain key={x.n} x={x} mark={`▼ ${Math.abs(x.vsLast).toFixed(1)}%`} />)}</Group>}
         {r.cardio.length > 0 && (
           <Group title="Cardio">
             {r.cardio.map((x) => (

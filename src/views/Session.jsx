@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { ChevronLeft, Check, Plus, Minus, Trash2, Bell, BellOff } from "lucide-react";
 import { BorderBeam } from "border-beam";
-import { fmtSet, uid, e1rm, fmtW, today, shortDate, mmss, byDateDesc, priorSessions, allTimeBest, bestSet, vibrate, readyToIncrease, nextGoal, fmtGoal, weightStep, bodyweightSeries, daysBetween } from "../lib/util.js";
+import { fmtSet, uid, e1rm, fmtW, today, shortDate, mmss, byDateDesc, priorSessions, allTimeBest, bestSet, vibrate, readyToIncrease, nextGoal, fmtGoal, weightStep, bodyweightSeries, daysBetween, setChange } from "../lib/util.js";
 import { primeAudio, chime } from "../lib/sound.js";
 import { restAlertState, scheduleRestAlert, cancelRestAlert, enableRestAlerts, declineRestAlerts, warmRestAlerts } from "../lib/restAlerts.js";
 import { Sheet, ConfirmSheet, ExercisePicker } from "../components/ui.jsx";
@@ -284,9 +284,8 @@ export default function Session({ day, existing, draft, sessions, program, weigh
     const row = grid[ex.n][i];
     if (!hasVal(row.min)) return;
     primeAudio();
-    const same = lastFor(ex.n)?.sets[ex.n]?.[i];
-    const beat = !!same && (parseFloat(row.min) > same.min || (hasVal(row.mi) && parseFloat(row.mi) > (same.mi || 0)));
-    setGrid((g) => { const rows = [...g[ex.n]]; rows[i] = { ...rows[i], done: true, beat }; return { ...g, [ex.n]: rows }; });
+    const beat = setChange({ min: +row.min, mi: hasVal(row.mi) ? +row.mi : null }, lastFor(ex.n)?.sets[ex.n]?.[i])?.dir > 0;
+    setGrid((g) => { const rows = [...g[ex.n]]; rows[i] = { ...rows[i], done: true }; return { ...g, [ex.n]: rows }; });
     if (!startedAt) setStartedAt(Date.now());
     setFlash({ ex: ex.n, i });
     vibrate(20);
@@ -309,11 +308,8 @@ export default function Session({ day, existing, draft, sessions, program, weigh
     const prevBest = bestSoFar(ex.n, i);
     const pr = prevBest > 0 && score > prevBest + 0.05;
     const lastSets = lastFor(ex.n)?.sets[ex.n];
-    const target = bestSet(lastSets);
-    const beat = !!target && score > e1rm(target.w, target.r) + 0.05;
-    const matched = !beat && !!target && score >= e1rm(target.w, target.r) - 0.05;
-    const same = lastSets?.[i]; // the same set last time
-    const below = !pr && !!same && score < e1rm(same.w, same.r) - 0.05;
+    // Down on the same set last time (the "▼" the row will show): the coach encourages.
+    const below = !pr && setChange({ w: +row.w, r: +row.r }, lastSets?.[i])?.dir < 0;
 
     // The coach reads the set (vs what was asked, earlier sets today, and history) and calls the next one.
     const doneToday = grid[ex.n].map((r, j) => (j === i ? r : r.done ? r : null)).filter((r) => r && hasVal(r.w) && hasVal(r.r))
@@ -325,7 +321,7 @@ export default function Session({ day, existing, draft, sessions, program, weigh
 
     setGrid((g) => {
       const rows = [...g[ex.n]];
-      rows[i] = { ...rows[i], done: true, pr, beat, matched };
+      rows[i] = { ...rows[i], done: true, pr };
       const nx = rows.findIndex((r, j) => j > i && !r.done);
       // The next set takes the coach's numbers, unless the lifter already typed their own.
       if (nx >= 0 && call?.w != null && !rows[nx].touched) rows[nx] = { ...rows[nx], w: String(call.w), r: String(call.r), asked: { w: call.w, r: call.r } };
@@ -358,7 +354,7 @@ export default function Session({ day, existing, draft, sessions, program, weigh
   };
 
   const reopen = (n, i) => {
-    setRow(n, i, { done: false, pr: false, beat: false, matched: false });
+    setRow(n, i, { done: false, pr: false });
     setAdvice((a) => { const c = { ...a }; delete c[n]; return c; }); // re-read once it's logged again
     setFocus(n);
     setActiveIdx(i);
@@ -644,7 +640,7 @@ function ExerciseCard({ ex, showRir, rows, target, goal, targetDate, onHint, bum
           <div className="ex-spec">{specLine(ex)}</div>
         </button>
         {cardio
-          ? lastEntry && <span className="target" title={`Last time, ${shortDate(targetDate)}`}>Beat {fmtSet(lastEntry)}</span>
+          ? lastEntry && <span className="target" title={`Last time, ${shortDate(targetDate)}`}>Last · {fmtSet(lastEntry)}</span>
           : started && call?.w != null ? <span className={"target" + (call.kind === "up" ? " up" : "")}>Next · {fmtW(call.w)} × {call.r}</span>
           : started && call?.kind === "done" ? null
           : bump ? <span className="target up" title={`All ${bump.sets} sets hit ${bump.reps} on ${shortDate(targetDate)}`}>Go up · {fmtW(bump.to)} lb</span>
@@ -661,7 +657,7 @@ function ExerciseCard({ ex, showRir, rows, target, goal, targetDate, onHint, bum
               <DoneRow key={i} className="done-row" label={`Entry ${i + 1}: ${label}. Hold to edit, swipe left to delete.`}
                 canDelete={rows.length > 1} onEdit={() => onReopen(i)} onDelete={() => onRemoveSet(i)} onHint={onHint}>
                 <span className="n">{i + 1}</span>
-                <span className="w">{label}{r.beat ? <span className="beat-mark">▲ beat</span> : null}</span>
+                <span className="w">{label}<Change now={{ min: +r.min, mi: hasVal(r.mi) ? +r.mi : null }} last={refSets[i]} /></span>
                 <span />
                 <span className={"ck" + (flash === i ? " fill" : "")} aria-hidden="true"><Check size={18} strokeWidth={3} /></span>
               </DoneRow>
@@ -673,7 +669,7 @@ function ExerciseCard({ ex, showRir, rows, target, goal, targetDate, onHint, bum
               <DoneRow key={i} className={"done-row" + (r.pr ? " pr-rim" : "")} label={`Set ${i + 1}: ${fmtW(+r.w)} by ${r.r}${r.pr ? ", personal record" : ""}. Hold to edit, swipe left to delete.`}
                 canDelete={rows.length > 1} onEdit={() => onReopen(i)} onDelete={() => onRemoveSet(i)} onHint={onHint}>
                 <span className="n">{i + 1}</span>
-                <span className="w">{fmtW(+r.w)} × {r.r}{r.pr ? <span className={"stamp" + (flash === i ? " hit" : "")}>PR</span> : r.beat ? <span className="beat-mark">▲ beat</span> : r.matched ? <span className="beat-mark">= matched</span> : null}</span>
+                <span className="w">{fmtW(+r.w)} × {r.r}{r.pr ? <span className={"stamp" + (flash === i ? " hit" : "")}>PR</span> : <Change now={{ w: +r.w, r: +r.r }} last={refSets[i]} />}</span>
                 <span className="small muted">{showRir && hasVal(r.rir) ? `RIR ${r.rir}` : ""}</span>
                 <span className={"ck" + (flash === i ? " fill" : "")} aria-hidden="true"><Check size={18} strokeWidth={3} /></span>
               </DoneRow>
@@ -838,6 +834,13 @@ function FinishDock({ sets, onFinish }) {
       <button className="btn btn-day" onClick={onFinish}><Check size={20} strokeWidth={3} aria-hidden="true" /> Finish workout · {sets} sets</button>
     </div>
   );
+}
+
+/** How a logged set compares with the same set last time: "▲ +1 rep", "same", "▼ −5 lb". Ink when up, muted otherwise. */
+function Change({ now, last }) {
+  const c = setChange(now, last);
+  if (!c) return null;
+  return <span className={"chg" + (c.dir > 0 ? " up" : "")} aria-label={c.label}>{c.dir > 0 ? "▲ " : c.dir < 0 ? "▼ " : ""}{c.text}</span>;
 }
 
 function RestDock({ timer, setTimer, alertSet }) {

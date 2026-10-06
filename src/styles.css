@@ -374,7 +374,6 @@ button.chip { min-height: 38px; padding: 0 14px; border: 2px solid var(--rule); 
 .ck svg { width: 15px; height: 15px; }
 .ck.fill { animation: pop 300ms cubic-bezier(.2, 1.6, .4, 1); }
 @keyframes pop { from { transform: scale(.4); opacity: 0; } }
-.beat-mark { font-size: 12px; color: var(--mute); font-weight: 800; }
 
 .active-set { border-radius: 24px; padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 8px; background: var(--surface-2); margin-top: 6px; }
 .active-set .set-head { display: flex; align-items: center; font-weight: 800; }
@@ -928,3 +927,6 @@ button.coach-card:active { transform: translateY(3px); box-shadow: 0 2px 0 var(-
 .alert-ask-actions { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
 .alert-ask-actions .btn-quiet { padding: 0 12px; }
 .alert-ask-actions .btn { flex: 1; min-height: 48px; font-size: 16px; }
+/* A logged set vs the same set last time: ink when up, muted when same or down (color stays for the day). */
+.chg { font-size: 12.5px; font-weight: 800; color: var(--mute); white-space: nowrap; }
+.chg.up { color: var(--ink); }
