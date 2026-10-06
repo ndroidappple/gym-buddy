@@ -501,7 +501,7 @@ button.chip { min-height: 38px; padding: 0 14px; border: 2px solid var(--rule); 
 .hist-more { align-self: flex-start; min-height: 40px; padding: 0 2px; font-size: 14px; }
 
 /* ═══════════════ SETTINGS ═══════════════ */
-.list { display: flex; flex-direction: column; overflow: hidden; }
+.list { display: flex; flex-direction: column; overflow: hidden; flex-shrink: 0; } /* in a sheet's flex column, a long list scrolls with the sheet instead of being squeezed */
 .list-row { display: flex; align-items: center; gap: 12px; min-height: 58px; padding: 8px 16px; border-top: 2px solid var(--rule); text-align: left; width: 100%; text-decoration: none; color: var(--ink); }
 .list-row:first-child { border-top: 0; }
 .list-row .name { flex: 1; min-width: 0; font-weight: 700; }
@@ -925,6 +925,12 @@ button.coach-card:active { transform: translateY(3px); box-shadow: 0 2px 0 var(-
 .name-input svg { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); color: var(--mute); pointer-events: none; }
 .food-row-wrap { padding: 0 6px 0 0; gap: 0; }
 .food-row-main { flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px; min-height: 58px; padding: 8px 10px 8px 16px; text-align: left; color: var(--ink); }
+.food-row-main .food-kcal { font-size: 15px; white-space: nowrap; }
+.food-row-main .food-kcal small { font-size: 12px; font-weight: 700; color: var(--mute); }
+.food-edit { align-self: center; display: inline-flex; align-items: center; gap: 6px; }
+.food-more { justify-content: center; min-height: 48px; font-weight: 800; font-size: 14.5px; color: var(--ink); }
+.food-db-lbl { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.food-db-lbl span { font-size: 11.5px; font-weight: 700; letter-spacing: 0; text-transform: none; color: var(--faint); }
 
 /* In-workout coaching */
 .ex-cue { margin: -4px 0 0; font-size: 13.5px; font-weight: 500; color: var(--mute); line-height: 1.35; }

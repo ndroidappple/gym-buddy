@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "test:coach": "node scripts/stress-set-coach.mjs",
     "test:barcode": "node scripts/test-barcode.mjs",
-    "icons": "node scripts/render-icons.mjs"
+    "icons": "node scripts/render-icons.mjs",
+    "test:food": "node scripts/test-food-picker.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.117.0",
