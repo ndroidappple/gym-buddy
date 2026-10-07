@@ -204,13 +204,16 @@ function MealChips({ meal, onMeal }) {
   );
 }
 
-function Macros({ n }) {
+const MACROS = [["kcal", "kcal"], ["protein", "protein"], ["carbs", "carbs"], ["fat", "fat"]];
+const macroValue = (k, v) => (k === "kcal" ? fmt(v) : g(v));
+
+/** The totals. With `onShow` (a meal with a breakdown), each is a button picking what the breakdown lists. */
+function Macros({ n, shown, onShow }) {
   return (
-    <div className="food-macros" aria-live="polite">
-      <div><b>{fmt(n.kcal)}</b><span>kcal</span></div>
-      <div><b>{g(n.protein)}</b><span>protein</span></div>
-      <div><b>{g(n.carbs)}</b><span>carbs</span></div>
-      <div><b>{g(n.fat)}</b><span>fat</span></div>
+    <div className="food-macros" aria-live="polite" role={onShow ? "group" : undefined} aria-label={onShow ? "Show per ingredient" : undefined}>
+      {MACROS.map(([k, label]) => onShow
+        ? <button key={k} type="button" aria-pressed={shown === k} onClick={() => onShow(k)}><b>{macroValue(k, n[k])}</b><span>{label}</span></button>
+        : <div key={k}><b>{macroValue(k, n[k])}</b><span>{label}</span></div>)}
     </div>
   );
 }
@@ -224,6 +227,10 @@ export function Portion({ item, amount: a0, unit: u0, meal, onMeal, action, onSa
   const [unit, setUnit] = useState(u0 && units.some((u) => u.label === u0) ? u0 : d.unit);
   const n = nutritionFor(item.basis, amount, unit);
   const ok = +amount > 0 && +amount < 100000;
+  // A meal's ingredients, scaled to the amount, showing whichever total was tapped last.
+  const items = item.basis?.items ?? [];
+  const [shown, setShown] = useState("kcal");
+  const scale = item.basis?.perServing ? Math.max(0, +amount || 0) : 1;
   const step = unit === "g" ? 10 : unit === "oz" ? 1 : 0.5;
   // Switching unit keeps the same amount of food: 170 g becomes 6 oz or 1 serving (170 g).
   const switchUnit = (u) => {
@@ -239,8 +246,11 @@ export function Portion({ item, amount: a0, unit: u0, meal, onMeal, action, onSa
       {editName
         ? <NameField value={name} onChange={setName} />
         : <div className="food-title"><b>{item.name}</b>{item.brand && <span className="muted small">{item.brand}</span>}</div>}
-      {item.basis?.items?.length > 0 && (
-        <ul className="meal-breakdown">{item.basis.items.map((x, i) => <li key={i}>{x.food} · {x.estimated ? "~" : ""}{x.amount}<span>{Math.round(x.kcal)}</span></li>)}</ul>
+      {items.length > 0 && (
+        <ul className="meal-breakdown" aria-label={`Per ingredient: ${shown}`}>
+          <li className="meal-breakdown-head">{shown}</li>
+          {items.map((x, i) => <li key={i}>{x.food} · {x.estimated && !String(x.amount).startsWith("~") ? "~" : ""}{x.amount}<span>{macroValue(shown, (x[shown] || 0) * scale)}</span></li>)}
+        </ul>
       )}
       <div className="food-amount">
         <button type="button" className="icon-btn boxed" onClick={() => bump(-1)} aria-label="Less">−</button>
@@ -250,7 +260,7 @@ export function Portion({ item, amount: a0, unit: u0, meal, onMeal, action, onSa
       <div className="setup-choices" role="group" aria-label="Unit">
         {units.map((u) => <button key={u.label} type="button" className="chip" aria-pressed={unit === u.label} onClick={() => switchUnit(u)}>{u.label}</button>)}
       </div>
-      <Macros n={n} />
+      <Macros n={n} shown={shown} onShow={items.length > 0 ? setShown : undefined} />
       {onMeal && <MealChips meal={meal} onMeal={onMeal} />}
       <button type="submit" className="btn btn-ink" disabled={!ok}><Check size={18} strokeWidth={3} aria-hidden="true" /> {action}</button>
       {onDelete && <button type="button" className="btn-quiet danger" onClick={onDelete}><Trash2 size={16} aria-hidden="true" style={{ verticalAlign: -3 }} /> Remove</button>}
