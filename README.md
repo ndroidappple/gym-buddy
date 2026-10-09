@@ -101,6 +101,32 @@ select vault.create_secret('<REST_ALERT_SECRET>', 'rest_alert_secret');
 Apple doesn't allow a live countdown on the lock screen (Live Activities) or buttons on the
 notification for web apps, and delivery needs a connection when rest starts and ends.
 
+### Week in review (on by default)
+
+Once a week (Sunday unless changed in **Settings → Week in review**) the coaches look back at the
+7 days ending that day. Today shows a glowing **Week in review** button in place of the coach's
+hello until it's opened; it opens as tap-through story cards (✕, Escape or a swipe down closes it at
+any card). The first time, a sheet introduces it with a way to turn it off. Every review is saved to
+the account: the latest show on **Progress**, all of them in **Settings → Past reviews**.
+
+- `src/lib/weekReview.js` works out every number in code (shared by the app and the server):
+  workouts against plan, sets per coach's area against the 4-week average, records, stalled and
+  rising lifts, skipped lifts, food against targets (training vs rest days, weekdays vs weekends,
+  top foods, drinks), bodyweight and bulk/cut pace, 8 weeks of trends, and candidate highs/lows.
+- `api/review.js` (a Vercel Function) reads the lifter's data from Supabase with their own sign-in
+  (row-level security applies), then runs a coach **agent**: Claude Sonnet 5.5 through Vercel AI
+  Gateway, with read-only tools to dig further (a lift's history, food by day or item, an earlier
+  week) before it hands in the review. It's saved to `storage_kv` as `week-review:<date>`, so it's
+  written once and opens instantly after that. A review can be updated (up to 3 runs a week) when
+  more is logged later the same day. `npm run test:review` checks the facts, the agent loop (with a
+  scripted model) and the request.
+- Cost: about $0.05 a review, paid from AI Gateway's free $5 a month (as long as no gateway credits
+  are bought). If Sonnet fails or the credit runs out, the gateway falls back to Claude Haiku 5.5,
+  then a free model; if no model answers, the review is written by code from the same facts.
+  `AI_REVIEW_MODEL` switches the first model.
+- The app writes it ahead once everything has synced (from 5 pm on the review day), so it's ready
+  when tapped. The function can run 30-60 s; it uses the project's default function duration.
+
 ## Project structure
 
 ```

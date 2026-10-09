@@ -26,6 +26,10 @@ import { useFood } from "./lib/food.js";
 import { nutritionContext, totals } from "./lib/nutrition.js";
 import NamePrompt from "./components/NamePrompt.jsx";
 import Welcome from "./components/Welcome.jsx";
+import WeekReview from "./components/WeekReview.jsx";
+import WeekReviewIntro from "./components/WeekReviewIntro.jsx";
+import { reviewState, reviewPrefs, fingerprint, lastReviewDay } from "./lib/weekReview.js";
+import { cachedReview, loadReview, requestReview } from "./lib/reviews.js";
 
 const TAB_VIEWS = ["today", "nutrition", "progress", "settings", "lift"];
 
@@ -130,6 +134,30 @@ export default function App() {
   const notify = useCallback((msg, undo) => setToast({ msg, undo, at: Date.now() }), []);
 
   useEffect(() => { window.scrollTo(0, 0); }, [route.name, route.day, route.id, route.lift]);
+
+  /* ── week in review ── */
+  const foodLog = nutritionOn ? food.entries : null;
+  const review = ready ? reviewState({ prefs, today: today(), sessions, food: foodLog }) : null;
+  /* Written ahead, so it opens instantly: once everything has synced, from the evening of the
+     review day (the day's workout and dinner are in by then) or any day after. Once per app start. */
+  const prefetched = useRef(null);
+  const reviewWeek = review?.weekEnd;
+  const synced = sync === "synced" && (!nutritionOn || food.status === "synced");
+  useEffect(() => {
+    if (!reviewWeek || !synced || prefetched.current === reviewWeek) return;
+    if (today() === reviewWeek && new Date().getHours() < 17) return;
+    prefetched.current = reviewWeek;
+    (async () => {
+      if (await cachedReview(reviewWeek).catch(() => null)) return;
+      if (await loadReview(reviewWeek).catch(() => null)) return;
+      requestReview(reviewWeek).catch(() => {});
+    })();
+  }, [reviewWeek, synced]);
+  // Opening this week's review stops the glow; the button stays for the rest of the day.
+  const opening = route.name === "review" && review?.glow && route.id === reviewWeek;
+  useEffect(() => {
+    if (opening) setPrefs((p) => ({ ...p, weekReview: { ...reviewPrefs(p), opened: reviewWeek, openedOn: today() } }));
+  }, [opening, reviewWeek]);
 
   /* ── weigh-ins ── */
   const logWeighin = useCallback((date, bw) => {
@@ -249,6 +277,18 @@ export default function App() {
       );
       break;
     }
+    case "review": {
+      const current = route.id === lastReviewDay(reviewPrefs(prefs).day, today());
+      view = (
+        <>
+          <Today {...common} review={review} />
+          <WeekReview key={route.id} weekEnd={route.id} current={current}
+            fingerprint={fingerprint({ sessions, weighins, food: foodLog }, route.id)}
+            onClose={() => back(href("today"))} />
+        </>
+      );
+      break;
+    }
     case "summary": {
       const s = sessions.find((x) => x.id === route.id);
       view = s ? <Summary {...common} session={s} onUpdate={upsertSession} /> : <Today {...common} />;
@@ -276,7 +316,7 @@ export default function App() {
       break;
     }
     case "coaches": view = <Coaches key={(route.coach || "grid") + (route.mode || "")} {...common} openCoach={route.coach} openMode={route.mode} onSetupDone={finishSetup} onSetupProgress={saveSetupProgress} />; break;
-    default: view = <Today {...common} />;
+    default: view = <Today {...common} review={review} />;
   }
 
   const showTabs = TAB_VIEWS.includes(route.name);
@@ -288,6 +328,10 @@ export default function App() {
       {showTabs && <TabBar active={activeTab} onSelect={selectTab} nutrition={nutritionOn} />}
       <SyncNote show={sync === "offline" || food.status === "offline"} raised={showTabs} />
       <NamePrompt onName={setName} onSettled={onNameSettled} />
+      {/* Meeting the week in review: once, on Today, after the welcome and a first workout or setup. */}
+      {nameSettled && prefs.welcomed && !reviewPrefs(prefs).intro && route.name === "today" && (sessions.length > 0 || prefs.profile?.doneAt) && (
+        <WeekReviewIntro settings={reviewPrefs(prefs)} onSave={(v) => { setPref("weekReview", v); if (!v.on) notify("Week in review off. Turn it on in Settings."); }} />
+      )}
       {nameSettled && !prefs.welcomed && route.name !== "coaches" && (
         <Welcome name={name} onStart={() => { setPref("welcomed", true); go(href("coaches", "tank")); }} onLater={() => setPref("welcomed", true)} />
       )}

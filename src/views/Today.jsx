@@ -8,10 +8,11 @@ import SetupCard from "../components/SetupCard.jsx";
 import { nextCoachToMeet } from "../lib/setup.js";
 import { weighInEvery, phaseStatus, statusLine, PHASE_TYPES } from "../lib/phase.js";
 import Coach from "../components/Coach.jsx";
+import { ReviewChip } from "../components/WeekReviewIntro.jsx";
 import { collapse } from "../lib/motion.js";
 import { byDateDesc, bestSet, fmtW, num, shortDate, weekDates, today, nextDayAfter, bodyweightSeries, daysBetween, plural, readyToIncrease, nextGoal, fmtGoal } from "../lib/util.js";
 
-export default function Today({ name, sessions, program, drafts, weighins, prefs, onWeighin, foodToday }) {
+export default function Today({ name, sessions, program, drafts, weighins, prefs, onWeighin, foodToday, review }) {
   const sorted = useMemo(() => [...sessions].sort(byDateDesc), [sessions]);
   const draftDay = [...activeDays(program), CUSTOM].find((d) => drafts[d]);
   const t = today();
@@ -77,9 +78,12 @@ export default function Today({ name, sessions, program, drafts, weighins, prefs
       <header className="top today-top">
         <div className="today-row">
           <span className="lbl">{new Date(t + "T12:00:00").toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" })}</span>
-          {/* The coach and their hello read as one unit; the hello also shows the coach is tappable. */}
+          {/* The coach and their hello read as one unit; the hello also shows the coach is tappable.
+              When the week in review is out, the coach hands it over instead of saying hello. */}
           <div className="today-coach" style={{ "--c": COACHES[lead]?.color }}>
-            <a className="coach-hello" href="#/coaches" aria-hidden="true" tabIndex={-1}>{greeting(nameInTitle ? null : name, daysOff)}</a>
+            {review
+              ? <ReviewChip weekEnd={review.weekEnd} glow={review.glow} />
+              : <a className="coach-hello" href="#/coaches" aria-hidden="true" tabIndex={-1}>{greeting(nameInTitle ? null : name, daysOff)}</a>}
             <a className="coach-link" href="#/coaches" aria-label="Meet your coaches">
               {/* 5+ days away and the lead coach misses you. */}
               <Coach id={lead} mood={daysOff != null && daysOff >= 5 ? "sleepy" : "idle"} size={34} badge decorative />

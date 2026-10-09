@@ -6,4 +6,7 @@ export const DEFAULT_PREFS = {
   haptics: true, // vibration on logged sets, PRs and rest end (where the browser supports it)
   sound: true, // rest-timer chime
   view: "detailed", // "detailed" | "focused": how much grey explanation each screen shows (lib/view.js)
+  // Week in review (lib/weekReview.js): on by default, out on `day` (0 = Sunday). `intro` once the
+  // lifter has seen the first-time sheet; `opened`/`openedOn`: the last review opened, and when.
+  weekReview: { on: true, day: 0 },
 };

@@ -979,3 +979,148 @@ button.coach-card:active { transform: translateY(3px); box-shadow: 0 2px 0 var(-
 :root[data-view="focused"] .food-row-main { min-height: 50px; }
 :root[data-view="focused"] .list-row.food-row-wrap { min-height: 0; }
 :root[data-view="focused"] .tank-add { padding: 10px 14px; }
+
+/* ═══════════════ WEEK IN REVIEW ═══════════════ */
+/* Today's button: the lead coach hands it over in place of their hello (same speech-bubble corner).
+   Until it's opened, a light in all six coaches' colours circles the rim with a soft halo behind it.
+   Text stays in ink; the colour is only on the rim. Reduced motion (global rule) holds it still. */
+@property --rv-spin { syntax: "<angle>"; inherits: false; initial-value: 0deg; }
+.review-chip { --rv-ring: conic-gradient(from var(--rv-spin), #5BD68A, #6FA8FF, #B9A6FF, #FF6F91, #FF9A4D, #FFC93D, #5BD68A);
+  position: relative; isolation: isolate; flex: none; display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px;
+  border-radius: 14px 4px 14px 14px; border: 2px solid var(--rule); background: var(--surface); color: var(--ink);
+  font-size: 13px; font-weight: 800; text-decoration: none; white-space: nowrap; transform-origin: 100% 0;
+  animation: hello-in 520ms 250ms cubic-bezier(.2, 1.5, .4, 1) both; -webkit-tap-highlight-color: transparent; }
+.review-chip svg { color: var(--pr-ink); flex: none; }
+.review-chip:active { transform: scale(.96); }
+.review-chip-short { display: none; }
+@media (max-width: 359px) { .review-chip-long { display: none; } .review-chip-short { display: inline; } }
+.review-chip.glow { border-color: transparent; }
+.review-chip.glow::before, .review-chip.glow::after { content: ""; position: absolute; inset: -2px; border-radius: inherit; pointer-events: none; background: var(--rv-ring); animation: rv-spin 5s linear infinite; }
+.review-chip.glow::before { z-index: 1; padding: 2px;
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); mask-composite: exclude; }
+.review-chip.glow::after { z-index: -1; filter: blur(9px); opacity: .5; animation: rv-spin 5s linear infinite, rv-halo 3.2s ease-in-out infinite; }
+:root:not([data-theme="dark"]) .review-chip.glow::after { opacity: .38; }
+@keyframes rv-spin { to { --rv-spin: 360deg; } }
+@keyframes rv-halo { 50% { opacity: .2; } }
+
+/* The cards: full screen, the speaking coach's colour washing in from the top. */
+.review { position: fixed; inset: 0; z-index: 55; display: flex; flex-direction: column; background: var(--bg); color: var(--ink);
+  padding-top: var(--safe-t); padding-bottom: var(--safe-b); overscroll-behavior: contain; animation: rv-in 260ms cubic-bezier(.2, .9, .3, 1) both; }
+@keyframes rv-in { from { opacity: 0; transform: scale(.98); } }
+.review-glow { position: absolute; inset: 0 0 auto; height: 60%; pointer-events: none;
+  background: radial-gradient(120% 75% at 50% -12%, color-mix(in srgb, var(--c) 30%, transparent), transparent 72%); }
+.review-top { position: relative; padding: 10px 16px 0; }
+.review-bars { display: flex; gap: 4px; }
+.review-bars span { flex: 1; height: 4px; border-radius: 2px; background: color-mix(in srgb, var(--ink) 16%, transparent); transition: background 200ms; }
+.review-bars .done, .review-bars .on { background: var(--ink); }
+.review-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 4px; }
+.review-title { font-size: 13px; font-weight: 800; }
+.review-title span { color: var(--mute); font-weight: 600; }
+.review-close { margin-right: -10px; }
+.review-stage { position: relative; flex: 1; min-height: 0; overflow-y: auto; padding: 8px 20px 24px; cursor: pointer; -webkit-tap-highlight-color: transparent;
+  -webkit-mask-image: linear-gradient(#000 calc(100% - 28px), transparent); mask-image: linear-gradient(#000 calc(100% - 28px), transparent); }
+.review-card { max-width: 520px; margin: 0 auto; animation: rv-card 280ms cubic-bezier(.2, .9, .3, 1) both; }
+@keyframes rv-card { from { opacity: 0; transform: translateY(10px); } }
+.review-foot { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 6px 12px 12px; max-width: 560px; width: 100%; margin: 0 auto; }
+.review-count { font-size: 13px; font-weight: 700; color: var(--mute); font-variant-numeric: tabular-nums; }
+.review-done { flex: 1; max-width: 280px; min-height: 52px; font-size: 17px; }
+.review-nav:disabled { opacity: .25; }
+
+.rv-body { display: flex; flex-direction: column; gap: 16px; }
+.rv-kicker { margin: 0; display: flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; color: var(--mute); }
+.rv-headline { margin: 4px 0 0; font-size: clamp(28px, 8.6vw, 38px); line-height: 1.06; font-weight: 800; letter-spacing: -0.03em; text-wrap: balance; }
+.rv-lead { margin: 0; font-size: 17px; line-height: 1.45; font-weight: 500; color: color-mix(in srgb, var(--ink) 84%, var(--bg)); }
+.rv-title { margin: -8px 0 0; font-size: 26px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.1; }
+.rv-big { margin: -6px 0 0; font-size: 56px; font-weight: 800; letter-spacing: -0.04em; line-height: 1; font-variant-numeric: tabular-nums; }
+.rv-big small { font-size: 16px; font-weight: 700; letter-spacing: 0; color: var(--mute); }
+.rv-crew-small .coach-chip { width: 38px; height: 38px; box-shadow: 0 0 0 3px var(--bg); }
+.rv-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.rv-stats.three { grid-template-columns: repeat(3, 1fr); }
+.rv-stat { min-width: 0; display: flex; flex-direction: column; gap: 2px; padding: 12px 14px; border-radius: var(--r); background: var(--surface); box-shadow: 0 3px 0 var(--lip); }
+.rv-stat-v { font-size: 26px; font-weight: 800; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.rv-stats.three .rv-stat-v { font-size: 21px; }
+.rv-stat-l { font-size: 12.5px; font-weight: 700; color: var(--mute); line-height: 1.25; }
+.rv-stat-s { font-size: 12px; font-weight: 600; color: var(--faint); }
+.rv-update { align-self: flex-start; cursor: pointer; }
+.rv-update .spin { animation: rv-turn 900ms linear infinite; }
+@keyframes rv-turn { to { transform: rotate(360deg); } }
+.rv-fine { margin: 0; font-size: 13px; color: var(--mute); font-weight: 500; }
+
+/* A coach speaking: their badge ringed in their colour, then a bubble tinted with it. */
+.rv-says { display: flex; gap: 10px; align-items: flex-start; }
+.rv-says .coach-chip { flex: none; width: 44px; height: 44px; box-shadow: 0 0 0 3px color-mix(in srgb, var(--c) 50%, transparent); }
+.rv-says.small .coach-chip { width: 36px; height: 36px; }
+.rv-bubble { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; padding: 12px 14px; border-radius: 4px 18px 18px 18px; background: color-mix(in srgb, var(--c) 13%, var(--surface)); }
+.rv-who { font-size: 12px; font-weight: 800; color: var(--mute); }
+.rv-bubble b { font-size: 16px; font-weight: 800; line-height: 1.25; }
+.rv-bubble p { margin: 0; font-size: 15.5px; line-height: 1.45; font-weight: 500; }
+.rv-bubble .rv-evidence { font-size: 13px; font-weight: 600; color: var(--mute); }
+
+.rv-week .wd i { max-width: 34px; }
+.rv-groups { display: flex; flex-direction: column; gap: 9px; }
+.rv-group { display: grid; grid-template-columns: minmax(0, 116px) 1fr 26px; align-items: center; gap: 10px; }
+.rv-group-name { font-size: 13px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rv-group-track { position: relative; height: 14px; border-radius: 4px; background: var(--surface-2); }
+.rv-group-bar { position: absolute; left: 0; top: 0; bottom: 0; min-width: 2px; border-radius: 4px; background: var(--c); }
+.rv-group-tick { position: absolute; top: -3px; bottom: -3px; width: 3px; margin-left: -1.5px; border-radius: 2px; background: var(--ink); box-shadow: 0 0 0 2px var(--bg); }
+.rv-group-v { font-size: 14px; font-weight: 800; text-align: right; font-variant-numeric: tabular-nums; }
+.rv-legend { margin: 0; display: flex; align-items: center; flex-wrap: wrap; gap: 4px 14px; font-size: 12.5px; font-weight: 600; color: var(--mute); }
+.rv-legend > span { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.rv-legend b { color: var(--ink); }
+.rv-tick-key { display: inline-block; width: 3px; height: 13px; border-radius: 2px; background: var(--ink); }
+.rv-dot-key { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--ink); }
+.rv-line-key { display: inline-block; width: 16px; border-top: 2px dashed var(--ink); opacity: .6; }
+.rv-prs { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.rv-prs li { display: flex; align-items: center; gap: 8px; font-size: 14.5px; font-weight: 700; }
+.rv-prs li span:nth-child(2) { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rv-prs li b { font-variant-numeric: tabular-nums; }
+
+.rv-kcal { display: block; width: 100%; height: auto; overflow: visible; }
+.rv-kcal-bar { fill: var(--c); }
+.rv-kcal-none { fill: var(--surface-2); }
+.rv-axis { fill: var(--mute); font-size: 11px; font-weight: 600; }
+.rv-axis.strong { fill: var(--ink); font-weight: 800; }
+.rv-target { stroke: var(--ink); stroke-width: 1.5; stroke-dasharray: 4 4; opacity: .6; }
+.rv-dot { fill: var(--bg); stroke: var(--ink); stroke-width: 1.5; }
+.rv-dot.hit { fill: var(--ink); }
+.rv-chart { --day: var(--accent); }
+.rv-phase { margin: 0; font-size: 14.5px; font-weight: 600; color: var(--mute); line-height: 1.4; }
+.rv-phase b { color: var(--ink); }
+
+.rv-hl { display: flex; flex-direction: column; gap: 10px; padding: 14px; border-radius: var(--r-lg); background: var(--surface); }
+.rv-hl.high .rv-kicker { color: var(--pr-ink); }
+.rv-hl .rv-bubble { background: none; padding: 2px 0 0; }
+.rv-weeks { display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; border-radius: var(--r); background: var(--surface); }
+.rv-weeks-head { display: flex; justify-content: space-between; align-items: baseline; font-size: 13.5px; font-weight: 700; color: var(--mute); }
+.rv-weeks-head b { color: var(--ink); font-size: 16px; font-variant-numeric: tabular-nums; }
+.rv-weeks-cols { display: flex; align-items: flex-end; justify-content: space-between; gap: 6px; height: 44px; }
+.rv-col { flex: 1; max-width: 20px; min-height: 3px; border-radius: 4px 4px 0 0; background: color-mix(in srgb, var(--ink) 14%, transparent); }
+.rv-col.now { background: var(--c); }
+.rv-col.none { height: 3px; background: var(--surface-2); }
+.rv-focus { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.rv-focus li { display: flex; gap: 12px; align-items: flex-start; padding: 14px; border-radius: var(--r); background: var(--surface); box-shadow: 0 3px 0 var(--lip); }
+.rv-focus-n { flex: none; width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; background: var(--c, var(--ink)); color: #1C1A22; font-weight: 800; }
+.rv-focus li > span:last-child { display: flex; flex-direction: column; gap: 3px; }
+.rv-focus li b { font-size: 16.5px; font-weight: 800; line-height: 1.25; }
+.rv-focus li span span { font-size: 14px; font-weight: 500; line-height: 1.4; color: var(--mute); }
+.rv-ready-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+
+/* While the coaches write. */
+.review-wait { position: relative; flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; padding: 24px; text-align: center; }
+.review-crew { display: flex; }
+.review-crew .coach-chip { width: 52px; height: 52px; margin-left: -10px; box-shadow: 0 0 0 3px var(--bg); animation: rv-bob 1.8s ease-in-out calc(var(--i) * 150ms) infinite; }
+.review-crew .coach-chip:first-child { margin-left: 0; }
+@keyframes rv-bob { 50% { transform: translateY(-6px); } }
+.review-wait-line { margin: 0; font-size: 18px; font-weight: 800; animation: rv-card 300ms both; }
+.review-wait-sub { margin: 0; max-width: 300px; font-size: 14px; line-height: 1.4; color: var(--mute); }
+.review-wait .btn { max-width: 280px; }
+
+/* First-time sheet. */
+.review-intro-preview { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 14px 0 4px; }
+.review-intro-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+.review-intro-list li { display: flex; align-items: center; gap: 12px; font-size: 15.5px; font-weight: 600; line-height: 1.35; }
+.review-intro-list svg { flex: none; color: var(--mute); }
+.review-intro-day { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
+.review-days button { min-width: 0; padding: 0; }
+.review-intro-note { margin: 0; text-align: center; }

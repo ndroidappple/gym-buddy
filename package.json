@@ -10,7 +10,8 @@
     "test:coach": "node scripts/stress-set-coach.mjs",
     "test:barcode": "node scripts/test-barcode.mjs",
     "icons": "node scripts/render-icons.mjs",
-    "test:food": "node scripts/test-food-picker.mjs"
+    "test:food": "node scripts/test-food-picker.mjs",
+    "test:review": "node scripts/test-week-review.mjs && node scripts/test-review-agent.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.117.0",

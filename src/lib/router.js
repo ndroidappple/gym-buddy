@@ -11,6 +11,7 @@ export function parse(hash) {
   switch (name) {
     case "session": return { name, day: a, id: b };
     case "summary": return { name, id: a };
+    case "review": return { name, id: a }; // a week in review, by the date it ends
     case "lift": return { name, lift: a };
     case "coaches": return { name, coach: a, mode: b };
     case "settings":

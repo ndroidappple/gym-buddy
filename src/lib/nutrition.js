@@ -156,6 +156,8 @@ export const STANDARD_DRINK_G = 14;
 /* Names that are drinks with alcohol in them, for a reply that didn't say how much alcohol; NOT_DRINK are look-alikes without any. */
 const NOT_DRINK = /\b(ginger ale|root beer|birch beer|non[- ]?alcoholic|alcohol[- ]free|mocktails?|kombucha)\b|\b0\.0\b/i;
 const DRINK = /\b(beers?|lagers?|ipas?|ales?|stouts?|pilsners?|modelo|corona|michelob|bud(weiser)?|coors|miller|wines?|ros[eé]|prosecco|champagne|mimosas?|sangria|vodka|whiske?y|bourbon|scotch|rum|gin|tequila|mezcal|sake|soju|ciders?|seltzers?|white claw|high noon|truly|cocktails?|margaritas?|martinis?|mojitos?|negronis?|spritz|daiquiris?|old fashioned|manhattan|liqueur|schnapps|fireball|jäger(meister)?)\b/i;
+/** Whether a logged food's name reads as a drink with alcohol in it (the week in review counts them). */
+export const isAlcoholic = (name) => DRINK.test(name || "") && !NOT_DRINK.test(name || "");
 
 /**
  * A meal from Tank, checked: numbers clamped, and any item whose calories disagree with what's in

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { ChevronRight, Download, LogOut, Moon, Gauge, Smartphone, Share, SquarePlus, EllipsisVertical, Check, Sparkles, Scale, Vibrate, Bell, BellRing, Pencil, ClipboardPaste, Users, Utensils, Target, Rows3 } from "lucide-react";
+import { ChevronRight, Download, LogOut, Moon, Gauge, Smartphone, Share, SquarePlus, EllipsisVertical, Check, Sparkles, Scale, Vibrate, Bell, BellRing, Pencil, ClipboardPaste, Users, Utensils, Target, Rows3, CalendarDays, History } from "lucide-react";
 import { Sheet, InfoButton, ConfirmSheet } from "../components/ui.jsx";
 import { ICONS, iconSrc } from "../lib/icons.js";
 import { VIEWS } from "../lib/view.js";
@@ -8,10 +8,14 @@ import { href } from "../lib/router.js";
 import { shortDate, canVibrate } from "../lib/util.js";
 import { supabase } from "../supabase-client.js";
 import { restAlertState, enableRestAlerts, disableRestAlerts, warmRestAlerts } from "../lib/restAlerts.js";
+import { reviewPrefs, WEEKDAYS } from "../lib/weekReview.js";
+import { DayPicker, ReviewList } from "../components/WeekReviewIntro.jsx";
 
 export default function Settings({ program, sessions, prefs, setPref, onRename, go, notify }) {
   const [email, setEmail] = useState("");
-  const [sheet, setSheet] = useState(null); // "icon" | "install" | "rename" | "redo"
+  const [sheet, setSheet] = useState(null); // "icon" | "install" | "rename" | "redo" | "review-day" | "reviews"
+  const review = reviewPrefs(prefs);
+  const setReview = (patch) => setPref("weekReview", { ...review, intro: true, ...patch });
   const icon = ICONS.find((i) => i.id === prefs.icon) || ICONS[0];
   useEffect(() => { supabase.auth.getUser().then(({ data }) => setEmail(data.user?.email || "")); }, []);
 
@@ -81,6 +85,27 @@ export default function Settings({ program, sessions, prefs, setPref, onRename, 
                 <ChevronRight size={18} aria-hidden="true" className="muted" />
               </a>
             )}
+          </div>
+        </section>
+
+        <section className="section">
+          <h2 className="lbl">Week in review</h2>
+          <div className="list">
+            <Toggle help="review" Icon={Sparkles} label="Week in review"
+              sub={review.on ? `Every ${WEEKDAYS[review.day]}, your coaches look back at your week.` : "A weekly look back with your coaches: goals, highs and lows, trends."}
+              on={review.on} onChange={(v) => setReview({ on: v })} />
+            {review.on && (
+              <button className="list-row" onClick={() => setSheet("review-day")}>
+                <CalendarDays size={18} aria-hidden="true" />
+                <span className="name">Review day<span className="sub">{WEEKDAYS[review.day]}. It covers the 7 days ending then.</span></span>
+                <ChevronRight size={18} aria-hidden="true" className="muted" />
+              </button>
+            )}
+            <button className="list-row" onClick={() => setSheet("reviews")}>
+              <History size={18} aria-hidden="true" />
+              <span className="name">Past reviews<span className="sub detail">Every week in review is saved to your account.</span></span>
+              <ChevronRight size={18} aria-hidden="true" className="muted" />
+            </button>
           </div>
         </section>
 
@@ -172,6 +197,14 @@ export default function Settings({ program, sessions, prefs, setPref, onRename, 
           onConfirm={() => { setPref("profile", { ...prefs.profile, doneAt: null }); setPref("coachSetup", {}); go(href("coaches", "tank")); }} />
       )}
       {sheet === "rename" && <RenameSheet program={program} onRename={onRename} onClose={() => setSheet(null)} />}
+      {sheet === "review-day" && (
+        <Sheet title="Review day" sub="Your week in review comes out on this day and covers the 7 days ending then." onClose={() => setSheet(null)} labelledBy="review-day-title">
+          <DayPicker value={review.day} onChange={(d) => setReview({ day: d })} />
+          <p className="note-box">Next one: <b>{WEEKDAYS[review.day]}</b>. Once it's out, it waits on Today until you open it.</p>
+          <button type="button" className="btn btn-ink" onClick={() => setSheet(null)}>Done</button>
+        </Sheet>
+      )}
+      {sheet === "reviews" && <ReviewsSheet onClose={() => setSheet(null)} />}
     </main>
   );
 }
@@ -241,6 +274,18 @@ function ViewPicker({ value, onChange }) {
         {VIEWS.map((v) => <button key={v.id} aria-pressed={v.id === value} onClick={() => onChange(v.id)}>{v.label}</button>)}
       </div>
     </div>
+  );
+}
+
+/** Every saved week in review; opening one closes the sheet first so back returns to Settings. */
+function ReviewsSheet({ onClose }) {
+  const [count, setCount] = useState(null);
+  return (
+    <Sheet title="Past reviews" sub="Every week in review, newest first." onClose={onClose} labelledBy="reviews-title">
+      <ReviewList onLoaded={setCount} />
+      {count === null && <p className="note-box">Loading…</p>}
+      {count === 0 && <p className="note-box">No reviews yet. Your first one comes out on your review day, once you've logged a workout or some food that week.</p>}
+    </Sheet>
   );
 }
 
