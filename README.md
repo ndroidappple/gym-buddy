@@ -101,6 +101,46 @@ select vault.create_secret('<REST_ALERT_SECRET>', 'rest_alert_secret');
 Apple doesn't allow a live countdown on the lock screen (Live Activities) or buttons on the
 notification for web apps, and delivery needs a connection when rest starts and ends.
 
+### Week in review (on by default)
+
+Once a week (Sunday at 10 AM unless changed in **Settings → Week in review**) the coaches look back
+at the 7 full days before it comes out: a Sunday review covers Sunday to Saturday, so every day in
+it is complete. Today shows a glowing **Week in review** button in place of the coach's hello until
+it's opened; it opens as tap-through story cards (✕, Escape or a swipe down closes it at any card).
+The first time, a sheet introduces it with its day, time, a notification and a way to turn it off.
+Every review is saved to the account: the latest show on **Progress**, all in **Settings → Past reviews**.
+
+- `src/lib/weekReview.js` works out every number in code (shared by the app and the server):
+  workouts against plan, sets per coach's area against the 4-week average, records, stalled and
+  rising lifts, skipped lifts, food against targets (training vs rest days, weekdays vs weekends,
+  top foods, drinks), bodyweight and bulk/cut pace, 8 weeks of trends, and candidate highs/lows.
+- `api/review.js` (a Vercel Function) runs a coach **agent**: Claude Sonnet 5.5 through Vercel AI
+  Gateway, with read-only tools to dig further (a lift's history, food by day or item, an earlier
+  week) before it hands in the review. It's saved to `storage_kv` as `week-review:<last day>`, so
+  it's written once and opens instantly after that (up to 3 runs a week, with updates when more is
+  logged for that week later). `npm run test:review` checks the facts, the agent loop (with a
+  scripted model) and the requests.
+- **On a schedule** (`supabase/migrations/20261009000000_week_review_schedule.sql`): the app keeps
+  each lifter's day, hour, time zone and notification choice in `week_review_schedule`. Every 5
+  minutes `pg_cron` posts the lifters who are due to `/api/review`, which writes the review with the
+  app closed and sends a **"Your week in review is ready"** push (with the headline) to every phone
+  that allows notifications. It reuses the rest alerts' Vault URL and secret (`rest_alert_url`, with
+  `/api/rest-alert` swapped for `/api/review`, and `rest_alert_secret` = `REST_ALERT_SECRET`), so
+  there's nothing new to set up. With no sign-in, the function reads and saves that one lifter's
+  data through `review_job_input` / `review_job_save`, which refuse anything without the secret. If
+  the scheduled run fails, the app asks for the review itself 20 minutes later, or when it's tapped;
+  a "being written" marker stops the two from paying for the same review twice.
+- Cost: about $0.05 a review, paid from AI Gateway's free $5 a month (as long as no gateway credits
+  are bought). If Sonnet fails or the credit runs out, the gateway falls back to Claude Haiku 5.5,
+  then a free model; if no model answers, the review is written by code from the same facts.
+  `AI_REVIEW_MODEL` switches the first model.
+- Coach chat and Tank's food logging (`api/coach.js`) use Claude Haiku 5.5 from the same credit
+  (about $0.001 a reply), falling back to free models. `AI_GATEWAY_MODEL` switches it.
+
+**Settings → Notifications** shows whether this phone allows notifications (and how to fix it if
+not), **Rest alerts** (this phone only) and **Week in review is ready** (every phone). The push
+plumbing is shared in `src/lib/push.js` (phone side) and `api/_push.js` (server side).
+
 ## Project structure
 
 ```
@@ -113,7 +153,9 @@ src/
   lib/util.js              # e1RM, trends, PRs, dates, formatting
   lib/router.js            # hash routing (#/today, #/session/push, #/lift/…)
   lib/sound.js             # rest-timer chime
+  lib/push.js              # notification permission + this phone's push address (shared)
   lib/restAlerts.js        # lock-screen rest alerts (push; see public/sw.js, api/rest-alert.js)
+  lib/weekReview.js        # week in review: facts, timing, agent tools, code-written fallback
   components/ui.jsx        # sheet, toast, tab bar, charts, exercise picker
   views/                   # Today, Session, Summary, Progress (+ Workouts), Lift,
                            # Settings, ProgramEditor, Export

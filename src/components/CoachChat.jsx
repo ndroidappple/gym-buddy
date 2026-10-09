@@ -16,8 +16,8 @@ const TROUBLE = {
   offline: "Can't reach me without a connection. Log your sets, ask me when you're back online.",
   auth: "Lost track of who you are. Sign in again and ask me.",
   unavailable: "Coach chat runs on the deployed app, not this dev server.",
-  // A real 429 from the free tier's per-model limit: it clears on its own after a short wait.
-  rate: "Too many questions too fast for the free tier. Give me a minute, then ask again.",
+  // A real 429 (a per-model rate limit): it clears on its own after a short wait.
+  rate: "Too many questions too fast. Give me a minute, then ask again.",
   // The reply came back blank twice in a row (already retried once, quietly).
   empty: "Lost my train of thought there. Ask me that again.",
   busy: "Couldn't get an answer through. Ask me again in a moment.",

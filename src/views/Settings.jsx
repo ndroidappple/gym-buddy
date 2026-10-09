@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { ChevronRight, Download, LogOut, Moon, Gauge, Smartphone, Share, SquarePlus, EllipsisVertical, Check, Sparkles, Scale, Vibrate, Bell, BellRing, Pencil, ClipboardPaste, Users, Utensils, Target, Rows3 } from "lucide-react";
+import { ChevronRight, Download, LogOut, Moon, Gauge, Smartphone, Share, SquarePlus, EllipsisVertical, Check, Sparkles, Scale, Vibrate, Bell, BellRing, Pencil, ClipboardPaste, Users, Utensils, Target, Rows3, CalendarClock, History, BellOff, BellPlus } from "lucide-react";
 import { Sheet, InfoButton, ConfirmSheet } from "../components/ui.jsx";
 import { ICONS, iconSrc } from "../lib/icons.js";
 import { VIEWS } from "../lib/view.js";
@@ -7,11 +7,16 @@ import { DAYS, allDays, activeDays } from "../data/program.js";
 import { href } from "../lib/router.js";
 import { shortDate, canVibrate } from "../lib/util.js";
 import { supabase } from "../supabase-client.js";
-import { restAlertState, enableRestAlerts, disableRestAlerts, warmRestAlerts } from "../lib/restAlerts.js";
+import { restAlertState, enableRestAlerts, disableRestAlerts } from "../lib/restAlerts.js";
+import { phoneState, allowNotifications, forgetPhone, warmPush } from "../lib/push.js";
+import { reviewPrefs, whenLabel, coversLabel } from "../lib/weekReview.js";
+import { DayPicker, HourPicker, ReviewList } from "../components/WeekReviewIntro.jsx";
 
 export default function Settings({ program, sessions, prefs, setPref, onRename, go, notify }) {
   const [email, setEmail] = useState("");
-  const [sheet, setSheet] = useState(null); // "icon" | "install" | "rename" | "redo"
+  const [sheet, setSheet] = useState(null); // "icon" | "install" | "rename" | "redo" | "review-time" | "reviews"
+  const review = reviewPrefs(prefs);
+  const setReview = (patch) => setPref("weekReview", { ...review, intro: true, ...patch });
   const icon = ICONS.find((i) => i.id === prefs.icon) || ICONS[0];
   useEffect(() => { supabase.auth.getUser().then(({ data }) => setEmail(data.user?.email || "")); }, []);
 
@@ -85,6 +90,32 @@ export default function Settings({ program, sessions, prefs, setPref, onRename, 
         </section>
 
         <section className="section">
+          <h2 className="lbl">Week in review</h2>
+          <div className="list">
+            <Toggle help="review" Icon={Sparkles} label="Week in review"
+              sub={review.on ? "Your coaches look back at your week: goals, highs and lows, trends." : "A weekly look back with your coaches: goals, highs and lows, trends."}
+              on={review.on} onChange={(v) => setReview({ on: v })} />
+            {review.on && (
+              <button className="list-row" onClick={() => setSheet("review-time")}>
+                <CalendarClock size={18} aria-hidden="true" />
+                <span className="name">Comes out<span className="sub">{whenLabel(review)}. Covers {coversLabel(review)}.</span></span>
+                <ChevronRight size={18} aria-hidden="true" className="muted" />
+              </button>
+            )}
+            <button className="list-row" onClick={() => setSheet("reviews")}>
+              <History size={18} aria-hidden="true" />
+              <span className="name">Past reviews<span className="sub detail">Every week in review is saved to your account.</span></span>
+              <ChevronRight size={18} aria-hidden="true" className="muted" />
+            </button>
+          </div>
+        </section>
+
+        <section className="section">
+          <h2 className="lbl">Notifications</h2>
+          <Notifications review={review} setReview={setReview} notify={notify} onInstall={() => setSheet("install")} />
+        </section>
+
+        <section className="section">
           <h2 className="lbl">Display</h2>
           <div className="list">
             <ViewPicker value={prefs.view === "focused" ? "focused" : "detailed"} onChange={(v) => setPref("view", v)} />
@@ -100,7 +131,6 @@ export default function Settings({ program, sessions, prefs, setPref, onRename, 
           <div className="list">
             <Toggle Icon={Bell} label="Rest timer sound" sub="A short chime when rest is over." on={prefs.sound !== false}
               onChange={(v) => setPref("sound", v)} />
-            <RestAlertsRow notify={notify} onInstall={() => setSheet("install")} />
             {/* iPhone browsers can't vibrate, so the switch only shows where it does something. */}
             {canVibrate() && (
               <Toggle Icon={Vibrate} label="Vibration" sub="A buzz on logged sets, PRs and when rest ends." on={prefs.haptics !== false}
@@ -172,6 +202,15 @@ export default function Settings({ program, sessions, prefs, setPref, onRename, 
           onConfirm={() => { setPref("profile", { ...prefs.profile, doneAt: null }); setPref("coachSetup", {}); go(href("coaches", "tank")); }} />
       )}
       {sheet === "rename" && <RenameSheet program={program} onRename={onRename} onClose={() => setSheet(null)} />}
+      {sheet === "review-time" && (
+        <Sheet title="When it comes out" sub="Your coaches write the review at this time, even with the app closed." onClose={() => setSheet(null)} labelledBy="review-time-title">
+          <DayPicker value={review.day} onChange={(d) => setReview({ day: d })} />
+          <HourPicker value={review.hour} onChange={(h) => setReview({ hour: h })} />
+          <p className="note-box"><b>{whenLabel(review)}</b>, covering {coversLabel(review)}: the 7 full days before it comes out. It waits on Today until you open it.</p>
+          <button type="button" className="btn btn-ink" onClick={() => setSheet(null)}>Done</button>
+        </Sheet>
+      )}
+      {sheet === "reviews" && <ReviewsSheet onClose={() => setSheet(null)} />}
     </main>
   );
 }
@@ -202,32 +241,77 @@ function RenameSheet({ program, onRename, onClose }) {
 }
 
 /* Rest alerts are per phone (they ride on its notification permission), so they live outside prefs. */
-function RestAlertsRow({ notify, onInstall }) {
-  const [state, setState] = useState(restAlertState);
+/**
+ * Notifications: whether this phone can show them, rest alerts (this phone only) and the week in
+ * review's "ready" notification (the account: every phone that allows notifications gets it).
+ */
+function Notifications({ review, setReview, notify, onInstall }) {
+  const [phone, setPhone] = useState(phoneState);
+  const [rest, setRest] = useState(restAlertState);
   const [busy, setBusy] = useState(false);
-  useEffect(() => { if (state === "ask" || state === "off") warmRestAlerts().catch(() => {}); }, [state]);
-  if (state === "unsupported") return null;
-  const sub = {
-    install: "Add GymBuddy to your home screen first, then turn this on there.",
-    denied: "Notifications are off for GymBuddy. Turn them on in your phone's Settings › Notifications › GymBuddy.",
-  }[state] || "A notification when rest is over, even with your phone locked.";
-  const toggle = async () => {
-    if (state === "install") { onInstall(); return; }
-    if (busy || state === "denied") return;
+  useEffect(() => { if (phone === "ask" || rest === "off") warmPush().catch(() => {}); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const refresh = () => { setPhone(phoneState()); setRest(restAlertState()); };
+  const reviewOn = review.on && review.notify !== false;
+  const run = async (fn) => {
+    if (busy) return;
     setBusy(true);
-    try {
-      if (state === "on") { await disableRestAlerts(); setState("off"); }
-      else {
-        const s = await enableRestAlerts();
-        setState(s);
-        if (s === "on") notify?.("Rest alerts on. Using a Focus? Allow GymBuddy in it.");
-      }
-    } catch {
-      setState(restAlertState());
-      notify?.("Couldn't change rest alerts. Check your connection and try again.");
-    } finally { setBusy(false); }
+    try { await fn(); } catch { notify?.("Couldn't change notifications. Check your connection and try again."); } finally { refresh(); setBusy(false); }
   };
-  return <Toggle Icon={BellRing} label="Rest alerts" sub={sub} on={state === "on"} onChange={toggle} />;
+  // Nothing on this phone wants notifications any more: stop the server sending to it.
+  const tidy = (restOn, reviewWants) => { if (!restOn && !reviewWants) forgetPhone().catch(() => {}); };
+  const blocked = () => {
+    if (phone === "install") { onInstall(); return true; }
+    if (phone === "denied") { notify?.("Notifications are blocked. Turn them on in your phone's Settings › Notifications › GymBuddy."); return true; }
+    return phone === "unsupported";
+  };
+
+  const allow = () => run(async () => {
+    const p = await allowNotifications();
+    if (p === "denied") notify?.("Notifications are blocked. Turn them on in your phone's Settings › Notifications › GymBuddy.");
+  });
+  const toggleRest = (v) => {
+    if (v && blocked()) return;
+    run(async () => {
+      if (v) {
+        const s = await enableRestAlerts();
+        if (s === "on") notify?.("Rest alerts on. Using a Focus? Allow GymBuddy in it.");
+      } else {
+        await disableRestAlerts();
+        tidy(false, reviewOn);
+      }
+    });
+  };
+  const toggleReview = (v) => {
+    setReview({ notify: v });
+    if (!v) { tidy(rest === "on", false); return; }
+    if (phone === "ask") allow(); // asked from this tap: iOS only shows the prompt in response to one
+  };
+
+  const status = {
+    on: { Icon: Bell, label: "On for this phone", sub: "To stop them all, use your phone's Settings › Notifications › GymBuddy." },
+    ask: { Icon: BellPlus, label: "Allow notifications on this phone", sub: "Needed for rest alerts and the week in review.", onClick: allow },
+    denied: { Icon: BellOff, label: "Blocked on this phone", sub: "Turn them on in your phone's Settings › Notifications › GymBuddy." },
+    install: { Icon: BellOff, label: "Add GymBuddy to your home screen", sub: "iPhone only shows notifications for the home screen app.", onClick: onInstall },
+    unsupported: { Icon: BellOff, label: "Not available in this browser", sub: "Open GymBuddy in Safari or Chrome on your phone." },
+  }[phone];
+  const Status = status.onClick ? "button" : "div";
+  const restSub = { install: "Add GymBuddy to your home screen first.", denied: "Blocked in your phone's settings." }[rest] || "When rest is over, even with your phone locked. This phone only.";
+  const reviewSub = !review.on ? "Turn on the week in review above first."
+    : phone !== "on" && review.notify !== false ? `${whenLabel(review)}. Allow notifications on this phone to get it here.`
+    : `${whenLabel(review)}, with the week's headline. Every phone that allows notifications.`;
+  return (
+    <div className="list" data-help="notifications">
+      <Status className="list-row" {...(status.onClick ? { type: "button", onClick: status.onClick, disabled: busy } : {})}>
+        <status.Icon size={18} aria-hidden="true" />
+        <span className="name">{status.label}<span className="sub detail">{status.sub}</span></span>
+        {status.onClick ? <ChevronRight size={18} aria-hidden="true" className="muted" /> : phone === "on" ? <Check size={18} strokeWidth={2.6} aria-hidden="true" /> : null}
+      </Status>
+      {phone !== "unsupported" && <Toggle Icon={BellRing} label="Rest alerts" sub={restSub} on={rest === "on"} onChange={toggleRest} />}
+      {phone !== "unsupported" && review.on && (
+        <Toggle Icon={Sparkles} label="Week in review is ready" sub={reviewSub} on={review.notify !== false} onChange={toggleReview} />
+      )}
+    </div>
+  );
 }
 
 /** Detailed or Focused: how much each screen explains. One row, two choices, shown live. */
@@ -241,6 +325,18 @@ function ViewPicker({ value, onChange }) {
         {VIEWS.map((v) => <button key={v.id} aria-pressed={v.id === value} onClick={() => onChange(v.id)}>{v.label}</button>)}
       </div>
     </div>
+  );
+}
+
+/** Every saved week in review; opening one closes the sheet first so back returns to Settings. */
+function ReviewsSheet({ onClose }) {
+  const [count, setCount] = useState(null);
+  return (
+    <Sheet title="Past reviews" sub="Every week in review, newest first." onClose={onClose} labelledBy="reviews-title">
+      <ReviewList onLoaded={setCount} />
+      {count === null && <p className="note-box">Loading…</p>}
+      {count === 0 && <p className="note-box">No reviews yet. Your first one comes out on your review day, once you've logged a workout or some food that week.</p>}
+    </Sheet>
   );
 }
 

@@ -8,6 +8,7 @@ import PhaseCard from "../components/PhaseCard.jsx";
 import { adjustedSeries } from "../lib/fatigue.js";
 import PhaseSheet from "../components/PhaseSheet.jsx";
 import Workouts from "./Workouts.jsx";
+import { ReviewList } from "../components/WeekReviewIntro.jsx";
 
 /* A lift is "on a PR" when its latest session beat every earlier one (not its first) in the last two weeks.
    Only PRs from the most recent workout glow; older ones keep a still stamp, so the glow stays news. */
@@ -52,6 +53,17 @@ export default function Progress({ open, go, ...props }) {
           : <Trends {...props} openPhase={open === "phase"} onPhaseSheetClosed={() => open === "phase" && go(href("progress", "trends"), { replace: true })} />}
       </div>
     </main>
+  );
+}
+
+/** The latest weeks in review (the rest are in Settings › Past reviews). Hidden until there's one. */
+function RecentReviews() {
+  const [n, setN] = useState(0);
+  return (
+    <section className="section" hidden={!n}>
+      <h2 className="lbl">Week in review</h2>
+      <ReviewList limit={4} onLoaded={setN} />
+    </section>
   );
 }
 
@@ -105,6 +117,7 @@ function Trends({ sessions, program, weighins, prefs, setPref, notify, onWeighin
       <PhaseCard phase={phase} sessions={sessions} weighins={weighins} program={program}
         onStart={() => setStarting(true)} onLog={onWeighin} onUpdate={updatePhase} onEnd={endPhase} onProgramChange={onProgramChange} />
       <Bodyweight series={bw} phase={phase} onLog={() => setWeighing(true)} />
+      <RecentReviews />
       {weighing && <WeighSheet last={bw[bw.length - 1]} onClose={() => setWeighing(false)} onSave={(v) => { onWeighin(today(), v); setWeighing(false); }} />}
       {starting && (
         <PhaseSheet lastWeight={bw[bw.length - 1]?.bw} onClose={() => setStarting(false)}
