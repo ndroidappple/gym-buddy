@@ -95,6 +95,32 @@ export function usePresence(value, ms = EXIT_MS) {
 }
 
 /**
+ * Rolls a field to the value it now shows, the way <Roll> does for text: a copy of the old value
+ * slides out one way while the field slides in from the other (dir 1 up, as a number grows; -1 down).
+ * For inputs, whose text can't be split into digits. The field's parent must be positioned.
+ */
+const rolling = new WeakMap();
+export function rollField(el, oldText, dir) {
+  if (!el?.animate || reducedMotion()) return;
+  const s = getComputedStyle(el);
+  const ghost = document.createElement("span");
+  ghost.textContent = oldText;
+  ghost.setAttribute("aria-hidden", "true");
+  Object.assign(ghost.style, {
+    position: "absolute", left: `${el.offsetLeft}px`, top: `${el.offsetTop}px`, width: `${el.offsetWidth}px`, height: `${el.offsetHeight}px`,
+    fontFamily: s.fontFamily, fontSize: s.fontSize, fontWeight: s.fontWeight, fontStyle: s.fontStyle, fontVariantNumeric: s.fontVariantNumeric,
+    letterSpacing: s.letterSpacing, color: s.color, textAlign: s.textAlign, lineHeight: `${el.offsetHeight}px`, pointerEvents: "none",
+  });
+  el.parentElement.appendChild(ghost);
+  const away = { transform: `translateY(${-dir * 0.35}em)`, opacity: 0, filter: "blur(2px)" };
+  const from = { transform: `translateY(${dir * 0.35}em)`, opacity: 0, filter: "blur(2px)" };
+  const rest = { transform: "none", opacity: 1, filter: "blur(0)" };
+  ghost.animate([rest, away], { duration: 140, easing: "ease-out", fill: "forwards" }).finished.catch(() => {}).then(() => ghost.remove());
+  rolling.get(el)?.cancel(); // a quick second tap starts over from the new value
+  rolling.set(el, el.animate([from, rest], { duration: MS.enter, easing: EASE.enter, delay: 30, fill: "backwards" }));
+}
+
+/**
  * Shrinks an element away (height, padding, margins and opacity to nothing) so whatever is below
  * glides up instead of jumping. Resolves when done; the element stays collapsed until it's removed.
  */

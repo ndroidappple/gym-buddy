@@ -7,7 +7,8 @@ import { restAlertState, scheduleRestAlert, cancelRestAlert, enableRestAlerts, d
 import { Sheet, ConfirmSheet, ExercisePicker } from "../components/ui.jsx";
 import Coach, { MOODS } from "../components/Coach.jsx";
 import CoachChat from "../components/CoachChat.jsx";
-import { useReducedMotion, usePresence, collapse, reducedMotion, EXIT_EASE } from "../lib/motion.js";
+import { useReducedMotion, usePresence, collapse, reducedMotion, rollField, EXIT_EASE } from "../lib/motion.js";
+import Roll from "../components/Roll.jsx";
 import { useTheme } from "../lib/theme.js";
 import { MessageCircle } from "lucide-react";
 import { nextSetAdvice, openingAdvice } from "../lib/setCoach.js";
@@ -439,7 +440,7 @@ export default function Session({ day, existing, draft, sessions, program, weigh
           <button className="icon-btn boxed" onClick={() => back()} aria-label="Back"><ChevronLeft size={20} /></button>
           <h1 className="top-title" data-day={day}>{dayProgram.name}</h1>
           <span className="spacer" />
-          <span className="pill sets-pill" aria-live="polite">{doneSlots} of {totalSlots} sets</span>
+          <span className="pill sets-pill" aria-live="polite"><Roll value={doneSlots} /> of {totalSlots} sets</span>
           {existing && <button className="icon-btn" onClick={() => setSheet("delete")} aria-label="Delete session"><Trash2 size={18} /></button>}
         </header>
         <div className="progress" role="progressbar" aria-label="Sets completed" aria-valuemin={0} aria-valuemax={totalSlots} aria-valuenow={doneSlots}>
@@ -764,11 +765,20 @@ function ActiveSet({ i, ex, showRir, row, last, canRemove, onEdit, onLog, onRemo
 }
 
 function Stepper({ id, label, unit, value, mode, placeholder, onChange, onDec, onInc, step, stepText }) {
+  // Stepped with − / + (or filled in for the next set), the number rolls to its new value. Typed, it doesn't.
+  const field = useRef(null);
+  const shown = useRef(value);
+  useLayoutEffect(() => {
+    const was = shown.current;
+    shown.current = value;
+    if (was === value || was === "" || value === "" || document.activeElement === field.current) return;
+    rollField(field.current, String(was), Number(value) >= Number(was) ? 1 : -1);
+  }, [value]);
   return (
     <div className="stepper">
       <label htmlFor={id}>
         <span className="sr-only">{label}</span>
-        <input id={id} type="number" inputMode={mode} value={value} placeholder={placeholder}
+        <input ref={field} id={id} type="number" inputMode={mode} value={value} placeholder={placeholder}
           onChange={(e) => onChange(e.target.value)} onFocus={(e) => e.target.select()} />
         <span className="u">{unit}</span>
       </label>
@@ -907,7 +917,7 @@ function RestDock({ timer, setTimer, alertSet, leaving }) {
             {!over && alertSet === false && <BellOff size={12} strokeWidth={2.5} className="rest-bell" aria-label="No lock-screen alert: no connection. Keep GymBuddy open." />}
             {timer.next ? `${over ? "Go" : "Next"}: ${timer.next}` : over ? "Rest over. Next set!" : MOODS.resting.line}
           </span>
-          <span className="clock" aria-live={over ? "assertive" : "off"} aria-label={over ? "Rest over" : `${mmss(left)} of ${mmss(timer.total)} rest left`}>{over ? "Go" : mmss(left)}</span>
+          <span className="clock" aria-live={over ? "assertive" : "off"} aria-label={over ? "Rest over" : `${mmss(left)} of ${mmss(timer.total)} rest left`}>{over ? "Go" : <Roll value={mmss(left)} />}</span>
         </div>
         {!over && <button className="rb" onClick={() => adjust(-15)} aria-label="Remove 15 seconds">−15</button>}
         {!over && <button className="rb" onClick={() => adjust(15)} aria-label="Add 15 seconds">+15</button>}

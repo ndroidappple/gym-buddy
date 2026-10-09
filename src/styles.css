@@ -187,14 +187,13 @@ html[data-nav="back"]::view-transition-new(root) { animation: vt-fade-in var(--e
 .top-title[data-day]::before { content: ""; width: 12px; height: 12px; border-radius: 50%; background: var(--day); flex-shrink: 0; }
 .spacer { flex: 1; }
 
-.tabbar { position: fixed; bottom: calc(14px + var(--safe-b)); left: 16px; right: 16px; max-width: 528px; margin: 0 auto; z-index: 20; touch-action: none; -webkit-user-select: none; user-select: none; display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; padding: 7px; border-radius: 34px; background: var(--dock); box-shadow: 0 6px 0 var(--lip); transition: grid-template-columns var(--slide-ms) var(--slide); }
+.tabbar { position: fixed; bottom: calc(14px + var(--safe-b)); left: 16px; right: 16px; max-width: 528px; margin: 0 auto; z-index: 20; touch-action: none; -webkit-user-select: none; user-select: none; display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; padding: 7px; border-radius: 34px; background: var(--dock); box-shadow: 0 6px 0 var(--lip); }
 .tab { position: relative; z-index: 1; display: flex; align-items: center; justify-content: center; gap: 7px; min-width: 0; padding: 0 12px; min-height: 54px; font-size: 13px; white-space: nowrap; font-weight: 700; color: var(--dock-mute); text-decoration: none; border-radius: 27px; -webkit-touch-callout: none; transition: color 120ms; }
 .tab[aria-current="page"] { color: var(--ink); }
 /* The pill slides between tabs with a little overshoot; while a finger drags it tracks the finger exactly.
-   Its move, its width and the columns share one spring, so the pill keeps its shape on the way. */
+   The columns switch at once and each tab glides from where it was (TabBar), on the pill's spring. */
 .tab-pill { position: absolute; left: 0; top: 7px; bottom: 7px; border-radius: 27px; background: var(--bg); transition: transform var(--slide-ms) var(--slide), width var(--slide-ms) var(--slide); }
 .tabbar.dragging .tab-pill { transition: none; transform-origin: center; }
-.tabbar.dragging { transition: none; }
 .tabbar.dragging .tab-pill { box-shadow: 0 0 0 3px color-mix(in srgb, var(--ink) 12%, transparent); }
 /* Inactive tabs stack a small label under the icon, so every tab says where it goes. */
 .tab:not([aria-current="page"]) { flex-direction: column; gap: 3px; padding: 0 2px; }
@@ -202,9 +201,13 @@ html[data-nav="back"]::view-transition-new(root) { animation: vt-fade-in var(--e
 .tab:not([aria-current="page"]) svg { width: 19px; height: 19px; }
 
 /* ═══════════════ CONTROLS ═══════════════ */
-.btn { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 56px; padding: 0 18px; border-radius: 20px; font-weight: 800; font-size: 18px; letter-spacing: -0.01em; text-decoration: none; width: 100%; transition: transform 80ms ease, box-shadow 80ms ease, opacity 120ms ease; }
+.btn { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 56px; padding: 0 18px; border-radius: 20px; font-weight: 800; font-size: 18px; letter-spacing: -0.01em; text-decoration: none; width: 100%; transition: transform var(--pop-ms) var(--pop), box-shadow var(--pop-ms) var(--pop), opacity 120ms ease; }
 .btn:active:not(:disabled) { transform: translateY(3px); }
 .btn:disabled { opacity: 0.4; }
+/* Presses: a finger going down lands almost at once; letting go springs back on the slower pop
+   spring, so a tap reads as a press and a release rather than a flicker. */
+:where(button.help-chip, .stepper-btns button, .ex-collapsed, button.coach-card, .hero-card .hero-switch, .weigh-skip, .review-chip) { transition: transform var(--pop-ms) var(--pop), box-shadow var(--pop-ms) var(--pop); }
+:is(.btn, .bubble-btn, button.help-chip, .stepper-btns button, .ex-collapsed, button.coach-card, .hero-card .hero-switch, .weigh-skip, .review-chip):active { transition-duration: 70ms; transition-timing-function: ease-out; }
 .btn-day { background: var(--day, var(--ink)); color: var(--on-day, var(--bg)); box-shadow: 0 5px 0 var(--day-lip, var(--ink-lip)); }
 .btn-day:active:not(:disabled) { box-shadow: 0 2px 0 var(--day-lip, var(--ink-lip)); }
 .btn-ink { background: var(--ink); color: var(--bg); box-shadow: 0 5px 0 var(--ink-lip); }
@@ -412,7 +415,7 @@ button.chip { min-height: 38px; padding: 0 14px; border: 2px solid var(--rule); 
 .active-set .set-head { display: flex; align-items: center; font-weight: 800; }
 .steppers { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .stepper { display: flex; flex-direction: column; gap: 6px; padding: 6px 8px 8px; border-radius: 20px; background: var(--surface); }
-.stepper label { display: grid; justify-items: center; line-height: 1; min-width: 0; }
+.stepper label { position: relative; display: grid; justify-items: center; line-height: 1; min-width: 0; } /* positioned for the rolling number (rollField) */
 .stepper input { width: 100%; border: 0; background: transparent; text-align: center; font-weight: 800; font-size: 40px; line-height: 1.05; padding: 0; letter-spacing: -0.02em; }
 .stepper input:focus { outline: none; }
 .stepper:focus-within { outline: 3px solid var(--day); outline-offset: -3px; }
@@ -598,6 +601,14 @@ button.chip { min-height: 38px; padding: 0 14px; border: 2px solid var(--rule); 
 .lib-row .name { display: block; font-weight: 700; }
 .lib-row .sub { display: block; font-size: 13px; color: var(--mute); margin-top: 2px; }
 @keyframes fade { from { opacity: 0; } }
+/* Rolling numbers (Roll.jsx): the new digit comes in from below as a number grows (above as it
+   shrinks) while the old one leaves the other way, a touch quicker, so they barely overlap. */
+.roll-d { position: relative; display: inline-block; }
+.roll-in { display: inline-block; animation: roll-in var(--enter-ms) var(--enter) 30ms both; }
+.roll-out { position: absolute; left: 0; top: 0; animation: roll-out 140ms ease-out forwards; }
+.sheet-leaving .roll-out { display: none; }
+@keyframes roll-in { from { transform: translateY(calc(var(--dir) * .5em)); opacity: 0; filter: blur(2px); } }
+@keyframes roll-out { to { transform: translateY(calc(var(--dir) * -.5em)); opacity: 0; filter: blur(2px); } }
 @keyframes rise { from { transform: translateY(40px); opacity: 0.4; } }
 /* Up from just below the screen edge, so a sheet arrives the way it leaves. */
 @keyframes sheet-in { from { transform: translateY(100%); } }
@@ -843,7 +854,7 @@ button.coach-card:active { transform: translateY(3px); box-shadow: 0 2px 0 var(-
 .empty-btn { margin-top: 8px; }
 
 /* The exercise card's bubble doubles as the way to ask its coach. */
-.bubble-btn { display: block; text-align: left; cursor: pointer; transition: transform 100ms ease; }
+.bubble-btn { display: block; text-align: left; cursor: pointer; transition: transform var(--pop-ms) var(--pop); }
 .bubble-btn:active { transform: scale(0.98); }
 
 /* ═══════════════ NUTRITION ═══════════════ */

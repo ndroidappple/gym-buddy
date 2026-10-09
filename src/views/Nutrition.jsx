@@ -9,6 +9,7 @@ import { MEALS, totals, byDate, weekSummary, addDays, nutritionChatContext } fro
 import { savedFoodFor } from "../lib/food.js";
 import { href } from "../lib/router.js";
 import { today, longDate, plural } from "../lib/util.js";
+import Roll from "../components/Roll.jsx";
 
 /* The Nutrition tab: one day at a time (today by default). Calories left and the three macros
    against target, then the day's meals with what's in them, then the week so far. */
@@ -144,7 +145,7 @@ function Summary({ sum, t }) {
     const v = sum[key], target = t[key];
     return (
       <div className="macro" data-macro={key}>
-        <div className="macro-top"><span>{label}</span><b>{Math.round(v)}<small> / {target} g</small></b></div>
+        <div className="macro-top"><span>{label}</span><b><Roll value={Math.round(v)} /><small> / {target} g</small></b></div>
         <div className="macro-bar" role="progressbar" aria-label={`${label}: ${Math.round(v)} of ${target} grams`} aria-valuemin={0} aria-valuemax={target} aria-valuenow={Math.round(v)}>
           <i style={{ width: `${Math.min(100, (v / target) * 100)}%` }} />
         </div>
@@ -159,7 +160,7 @@ function Summary({ sum, t }) {
           <circle cx="50" cy="50" r={R} className={"ring-fg" + (left < 0 ? " over" : "")} strokeDasharray={`${pct * C} ${C}`} transform="rotate(-90 50 50)" />
         </svg>
         <div className="nut-left">
-          <span className="big">{fmt(Math.abs(left))}</span>
+          <span className="big"><Roll value={fmt(Math.abs(left))} /></span>
           <span className="lbl">{left >= 0 ? "kcal left" : "kcal over"}</span>
           <span className="small">{fmt(sum.kcal)} eaten of {fmt(t.kcal)}</span>
         </div>
