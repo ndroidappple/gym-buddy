@@ -1,4 +1,4 @@
-import { DAYS, EXTRA_DAYS, PROGRAM, allDays, LIBRARY, activeDays, isCardio } from "../data/program.js";
+import { DAYS, EXTRA_DAYS, PROGRAM, allDays, LIBRARY, activeDays, isCardio, isFinisherCardio } from "../data/program.js";
 import { CUES } from "../data/cues.js";
 import { COACH_ORDER, coachFor } from "../data/coaches.js";
 
@@ -89,7 +89,7 @@ export function planFor(program, { goals = [], days = 4 } = {}) {
     const exercises = next[d].exercises
       .filter((e) => finisher || !e.finisher)
       .map((e) => { const s = styled(e, style); if (s.reps[0] !== e.reps[0] || s.rest !== e.rest) restyled++; return s; });
-    if (finisher && !next[d].off && !exercises.some((e) => isCardio(e.n))) exercises.push({ ...lib(FINISHER), sets: 1, reps: [10, 15], finisher: true });
+    if (finisher && !next[d].off && !exercises.some((e) => isFinisherCardio(e.n))) exercises.push({ ...lib(FINISHER), sets: 1, reps: [10, 15], finisher: true });
     next = { ...next, [d]: { ...next[d], exercises } };
   }
   if (restyled) {
@@ -151,7 +151,7 @@ export const nextCoachToMeet = (prefs) => (needsSetup(prefs, "tank") ? "tank" : 
 export function addFinisher(program) {
   let next = program;
   for (const d of activeDays(program)) {
-    if (program[d].exercises.some((e) => isCardio(e.n))) continue;
+    if (program[d].exercises.some((e) => isFinisherCardio(e.n))) continue; // a warm-up isn't a finisher
     next = { ...next, [d]: { ...next[d], exercises: [...next[d].exercises, { ...lib(FINISHER), sets: 1, reps: [10, 15], finisher: true }] } };
   }
   return { program: next, lines: next === program ? [] : ["A 10–15 min incline walk at the end of each day."] };

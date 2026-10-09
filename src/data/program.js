@@ -57,8 +57,27 @@ export const allDays = (program) => [...DAYS, ...EXTRA_DAYS.filter((d) => progra
 /** The days in the rotation right now, in order. */
 export const activeDays = (program) => allDays(program).filter((d) => program?.[d] && !program[d].off);
 
-/** Cardio entries log minutes (+ optional miles) instead of weight × reps. */
-export const isCardio = (name) => CARDIO.has(name);
+/* A cardio warm-up: any cardio done at the start of a day, e.g. "Stair Climber (Warm-up)". It's its own
+   entry so a day can open with 5 easy minutes and still finish on the same machine: sessions key sets
+   by name, and the warm-up's history stays separate from the finisher's. */
+export const WARMUP_SUFFIX = " (Warm-up)";
+export const WARMUP_MIN = 5;
+export const WARMUP_CUE = "Easy pace, you could hold a conversation. Just getting warm, not a workout.";
+export const isWarmup = (name) => typeof name === "string" && name.endsWith(WARMUP_SUFFIX);
+/** "Stair Climber (Warm-up)" → "Stair Climber". */
+export const baseOf = (name) => (isWarmup(name) ? name.slice(0, -WARMUP_SUFFIX.length) : name);
+/** The program entry for a warm-up on this cardio machine. */
+export const warmupOf = (cardioName) => ({
+  n: baseOf(cardioName) + WARMUP_SUFFIX, kind: "cardio", warmup: true,
+  sets: 1, reps: [WARMUP_MIN, WARMUP_MIN], rest: 0, cue: WARMUP_CUE,
+});
+
+/** Cardio entries log minutes (+ optional miles) instead of weight × reps. Warm-ups are cardio too. */
+export const isCardio = (name) => CARDIO.has(baseOf(name));
+/** Cardio that isn't a warm-up: a finisher or a cardio day. */
+export const isFinisherCardio = (name) => isCardio(name) && !isWarmup(name);
+/** The library's cardio machines, for picking a warm-up. */
+export const cardioLibrary = () => LIBRARY.filter((e) => e.kind === "cardio");
 
 /* Searchable library for adding lifts. Defaults are starting points — edit on add. */
 const BASE_LIBRARY = [
@@ -148,5 +167,8 @@ export const PLATES = {
 
 const CARDIO = new Set(LIBRARY.filter((e) => e.kind === "cardio").map((e) => e.n));
 
-/** "4 × 8–12 · 90s rest" for lifts, "Cardio · 20–30 min" for cardio. */
-export const specLine = (ex) => (isCardio(ex.n) ? `Cardio · ${ex.reps[0]}–${ex.reps[1]} min` : `${ex.sets} × ${ex.reps[0]}–${ex.reps[1]} · ${ex.rest}s rest`);
+const minRange = (r) => (r[0] === r[1] ? `${r[0]}` : `${r[0]}–${r[1]}`);
+/** "4 × 8–12 · 90s rest" for lifts, "Cardio · 20–30 min" for cardio, "Warm-up · 5 min" for a warm-up. */
+export const specLine = (ex) => (isWarmup(ex.n) ? `Warm-up · ${minRange(ex.reps)} min`
+  : isCardio(ex.n) ? `Cardio · ${minRange(ex.reps)} min`
+  : `${ex.sets} × ${ex.reps[0]}–${ex.reps[1]} · ${ex.rest}s rest`);

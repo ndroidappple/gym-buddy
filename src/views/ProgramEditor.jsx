@@ -1,12 +1,13 @@
 import React, { useState } from "react";
-import { ChevronLeft, ChevronUp, ChevronDown, Trash2, Plus, Pencil } from "lucide-react";
+import { ChevronLeft, ChevronUp, ChevronDown, Trash2, Plus, Pencil, Flame } from "lucide-react";
 import { InfoButton, ExercisePicker, ConfirmSheet, Sheet } from "../components/ui.jsx";
-import { isCardio, specLine, PROGRAM } from "../data/program.js";
+import { isCardio, isWarmup, specLine, cardioLibrary, WARMUP_MIN, PROGRAM } from "../data/program.js";
 
 export default function ProgramEditor({ day, program, back, ops }) {
   const p = program[day];
   const [open, setOpen] = useState(null);
   const [sheet, setSheet] = useState(null);
+  const hasWarmup = p.exercises.some((e) => isWarmup(e.n));
 
   return (
     <main className="screen" data-day={day}>
@@ -25,7 +26,7 @@ export default function ProgramEditor({ day, program, back, ops }) {
             <div key={ex.n} className="prog">
               <div className="prog-row" data-help={i === 0 ? "prog-lift" : undefined}>
                 <button className="main" onClick={() => setOpen(open === ex.n ? null : ex.n)} aria-expanded={open === ex.n}>
-                  <span className="name">{ex.n}{ex.custom && <span className="ex-tag">added</span>}</span>
+                  <span className="name">{ex.n}{ex.custom && !isWarmup(ex.n) && <span className="ex-tag">added</span>}</span>
                   <span className="sub">{specLine(ex)}</span>
                 </button>
                 <button className="icon-btn" disabled={i === 0} style={{ opacity: i === 0 ? 0.3 : 1 }} onClick={() => ops.move(day, ex.n, -1)} aria-label={`Move ${ex.n} up`}><ChevronUp size={19} /></button>
@@ -36,6 +37,7 @@ export default function ProgramEditor({ day, program, back, ops }) {
           ))}
         </div>
         <button className="btn btn-ghost" data-help="add-lift" onClick={() => setSheet("picker")}><Plus size={18} aria-hidden="true" /> Add a lift</button>
+        {!hasWarmup && <button className="btn btn-ghost" onClick={() => setSheet("warmup")}><Flame size={18} aria-hidden="true" /> Add a cardio warm-up</button>}
         {(p.orig || PROGRAM[day]) && <button className="btn-quiet" onClick={() => setSheet("restore")}>Restore {p.name} to its original lifts</button>}
       </div>
 
@@ -43,6 +45,18 @@ export default function ProgramEditor({ day, program, back, ops }) {
         <ExercisePicker title={`Add to ${p.name}`} sub="Pick from the library or create your own."
           existingNames={p.exercises.map((e) => e.n)} onClose={() => setSheet(null)}
           onPick={(ex) => { ops.add(day, ex); setSheet(null); }} />
+      )}
+      {sheet === "warmup" && (
+        <Sheet title="Cardio warm-up" sub={`${p.name} starts with ${WARMUP_MIN} easy minutes. It's logged on its own, so a cardio finisher on the same machine stays separate.`} onClose={() => setSheet(null)} labelledBy="warmup-title">
+          <div className="section">
+            {cardioLibrary().map((e) => (
+              <button key={e.n} className="lib-row" onClick={() => { ops.addWarmup(day, e.n); setSheet(null); }}>
+                <span style={{ flex: 1 }}><span className="name">{e.n}</span><span className="sub">Warm-up · {WARMUP_MIN} min</span></span>
+                <Plus size={18} aria-hidden="true" />
+              </button>
+            ))}
+          </div>
+        </Sheet>
       )}
       {sheet === "rename" && <RenameDay name={p.name} onSave={(n) => ops.rename(day, n)} onClose={() => setSheet(null)} />}
       {sheet === "restore" && (
