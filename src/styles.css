@@ -1114,11 +1114,7 @@ button.coach-card:active { transform: translateY(3px); box-shadow: 0 2px 0 var(-
 .rv-bubble p { margin: 0; font-size: 15.5px; line-height: 1.45; font-weight: 500; }
 .rv-bubble .rv-evidence { font-size: 13px; font-weight: 600; color: var(--mute); }
 
-.rv-week .wd i { max-width: 34px; position: relative; }
-/* Two workouts on one day: the dot splits between their colours, with the count on it. */
-.rv-week .wd i.on[style] { background: linear-gradient(90deg, var(--day) 50%, var(--day2) 50%); }
-.rv-week .wd i b { position: absolute; top: -5px; right: -7px; min-width: 18px; height: 18px; padding: 0 4px; border-radius: 9px; display: grid; place-items: center;
-  background: var(--ink); color: var(--bg); font-size: 11px; font-weight: 800; box-shadow: 0 0 0 2px var(--bg); }
+.rv-week .wd i { max-width: 34px; }
 .rv-groups { display: flex; flex-direction: column; gap: 9px; }
 .rv-groups-head { margin: 0 0 -2px; display: flex; justify-content: space-between; font-size: 12.5px; font-weight: 700; color: var(--mute); }
 .rv-bar-key { display: inline-block; width: 18px; height: 8px; border-radius: 3px; background: var(--mute); }

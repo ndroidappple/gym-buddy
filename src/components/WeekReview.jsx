@@ -225,6 +225,9 @@ function Stat({ label, value, sub }) {
 
 const signed = (x, unit = "") => `${x > 0 ? "+" : x < 0 ? "−" : "±"}${num(Math.abs(x))}${unit}`;
 const delta = (now, before) => (before ? `${now >= before ? "▲" : "▼"} ${Math.abs(Math.round(((now - before) / before) * 100))}% vs last week` : null);
+/* The training goal is days a week, so weeks count days trained: a second workout on a day adds
+   nothing. Reviews saved before facts had `days` count them from the sessions. */
+const trainedDays = (t) => t.days ?? new Set(t.sessions.map((x) => x.date)).size;
 const dayLetter = (d) => WEEKDAYS[new Date(d + "T12:00:00").getDay()][0];
 
 function Cover({ review, canUpdate, updating, onUpdate }) {
@@ -236,7 +239,7 @@ function Cover({ review, canUpdate, updating, onUpdate }) {
       <h2 className="rv-headline">{s.headline}</h2>
       <p className="rv-lead">{s.summary}</p>
       <div className="rv-stats">
-        <Stat label="workouts" value={t.target ? `${t.count}/${t.target}` : t.count} sub={t.streak >= 2 ? `${t.streak} weeks on target` : null} />
+        <Stat label="training days" value={t.target ? `${trainedDays(t)}/${t.target}` : trainedDays(t)} sub={t.streak >= 2 ? `${t.streak} weeks on target` : null} />
         <Stat label="working sets" value={t.sets} sub={delta(t.sets, t.prevSets)} />
         {n && n.avgKcal != null && <Stat label="kcal a day" value={n.avgKcal.toLocaleString()} sub={`target ${n.targets.kcal.toLocaleString()}`} />}
         {b && b.change != null ? <Stat label="lb vs last week" value={signed(b.change)} sub={`${num(b.weekAvg)} lb average`} />
@@ -255,22 +258,22 @@ function Cover({ review, canUpdate, updating, onUpdate }) {
 function Training({ review }) {
   const { facts: f, story: s } = review;
   const t = f.training;
-  // A day can hold two workouts: its dot splits between their colours and says how many.
   const byDate = {};
   for (const x of t.sessions) (byDate[x.date] ||= []).push(x);
+  const days = trainedDays(t);
   const max = Math.max(1, ...t.groups.map((g) => Math.max(g.sets, g.avg4 || 0)));
   const usual = t.groups.some((g) => g.avg4 != null);
   return (
     <div className="rv-body">
       <p className="rv-kicker">Training</p>
-      <p className="rv-big">{t.count}<small>{t.target && t.count <= t.target ? ` of ${t.target} workouts` : ` workout${t.count === 1 ? "" : "s"}${t.target ? ` · goal ${t.target}` : ""}`}</small></p>
+      <p className="rv-big">{days}<small>{t.target && days <= t.target ? ` of ${t.target} training days` : ` training day${days === 1 ? "" : "s"}${t.target ? ` · goal ${t.target}` : ""}`}</small></p>
       <div className="week rv-week">
         {f.dates.map((d) => {
           const xs = byDate[d] || [];
-          const [x, y] = xs;
+          const x = xs[0];
           return (
             <div key={d} className="wd" data-day={x?.day || undefined} aria-label={`${WEEKDAYS[new Date(d + "T12:00:00").getDay()]}: ${xs.length ? xs.map((s) => `${s.name}, ${s.sets} sets`).join("; ") : "rest"}`}>
-              <i className={x ? "on" : ""} style={y ? { "--day2": `var(--${y.day}, var(--day))` } : undefined}>{xs.length > 1 && <b>{xs.length}</b>}</i>{dayLetter(d)}
+              <i className={x ? "on" : ""} />{dayLetter(d)}
             </div>
           );
         })}
