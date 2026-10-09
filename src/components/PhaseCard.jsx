@@ -1,21 +1,29 @@
-import React, { useState } from "react";
-import { Scale, Check } from "lucide-react";
+import React, { useRef, useState } from "react";
+import { Scale, Check, X } from "lucide-react";
 import Coach from "./Coach.jsx";
 import { PHASE_TYPES, phaseStatus, statusLine, coachNote, wantsFinisher, phaseSummary } from "../lib/phase.js";
 import { addFinisher } from "../lib/setup.js";
 import { num, shortDate, today } from "../lib/util.js";
+import { collapse } from "../lib/motion.js";
 
 /* The bulk/cut phase on Progress. Quiet by design: one status line, one coach line, and the only
    program suggestion (a cardio finisher) appears once, and only when a cut has stalled for weeks. */
-export default function PhaseCard({ phase, sessions, weighins, program, onStart, onLog, onUpdate, onEnd, onProgramChange }) {
+export default function PhaseCard({ phase, sessions, weighins, program, onStart, onHide, onLog, onUpdate, onEnd, onProgramChange }) {
   const [bw, setBw] = useState("");
+  // The ✕ folds the prompt away so what's below slides up, then hides it (Settings still starts a phase).
+  const prompt = useRef(null);
+  const [closing, setClosing] = useState(false);
   if (!phase) {
+    const hide = async () => { if (closing) return; setClosing(true); await collapse(prompt.current); onHide(); };
     return (
-      <button type="button" className="card phase-card phase-empty" data-help="phase" onClick={onStart}>
-        <span className="weigh-icon" aria-hidden="true"><Scale size={22} /></span>
-        <span className="phase-text"><b>Bulk or cut?</b><span className="detail">Set a short-term bodyweight goal and your coaches track the pace.</span></span>
-        <span className="pill">Start</span>
-      </button>
+      <div ref={prompt} className="phase-prompt" inert={closing ? "" : undefined}>
+        <button type="button" className="card phase-card phase-empty" data-help="phase" onClick={onStart}>
+          <span className="weigh-icon" aria-hidden="true"><Scale size={22} /></span>
+          <span className="phase-text"><b>Bulk or cut?</b><span className="detail">Set a short-term bodyweight goal and your coaches track the pace.</span></span>
+          <span className="pill">Start</span>
+        </button>
+        {onHide && <button type="button" className="weigh-skip" onClick={hide} aria-label="Hide the bulk or cut prompt"><X size={14} strokeWidth={3} aria-hidden="true" /></button>}
+      </div>
     );
   }
   const s = phaseStatus(phase, sessions, weighins);
