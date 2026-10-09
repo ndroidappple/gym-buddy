@@ -3,7 +3,7 @@ import { createPortal, flushSync } from "react-dom";
 import { X, Home, TrendingUp, Settings as Gear, Utensils, Plus, Info, ChevronLeft, ArrowUpRight } from "lucide-react";
 import { HELP } from "../data/help.js";
 import { vibrate } from "../lib/util.js";
-import { reducedMotion, usePresence, EXIT_MS, EXIT_EASE } from "../lib/motion.js";
+import { reducedMotion, usePresence, EXIT_MS, EXIT_EASE, MS, EASE } from "../lib/motion.js";
 import { LIBRARY, specLine } from "../data/program.js";
 import Coach from "./Coach.jsx";
 
@@ -103,7 +103,7 @@ function useDragToClose(sheetRef, wrapRef, close) {
       const at = sheet.style.transform;
       sheet.style.transform = "";
       if (scrim) scrim.style.opacity = "";
-      if (at && !reducedMotion()) sheet.animate([{ transform: at }, { transform: "translateY(0)" }], { duration: 260, easing: "cubic-bezier(.2, 1.2, .35, 1)" });
+      if (at && !reducedMotion()) sheet.animate([{ transform: at }, { transform: "translateY(0)" }], { duration: MS.surface, easing: EASE.surface });
     };
     const start = (e) => {
       g = null;
@@ -304,8 +304,9 @@ const ALL_TABS = [
 /* Tab bar. Switches on finger-down, not on release: a tap snaps the pill to the nearest tab. Hold
    (or clearly slide) and the pill follows the finger, opening each tab you cross. Tab switches replace the
    history entry, so the back gesture never replays a string of tab taps.
-   The active tab gets a wider column so its label has room inside the pill. Tab geometry is
-   computed from the bar's width (not measured) so the pill lands right while the columns animate. */
+   The active tab gets a wider column so its label has room inside the pill. The columns switch at
+   once and each tab glides from where it was with a transform, so nothing re-lays out mid-move.
+   Tab geometry is computed from the bar's width, not measured, so the pill always knows where to land. */
 const TAB_PAD = 7, TAB_GAP = 4, ACTIVE_FR = 2; // keep in sync with .tabbar padding and gap
 const HOLD_MS = 200, DRAG_SLOP = 12; // hold time / finger travel (px) before the pill follows the finger
 function tabGeometry(TABS, navW, idx) {
@@ -369,6 +370,27 @@ export function TabBar({ active, onSelect, nutrition = false }) {
   };
   useEffect(() => () => { if (press.current) clearTimeout(press.current.timer); }, []);
 
+  // Each tab glides from where it was showing (mid-glide too) to its new column. While a finger
+  // drags the pill, the columns just snap, so the tabs keep still under it.
+  const tabEls = useRef([]);
+  const tabX = useRef(null); // tab centres and active tab in the last layout
+  useLayoutEffect(() => {
+    const els = tabEls.current.slice(0, TABS.length);
+    const xs = els.map((el) => el.offsetLeft + el.offsetWidth / 2);
+    const before = tabX.current;
+    tabX.current = { xs, idx };
+    // Only a change of tab glides: a resize or the Nutrition tab coming and going just lays out.
+    if (!before || before.idx === idx || before.xs.length !== xs.length || drag != null || reducedMotion()) return;
+    els.forEach((el, i) => {
+      const moving = el.getAnimations().find((a) => a.id === "tab-glide");
+      const now = moving ? new DOMMatrix(getComputedStyle(el).transform).m41 : 0;
+      moving?.cancel();
+      const dx = before.xs[i] + now - xs[i];
+      if (Math.abs(dx) < 0.5) return;
+      el.animate([{ transform: `translateX(${dx}px)` }, { transform: "none" }], { id: "tab-glide", duration: MS.slide, easing: EASE.slide });
+    });
+  }, [idx, navW, TABS.length]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const g = geo?.[idx];
   const w = g?.width || 0;
   const maxX = geo ? geo[geo.length - 1].left : 0;
@@ -378,8 +400,8 @@ export function TabBar({ active, onSelect, nutrition = false }) {
       style={{ gridTemplateColumns: TABS.map((_, i) => (i === idx ? `${ACTIVE_FR}fr` : "1fr")).join(" ") }}
       onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up} onLostPointerCapture={up}>
       {g && <span className="tab-pill" aria-hidden="true" style={{ width: w, transform: `translateX(${x}px)` }} />}
-      {TABS.map(({ key, label, Icon }) => (
-        <a key={key} className="tab" href={`#/${key}`} aria-current={active === key ? "page" : undefined}
+      {TABS.map(({ key, label, Icon }, i) => (
+        <a key={key} ref={(el) => { tabEls.current[i] = el; }} className="tab" href={`#/${key}`} aria-current={active === key ? "page" : undefined}
           // Pointer input already switched on press; this handles keyboard activation only.
           onClick={(e) => { e.preventDefault(); if (e.detail === 0) pick(key); }}>
           <Icon size={21} strokeWidth={2.4} aria-hidden="true" />
