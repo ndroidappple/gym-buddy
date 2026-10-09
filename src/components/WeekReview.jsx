@@ -255,24 +255,29 @@ function Cover({ review, canUpdate, updating, onUpdate }) {
 function Training({ review }) {
   const { facts: f, story: s } = review;
   const t = f.training;
-  const byDate = Object.fromEntries(t.sessions.map((x) => [x.date, x]));
+  // A day can hold two workouts: its dot splits between their colours and says how many.
+  const byDate = {};
+  for (const x of t.sessions) (byDate[x.date] ||= []).push(x);
   const max = Math.max(1, ...t.groups.map((g) => Math.max(g.sets, g.avg4 || 0)));
+  const usual = t.groups.some((g) => g.avg4 != null);
   return (
     <div className="rv-body">
       <p className="rv-kicker">Training</p>
-      <p className="rv-big">{t.count}<small>{t.target ? ` of ${t.target} workouts` : ` workout${t.count === 1 ? "" : "s"}`}</small></p>
+      <p className="rv-big">{t.count}<small>{t.target && t.count <= t.target ? ` of ${t.target} workouts` : ` workout${t.count === 1 ? "" : "s"}${t.target ? ` · goal ${t.target}` : ""}`}</small></p>
       <div className="week rv-week">
         {f.dates.map((d) => {
-          const x = byDate[d];
+          const xs = byDate[d] || [];
+          const [x, y] = xs;
           return (
-            <div key={d} className="wd" data-day={x?.day || undefined} aria-label={`${WEEKDAYS[new Date(d + "T12:00:00").getDay()]}: ${x ? `${x.name}, ${x.sets} sets` : "rest"}`}>
-              <i className={x ? "on" : ""} />{dayLetter(d)}
+            <div key={d} className="wd" data-day={x?.day || undefined} aria-label={`${WEEKDAYS[new Date(d + "T12:00:00").getDay()]}: ${xs.length ? xs.map((s) => `${s.name}, ${s.sets} sets`).join("; ") : "rest"}`}>
+              <i className={x ? "on" : ""} style={y ? { "--day2": `var(--${y.day}, var(--day))` } : undefined}>{xs.length > 1 && <b>{xs.length}</b>}</i>{dayLetter(d)}
             </div>
           );
         })}
       </div>
       {t.groups.length > 0 && (
         <div className="rv-groups" role="list" aria-label="Working sets by area this week">
+          <p className="rv-groups-head" aria-hidden="true"><span>Working sets by muscle group</span><span>sets</span></p>
           {t.groups.map((g) => (
             <div key={g.id} className="rv-group" role="listitem" style={{ "--c": COACHES[g.id].color }}
               aria-label={`${g.name}: ${g.sets} sets${g.avg4 != null ? `, usually ${Math.round(g.avg4)}` : ""}`}>
@@ -284,7 +289,10 @@ function Training({ review }) {
               <span className="rv-group-v">{g.sets}</span>
             </div>
           ))}
-          {t.groups.some((g) => g.avg4 != null) && <p className="rv-legend"><span><span className="rv-tick-key" aria-hidden="true" />your usual week (4-week average)</span></p>}
+          <p className="rv-legend">
+            <span><span className="rv-bar-key" aria-hidden="true" />this week</span>
+            {usual && <span><span className="rv-tick-key" aria-hidden="true" />your usual week (4-week average)</span>}
+          </p>
         </div>
       )}
       {t.prs.length > 0 && (
