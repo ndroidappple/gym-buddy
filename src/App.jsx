@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { PROGRAM, allDays, CUSTOM, normalizeProgram } from "./data/program.js";
+import { PROGRAM, allDays, CUSTOM, normalizeProgram, warmupOf, baseOf } from "./data/program.js";
 import { useRoute, href } from "./lib/router.js";
 import { Toast, TabBar, Boot, LoadError, SyncNote } from "./components/ui.jsx";
 import { loadState, createSaver } from "./lib/store.js";
@@ -170,6 +170,12 @@ export default function App() {
   const patchDay = (day, fn) => setProgram((p) => ({ ...p, [day]: { ...p[day], exercises: fn(p[day].exercises) } }));
   const programOps = {
     add: (day, ex) => { patchDay(day, (xs) => [...xs, { ...ex, custom: true }]); notify(`${ex.n} added to ${program[day].name}`); },
+    // A cardio warm-up goes first in the day, so it's the first card a session opens on.
+    addWarmup: (day, cardioName) => {
+      const w = warmupOf(cardioName);
+      patchDay(day, (xs) => [w, ...xs.filter((e) => e.n !== w.n)]);
+      notify(`${baseOf(w.n)} warm-up added to ${program[day].name}`);
+    },
     remove: (day, name) => {
       const xs = program[day].exercises;
       const i = xs.findIndex((e) => e.n === name);

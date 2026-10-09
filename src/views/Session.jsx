@@ -144,7 +144,8 @@ export default function Session({ day, existing, draft, sessions, program, weigh
   const openingFor = (ex, rows) => {
     if (existing || isCardio(ex.n) || rows.some((r) => r.done)) return null;
     const last = lastFor(ex.n);
-    const firstLift = !Object.entries(grid).some(([n, rs]) => n !== ex.n && rs.some((r) => r.done));
+    // A cardio warm-up doesn't count: the first lift after it still gets its warm-up sets.
+    const firstLift = !Object.entries(grid).some(([n, rs]) => n !== ex.n && !isCardio(n) && rs.some((r) => r.done));
     return openingAdvice({ ex, history: historyFor(ex.n), firstLift, daysSince: last ? daysBetween(last.date, date) : null, fatigue: fatigueFor(ex.n) });
   };
   // When a lift opens, its first set takes the coach's opening numbers (which count today's fatigue),
@@ -578,7 +579,7 @@ function Collapsed({ ex, rows, goal, bump, call, later, swappedTo, skipped, just
   let sub;
   if (skipped && swappedTo) sub = `Swapped for ${swappedTo} today`;
   else if (skipped) sub = "Skipped today · tap to add back";
-  else if (cardio) sub = done.length ? done.map((r) => fmtSet({ min: +r.min, mi: hasVal(r.mi) ? +r.mi : null })).join(" + ") : `Cardio · ${ex.reps[0]}–${ex.reps[1]} min`;
+  else if (cardio) sub = done.length ? done.map((r) => fmtSet({ min: +r.min, mi: hasVal(r.mi) ? +r.mi : null })).join(" + ") : specLine(ex);
   else if (complete) sub = `${done.length} sets · top set ${fmtW(best.w)} × ${best.r}`;
   else if (call?.w != null && done.length) sub = `${done.length}/${rows.length} sets · next ${fmtW(call.w)} × ${call.r}`;
   else if (bump) sub = `${done.length}/${rows.length} sets · go up to ${fmtW(bump.to)} lb`;
