@@ -6,10 +6,12 @@ import App from "./App.jsx";
 import AuthGate from "./Auth.jsx";
 import { applySavedTheme } from "./lib/theme.js";
 import { applySavedIcon } from "./lib/icons.js";
+import { applySavedView } from "./lib/view.js";
 import { registerServiceWorker } from "./lib/restAlerts.js";
 
-// Before first paint: this device's theme (dark by default) and home screen icon.
+// Before first paint: this device's theme (dark by default), detail level and home screen icon.
 applySavedTheme();
+applySavedView();
 applySavedIcon();
 registerServiceWorker(); // shows rest alerts
 

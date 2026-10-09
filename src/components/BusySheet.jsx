@@ -15,7 +15,7 @@ export default function BusySheet({ lift, isAnchor, started, doNow, swaps, onDoN
           <div className="list">
             {doNow.map((x) => (
               <button key={x.n} type="button" className="list-row" onClick={() => onDoNow(x.n)}>
-                <span className="name">{x.n}<span className="sub">{x.why}</span></span>
+                <span className="name">{x.n}<span className="sub detail">{x.why}</span></span>
                 <ArrowRight size={18} aria-hidden="true" className="muted" />
               </button>
             ))}
@@ -28,12 +28,12 @@ export default function BusySheet({ lift, isAnchor, started, doNow, swaps, onDoN
           <div className="list">
             {swaps.map((x) => (
               <button key={x.n} type="button" className="list-row" onClick={() => onSwap(x)}>
-                <span className="name">{x.n}<span className="sub">{x.samePattern ? "Same movement" : "Same muscle"}{x.logged ? " · you've done this before" : ""}</span></span>
+                <span className="name">{x.n}<span className="sub detail">{x.samePattern ? "Same movement" : "Same muscle"}{x.logged ? " · you've done this before" : ""}</span></span>
                 <Repeat size={17} aria-hidden="true" className="muted" />
               </button>
             ))}
           </div>
-          <p className="small muted">A swap is tracked as its own lift, so both keep clean histories.</p>
+          <p className="small muted detail">A swap is tracked as its own lift, so both keep clean histories.</p>
         </section>
       )}
       <button type="button" className="btn btn-ghost" onClick={onLater}><Clock size={17} aria-hidden="true" /> {doNow.length ? "Just move it to later" : "Wait for it"}</button>

@@ -130,7 +130,7 @@ function Trends({ sessions, program, weighins, prefs, setPref, notify, onWeighin
               // PRs from the latest workout get the animated gold rim (.pr-rim); with motion off it holds still.
               <a key={r.n} className={"lift-row" + (r.fresh ? " pr-rim" : "")} data-help={r.fresh || r.pr ? "pr" : "lift"} href={href("lift", r.n)}>
                 <span className="name">{r.pr && <span className="stamp pr-stamp">PR</span>}{r.n}
-                  <span className="sub">{r.top ? `Best ${fmtW(r.top.w)} × ${r.top.r}` : `Est. max ${num(r.best)} lb`} · {r.vals.length} session{r.vals.length > 1 ? "s" : ""}</span>
+                  <span className="sub detail">{r.top ? `Best ${fmtW(r.top.w)} × ${r.top.r}` : `Est. max ${num(r.best)} lb`} · {r.vals.length} session{r.vals.length > 1 ? "s" : ""}</span>
                 </span>
                 <Sparkline values={r.vals} />
                 <Trend pct={r.pct} help="trend" />
@@ -217,7 +217,7 @@ function WeighSheet({ last, onSave, onClose }) {
   const n = parseFloat(v);
   const ok = n > 50 && n < 800;
   return (
-    <Sheet title="Log a weigh-in" sub={last ? `Last: ${num(last.bw)} lb on ${shortDate(last.date)}. Same day replaces it.` : "Today's bodyweight in lb."} onClose={onClose} labelledBy="weigh-sheet-title">
+    <Sheet title="Log a weigh-in" sub={last ? `Last: ${num(last.bw)} lb on ${shortDate(last.date)}. Same day replaces it.` : "Today's bodyweight in lb."} onClose={onClose} labelledBy="weigh-sheet-title" className="keep-sub">
       <form className="rename-form" onSubmit={(e) => { e.preventDefault(); if (ok) onSave(Math.round(n * 10) / 10); }}>
         <input className="input" type="number" inputMode="decimal" step="0.1" value={v} placeholder={last ? num(last.bw) : "lb"}
           aria-label="Bodyweight in pounds" onChange={(e) => setV(e.target.value)} />

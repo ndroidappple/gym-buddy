@@ -125,7 +125,7 @@ function Find({ food, meal, onPick, onTank, onScan, onManual }) {
           {/* The fastest way for a mixed meal: say it, Tank itemizes it. */}
           <button type="button" className="tank-add" onClick={onTank}>
             <Coach id="tank" size={40} still decorative />
-            <span><b>Add with Tank</b><small>Describe your meal. Tank works out the macros.</small></span>
+            <span><b>Add with Tank</b><small className="detail">Describe your meal. Tank works out the macros.</small></span>
           </button>
           <div className="food-actions">
             <button type="button" className="chip" onClick={onScan}><ScanBarcode size={15} aria-hidden="true" /> Scan barcode</button>
@@ -142,7 +142,7 @@ function Find({ food, meal, onPick, onTank, onScan, onManual }) {
               {shown.map((x) => (
                 <div key={x.key} className="list-row food-row food-row-wrap">
                   <button type="button" className="food-row-main" onClick={() => { const p = pickYourFood(x); onPick(p.food, { amount: p.amount, unit: p.unit }); }}>
-                    <span className="name">{x.name}<span className="sub">{why(x)}</span></span>
+                    <span className="name">{x.name}<span className="sub detail">{why(x)}</span></span>
                     {x.kcal != null && <span className="food-kcal">{fmt(x.kcal)}<small> kcal</small></span>}
                     <Plus size={18} aria-hidden="true" className="muted" />
                   </button>
@@ -150,13 +150,13 @@ function Find({ food, meal, onPick, onTank, onScan, onManual }) {
               ))}
               {more > 0 && <button type="button" className="list-row food-more" onClick={() => setAll(true)}>Show all {mine.length}</button>}
             </div>
-          ) : <p className="small muted">Foods you log show up here, the ones you have most at the top.</p>}
+          ) : <p className="small muted detail">Foods you log show up here, the ones you have most at the top.</p>}
         </section>
       )}
 
       {query.length >= 2 && (
         <section className="section food-group" aria-labelledby="food-db-lbl" aria-busy={state.status === "loading"}>
-          <h3 className="lbl food-db-lbl" id="food-db-lbl">Food database<span>USDA · Open Food Facts</span></h3>
+          <h3 className="lbl food-db-lbl" id="food-db-lbl">Food database<span className="detail">USDA · Open Food Facts</span></h3>
           {state.status === "loading" && <p className="small muted" aria-live="polite">Searching…</p>}
           {state.status === "error" && <p className="setup-hint" role="alert">{SEARCH_TROUBLE[state.kind] || SEARCH_TROUBLE.busy}</p>}
           {state.status === "done" && (

@@ -95,7 +95,7 @@ export default function Nutrition({ food, prefs, notify, sessions, weighins, pro
                 <div className="list">
                   {list.map((e) => (
                     <button key={e.id} type="button" className="list-row food-row" onClick={() => setEditing(e.id)}>
-                      <span className="name">{e.name}<span className="sub">{[e.brand, e.source === "quick" ? null : amountLabel(e), `P ${Math.round(e.protein)} · C ${Math.round(e.carbs)} · F ${Math.round(e.fat)}`].filter(Boolean).join(" · ")}</span></span>
+                      <span className="name">{e.name}<span className="sub detail">{[e.brand, e.source === "quick" ? null : amountLabel(e), `P ${Math.round(e.protein)} · C ${Math.round(e.carbs)} · F ${Math.round(e.fat)}`].filter(Boolean).join(" · ")}</span></span>
                       <span className="food-kcal">{fmt(e.kcal)}</span>
                     </button>
                   ))}
@@ -107,7 +107,7 @@ export default function Nutrition({ food, prefs, notify, sessions, weighins, pro
         })}
 
         <Week week={week} t={t} />
-        <p className="small muted">Targets: {fmt(t.kcal)} kcal · {t.protein} g protein · {t.carbs} g carbs · {t.fat} g fat. <a href={href("nutrition", "setup")}>Change</a></p>
+        <p className="small muted detail">Targets: {fmt(t.kcal)} kcal · {t.protein} g protein · {t.carbs} g carbs · {t.fat} g fat. <a href={href("nutrition", "setup")}>Change</a></p>
       </div>
 
       {asking && (

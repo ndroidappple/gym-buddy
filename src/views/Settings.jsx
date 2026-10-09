@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from "react";
-import { ChevronRight, Download, LogOut, Moon, Gauge, Smartphone, Share, SquarePlus, EllipsisVertical, Check, Sparkles, Scale, Vibrate, Bell, BellRing, Pencil, ClipboardPaste, Users, Utensils, Target } from "lucide-react";
+import { ChevronRight, Download, LogOut, Moon, Gauge, Smartphone, Share, SquarePlus, EllipsisVertical, Check, Sparkles, Scale, Vibrate, Bell, BellRing, Pencil, ClipboardPaste, Users, Utensils, Target, Rows3 } from "lucide-react";
 import { Sheet, InfoButton, ConfirmSheet } from "../components/ui.jsx";
 import { ICONS, iconSrc } from "../lib/icons.js";
+import { VIEWS } from "../lib/view.js";
 import { DAYS, allDays, activeDays } from "../data/program.js";
 import { href } from "../lib/router.js";
 import { shortDate, canVibrate } from "../lib/util.js";
@@ -25,19 +26,19 @@ export default function Settings({ program, sessions, prefs, setPref, onRename, 
             {allDays(program).filter((d) => DAYS.includes(d) || !program[d].off).map((d) => (
               <a key={d} className="list-row" href={href("settings", "program", d)} data-day={d}>
                 <span className="dot" aria-hidden="true" />
-                <span className="name">{program[d].name}<span className="sub">{program[d].off ? "Not in your rotation" : `${program[d].detail} · ${program[d].exercises.length} lifts`}</span></span>
+                <span className="name">{program[d].name}<span className="sub detail">{program[d].off ? "Not in your rotation" : `${program[d].detail} · ${program[d].exercises.length} lifts`}</span></span>
                 <ChevronRight size={18} aria-hidden="true" className="muted" />
               </a>
             ))}
             <button className="list-row" data-help="rename" onClick={() => setSheet("rename")}>
               <Pencil size={18} aria-hidden="true" />
-              <span className="name">Rename workouts<span className="sub">{activeDays(program).map((d) => program[d].name).join(", ")}</span></span>
+              <span className="name">Rename workouts<span className="sub detail">{activeDays(program).map((d) => program[d].name).join(", ")}</span></span>
               <ChevronRight size={18} aria-hidden="true" className="muted" />
             </button>
             {/* Tank's paste-and-review steps on their own, for a lifter who's already set up. */}
             <a className="list-row" data-help="import" href={href("coaches", "tank", "import")}>
               <ClipboardPaste size={18} aria-hidden="true" />
-              <span className="name">Bring in your own program<span className="sub">Paste a program you already run. Tank can review it.</span></span>
+              <span className="name">Bring in your own program<span className="sub detail">Paste a program you already run. Tank can review it.</span></span>
               <ChevronRight size={18} aria-hidden="true" className="muted" />
             </a>
           </div>
@@ -48,7 +49,7 @@ export default function Settings({ program, sessions, prefs, setPref, onRename, 
           <div className="list">
             <a className="list-row" data-help="coaches" href={href("coaches")}>
               <Users size={18} aria-hidden="true" />
-              <span className="name">Your coaches<span className="sub">Ask a question or change your plan.</span></span>
+              <span className="name">Your coaches<span className="sub detail">Ask a question or change your plan.</span></span>
               <ChevronRight size={18} aria-hidden="true" className="muted" />
             </a>
             {/* Phases live on Progress; this is the side door. */}
@@ -59,7 +60,7 @@ export default function Settings({ program, sessions, prefs, setPref, onRename, 
             </a>
             <button className="list-row" data-help="redo" onClick={() => setSheet("redo")}>
               <Sparkles size={18} aria-hidden="true" />
-              <span className="name">Redo setup with your coaches<span className="sub">Goals, training days and the lifts each coach runs.</span></span>
+              <span className="name">Redo setup with your coaches<span className="sub detail">Goals, training days and the lifts each coach runs.</span></span>
               <ChevronRight size={18} aria-hidden="true" className="muted" />
             </button>
           </div>
@@ -86,6 +87,7 @@ export default function Settings({ program, sessions, prefs, setPref, onRename, 
         <section className="section">
           <h2 className="lbl">Display</h2>
           <div className="list">
+            <ViewPicker value={prefs.view === "focused" ? "focused" : "detailed"} onChange={(v) => setPref("view", v)} />
             <Toggle Icon={Moon} label="Dark mode" sub="Easier on the eyes between sets." on={prefs.theme === "dark"}
               onChange={(v) => setPref("theme", v ? "dark" : "light")} />
             <Toggle help="rir" Icon={Gauge} label="Reps in reserve (RIR)" sub="Rate how many reps you had left on each set." on={prefs.rir}
@@ -117,7 +119,7 @@ export default function Settings({ program, sessions, prefs, setPref, onRename, 
             </button>
             <button className="list-row" onClick={() => setSheet("install")}>
               <Smartphone size={18} aria-hidden="true" />
-              <span className="name">Add GymBuddy to your home screen<span className="sub">Opens full screen, like an app.</span></span>
+              <span className="name">Add GymBuddy to your home screen<span className="sub detail">Opens full screen, like an app.</span></span>
               <ChevronRight size={18} aria-hidden="true" className="muted" />
             </button>
           </div>
@@ -128,7 +130,7 @@ export default function Settings({ program, sessions, prefs, setPref, onRename, 
           <div className="list">
             <a className="list-row" data-help="export" href="#/settings/export">
               <Download size={18} aria-hidden="true" />
-              <span className="name">Export<span className="sub">{sessions.length} sessions as CSV or JSON</span></span>
+              <span className="name">Export<span className="sub detail">{sessions.length} sessions as CSV or JSON</span></span>
               <ChevronRight size={18} aria-hidden="true" className="muted" />
             </a>
           </div>
@@ -140,12 +142,12 @@ export default function Settings({ program, sessions, prefs, setPref, onRename, 
             <div className="list-row"><span className="name">Signed in<span className="sub">{email || "—"}</span></span></div>
             <button className="list-row" onClick={() => supabase.auth.signOut()}>
               <LogOut size={18} aria-hidden="true" />
-              <span className="name">Sign out<span className="sub">Your data stays saved to your account.</span></span>
+              <span className="name">Sign out<span className="sub detail">Your data stays saved to your account.</span></span>
             </button>
           </div>
         </section>
 
-        <p className="small muted">Weights are in pounds.</p>
+        <p className="small muted detail">Weights are in pounds.</p>
       </div>
 
       {sheet === "icon" && (
@@ -228,11 +230,25 @@ function RestAlertsRow({ notify, onInstall }) {
   return <Toggle Icon={BellRing} label="Rest alerts" sub={sub} on={state === "on"} onChange={toggle} />;
 }
 
+/** Detailed or Focused: how much each screen explains. One row, two choices, shown live. */
+function ViewPicker({ value, onChange }) {
+  const cur = VIEWS.find((v) => v.id === value) || VIEWS[0];
+  return (
+    <div className="list-row view-row">
+      <Rows3 size={18} aria-hidden="true" />
+      <span className="name">Detail level<span className="sub">{cur.sub}</span></span>
+      <div className="segctl view-seg" role="group" aria-label="Detail level">
+        {VIEWS.map((v) => <button key={v.id} aria-pressed={v.id === value} onClick={() => onChange(v.id)}>{v.label}</button>)}
+      </div>
+    </div>
+  );
+}
+
 function Toggle({ Icon, label, sub, on, onChange, help }) {
   return (
     <button className="list-row" data-help={help} role="switch" aria-checked={on} onClick={() => onChange(!on)}>
       <Icon size={18} aria-hidden="true" />
-      <span className="name">{label}<span className="sub">{sub}</span></span>
+      <span className="name">{label}<span className="sub detail">{sub}</span></span>
       <span className="switch" aria-hidden="true" />
     </button>
   );
@@ -257,7 +273,7 @@ function InstallSheet({ onClose }) {
         [null, <>Tap <b>Add</b>. GymBuddy now opens full screen, like an app.</>],
       ];
   return (
-    <Sheet title="Add to your home screen" sub={ios || !android ? "On iPhone, in Safari" : "On Android, in Chrome"} onClose={onClose} labelledBy="install-title">
+    <Sheet title="Add to your home screen" sub={ios || !android ? "On iPhone, in Safari" : "On Android, in Chrome"} onClose={onClose} labelledBy="install-title" className="keep-sub">
       {installed && <p className="note-box">You're in the home screen app now. To add it again, open GymBuddy in {android ? "Chrome" : "Safari"} first.</p>}
       <ol className="steps">
         {steps.map(([I, text], n) => (
