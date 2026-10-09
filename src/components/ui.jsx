@@ -3,7 +3,7 @@ import { createPortal, flushSync } from "react-dom";
 import { X, Home, TrendingUp, Settings as Gear, Utensils, Plus, Info, ChevronLeft, ArrowUpRight } from "lucide-react";
 import { HELP } from "../data/help.js";
 import { vibrate } from "../lib/util.js";
-import { reducedMotion, usePresence, EXIT_MS, EXIT_EASE } from "../lib/motion.js";
+import { reducedMotion, usePresence, EXIT_MS, EXIT_EASE, MS, EASE } from "../lib/motion.js";
 import { LIBRARY, specLine } from "../data/program.js";
 import Coach from "./Coach.jsx";
 
@@ -103,7 +103,7 @@ function useDragToClose(sheetRef, wrapRef, close) {
       const at = sheet.style.transform;
       sheet.style.transform = "";
       if (scrim) scrim.style.opacity = "";
-      if (at && !reducedMotion()) sheet.animate([{ transform: at }, { transform: "translateY(0)" }], { duration: 260, easing: "cubic-bezier(.2, 1.2, .35, 1)" });
+      if (at && !reducedMotion()) sheet.animate([{ transform: at }, { transform: "translateY(0)" }], { duration: MS.surface, easing: EASE.surface });
     };
     const start = (e) => {
       g = null;

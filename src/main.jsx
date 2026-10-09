@@ -8,11 +8,13 @@ import { applySavedTheme } from "./lib/theme.js";
 import { applySavedIcon } from "./lib/icons.js";
 import { applySavedView } from "./lib/view.js";
 import { registerServiceWorker } from "./lib/restAlerts.js";
+import { installMotion } from "./lib/motion.js";
 
 // Before first paint: this device's theme (dark by default), detail level and home screen icon.
 applySavedTheme();
 applySavedView();
 applySavedIcon();
+installMotion(); // the spring easings styles.css animates with
 registerServiceWorker(); // shows rest alerts
 
 // iOS Safari ignores user-scalable=no; block pinch-zoom so it behaves like a native app.
