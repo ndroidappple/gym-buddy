@@ -16,7 +16,7 @@ const TROUBLE = {
   offline: "No connection, so I can't work it out. Enter it manually, or try again when you're back online.",
   auth: "Lost track of who you are. Sign in again.",
   unavailable: "Adding with Tank runs on the deployed app, not this dev server.",
-  rate: "Too many requests for the free tier. Give me a minute and try again.",
+  rate: "Too many requests at once. Give me a minute and try again.",
   empty: "Lost my train of thought. Say it again?",
   busy: "Couldn't get that through. Try again in a moment.",
 };

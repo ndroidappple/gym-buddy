@@ -6,7 +6,7 @@ import { createClient } from "@supabase/supabase-js";
    taps Apply. In the response stream a proposal is a line starting with PROPOSAL_MARK. */
 export const PROPOSAL_MARK = "\u001E";
 
-/** A 429 from AI Gateway (free-tier per-model limit) or the provider, however the SDK wraps it. */
+/** A 429 from AI Gateway (a per-model rate limit) or the provider, however the SDK wraps it. */
 function isRateLimit(e) {
   for (let x = e, depth = 0; x && depth < 5; x = x.lastError || x.cause, depth++) {
     if (x.statusCode === 429 || x.type === "rate_limit_exceeded" || /rate.?limit/i.test(x.message || "")) return true;
@@ -157,11 +157,12 @@ export function nutritionInstructions(context = "") {
 
 /* Ask-a-coach. Runs as a Vercel Function; the model is reached through Vercel AI Gateway,
    which authenticates with the deployment's OIDC token (no API key in the app).
-   Default is a zero-cost model; set AI_GATEWAY_MODEL in the project to switch.
-   Free models come and go (ling-3.0-flash-sante-free was withdrawn from the gateway and every ask
-   failed), so the gateway falls back to other free models, in order, when the first one fails. */
-const MODEL = process.env.AI_GATEWAY_MODEL || "inclusionai/ling-3.1-flash-free";
-const FALLBACKS = ["inclusionai/ling-3.1-flash", "poolside/laguna-s-2.1-free"].filter((m) => m !== MODEL);
+   Default is Claude Haiku 5.5: fast enough for mid-set questions and good at itemizing a meal, at
+   about $0.001 a reply, paid from AI Gateway's free $5 a month (shared with the week in review).
+   Set AI_GATEWAY_MODEL in the project to switch. If it fails (credit used up, an outage) the
+   gateway falls back to free models, in order; free models come and go, so there are two. */
+const MODEL = process.env.AI_GATEWAY_MODEL || "anthropic/claude-haiku-5.5";
+const FALLBACKS = ["inclusionai/ling-3.1-flash-free", "poolside/laguna-s-2.1-free"].filter((m) => m !== MODEL);
 
 const COACHES = {
   tank: ["Tank", "chest and triceps, and nutrition"], wings: ["Wings", "back and biceps"], boulder: ["Boulder", "shoulders"],
@@ -232,11 +233,13 @@ export async function POST(request) {
     tools: review ? REVIEW_TOOLS : food ? FOOD_TOOLS : eat ? { offer_replies: COACH_TOOLS.offer_replies } : COACH_TOOLS,
     // Brevity comes from the prompt, not this cap. The model thinks before it answers and that counts
     // against the cap (up to ~580 tokens measured with the full context), so a tight cap returns an
-    // empty reply, which used to look like a rate limit. Free model: the headroom costs nothing.
+    // empty reply, which used to look like a rate limit. Only tokens actually written are billed.
     // A review thinks through the whole program, then writes up to 8 changes (~60 tokens each) and
     // a verdict: 6000 leaves ample room for all of that on top of long thinking.
     // A meal: thinking plus up to 12 itemized foods (~50 tokens each) and a sentence.
     maxOutputTokens: review ? 6000 : food ? 4000 : eat ? 2000 : 1500,
+    // How hard it thinks first: a quick answer mid-set; more for itemizing a meal or reading a program.
+    reasoning: review || food ? "medium" : "low",
     providerOptions: { gateway: { models: FALLBACKS } },
     abortSignal: request.signal,
   });
@@ -246,7 +249,7 @@ export async function POST(request) {
 
 /** Plain text as it streams, then any proposal as its own line: MARK + JSON. When the reply fails
     or comes back empty, a final MARK + {"status": ...} line tells the app why, so it can say the
-    right thing (and retry an empty reply) instead of blaming the free tier for everything. */
+    right thing (and retry an empty reply) instead of calling everything a rate limit. */
 export function toReplyStream(result) {
   const enc = new TextEncoder();
   return new ReadableStream({
