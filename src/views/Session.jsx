@@ -19,6 +19,8 @@ import { COACHES, coachFor } from "../data/coaches.js";
 import { isCardio, specLine } from "../data/program.js";
 
 const hasVal = (v) => v !== "" && v != null;
+// A draft untouched this long is a new workout when lifting picks back up (a set tapped days ago isn't when it started).
+const RESUME_GAP = 12 * 3600e3;
 
 export default function Session({ day, existing, draft, sessions, program, weighins, prefs, back, notify, onSaveDraft, onDiscardDraft, onFinish, onUpdate, onDelete, onProgramChange, nutrition }) {
   const dayProgram = program[day];
@@ -34,6 +36,15 @@ export default function Session({ day, existing, draft, sessions, program, weigh
   const [bw, setBw] = useState(existing?.bw != null ? String(existing.bw) : draft?.bw ?? "");
   const [note, setNote] = useState(existing?.note || draft?.note || "");
   const [startedAt, setStartedAt] = useState(existing?.startedAt || draft?.startedAt || null);
+  // The session is dated the day lifting started (its first set), unless the lifter set the date in Session details.
+  const [datePicked, setDatePicked] = useState(!!draft?.datePicked);
+  const restart = useRef(!!draft?.restart || (!!draft?.updatedAt && Date.now() - draft.updatedAt > RESUME_GAP));
+  const markStart = () => {
+    if (existing || (startedAt && !restart.current)) return;
+    restart.current = false;
+    setStartedAt(Date.now());
+    if (!datePicked) setDate(today());
+  };
   const [timer, setTimer] = useState(() => (draft?.timer?.endsAt > Date.now() ? draft.timer : null));
   const [sheet, setSheet] = useState(null); // "picker" | "details" | "delete"
   const [chat, setChat] = useState(null); // {coach, exercise} being asked
@@ -220,11 +231,11 @@ export default function Session({ day, existing, draft, sessions, program, weigh
         const sets = collectSets();
         if (Object.keys(sets).length) onUpdate({ ...existing, date, bw: bw !== "" ? parseFloat(bw) : null, note: note.trim() || null, sets });
       } else {
-        onSaveDraft(day, { grid, date, bw, note, extras, skipped, timer, startedAt, advice, later, swaps, order });
+        onSaveDraft(day, { grid, date, datePicked, restart: restart.current, bw, note, extras, skipped, timer, startedAt, advice, later, swaps, order });
       }
     }, 500);
     return () => clearTimeout(t);
-  }, [grid, date, bw, note, extras, skipped, timer, startedAt, advice, later, swaps, order]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [grid, date, datePicked, bw, note, extras, skipped, timer, startedAt, advice, later, swaps, order]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /* ── rest alerts: a push when rest is over, sent by the server so it arrives with the phone locked ──
      Scheduled when rest starts, moved by +15/−15, cancelled by Skip, Finish or Discard, and not sent
@@ -292,7 +303,7 @@ export default function Session({ day, existing, draft, sessions, program, weigh
     primeAudio();
     const beat = setChange({ min: +row.min, mi: hasVal(row.mi) ? +row.mi : null }, lastFor(ex.n)?.sets[ex.n]?.[i])?.dir > 0;
     setGrid((g) => { const rows = [...g[ex.n]]; rows[i] = { ...rows[i], done: true }; return { ...g, [ex.n]: rows }; });
-    if (!startedAt) setStartedAt(Date.now());
+    markStart();
     setFlash({ ex: ex.n, i });
     vibrate(20);
     setActiveIdx(null);
@@ -338,7 +349,7 @@ export default function Session({ day, existing, draft, sessions, program, weigh
     const doneNow = grid[ex.n].map((r, j) => (j === i ? { ...r, done: true } : r)).filter((r) => r.done && hasVal(r.w) && hasVal(r.r));
     const earned = doneNow.length >= ex.sets && readyToIncrease(ex, doneNow.map((r) => ({ w: +r.w, r: +r.r })));
     if (earned && !call) notify(`${ex.n}: ${earned.sets} × ${earned.reps} done. Go up to ${fmtW(earned.to)} lb next time.`); // the coach's wrap-up says it otherwise
-    if (!startedAt) setStartedAt(Date.now());
+    markStart();
     setFlash({ ex: ex.n, i });
     vibrate(pr ? [40, 60, 40, 60, 80] : 20);
     const next = call?.w != null ? `${fmtW(call.w)} × ${call.r}` : null;
@@ -523,7 +534,7 @@ export default function Session({ day, existing, draft, sessions, program, weigh
         <Sheet title="Session details" onClose={() => setSheet(null)}>
           <div className="grid-2">
             <label className="field"><span className="lbl">Date</span>
-              <input id="sess-date" className="input" type="date" value={date} onChange={(e) => setDate(e.target.value || today())} /></label>
+              <input id="sess-date" className="input" type="date" value={date} onChange={(e) => { setDate(e.target.value || today()); setDatePicked(true); }} /></label>
             <label className="field"><span className="lbl">Bodyweight (lb)</span>
               <input id="sess-bw" className="input tn" type="number" inputMode="decimal" placeholder="—" value={bw} onChange={(e) => setBw(e.target.value)} /></label>
           </div>
