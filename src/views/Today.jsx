@@ -126,7 +126,7 @@ export default function Today({ name, sessions, program, drafts, weighins, prefs
                 <button key={d} type="button" className="list-row" data-day={d} aria-pressed={d === day} onClick={() => choose(d)}>
                   <span className="dot" aria-hidden="true" />
                   <span className="name">{d === CUSTOM ? "Custom workout" : program[d].name}{drafts[d] ? " · in progress" : d === suggested ? " · up next" : ""}
-                    <span className="sub">{d === CUSTOM ? "Start empty and add any lifts or cardio." : `${program[d].detail} · ${lastDone(d)}`}</span></span>
+                    <span className="sub detail">{d === CUSTOM ? "Start empty and add any lifts or cardio." : `${program[d].detail} · ${lastDone(d)}`}</span></span>
                   {d === day && <Check size={18} strokeWidth={2.6} aria-hidden="true" />}
                 </button>
               ))}

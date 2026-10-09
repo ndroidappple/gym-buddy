@@ -116,7 +116,7 @@ function LiftDetail({ name, sessions, program, back }) {
               {points.length >= 2
                 ? <LineChart key={metric} points={points} format={m.fmt} ariaLabel={`${m.label} over ${points.length} sessions, from ${m.fmt(points[0].value)} to ${m.fmt(points[points.length - 1].value)}`} />
                 : <p className="small muted">One session so far. The chart appears after the second.</p>}
-              <p className="mono small muted">{metric === "fresh" ? "Est. max as if done fresh: sets for the same muscle before it are counted as fatigue." : "Filled dots set a new best. Tap a dot, or hold and slide, to read it."}</p>
+              <p className="mono small muted detail">{metric === "fresh" ? "Est. max as if done fresh: sets for the same muscle before it are counted as fatigue." : "Filled dots set a new best. Tap a dot, or hold and slide, to read it."}</p>
             </div>
 
             <section className="section" data-help="rep-records">

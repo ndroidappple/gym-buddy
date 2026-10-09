@@ -270,7 +270,7 @@ export function InfoButton({ screen }) {
 /** `danger` (the default) is for deletes and resets; pass false for a confirm that loses nothing. */
 export function ConfirmSheet({ title, body, confirm, onConfirm, onClose, danger = true }) {
   return (
-    <Sheet title={title} sub={body} onClose={onClose} labelledBy="confirm-title">
+    <Sheet title={title} sub={body} onClose={onClose} labelledBy="confirm-title" className="keep-sub">
       <div className="btn-row">
         <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
         <button className={"btn " + (danger ? "btn-danger" : "btn-ink")} onClick={() => { onConfirm(); onClose(); }}>{confirm}</button>

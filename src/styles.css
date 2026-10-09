@@ -956,3 +956,26 @@ button.coach-card:active { transform: translateY(3px); box-shadow: 0 2px 0 var(-
 /* A logged set vs the same set last time: ink when up, muted when same or down (color stays for the day). */
 .chg { font-size: 12.5px; font-weight: 800; color: var(--mute); white-space: nowrap; }
 .chg.up { color: var(--ink); }
+
+/* ── Detail level (Settings → Display) ── */
+.view-row { flex-wrap: wrap; row-gap: 10px; }
+.view-row .view-seg { flex-basis: 100%; }
+
+/* Focused view: the same screens with the explanations taken out (lib/view.js). Text that only
+   explains is marked `.detail`; the rest are the app's standing explainer slots. Numbers you act on,
+   errors, set progress and your own form cues show in both views. */
+:root[data-view="focused"] .detail,
+:root[data-view="focused"] .sheet:not(.help-sheet):not(.keep-sub) .sheet-sub,
+:root[data-view="focused"] .empty-text,
+:root[data-view="focused"] .target-none,
+:root[data-view="focused"] .hist-meta,
+:root[data-view="focused"] .cal-title span,
+:root[data-view="focused"] .coach-card i,
+:root[data-view="focused"] .chat-note { display: none !important; }
+
+/* With the second line gone, rows close up so more fits on a phone screen. */
+:root[data-view="focused"] .list-row,
+:root[data-view="focused"] .lib-row,
+:root[data-view="focused"] .food-row-main { min-height: 50px; }
+:root[data-view="focused"] .list-row.food-row-wrap { min-height: 0; }
+:root[data-view="focused"] .tank-add { padding: 10px 14px; }

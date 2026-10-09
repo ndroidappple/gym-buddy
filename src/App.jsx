@@ -8,6 +8,7 @@ import { DEFAULT_PREFS } from "./lib/prefs.js";
 import { today } from "./lib/util.js";
 import { applyIcon } from "./lib/icons.js";
 import { applyTheme } from "./lib/theme.js";
+import { applyView } from "./lib/view.js";
 import { setHaptics } from "./lib/util.js";
 import { setSound } from "./lib/sound.js";
 import Today from "./views/Today.jsx";
@@ -96,6 +97,7 @@ export default function App() {
   /* The icon choice follows the account, so a fresh Safari sign-in offers the same icon to Add to Home Screen. */
   useEffect(() => { if (ready) applyIcon(prefs.icon); }, [ready, prefs.icon]);
   useEffect(() => { if (ready) applyTheme(prefs.theme); }, [ready, prefs.theme]);
+  useEffect(() => { if (ready) applyView(prefs.view); }, [ready, prefs.view]);
   useEffect(() => { setHaptics(prefs.haptics); setSound(prefs.sound); }, [prefs.haptics, prefs.sound]);
   const setPref = useCallback((k, v) => setPrefs((p) => ({ ...p, [k]: v })), []);
 

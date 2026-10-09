@@ -103,12 +103,12 @@ export default function TankMeal({ meal: slot, onMeal, action, onSave }) {
         {card && cardIsLatest && !busy && (
           <div className="tank-meal-save">
             <label className="check-row"><input type="checkbox" checked={save} onChange={(e) => setSave(e.target.checked)} />
-              <span>Save to my foods<small>It shows in Your foods for a while anyway. Saving keeps it for good.</small></span></label>
+              <span>Save to my foods<small className="detail">It shows in Your foods for a while anyway. Saving keeps it for good.</small></span></label>
             <div className="setup-choices food-meals" role="group" aria-label="Meal">
               {MEALS.map((m) => <button key={m.id} type="button" className="chip" aria-pressed={slot === m.id} onClick={() => onMeal(m.id)}>{m.label}</button>)}
             </div>
             <button type="button" className="btn btn-ink" onClick={confirm}><Check size={18} strokeWidth={3} aria-hidden="true" /> {action}</button>
-            <p className="small muted">Something off? Tell Tank below, e.g. "it was 2 tbsp".</p>
+            <p className="small muted detail">Something off? Tell Tank below, e.g. "it was 2 tbsp".</p>
           </div>
         )}
       </div>

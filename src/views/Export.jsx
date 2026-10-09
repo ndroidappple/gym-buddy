@@ -58,7 +58,7 @@ export default function Export({ sessions, program, weighins, back, notify, food
         <InfoButton screen="export" />
       </header>
       <div className="body" style={{ paddingTop: 12 }}>
-        <p className="muted">Your sessions are saved to your GymBuddy account and sync across devices. Export a copy whenever you want one you control. CSV opens straight in Sheets or Excel.</p>
+        <p className="muted detail">Your sessions are saved to your GymBuddy account and sync across devices. Export a copy whenever you want one you control. CSV opens straight in Sheets or Excel.</p>
         <div className="segctl" data-help="format" role="group" aria-label="Format">
           {formats.map(([f, label]) => <button key={f} aria-pressed={fmt === f} onClick={() => setFmt(f)}>{label}</button>)}
         </div>

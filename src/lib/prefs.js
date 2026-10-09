@@ -5,4 +5,5 @@ export const DEFAULT_PREFS = {
   icon: "plates", // home screen icon, one of ICONS in icons.js
   haptics: true, // vibration on logged sets, PRs and rest end (where the browser supports it)
   sound: true, // rest-timer chime
+  view: "detailed", // "detailed" | "focused": how much grey explanation each screen shows (lib/view.js)
 };

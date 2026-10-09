@@ -13,7 +13,7 @@ export default function PhaseCard({ phase, sessions, weighins, program, onStart,
     return (
       <button type="button" className="card phase-card phase-empty" data-help="phase" onClick={onStart}>
         <span className="weigh-icon" aria-hidden="true"><Scale size={22} /></span>
-        <span className="phase-text"><b>Bulk or cut?</b><span>Set a short-term bodyweight goal and your coaches track the pace.</span></span>
+        <span className="phase-text"><b>Bulk or cut?</b><span className="detail">Set a short-term bodyweight goal and your coaches track the pace.</span></span>
         <span className="pill">Start</span>
       </button>
     );
@@ -27,7 +27,7 @@ export default function PhaseCard({ phase, sessions, weighins, program, onStart,
     return (
       <section className="card phase-card" data-help="phase" aria-label={`${t.label} complete`}>
         <span className="lbl">{t.label} complete</span>
-        <p className="phase-big">{num(r.from)} → {num(r.to)} lb <small>{r.perWeek > 0 ? "+" : r.perWeek < 0 ? "−" : ""}{num(Math.abs(r.perWeek))} lb/wk over {r.weeks} weeks</small></p>
+        <p className="phase-big">{num(r.from)} → {num(r.to)} lb <small className="detail">{r.perWeek > 0 ? "+" : r.perWeek < 0 ? "−" : ""}{num(Math.abs(r.perWeek))} lb/wk over {r.weeks} weeks</small></p>
         {r.lifts.length > 0 && (
           <ul className="phase-lifts">{r.lifts.map((l) => <li key={l.n}>{l.n}: est. max {num(l.from)} → {num(l.to)} lb</li>)}</ul>
         )}
@@ -51,7 +51,7 @@ export default function PhaseCard({ phase, sessions, weighins, program, onStart,
     <section className={"card phase-card phase-" + s.status} data-help="phase" aria-label={`${t.label}, week ${s.week} of ${s.weeks}`}>
       <div className="phase-head">
         <span className="lbl">{t.label} · week {s.week} of {s.weeks}</span>
-        <span className="small muted">{num(phase.startWeight)} → {num(phase.target)} lb by {shortDate(phase.end)}</span>
+        <span className="small muted detail">{num(phase.startWeight)} → {num(phase.target)} lb by {shortDate(phase.end)}</span>
       </div>
       <p className="phase-big">{statusLine(phase, s)}</p>
       {note && (

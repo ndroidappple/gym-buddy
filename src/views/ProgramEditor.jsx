@@ -20,7 +20,7 @@ export default function ProgramEditor({ day, program, back, ops }) {
         <InfoButton screen="program" />
       </header>
       <div className="body" style={{ paddingTop: 12 }}>
-        <p className="small muted">Changes apply to future {p.name} sessions. Past sessions keep what you logged.</p>
+        <p className="small muted detail">Changes apply to future {p.name} sessions. Past sessions keep what you logged.</p>
         <div>
           {p.exercises.map((ex, i) => (
             <div key={ex.n} className="prog">
