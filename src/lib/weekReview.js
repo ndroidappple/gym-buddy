@@ -108,7 +108,8 @@ function weekTraining(sorted, w) {
       min += c.min; mi += c.mi;
     }
   }
-  return { sessions, count: sessions.length, sets, volume: Math.round(vol), cardioMin: Math.round(min), cardioMi: r1(mi), groups };
+  // The training goal is days a week: two workouts on one day still make one training day.
+  return { sessions, count: sessions.length, days: new Set(sessions.map((s) => s.date)).size, sets, volume: Math.round(vol), cardioMin: Math.round(min), cardioMi: r1(mi), groups };
 }
 
 /** Daily food totals for a window, over the days with anything logged. */
@@ -154,7 +155,7 @@ export function buildWeekFacts({ sessions = [], program, weighins = [], prefs = 
     const ww = back(k), t = weekTraining(sorted, ww), f = nut ? weekFood(foodUpTo, ww) : null;
     const bw = bwAll.filter((p) => within(p.date, ww)).map((p) => p.bw);
     return {
-      start: ww.start, end: ww.end, sessions: t.count, sets: t.sets, volume: t.volume, cardioMin: t.cardioMin,
+      start: ww.start, end: ww.end, sessions: t.count, days: t.days, sets: t.sets, volume: t.volume, cardioMin: t.cardioMin,
       logged: f ? f.logged : null, avgKcal: f?.logged ? Math.round(f.avgKcal) : null, avgProtein: f?.logged ? Math.round(f.avgProtein) : null,
       bw: bw.length ? r1(avg(bw)) : null,
     };
@@ -212,13 +213,13 @@ export function buildWeekFacts({ sessions = [], program, weighins = [], prefs = 
   }).filter(Boolean);
   const rirs = cur.sessions.flatMap((s) => Object.values(s.sets || {}).flatMap((xs) => lifting(xs).filter((x) => x.rir != null).map((x) => +x.rir)));
   let streak = 0;
-  if (target) for (let k = 0; k < 12 && weekTraining(sorted, back(k)).count >= target; k++) streak++;
+  if (target) for (let k = 0; k < 12 && weekTraining(sorted, back(k)).days >= target; k++) streak++;
   const prior4Sessions = prior4.flatMap((x) => x.sessions);
   const hours = (xs) => xs.filter((s) => s.startedAt).map((s) => hourIn(s.startedAt, tz));
   const mins = (xs) => xs.map(sessionMins).filter((m) => m != null);
 
   const training = {
-    target, count: cur.count, prevCount: prev.count, sets: cur.sets, prevSets: prev.sets, volume: cur.volume, prevVolume: prev.volume,
+    target, days: cur.days, prevDays: prev.days, count: cur.count, prevCount: prev.count, sets: cur.sets, prevSets: prev.sets, volume: cur.volume, prevVolume: prev.volume,
     avg4Sets: prior4.length ? Math.round(avg(prior4.map((x) => x.sets))) : null,
     cardioMin: cur.cardioMin, cardioMi: cur.cardioMi, prevCardioMin: prev.cardioMin,
     sessions: sessionsOut, groups, prs: Object.values(prs).sort((a, b) => b.pct - a.pct), downs: downs.sort((a, b) => a.pct - b.pct).slice(0, 4),
@@ -320,14 +321,14 @@ function highsAndLows({ training: t, nutrition: n, body: b }) {
   const highs = [], lows = [];
   const pr = t.prs[0];
   if (pr) highs.push({ text: `New best on ${pr.lift}: ${pr.set}, est. max ${num(pr.e1rm)} lb (+${pr.pct}%)${t.prs.length > 1 ? `, one of ${t.prs.length} records` : ""}.`, coach: pr.coach });
-  if (t.target && t.count >= t.target) highs.push({ text: t.streak >= 2 ? `${t.count} of ${t.target} workouts, ${t.streak} weeks in a row on target.` : `All ${t.target} planned workouts done.`, coach: "tank" });
+  if (t.target && t.days >= t.target) highs.push({ text: t.streak >= 2 ? `Trained ${t.days} of ${t.target} days, ${t.streak} weeks in a row on target.` : `Trained all ${t.target} planned days.`, coach: "tank" });
   if (t.avg4Sets && t.sets >= t.avg4Sets * 1.1) highs.push({ text: `${t.sets} working sets, up ${pct(t.sets, t.avg4Sets)}% on your recent average.`, coach: "tank" });
   if (n && n.proteinHit >= 5) highs.push({ text: `Protein target hit on ${n.proteinHit} days.`, coach: "tank" });
   if (b?.phase && ["on", "ahead"].includes(b.phase.status)) highs.push({ text: `${b.phase.label} on pace: ${num(b.phase.current)} lb, week ${b.phase.week} of ${b.phase.weeks}.`, coach: "tank" });
   const riser = t.risers[0];
   if (riser && riser.lift !== pr?.lift) highs.push({ text: `${riser.lift} est. max up ${riser.change4}% on four weeks ago.`, coach: riser.coach });
 
-  if (t.target && t.count < t.target) lows.push({ text: t.count ? `${t.count} of ${t.target} planned workouts.` : "No workouts logged this week.", coach: "tank" });
+  if (t.target && t.days < t.target) lows.push({ text: t.days ? `Trained ${t.days} of ${t.target} planned days.` : "No workouts logged this week.", coach: "tank" });
   const down = t.downs[0];
   if (down) lows.push({ text: `${down.lift} came in ${Math.abs(down.pct)}% under last time (est. max ${num(down.e1rm)} vs ${num(down.was)} lb).`, coach: down.coach });
   const skip = t.skipped.find((s) => s.times >= 1);
@@ -402,7 +403,7 @@ export function weekSnapshot(data, weekEnd, weeksAgo) {
   const t = f.training, n = f.nutrition;
   return {
     start: f.start, end: f.weekEnd,
-    training: { count: t.count, sets: t.sets, volume: t.volume, cardioMin: t.cardioMin, groups: t.groups, prs: t.prs, sessions: t.sessions.map(({ date, name, mins, sets, startHour }) => ({ date, name, mins, sets, startHour })) },
+    training: { days: t.days, count: t.count, sets: t.sets, volume: t.volume, cardioMin: t.cardioMin, groups: t.groups, prs: t.prs, sessions: t.sessions.map(({ date, name, mins, sets, startHour }) => ({ date, name, mins, sets, startHour })) },
     nutrition: n && { logged: n.logged, avgKcal: n.avgKcal, avgProtein: n.avgProtein, proteinHit: n.proteinHit, trainingDays: n.trainingDays, restDays: n.restDays, weekend: n.weekend },
     body: f.body && { weekAvg: f.body.weekAvg, change: f.body.change },
   };
@@ -442,19 +443,19 @@ const signed = (x, unit = "") => `${x > 0 ? "+" : x < 0 ? "−" : ""}${num(Math.
 /** The review written by plain code: used when no model answers, and to fill any gap in the agent's. */
 export function fallbackStory(f) {
   const t = f.training, n = f.nutrition, b = f.body;
-  const all = t.target && t.count >= t.target;
+  const all = t.target && t.days >= t.target;
   const headline = !t.count ? (n?.logged ? "A week off the iron, food still logged." : "A quiet week.")
-    : all ? (t.prs.length ? `Every workout in, and ${plural(t.prs.length, "new record")}.` : "Every planned workout done.")
-    : `${t.count} of ${t.target || t.count} workouts in.`;
+    : all ? (t.prs.length ? `Every training day in, and ${plural(t.prs.length, "new record")}.` : "Every planned training day done.")
+    : `${t.days} of ${t.target || t.days} training days in.`;
   const setsVs = t.prevSets ? ` That's ${t.sets >= t.prevSets ? "up" : "down"} from ${t.prevSets} last week.` : "";
   const group = [...t.groups].sort((a, c) => c.sets - a.sets)[0];
   const summary = [
-    t.count ? `${plural(t.count, "workout")} and ${t.sets} working sets.${setsVs}` : "No workouts logged this week.",
+    t.count ? `${plural(t.days, "training day")} and ${t.sets} working sets.${setsVs}` : "No workouts logged this week.",
     n?.avgKcal != null ? `Food averaged ${n.avgKcal.toLocaleString("en-US")} kcal and ${n.avgProtein} g protein against ${n.targets.kcal.toLocaleString("en-US")} kcal and ${n.targets.protein} g.` : "",
     f.history === 0 ? "This is your first review, so it sets the baseline the next ones compare against." : "",
   ].filter(Boolean).join(" ");
   const training = {
-    title: t.count ? `${plural(t.count, "workout")} · ${t.sets} sets` : "No workouts",
+    title: t.count ? `${plural(t.days, "day")} · ${t.sets} sets` : "No workouts",
     body: t.count ? [
       group?.sets ? `Most of the work went to ${group.name.toLowerCase()} (${group.sets} sets).` : "",
       t.prs.length ? `New records on ${t.prs.slice(0, 3).map((p) => p.lift).join(", ")}.` : "No new records this week.",
@@ -489,7 +490,7 @@ export function fallbackStory(f) {
   if (b?.rate4 != null) trends.push({ title: "Bodyweight", body: `Moving ${signed(b.rate4, " lb")} a week over the last month.`, coach: "tank" });
   const focus = [
     ...t.ready.slice(0, 2).map((r) => ({ action: `Go up to ${fmtW(r.to)} lb on ${r.lift}`, why: `You hit the top of the range at ${fmtW(r.from)} lb.`, coach: r.coach })),
-    t.target && t.count < t.target ? { action: `Get ${t.target} workouts in`, why: `This week was ${t.count}.`, coach: "tank" } : null,
+    t.target && t.days < t.target ? { action: `Train ${t.target} days`, why: `This week was ${t.days}.`, coach: "tank" } : null,
     n && n.logged && n.proteinHit < 5 ? { action: `Reach ${n.targets.protein} g protein on 5+ days`, why: `This week: ${n.proteinHit} days.`, coach: "tank" } : null,
   ].filter(Boolean).slice(0, 3);
   if (!focus.length) focus.push({ action: "Keep the same rhythm", why: "Repeat this week and add a rep where you can.", coach: "tank" });

@@ -859,7 +859,8 @@ button.coach-card:active { transform: translateY(3px); box-shadow: 0 2px 0 var(-
 
 /* ═══════════════ NUTRITION ═══════════════ */
 :root { --protein: #5BD68A; --carbs: #FFC93D; --fat: #FF9A4D; }
-.day-switch { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+/* Tucked up under the title and close to the summary card, so the numbers sit higher on screen. */
+.day-switch { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: -14px 0 -10px; }
 .day-switch b { font-size: 16px; font-weight: 800; }
 .day-switch .icon-btn:disabled { opacity: .3; }
 .nut-card { display: flex; flex-direction: column; gap: 16px; padding: 18px; border-radius: var(--r-xl); background: var(--surface); border: 2px solid var(--rule); box-shadow: 0 5px 0 var(--lip); }
@@ -1115,6 +1116,8 @@ button.coach-card:active { transform: translateY(3px); box-shadow: 0 2px 0 var(-
 
 .rv-week .wd i { max-width: 34px; }
 .rv-groups { display: flex; flex-direction: column; gap: 9px; }
+.rv-groups-head { margin: 0 0 -2px; display: flex; justify-content: space-between; font-size: 12.5px; font-weight: 700; color: var(--mute); }
+.rv-bar-key { display: inline-block; width: 18px; height: 8px; border-radius: 3px; background: var(--mute); }
 .rv-group { display: grid; grid-template-columns: minmax(0, 116px) 1fr 26px; align-items: center; gap: 10px; }
 .rv-group-name { font-size: 13px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .rv-group-track { position: relative; height: 14px; border-radius: 4px; background: var(--surface-2); }

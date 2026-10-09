@@ -225,6 +225,9 @@ function Stat({ label, value, sub }) {
 
 const signed = (x, unit = "") => `${x > 0 ? "+" : x < 0 ? "−" : "±"}${num(Math.abs(x))}${unit}`;
 const delta = (now, before) => (before ? `${now >= before ? "▲" : "▼"} ${Math.abs(Math.round(((now - before) / before) * 100))}% vs last week` : null);
+/* The training goal is days a week, so weeks count days trained: a second workout on a day adds
+   nothing. Reviews saved before facts had `days` count them from the sessions. */
+const trainedDays = (t) => t.days ?? new Set(t.sessions.map((x) => x.date)).size;
 const dayLetter = (d) => WEEKDAYS[new Date(d + "T12:00:00").getDay()][0];
 
 function Cover({ review, canUpdate, updating, onUpdate }) {
@@ -236,7 +239,7 @@ function Cover({ review, canUpdate, updating, onUpdate }) {
       <h2 className="rv-headline">{s.headline}</h2>
       <p className="rv-lead">{s.summary}</p>
       <div className="rv-stats">
-        <Stat label="workouts" value={t.target ? `${t.count}/${t.target}` : t.count} sub={t.streak >= 2 ? `${t.streak} weeks on target` : null} />
+        <Stat label="training days" value={t.target ? `${trainedDays(t)}/${t.target}` : trainedDays(t)} sub={t.streak >= 2 ? `${t.streak} weeks on target` : null} />
         <Stat label="working sets" value={t.sets} sub={delta(t.sets, t.prevSets)} />
         {n && n.avgKcal != null && <Stat label="kcal a day" value={n.avgKcal.toLocaleString()} sub={`target ${n.targets.kcal.toLocaleString()}`} />}
         {b && b.change != null ? <Stat label="lb vs last week" value={signed(b.change)} sub={`${num(b.weekAvg)} lb average`} />
@@ -255,17 +258,21 @@ function Cover({ review, canUpdate, updating, onUpdate }) {
 function Training({ review }) {
   const { facts: f, story: s } = review;
   const t = f.training;
-  const byDate = Object.fromEntries(t.sessions.map((x) => [x.date, x]));
+  const byDate = {};
+  for (const x of t.sessions) (byDate[x.date] ||= []).push(x);
+  const days = trainedDays(t);
   const max = Math.max(1, ...t.groups.map((g) => Math.max(g.sets, g.avg4 || 0)));
+  const usual = t.groups.some((g) => g.avg4 != null);
   return (
     <div className="rv-body">
       <p className="rv-kicker">Training</p>
-      <p className="rv-big">{t.count}<small>{t.target ? ` of ${t.target} workouts` : ` workout${t.count === 1 ? "" : "s"}`}</small></p>
+      <p className="rv-big">{days}<small>{t.target && days <= t.target ? ` of ${t.target} training days` : ` training day${days === 1 ? "" : "s"}${t.target ? ` · goal ${t.target}` : ""}`}</small></p>
       <div className="week rv-week">
         {f.dates.map((d) => {
-          const x = byDate[d];
+          const xs = byDate[d] || [];
+          const x = xs[0];
           return (
-            <div key={d} className="wd" data-day={x?.day || undefined} aria-label={`${WEEKDAYS[new Date(d + "T12:00:00").getDay()]}: ${x ? `${x.name}, ${x.sets} sets` : "rest"}`}>
+            <div key={d} className="wd" data-day={x?.day || undefined} aria-label={`${WEEKDAYS[new Date(d + "T12:00:00").getDay()]}: ${xs.length ? xs.map((s) => `${s.name}, ${s.sets} sets`).join("; ") : "rest"}`}>
               <i className={x ? "on" : ""} />{dayLetter(d)}
             </div>
           );
@@ -273,6 +280,7 @@ function Training({ review }) {
       </div>
       {t.groups.length > 0 && (
         <div className="rv-groups" role="list" aria-label="Working sets by area this week">
+          <p className="rv-groups-head" aria-hidden="true"><span>Working sets by muscle group</span><span>sets</span></p>
           {t.groups.map((g) => (
             <div key={g.id} className="rv-group" role="listitem" style={{ "--c": COACHES[g.id].color }}
               aria-label={`${g.name}: ${g.sets} sets${g.avg4 != null ? `, usually ${Math.round(g.avg4)}` : ""}`}>
@@ -284,7 +292,10 @@ function Training({ review }) {
               <span className="rv-group-v">{g.sets}</span>
             </div>
           ))}
-          {t.groups.some((g) => g.avg4 != null) && <p className="rv-legend"><span><span className="rv-tick-key" aria-hidden="true" />your usual week (4-week average)</span></p>}
+          <p className="rv-legend">
+            <span><span className="rv-bar-key" aria-hidden="true" />this week</span>
+            {usual && <span><span className="rv-tick-key" aria-hidden="true" />your usual week (4-week average)</span>}
+          </p>
         </div>
       )}
       {t.prs.length > 0 && (
