@@ -3,7 +3,7 @@ import { COACHES, COACH_ORDER, coachFor } from "../data/coaches.js";
 import { GOALS as TRAIN_GOALS } from "./setup.js";
 import { GOALS as FOOD_GOALS, MEALS, addDays, totals, isAlcoholic } from "./nutrition.js";
 import { PHASE_TYPES, phaseStatus } from "./phase.js";
-import { lifting, volume, bestE1rm, bestSet, cardioTotals, liftSeries, trend, bodyweightSeries, readyToIncrease, byDateAsc, fmtW, num, plural } from "./util.js";
+import { lifting, volume, bestE1rm, bestSet, cardioTotals, liftSeries, trend, bodyweightSeries, readyToIncrease, byDateAsc, fmtW, num, plural, iso } from "./util.js";
 
 /* The week in review. Everything here is plain functions over the account data, shared by the app
    (when to offer a review, drawing its cards) and api/review.js (the facts the coach agent reads,
@@ -16,14 +16,32 @@ export const reviewKey = (weekEnd) => REVIEW_PREFIX + weekEnd;
 export const MAX_GENERATIONS = 3;
 export const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
-/** The lifter's review settings: on by default, out on Sundays. */
-export const reviewPrefs = (prefs) => ({ on: true, day: 0, ...prefs?.weekReview });
+/** The lifter's review settings: on by default, out Sundays at 10 AM, with a notification. */
+export const reviewPrefs = (prefs) => ({ on: true, day: 0, hour: 10, notify: true, ...prefs?.weekReview });
 
 const weekday = (d) => new Date(d + "T12:00:00").getDay();
-/** The most recent review day on or before `on`. The review covers the 7 days ending that day. */
-export const lastReviewDay = (day, on) => addDays(on, -((weekday(on) - day + 7) % 7));
 export const weekWindow = (weekEnd) => ({ start: addDays(weekEnd, -6), end: weekEnd });
 const within = (d, w) => !!d && d >= w.start && d <= w.end;
+
+/**
+ * The latest review that's out at `now`: { date, weekEnd, at }. It comes out on the review day at
+ * the review hour and covers the 7 full days before that day (Sunday's covers Sunday to Saturday),
+ * so every day in it is complete when it's written. `at` is when it came out (ms).
+ */
+export function latestReview(r, now = new Date()) {
+  const today = iso(now);
+  let date = addDays(today, -((weekday(today) - r.day + 7) % 7));
+  if (date === today && now.getHours() < r.hour) date = addDays(date, -7);
+  const at = new Date(`${date}T${String(r.hour).padStart(2, "0")}:00:00`).getTime();
+  return { date, weekEnd: addDays(date, -1), at };
+}
+
+/** "10 AM", "12 PM", "6 PM". */
+export const hourLabel = (h) => `${h % 12 || 12} ${h < 12 ? "AM" : "PM"}`;
+/** "Sunday at 10 AM". */
+export const whenLabel = (r) => `${WEEKDAYS[r.day]} at ${hourLabel(r.hour)}`;
+/** The days a review covers, by name: "Sunday to Saturday". */
+export const coversLabel = (r) => `${WEEKDAYS[r.day]} to ${WEEKDAYS[(r.day + 6) % 7]}`;
 
 /** "Oct 5 – 11", or "Sep 28 – Oct 4" across a month. */
 export function rangeLabel(weekEnd) {
@@ -34,26 +52,30 @@ export function rangeLabel(weekEnd) {
 }
 
 /** What's been logged in the week, as a short string. A review whose fingerprint differs from the
-    phone's can be updated with what's new. */
+    phone's can be updated with what's new (a forgotten Saturday dinner logged on Sunday). */
 export function fingerprint({ sessions = [], weighins = [], food = null }, weekEnd) {
   const w = weekWindow(weekEnd);
   const n = (xs) => xs.filter((x) => within(x.date, w)).length;
   return `${n(sessions)}.${n(weighins)}.${food ? n(food) : 0}`;
 }
 
+/** Anything logged in the week: a week with nothing in it gets no review. */
+export const hasActivity = ({ sessions = [], food = null }, weekEnd) => {
+  const w = weekWindow(weekEnd);
+  return sessions.some((s) => within(s.date, w)) || (food || []).some((e) => within(e.date, w));
+};
+
 /**
- * Whether Today offers a review: { weekEnd, glow } or null. Offered from the review day until it's
- * opened (glowing), then without the glow for the rest of the day it was opened. A week with
- * nothing logged gets no review.
+ * Whether Today offers a review: { weekEnd, glow } or null. Offered from the moment it's out until
+ * it's opened (glowing), then without the glow for the rest of the day it was opened.
  */
-export function reviewState({ prefs, today, sessions = [], food = null }) {
+export function reviewState({ prefs, now = new Date(), sessions = [], food = null }) {
   const r = reviewPrefs(prefs);
   if (!r.on) return null;
-  const weekEnd = lastReviewDay(r.day, today);
+  const { weekEnd } = latestReview(r, now);
   const opened = r.opened === weekEnd;
-  if (opened && r.openedOn !== today) return null;
-  const w = weekWindow(weekEnd);
-  if (!sessions.some((s) => within(s.date, w)) && !(food || []).some((e) => within(e.date, w))) return null;
+  if (opened && r.openedOn !== iso(now)) return null;
+  if (!hasActivity({ sessions, food }, weekEnd)) return null;
   return { weekEnd, glow: !opened };
 }
 

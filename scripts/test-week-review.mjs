@@ -3,7 +3,7 @@
 import assert from "node:assert/strict";
 import { PROGRAM, activeDays } from "../src/data/program.js";
 import { addDays } from "../src/lib/nutrition.js";
-import { buildWeekFacts, fallbackStory, cleanStory, lastReviewDay, reviewState, rangeLabel, liftHistory, foodDays, foodItems, weekSnapshot, fingerprint } from "../src/lib/weekReview.js";
+import { buildWeekFacts, fallbackStory, cleanStory, latestReview, reviewState, rangeLabel, coversLabel, whenLabel, hourLabel, liftHistory, foodDays, foodItems, weekSnapshot, fingerprint } from "../src/lib/weekReview.js";
 
 const WEEK_END = "2026-10-11"; // a Sunday
 
@@ -82,16 +82,26 @@ if (isMain) {
   assert.equal(s.low, fb.low);
 
   // Review days and when Today offers it.
-  assert.equal(lastReviewDay(0, "2026-10-11"), "2026-10-11");
-  assert.equal(lastReviewDay(0, "2026-10-14"), "2026-10-11");
-  assert.equal(lastReviewDay(5, "2026-10-14"), "2026-10-09");
-  const st = (prefs, today) => reviewState({ prefs, today, sessions: a.sessions, food: a.food });
-  assert.deepEqual(st(a.prefs, "2026-10-11"), { weekEnd: "2026-10-11", glow: true });
-  assert.deepEqual(st({ ...a.prefs, weekReview: { on: true, day: 0, opened: "2026-10-11", openedOn: "2026-10-11" } }, "2026-10-11"), { weekEnd: "2026-10-11", glow: false });
-  assert.equal(st({ ...a.prefs, weekReview: { on: true, day: 0, opened: "2026-10-11", openedOn: "2026-10-11" } }, "2026-10-12"), null);
-  assert.deepEqual(st(a.prefs, "2026-10-13"), { weekEnd: "2026-10-11", glow: true }, "stays until opened");
-  assert.equal(st({ ...a.prefs, weekReview: { on: false } }, "2026-10-11"), null);
-  assert.equal(reviewState({ prefs: a.prefs, today: "2026-10-11", sessions: [], food: [] }), null, "nothing logged, no review");
+  // When it's out: the review day at the review hour, covering the 7 full days before that day.
+  const at = (d, h) => new Date(`${d}T${String(h).padStart(2, "0")}:30:00`);
+  const sun10 = { day: 0, hour: 10 };
+  assert.deepEqual(latestReview(sun10, at("2026-10-11", 10)).weekEnd, "2026-10-10", "Sunday 10:30 → Sun 4 to Sat 10");
+  assert.equal(latestReview(sun10, at("2026-10-11", 9)).weekEnd, "2026-10-03", "before 10 it's still last week's");
+  assert.equal(latestReview(sun10, at("2026-10-14", 8)).weekEnd, "2026-10-10");
+  assert.equal(latestReview({ day: 1, hour: 7 }, at("2026-10-14", 8)).weekEnd, "2026-10-11", "Monday's covers Mon to Sun");
+  assert.equal(coversLabel({ day: 0 }), "Sunday to Saturday");
+  assert.equal(whenLabel({ day: 0, hour: 10 }), "Sunday at 10 AM");
+  assert.equal(hourLabel(0), "12 AM"); assert.equal(hourLabel(12), "12 PM"); assert.equal(hourLabel(18), "6 PM");
+  const prefs = { ...a.prefs, weekReview: { on: true, day: 1, hour: 10 } }; // Monday: covers the demo's Mon 5 – Sun 11
+  const st = (p, now) => reviewState({ prefs: p, now, sessions: a.sessions, food: a.food });
+  const opened = (p) => ({ ...p, weekReview: { ...p.weekReview, opened: "2026-10-11", openedOn: "2026-10-12" } });
+  assert.deepEqual(st(prefs, at("2026-10-12", 11)), { weekEnd: "2026-10-11", glow: true });
+  assert.notEqual(st(prefs, at("2026-10-12", 9))?.weekEnd, "2026-10-11", "not out before 10");
+  assert.deepEqual(st(opened(prefs), at("2026-10-12", 20)), { weekEnd: "2026-10-11", glow: false }, "opened: stays the rest of the day");
+  assert.equal(st(opened(prefs), at("2026-10-13", 9)), null);
+  assert.deepEqual(st(prefs, at("2026-10-15", 9)), { weekEnd: "2026-10-11", glow: true }, "stays until opened");
+  assert.equal(st({ ...prefs, weekReview: { on: false } }, at("2026-10-12", 11)), null);
+  assert.equal(reviewState({ prefs, now: at("2026-10-12", 11), sessions: [], food: [] }), null, "nothing logged, no review");
   assert.equal(rangeLabel("2026-10-11"), "Oct 5 – 11");
   assert.equal(rangeLabel("2026-10-04"), "Sep 28 – Oct 4");
   assert.equal(fingerprint(a, WEEK_END), f.fingerprint);

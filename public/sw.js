@@ -1,6 +1,6 @@
-/* GymBuddy service worker. Only here for rest alerts: it shows the push the server sends when a
-   rest timer ends (see api/rest-alert.js), and opens the app when the notification is tapped.
-   It doesn't cache anything, so the app always loads fresh from the network. */
+/* GymBuddy service worker. Only here for notifications: it shows the pushes the server sends (a
+   rest timer ending, api/rest-alert.js; the week in review being ready, api/review.js) and opens
+   the app when one is tapped. It doesn't cache anything, so the app always loads fresh. */
 
 self.addEventListener("install", () => self.skipWaiting());
 self.addEventListener("activate", (e) => e.waitUntil(self.clients.claim()));
@@ -20,9 +20,14 @@ self.addEventListener("push", (e) => {
 self.addEventListener("notificationclick", (e) => {
   e.notification.close();
   e.waitUntil((async () => {
-    // The app is usually still open in the background, on the workout: bring it forward as is.
+    const url = e.notification.data?.url || "/";
     const open = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
-    if (open[0]) return open[0].focus();
-    return self.clients.openWindow(e.notification.data?.url || "/");
+    if (open[0]) {
+      // A rest alert: the app is usually still open on the workout, so bring it forward as is.
+      // Anything else (the week in review) goes where it points.
+      if (e.notification.tag !== "rest") open[0].postMessage({ type: "open", url });
+      return open[0].focus();
+    }
+    return self.clients.openWindow(url);
   })());
 });

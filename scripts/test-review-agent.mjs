@@ -65,12 +65,14 @@ assert.ok(items.items.every((x) => x.date <= "2026-10-11"), "never past the week
 
 console.log("review agent: all checks passed");
 
-// 4. The whole request, with Supabase and the gateway stubbed: auth, the review-day check, the
-//    food log read, a model failure falling back to the code-written review, the save, the cap.
+// 4. The whole request, with Supabase and the gateway stubbed: auth, the review-week check, the
+//    food log read, a model failure falling back to the code-written review, the save, the cap,
+//    and the scheduled run (shared secret, database functions, waiting on a review being written).
 {
-  process.env.SUPABASE_URL = "http://sb.test"; process.env.SUPABASE_ANON_KEY = "anon";
+  process.env.SUPABASE_URL = "http://sb.test"; process.env.SUPABASE_ANON_KEY = "anon"; process.env.REST_ALERT_SECRET = "s".repeat(32);
   const { POST } = await import(`../api/review.js?handler`);
   const kv = { "ironlog-v2": JSON.stringify({ sessions: a.sessions, weighins: a.weighins, prefs: a.prefs, program: a.program }) };
+  const rpcs = [];
   const realFetch = globalThis.fetch;
   globalThis.fetch = async (input, init = {}) => {
     const req = new Request(input, init), u = new URL(req.url);
@@ -78,35 +80,60 @@ console.log("review agent: all checks passed");
     if (u.host !== "sb.test") return ok({ error: { message: "no gateway in tests" } }, 401); // the model call fails
     if (u.pathname === "/auth/v1/user") return req.headers.get("authorization") === "Bearer good" ? ok({ id: "u1", aud: "authenticated" }) : ok({ msg: "bad jwt" }, 401);
     if (u.pathname === "/rest/v1/food_entries") return ok(a.food.filter((f) => f.date >= u.searchParams.getAll("date")[0].slice(4)));
-    if (u.pathname === "/rest/v1/storage_kv" && req.method === "GET") {
-      const key = u.searchParams.get("key").slice(3);
-      return ok(kv[key] ? [{ value: kv[key] }] : []);
+    if (u.pathname === "/rest/v1/storage_kv") {
+      const key = u.searchParams.get("key")?.slice(3);
+      if (req.method === "GET") return ok(kv[key] ? [{ value: kv[key] }] : []);
+      if (req.method === "DELETE") { delete kv[key]; return ok([]); }
+      const row = await req.json(); kv[row.key] = row.value; return ok([], 201);
     }
-    if (u.pathname === "/rest/v1/storage_kv") { const row = await req.json(); kv[row.key] = row.value; return ok([], 201); }
+    if (u.pathname.startsWith("/rest/v1/rpc/")) {
+      const fn = u.pathname.split("/").pop(), args = await req.json();
+      rpcs.push(fn);
+      if (args.p_secret !== "s".repeat(32)) return ok({ code: "42501", message: "not allowed" }, 403);
+      if (fn === "review_job_input") return ok({ account: kv["ironlog-v2"], review: kv[`week-review:${args.p_week_end}`] ?? null, pending: kv[`week-review-pending:${args.p_week_end}`] ?? null, food: a.food, subscriptions: [] });
+      if (fn === "review_job_save") { if (args.p_value == null) delete kv[args.p_key]; else kv[args.p_key] = args.p_value; return ok(null); }
+    }
     return ok([]);
   };
+  // The review week ends the day before the review day: a Sunday review covers Sunday to Saturday.
   const today = new Date().toISOString().slice(0, 10);
-  const sunday = (() => { const d = new Date(today + "T12:00:00Z"); d.setUTCDate(d.getUTCDate() - d.getUTCDay()); return d.toISOString().slice(0, 10); })();
-  const post = (body, token = "good") => POST(new Request("http://app/api/review", { method: "POST", headers: { authorization: `Bearer ${token}` }, body: JSON.stringify(body) }));
+  const saturday = (() => { const d = new Date(today + "T12:00:00Z"); d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 1) % 7)); return d.toISOString().slice(0, 10); })();
+  const post = (body, { token = "good", headers = {} } = {}) => POST(new Request("http://app/api/review", { method: "POST", headers: { authorization: `Bearer ${token}`, ...headers }, body: JSON.stringify(body) }));
+  const quiet = async (fn) => { const e = console.error, l = console.log; console.error = console.log = () => {}; try { return await fn(); } finally { console.error = e; console.log = l; } };
   try {
-    assert.equal((await post({ weekEnd: sunday }, "bad")).status, 401, "signed out");
-    assert.equal((await post({ weekEnd: "2025-01-05" })).status, 400, "an old week");
-    const notSunday = new Date(sunday + "T12:00:00Z"); notSunday.setUTCDate(notSunday.getUTCDate() - 1);
-    assert.equal((await post({ weekEnd: notSunday.toISOString().slice(0, 10) })).status, 400, "not their review day");
-    const quiet = console.error; console.error = () => {};
-    const res = await post({ weekEnd: sunday, tz: "America/New_York" });
-    console.error = quiet;
+    assert.equal((await post({ weekEnd: saturday }, { token: "bad" })).status, 401, "signed out");
+    assert.equal((await post({ weekEnd: "2025-01-04" })).status, 400, "an old week");
+    const friday = new Date(saturday + "T12:00:00Z"); friday.setUTCDate(friday.getUTCDate() - 1);
+    assert.equal((await post({ weekEnd: friday.toISOString().slice(0, 10) })).status, 400, "not their review week");
+    const res = await quiet(() => post({ weekEnd: saturday, tz: "America/New_York" }));
     const r = await res.json();
     assert.equal(res.status, 200);
     assert.equal(r.source, "code", "no model: written by code");
-    assert.ok(r.story.headline && r.facts.weekEnd === sunday && r.gens === 1);
-    assert.ok(kv[`week-review:${sunday}`], "saved to the account");
-    const again = await (await post({ weekEnd: sunday })).json();
+    assert.ok(r.story.headline && r.facts.weekEnd === saturday && r.gens === 1);
+    assert.ok(kv[`week-review:${saturday}`], "saved to the account");
+    assert.equal(kv[`week-review-pending:${saturday}`], undefined, "the being-written marker is cleared");
+    const again = await (await post({ weekEnd: saturday })).json();
     assert.equal(again.generatedAt, r.generatedAt, "saved review comes back without a new run");
-    const same = await (await post({ weekEnd: sunday, refresh: true })).json();
+    const same = await (await post({ weekEnd: saturday, refresh: true })).json();
     assert.equal(same.gens, 1, "an update with nothing new logged keeps the review");
-    kv[`week-review:${sunday}`] = JSON.stringify({ ...r, gens: 3, fingerprint: "x" });
-    assert.equal((await (await post({ weekEnd: sunday, refresh: true })).json()).capped, true, "capped after 3 runs");
+    kv[`week-review:${saturday}`] = JSON.stringify({ ...r, gens: 3, fingerprint: "x" });
+    assert.equal((await (await post({ weekEnd: saturday, refresh: true })).json()).capped, true, "capped after 3 runs");
+
+    // Scheduled runs.
+    delete kv[`week-review:${saturday}`];
+    const job = { userId: "00000000-0000-4000-8000-000000000001", weekEnd: saturday, tz: "America/New_York", notify: true };
+    assert.equal((await post({ job }, { headers: { "x-review-secret": "wrong" } })).status, 401, "no secret, no run");
+    const ran = await (await quiet(() => post({ job }, { headers: { "x-review-secret": "s".repeat(32) } }))).json();
+    assert.equal(ran.source, "code");
+    assert.equal(ran.sent, 0, "no phones saved, nothing sent");
+    assert.ok(rpcs.includes("review_job_input") && rpcs.includes("review_job_save"), "reads and saves through the job functions");
+    assert.ok(JSON.parse(kv[`week-review:${saturday}`]).story, "saved by the scheduled run");
+    // The app asks while a scheduled run is writing: it waits for that review instead of writing another.
+    delete kv[`week-review:${saturday}`];
+    kv[`week-review-pending:${saturday}`] = JSON.stringify({ at: Date.now(), by: "schedule" });
+    setTimeout(() => { kv[`week-review:${saturday}`] = JSON.stringify({ ...r, story: { ...r.story, headline: "From the schedule" } }); }, 1000);
+    const waited = await (await post({ weekEnd: saturday })).json();
+    assert.equal(waited.story.headline, "From the schedule", "waited for the scheduled run's review");
   } finally {
     globalThis.fetch = realFetch;
   }

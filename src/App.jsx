@@ -28,8 +28,9 @@ import NamePrompt from "./components/NamePrompt.jsx";
 import Welcome from "./components/Welcome.jsx";
 import WeekReview from "./components/WeekReview.jsx";
 import WeekReviewIntro from "./components/WeekReviewIntro.jsx";
-import { reviewState, reviewPrefs, fingerprint, lastReviewDay } from "./lib/weekReview.js";
-import { cachedReview, loadReview, requestReview } from "./lib/reviews.js";
+import { reviewState, reviewPrefs, fingerprint, latestReview } from "./lib/weekReview.js";
+import { cachedReview, loadReview, requestReview, syncSchedule } from "./lib/reviews.js";
+import { phoneState, ensureSubscribed } from "./lib/push.js";
 
 const TAB_VIEWS = ["today", "nutrition", "progress", "settings", "lift"];
 
@@ -137,27 +138,50 @@ export default function App() {
 
   /* ── week in review ── */
   const foodLog = nutritionOn ? food.entries : null;
-  const review = ready ? reviewState({ prefs, today: today(), sessions, food: foodLog }) : null;
-  /* Written ahead, so it opens instantly: once everything has synced, from the evening of the
-     review day (the day's workout and dinner are in by then) or any day after. Once per app start. */
+  const rp = reviewPrefs(prefs);
+  // The review comes out at a set hour: look at the clock again when the app comes back to the
+  // front, and every few minutes while it's open.
+  const [clock, setClock] = useState(() => Date.now());
+  useEffect(() => {
+    const tick = () => { if (document.visibilityState === "visible") setClock(Date.now()); };
+    document.addEventListener("visibilitychange", tick);
+    const id = setInterval(tick, 5 * 60_000);
+    return () => { document.removeEventListener("visibilitychange", tick); clearInterval(id); };
+  }, []);
+  const review = ready ? reviewState({ prefs, now: new Date(clock), sessions, food: foodLog }) : null;
+  const latest = latestReview(rp, new Date(clock));
+  /* The schedule lives on the account too, so the server writes the review at its time (and sends
+     the notification) with the app closed. */
+  useEffect(() => { if (ready) syncSchedule(rp).catch(() => {}); }, [ready, rp.on, rp.day, rp.hour, rp.notify]); // eslint-disable-line react-hooks/exhaustive-deps
+  // A phone that already allowed notifications gets the review's too, without asking again.
+  useEffect(() => { if (ready && rp.on && rp.notify && phoneState() === "on") ensureSubscribed().catch(() => {}); }, [ready, rp.on, rp.notify]);
+  /* Backup for the scheduled run: if 20 minutes after it's out there's still no review saved (the
+     run failed, or it was turned on just now), the app asks for it, once everything has synced. */
   const prefetched = useRef(null);
   const reviewWeek = review?.weekEnd;
   const synced = sync === "synced" && (!nutritionOn || food.status === "synced");
   useEffect(() => {
     if (!reviewWeek || !synced || prefetched.current === reviewWeek) return;
-    if (today() === reviewWeek && new Date().getHours() < 17) return;
+    if (reviewWeek === latest.weekEnd && clock < latest.at + 20 * 60_000) return;
     prefetched.current = reviewWeek;
     (async () => {
       if (await cachedReview(reviewWeek).catch(() => null)) return;
       if (await loadReview(reviewWeek).catch(() => null)) return;
       requestReview(reviewWeek).catch(() => {});
     })();
-  }, [reviewWeek, synced]);
+  }, [reviewWeek, synced, clock, latest.weekEnd, latest.at]);
   // Opening this week's review stops the glow; the button stays for the rest of the day.
   const opening = route.name === "review" && review?.glow && route.id === reviewWeek;
   useEffect(() => {
     if (opening) setPrefs((p) => ({ ...p, weekReview: { ...reviewPrefs(p), opened: reviewWeek, openedOn: today() } }));
   }, [opening, reviewWeek]);
+  // Tapping the "ready" notification with the app open: the service worker hands over where to go.
+  useEffect(() => {
+    if (!("serviceWorker" in navigator)) return;
+    const onMsg = (e) => { if (e.data?.type === "open" && typeof e.data.url === "string") location.hash = new URL(e.data.url, location.origin).hash; };
+    navigator.serviceWorker.addEventListener("message", onMsg);
+    return () => navigator.serviceWorker.removeEventListener("message", onMsg);
+  }, []);
 
   /* ── weigh-ins ── */
   const logWeighin = useCallback((date, bw) => {
@@ -278,7 +302,7 @@ export default function App() {
       break;
     }
     case "review": {
-      const current = route.id === lastReviewDay(reviewPrefs(prefs).day, today());
+      const current = route.id === latest.weekEnd;
       view = (
         <>
           <Today {...common} review={review} />

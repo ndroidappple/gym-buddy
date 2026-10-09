@@ -1,5 +1,5 @@
 import {
-  Play, ArrowLeftRight, Target, CalendarCheck, Scale, Trophy, TrendingUp, Flag, List, CalendarDays, Pencil,
+  Play, Bell, ArrowLeftRight, Target, CalendarCheck, Scale, Trophy, TrendingUp, Flag, List, CalendarDays, Pencil,
   Gauge, LineChart, Hash, History, Dumbbell, Plus, FileSpreadsheet, Users, MessageCircle, Sparkles, SlidersHorizontal, Download, ClipboardPaste, Utensils, PieChart, Copy,
 } from "lucide-react";
 
@@ -76,7 +76,8 @@ export const HELP = {
       { name: "Your coaches", Icon: Users, spot: "coaches", text: "Ask a question or change your plan." },
       { name: "Redo setup", Icon: Sparkles, spot: "redo", text: "Meet your coaches again to reshape your plan." },
       { name: "Track food & macros", Icon: Utensils, spot: "nutrition", text: "Adds a Nutrition tab with daily calorie and macro targets." },
-      { name: "Week in review", Icon: Sparkles, spot: "review", text: "Turn it on or off, and pick the day it comes out." },
+      { name: "Week in review", Icon: Sparkles, spot: "review", text: "Turn it on or off, and pick the day and time it comes out." },
+      { name: "Notifications", Icon: Bell, spot: "notifications", text: "Rest alerts, and a heads-up when your week in review is ready." },
       { name: "Reps in reserve", Icon: Gauge, spot: "rir", text: "Rate how many more reps you had in you." },
       { name: "Export", Icon: Download, spot: "export", text: "Download a copy of all your data." },
     ],

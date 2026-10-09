@@ -85,3 +85,19 @@ async function send(weekEnd, refresh) {
   remember(id, body);
   return body;
 }
+
+/**
+ * Keeps the account's review schedule (week_review_schedule) in step with the settings, so the
+ * review is written at its time even with the app closed. Sends only when something changed
+ * since the last save from this phone, including the phone's time zone (travel).
+ */
+export async function syncSchedule(r) {
+  const id = await uid();
+  if (!id) return;
+  const row = { user_id: id, enabled: !!r.on, notify: r.notify !== false, day: r.day, hour: r.hour, tz: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC" };
+  const key = `gymbuddy-review-schedule:${id}`, sig = JSON.stringify(row);
+  try { if (localStorage.getItem(key) === sig) return; } catch {}
+  const { error } = await supabase.from("week_review_schedule").upsert(row);
+  if (error) return; // tried again the next time the app starts or the settings change
+  try { localStorage.setItem(key, sig); } catch {}
+}

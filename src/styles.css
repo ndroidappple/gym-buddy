@@ -1124,3 +1124,9 @@ button.coach-card:active { transform: translateY(3px); box-shadow: 0 2px 0 var(-
 .review-intro-day { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
 .review-days button { min-width: 0; padding: 0; }
 .review-intro-note { margin: 0; text-align: center; }
+.review-hour { display: flex; align-items: center; gap: 12px; }
+.review-hour .lbl { flex: none; }
+.review-hour select { flex: 1; min-height: 46px; appearance: none; -webkit-appearance: none; font-weight: 700; cursor: pointer;
+  background-image: linear-gradient(45deg, transparent 50%, var(--mute) 50%), linear-gradient(135deg, var(--mute) 50%, transparent 50%);
+  background-position: calc(100% - 20px) 50%, calc(100% - 14px) 50%; background-size: 6px 6px; background-repeat: no-repeat; }
+.review-intro-ping { flex: none; padding: 10px 14px; border: 2px solid var(--rule); border-radius: var(--r); }

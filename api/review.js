@@ -2,8 +2,9 @@ import { generateText, tool, jsonSchema, stepCountIs, hasToolCall } from "ai";
 import { createClient } from "@supabase/supabase-js";
 import { PROGRAM, normalizeProgram } from "../src/data/program.js";
 import { addDays } from "../src/lib/nutrition.js";
+import { sendPushes, sameSecret } from "./_push.js";
 import {
-  buildWeekFacts, factsForAgent, fallbackStory, cleanStory, reviewKey, reviewPrefs, MAX_GENERATIONS,
+  buildWeekFacts, factsForAgent, fallbackStory, cleanStory, reviewKey, reviewPrefs, hasActivity, MAX_GENERATIONS,
   liftHistory, foodDays, foodItems, weekSnapshot,
 } from "../src/lib/weekReview.js";
 
@@ -153,50 +154,103 @@ export async function agentReview({ facts, data, model = MODEL, fallbacks = FALL
 }
 
 const json = (body, status = 200) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json", "cache-control": "no-store" } });
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const DATE = /^\d{4}-\d{2}-\d{2}$/;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+/** Only recent weeks (the lifter's today can be a day either side of the server's). */
+const recent = (weekEnd) => { const t = new Date().toISOString().slice(0, 10); return DATE.test(weekEnd) && weekEnd <= addDays(t, 1) && weekEnd >= addDays(t, -9); };
 
-export async function POST(request) {
-  if (!SUPABASE_URL || !SUPABASE_KEY) return json({ error: "Week in review isn't configured: missing Supabase URL/key env vars." }, 500);
-  const token = (request.headers.get("authorization") || "").replace(/^Bearer /, "");
-  // A client acting as the signed-in lifter: every read and write goes through row-level security.
-  const sb = createClient(SUPABASE_URL, SUPABASE_KEY, { global: { headers: { Authorization: `Bearer ${token}` } }, auth: { persistSession: false, autoRefreshToken: false } });
-  const { data: auth } = token ? await sb.auth.getUser(token) : { data: null };
-  const user = auth?.user;
-  if (!user) return json({ error: "Sign in to see your week in review." }, 401);
+/* While a review is being written, a marker says so: a second request for the same week (the app
+   tapped while the scheduled run is writing it, or the other way round) waits for that review
+   instead of paying for another. A marker older than this means that run died. */
+const pendingKey = (weekEnd) => `week-review-pending:${weekEnd}`;
+const PENDING_MS = 3 * 60_000;
 
-  let body;
-  try { body = await request.json(); } catch { return json({ error: "Bad request" }, 400); }
-  const weekEnd = String(body.weekEnd || "");
-  const tz = typeof body.tz === "string" && body.tz.length < 64 ? body.tz : undefined;
-  // Only this week's review (the lifter's today can be a day either side of the server's).
-  const now = new Date().toISOString().slice(0, 10);
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(weekEnd) || weekEnd > addDays(now, 1) || weekEnd < addDays(now, -8)) return json({ error: "That week can't be reviewed." }, 400);
-
+/** Storage as the signed-in lifter: every read and write goes through row-level security. */
+function userStore(sb, userId) {
   const read = async (key) => {
-    const { data, error } = await sb.from("storage_kv").select("value").eq("user_id", user.id).eq("key", key).maybeSingle();
+    const { data, error } = await sb.from("storage_kv").select("value").eq("user_id", userId).eq("key", key).maybeSingle();
     if (error) throw error;
     return data?.value ? JSON.parse(data.value) : null;
   };
+  return {
+    account: () => read(ACCOUNT_KEY),
+    review: (weekEnd) => read(reviewKey(weekEnd)),
+    pending: (weekEnd) => read(pendingKey(weekEnd)),
+    food: (start, end) => loadFood(sb, userId, start, end),
+    async save(key, value) {
+      const q = sb.from("storage_kv");
+      const { error } = value == null ? await q.delete().eq("user_id", userId).eq("key", key)
+        : await q.upsert({ user_id: userId, key, value, updated_at: new Date().toISOString() });
+      if (error) throw error;
+    },
+  };
+}
+
+/** Storage for a scheduled run, which has no sign-in: two database functions that only work with the shared secret. */
+function jobStore(sb, secret, userId, weekEnd) {
+  let input = null;
+  const load = async (fresh) => {
+    if (!input || fresh) {
+      const { data, error } = await sb.rpc("review_job_input", { p_secret: secret, p_user: userId, p_week_end: weekEnd });
+      if (error) throw error;
+      input = data;
+    }
+    return input;
+  };
+  const parse = (v) => (v ? JSON.parse(v) : null);
+  return {
+    account: async () => parse((await load()).account),
+    review: async (_, { fresh } = {}) => parse((await load(fresh)).review),
+    pending: async () => parse((await load()).pending),
+    food: async (start, end) => (await load()).food.filter((f) => f.date >= start && f.date <= end)
+      .map((r) => ({ ...r, kcal: +r.kcal, protein: +r.protein, carbs: +r.carbs, fat: +r.fat, amount: +r.amount })),
+    subscriptions: async () => (await load()).subscriptions || [],
+    async save(key, value) {
+      const { error } = await sb.rpc("review_job_save", { p_secret: secret, p_user: userId, p_key: key, p_value: value });
+      if (error) throw error;
+    },
+  };
+}
+
+/**
+ * Writes (or returns) one lifter's review for the week ending `weekEnd`.
+ * Resolves { review, wrote } or { error, status }.
+ */
+async function produce({ store, weekEnd, tz, refresh = false, by = "app" }) {
+  const existing = await store.review(weekEnd);
+  if (existing && !refresh) return { review: existing };
+  if (existing && (existing.gens || 1) >= MAX_GENERATIONS) return { review: { ...existing, capped: true } };
+
+  const pending = await store.pending(weekEnd);
+  if (!refresh && pending && Date.now() - pending.at < PENDING_MS) {
+    for (let waited = 0; waited < 110_000; waited += 3000) {
+      await sleep(3000);
+      const r = await store.review(weekEnd, { fresh: true });
+      if (r) return { review: r };
+    }
+    return { error: "Your coaches are still writing it. Try again in a minute.", status: 503 };
+  }
+
+  const account = await store.account();
+  if (!account) return { error: "Nothing logged yet.", status: 404 };
+  const prefs = account.prefs || {};
+  // Written only for the lifter's own review week (ending the day before their review day), while
+  // the feature is on: at most MAX_GENERATIONS model runs a week. A saved review can always be read.
+  const rp = reviewPrefs(prefs);
+  if (!rp.on || new Date(weekEnd + "T12:00:00Z").getUTCDay() !== (rp.day + 6) % 7) return { error: "That week can't be reviewed.", status: 400 };
+  const data = {
+    sessions: account.sessions || [], weighins: account.weighins || [], prefs, tz,
+    program: account.program ? normalizeProgram(account.program) : PROGRAM,
+    food: prefs.nutrition?.on ? await store.food(addDays(weekEnd, -(FOOD_DAYS - 1)), weekEnd) : null,
+  };
+  if (!hasActivity(data, weekEnd)) return { error: "Nothing logged that week.", status: 404 };
+  const facts = buildWeekFacts({ ...data, weekEnd });
+  // An update with nothing new logged keeps the review it has.
+  if (existing && existing.fingerprint === facts.fingerprint) return { review: existing };
+
+  await store.save(pendingKey(weekEnd), JSON.stringify({ at: Date.now(), by })).catch(() => {});
   try {
-    const existing = await read(reviewKey(weekEnd));
-    if (existing && !body.refresh) return json(existing);
-    if (existing && (existing.gens || 1) >= MAX_GENERATIONS) return json({ ...existing, capped: true });
-
-    const account = await read(ACCOUNT_KEY);
-    if (!account) return json({ error: "Nothing logged yet." }, 404);
-    const prefs = account.prefs || {};
-    // Written only for the lifter's own review day, while the feature is on: one week, at most
-    // MAX_GENERATIONS model runs. Anything already saved (above) can always be read.
-    const rp = reviewPrefs(prefs);
-    if (!rp.on || new Date(weekEnd + "T12:00:00Z").getUTCDay() !== rp.day) return json({ error: "That week can't be reviewed." }, 400);
-    const data = {
-      sessions: account.sessions || [], weighins: account.weighins || [], prefs, tz,
-      program: account.program ? normalizeProgram(account.program) : PROGRAM,
-      food: prefs.nutrition?.on ? await loadFood(sb, user.id, addDays(weekEnd, -(FOOD_DAYS - 1)), weekEnd) : null,
-    };
-    const facts = buildWeekFacts({ ...data, weekEnd });
-    // An update with nothing new logged keeps the review it has.
-    if (existing && existing.fingerprint === facts.fingerprint) return json(existing);
-
     const fallback = fallbackStory(facts);
     let story = fallback, model = null, source = "code";
     try {
@@ -204,7 +258,7 @@ export async function POST(request) {
       story = cleanStory(out.story, facts, fallback);
       model = out.model;
       source = "ai";
-      console.log("review written", { model, steps: out.steps, input: out.usage?.inputTokens, output: out.usage?.outputTokens });
+      console.log("review written", { by, model, steps: out.steps, input: out.usage?.inputTokens, output: out.usage?.outputTokens });
     } catch (e) {
       console.error("review agent failed, writing it in code", e?.statusCode ?? "", e?.message ?? e);
     }
@@ -212,12 +266,62 @@ export async function POST(request) {
       v: 1, weekEnd, start: facts.start, generatedAt: Date.now(), gens: (existing?.gens || 0) + 1,
       source, model, fingerprint: facts.fingerprint, facts, story,
     };
-    const { error } = await sb.from("storage_kv").upsert({ user_id: user.id, key: reviewKey(weekEnd), value: JSON.stringify(review), updated_at: new Date().toISOString() });
-    if (error) console.error("review not saved", error.message);
-    return json(review);
+    await store.save(reviewKey(weekEnd), JSON.stringify(review)).catch((e) => console.error("review not saved", e?.message));
+    return { review, wrote: true };
+  } finally {
+    await store.save(pendingKey(weekEnd), null).catch(() => {});
+  }
+}
+
+export async function POST(request) {
+  if (!SUPABASE_URL || !SUPABASE_KEY) return json({ error: "Week in review isn't configured: missing Supabase URL/key env vars." }, 500);
+  let body;
+  try { body = await request.json(); } catch { return json({ error: "Bad request" }, 400); }
+  if (body.job) return scheduled(request, body.job);
+
+  const token = (request.headers.get("authorization") || "").replace(/^Bearer /, "");
+  const sb = createClient(SUPABASE_URL, SUPABASE_KEY, { global: { headers: { Authorization: `Bearer ${token}` } }, auth: { persistSession: false, autoRefreshToken: false } });
+  const { data: auth } = token ? await sb.auth.getUser(token) : { data: null };
+  const user = auth?.user;
+  if (!user) return json({ error: "Sign in to see your week in review." }, 401);
+
+  const weekEnd = String(body.weekEnd || "");
+  const tz = typeof body.tz === "string" && body.tz.length < 64 ? body.tz : undefined;
+  if (!recent(weekEnd)) return json({ error: "That week can't be reviewed." }, 400);
+  try {
+    const out = await produce({ store: userStore(sb, user.id), weekEnd, tz, refresh: !!body.refresh });
+    return out.error ? json({ error: out.error }, out.status) : json(out.review);
   } catch (e) {
     console.error("review failed", e?.message ?? e);
     return json({ error: "Couldn't put the review together. Try again in a minute." }, 502);
+  }
+}
+
+/* A scheduled review: the database (dispatch_week_reviews) posts { job: { userId, weekEnd, tz,
+   notify } } at the lifter's review time, with the rest alerts' shared secret. The review is
+   written as if they'd opened it, then their phones get a notification that it's ready. */
+async function scheduled(request, job) {
+  const secret = process.env.REST_ALERT_SECRET;
+  if (!secret || !sameSecret(request.headers.get("x-review-secret"), secret)) return json({ error: "Not allowed." }, 401);
+  const userId = String(job.userId || ""), weekEnd = String(job.weekEnd || "");
+  if (!UUID.test(userId) || !recent(weekEnd)) return json({ error: "Bad job." }, 400);
+  const tz = typeof job.tz === "string" && job.tz.length < 64 ? job.tz : undefined;
+  const sb = createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
+  const store = jobStore(sb, secret, userId, weekEnd);
+  try {
+    const out = await produce({ store, weekEnd, tz, by: "schedule" });
+    if (out.error) return json({ weekEnd, skipped: out.error });
+    // Only for a review this run wrote: one written earlier was already seen in the app.
+    const sent = job.notify && out.wrote ? await sendPushes(await store.subscriptions(), {
+      title: "Your week in review is ready",
+      body: out.review.story?.headline || "Your coaches looked back at your week.",
+      url: `/#/review/${weekEnd}`,
+      tag: "week-review",
+    }, { TTL: 24 * 3600, urgency: "normal" }) : { sent: 0, failed: 0 };
+    return json({ weekEnd, source: out.review.source, ...sent });
+  } catch (e) {
+    console.error("scheduled review failed", e?.message ?? e);
+    return json({ error: "Scheduled review failed." }, 502);
   }
 }
 
