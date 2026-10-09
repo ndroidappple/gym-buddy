@@ -1,9 +1,9 @@
-import React, { useEffect, useState } from "react";
-import { ChevronRight, Download, LogOut, Moon, Gauge, Smartphone, Share, SquarePlus, EllipsisVertical, Check, Sparkles, Scale, Vibrate, Bell, BellRing, Pencil, ClipboardPaste, Users, Utensils, Target, Rows3, CalendarClock, History, BellOff, BellPlus } from "lucide-react";
+import React, { useEffect, useRef, useState } from "react";
+import { ChevronRight, Download, LogOut, Moon, Gauge, Smartphone, Share, SquarePlus, EllipsisVertical, Check, Sparkles, Scale, Vibrate, Bell, BellRing, Pencil, ClipboardPaste, Users, Utensils, Target, Rows3, CalendarClock, History, BellOff, BellPlus, Info } from "lucide-react";
 import { Sheet, InfoButton, ConfirmSheet } from "../components/ui.jsx";
 import { ICONS, iconSrc } from "../lib/icons.js";
-import { VIEWS } from "../lib/view.js";
-import { DAYS, allDays, activeDays } from "../data/program.js";
+import { VIEWS, applyView } from "../lib/view.js";
+import { DAYS, allDays, activeDays, specLine, isCardio } from "../data/program.js";
 import { href } from "../lib/router.js";
 import { shortDate, canVibrate } from "../lib/util.js";
 import { supabase } from "../supabase-client.js";
@@ -14,7 +14,8 @@ import { DayPicker, HourPicker, ReviewList } from "../components/WeekReviewIntro
 
 export default function Settings({ program, sessions, prefs, setPref, onRename, go, notify }) {
   const [email, setEmail] = useState("");
-  const [sheet, setSheet] = useState(null); // "icon" | "install" | "rename" | "redo" | "review-time" | "reviews"
+  const viewRow = useRef(null); // the detail level picker, held still on screen while the level switches
+  const [sheet, setSheet] = useState(null); // "icon" | "install" | "rename" | "redo" | "review-time" | "reviews" | "view"
   const review = reviewPrefs(prefs);
   const setReview = (patch) => setPref("weekReview", { ...review, intro: true, ...patch });
   const icon = ICONS.find((i) => i.id === prefs.icon) || ICONS[0];
@@ -118,7 +119,7 @@ export default function Settings({ program, sessions, prefs, setPref, onRename, 
         <section className="section">
           <h2 className="lbl">Display</h2>
           <div className="list">
-            <ViewPicker value={prefs.view === "focused" ? "focused" : "detailed"} onChange={(v) => setPref("view", v)} />
+            <ViewPicker value={prefs.view === "focused" ? "focused" : "detailed"} row={viewRow} onChange={(v) => setPref("view", v)} onInfo={() => setSheet("view")} />
             <Toggle Icon={Moon} label="Dark mode" sub="Easier on the eyes between sets." on={prefs.theme === "dark"}
               onChange={(v) => setPref("theme", v ? "dark" : "light")} />
             <Toggle help="rir" Icon={Gauge} label="Reps in reserve (RIR)" sub="Rate how many reps you had left on each set." on={prefs.rir}
@@ -180,6 +181,9 @@ export default function Settings({ program, sessions, prefs, setPref, onRename, 
         <p className="small muted detail">Weights are in pounds.</p>
       </div>
 
+      {sheet === "view" && (
+        <ViewSheet value={prefs.view === "focused" ? "focused" : "detailed"} program={program} onPick={(v) => switchView(v, viewRow.current, (x) => setPref("view", x))} onClose={() => setSheet(null)} />
+      )}
       {sheet === "icon" && (
         <Sheet title="App icon" sub="Pick the icon GymBuddy gets on your home screen." onClose={() => setSheet(null)} labelledBy="icon-title">
           <div className="icon-grid" role="radiogroup" aria-label="App icon">
@@ -314,17 +318,88 @@ function Notifications({ review, setReview, notify, onInstall }) {
   );
 }
 
-/** Detailed or Focused: how much each screen explains. One row, two choices, shown live. */
-function ViewPicker({ value, onChange }) {
+/* Switching the detail level adds or removes the grey lines on the rows above the picker, which
+   would shove the picker (and the page behind the examples sheet) up or down under the finger. So the new level goes on right away, before
+   the next paint, and the page scrolls by however far the anchor moved: it stays put on screen. */
+function switchView(v, anchor, onChange) {
+  const before = anchor?.getBoundingClientRect().top;
+  applyView(v);
+  if (anchor) window.scrollBy({ top: anchor.getBoundingClientRect().top - before, behavior: "instant" });
+  onChange(v);
+}
+
+/** Detailed or Focused: how much each screen explains. One row, two choices, shown live; (i) shows examples. */
+function ViewPicker({ row, value, onChange, onInfo }) {
   const cur = VIEWS.find((v) => v.id === value) || VIEWS[0];
   return (
-    <div className="list-row view-row">
+    <div className="list-row view-row" ref={row}>
       <Rows3 size={18} aria-hidden="true" />
       <span className="name">Detail level<span className="sub">{cur.sub}</span></span>
+      <button type="button" className="icon-btn view-info" onClick={onInfo} aria-label="See what each detail level changes"><Info size={20} aria-hidden="true" /></button>
       <div className="segctl view-seg" role="group" aria-label="Detail level">
-        {VIEWS.map((v) => <button key={v.id} aria-pressed={v.id === value} onClick={() => onChange(v.id)}>{v.label}</button>)}
+        {VIEWS.map((v) => <button key={v.id} aria-pressed={v.id === value} onClick={() => v.id !== value && switchView(v.id, row.current, onChange)}>{v.label}</button>)}
       </div>
     </div>
+  );
+}
+
+/* The same things shown both ways, using the lifter's own first workout and lift. The examples
+   are drawn without `.detail` (which Focused hides) so both versions show whichever level is on. */
+function ViewSheet({ value, program, onPick, onClose }) {
+  const d = activeDays(program)[0];
+  const day = program[d];
+  const ex = day?.exercises.find((e) => !isCardio(e.n)) || { n: "Incline Barbell / Smith Press", sets: 4, reps: [6, 10], rest: 120 };
+  const examples = [
+    {
+      title: "Lists",
+      shows: (more) => (
+        <div className="list view-ex-list">
+          <div className="list-row"><span className="name">{day?.name || "Push"}{more && <span className="sub">{day?.detail || "Chest + Triceps"} · {day?.exercises.length ?? 6} lifts</span>}</span><ChevronRight size={18} aria-hidden="true" className="muted" /></div>
+          <div className="list-row"><span className="name">Your coaches{more && <span className="sub">Ask a question or change your plan.</span>}</span><ChevronRight size={18} aria-hidden="true" className="muted" /></div>
+        </div>
+      ),
+    },
+    {
+      title: "During a workout",
+      shows: (more) => (
+        <div className="card view-ex-card">
+          <div className="ex-name">{ex.n}</div>
+          <div className="ex-spec">{specLine(ex)}</div>
+          {more && <p className="view-ex-note">First time logging this one. Today sets the baseline.</p>}
+        </div>
+      ),
+    },
+    {
+      title: "Cards",
+      shows: (more) => (
+        <div className="card phase-card phase-empty view-ex-card">
+          <span className="weigh-icon" aria-hidden="true"><Scale size={22} /></span>
+          <span className="phase-text"><b>Bulk or cut?</b>{more && <span>Set a short-term bodyweight goal and your coaches track the pace.</span>}</span>
+          <span className="pill">Start</span>
+        </div>
+      ),
+    },
+  ];
+  return (
+    <Sheet title="Detail level" sub="The same screens, with or without the grey lines that explain them." onClose={onClose} labelledBy="view-title" className="keep-sub">
+      <div className="view-examples">
+        {examples.map(({ title, shows }) => (
+          <section key={title} className="view-ex">
+            <h3 className="lbl">{title}</h3>
+            {VIEWS.map((v) => (
+              <div key={v.id} className="view-ex-side">
+                <span className={"view-tag" + (v.id === value ? " on" : "")}>{v.label}{v.id === value ? " · on" : ""}</span>
+                {shows(v.id === "detailed")}
+              </div>
+            ))}
+          </section>
+        ))}
+        <p className="note-box">Either way, everything you act on stays: <b>numbers, targets, buttons and errors</b>. Focused also tightens rows a little, so more fits on screen mid-workout.</p>
+      </div>
+      <div className="segctl" role="group" aria-label="Detail level">
+        {VIEWS.map((v) => <button key={v.id} aria-pressed={v.id === value} onClick={() => v.id !== value && onPick(v.id)}>{v.label}</button>)}
+      </div>
+    </Sheet>
   );
 }
 

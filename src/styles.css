@@ -695,7 +695,7 @@ button.coach-card:active { transform: translateY(3px); box-shadow: 0 2px 0 var(-
 .hero-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .hero-card .hero-switch { background: #FFFFFF; color: var(--day-lip); font-family: inherit; cursor: pointer; }
 .hero-card .hero-switch:active { transform: scale(0.95); }
-.weigh { position: relative; }
+.weigh, .phase-prompt { position: relative; }
 .weigh-skip { position: absolute; top: -8px; right: -8px; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; background: var(--surface-2); color: var(--mute); border: 2px solid var(--bg); cursor: pointer; }
 .weigh-skip::after { content: ""; position: absolute; inset: -9px; } /* 44px tap target */
 .weigh-skip:active { transform: scale(0.9); }
@@ -1006,6 +1006,16 @@ button.coach-card:active { transform: translateY(3px); box-shadow: 0 2px 0 var(-
 /* ── Detail level (Settings → Display) ── */
 .view-row { flex-wrap: wrap; row-gap: 10px; }
 .view-row .view-seg { flex-basis: 100%; }
+.view-row .view-info { width: 40px; height: 40px; margin: -6px -10px -6px 0; color: var(--mute); }
+/* The detail level examples (Settings): each thing shown both ways, the level that's on marked. */
+.view-examples { display: flex; flex-direction: column; gap: 20px; }
+.view-ex { display: flex; flex-direction: column; gap: 10px; }
+.view-ex-side { display: flex; flex-direction: column; gap: 6px; }
+.view-tag { align-self: flex-start; padding: 2px 10px; border-radius: 999px; font-size: 12px; font-weight: 800; background: var(--surface-2); color: var(--mute); }
+.view-tag.on { background: var(--ink); color: var(--bg); }
+.view-ex-list, .view-ex-card { pointer-events: none; }
+.view-ex-card { padding: 12px 14px; }
+.view-ex-note { margin-top: 6px; font-size: 13.5px; font-weight: 500; color: var(--mute); }
 
 /* Focused view: the same screens with the explanations taken out (lib/view.js). Text that only
    explains is marked `.detail`; the rest are the app's standing explainer slots. Numbers you act on,

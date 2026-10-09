@@ -114,8 +114,9 @@ function Trends({ sessions, program, weighins, prefs, setPref, notify, onWeighin
   return (
     <>
       {all.length > 0 && <p className="lbl trends-sum">{up} of {all.length} lifts moving up</p>}
-      <PhaseCard phase={phase} sessions={sessions} weighins={weighins} program={program}
-        onStart={() => setStarting(true)} onLog={onWeighin} onUpdate={updatePhase} onEnd={endPhase} onProgramChange={onProgramChange} />
+      {/* The prompt to start one can be hidden for good; a phase you're in always shows. */}
+      {(phase || !prefs?.phasePromptHidden) && <PhaseCard phase={phase} sessions={sessions} weighins={weighins} program={program}
+        onStart={() => setStarting(true)} onHide={() => { setPref("phasePromptHidden", true); notify("Hidden. Start a bulk or cut anytime in Settings.", () => setPref("phasePromptHidden", false)); }} onLog={onWeighin} onUpdate={updatePhase} onEnd={endPhase} onProgramChange={onProgramChange} />}
       <Bodyweight series={bw} phase={phase} onLog={() => setWeighing(true)} />
       <RecentReviews />
       {weighing && <WeighSheet last={bw[bw.length - 1]} onClose={() => setWeighing(false)} onSave={(v) => { onWeighin(today(), v); setWeighing(false); }} />}
