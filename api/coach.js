@@ -283,6 +283,12 @@ export function toReplyStream(result) {
         const [finish, usage] = await Promise.all([result.finishReason.catch(() => "?"), result.usage.catch(() => ({}))]);
         console.warn("coach empty reply", { finish, outputTokens: usage.outputTokens, model: MODEL });
       }
+      // Which model actually answered: the gateway falls back silently, so a Haiku outage or
+      // spent credit only shows here. routing is the gateway's own record of what it tried and why.
+      const [response, meta] = await Promise.all([result.response.catch(() => null), result.providerMetadata.catch(() => null)]);
+      const model = response?.modelId || null;
+      console.log("coach answered", JSON.stringify({ asked: MODEL, by: model, status, routing: meta?.gateway?.routing ?? null }));
+      if (model) ctl.enqueue(enc.encode(`${PROPOSAL_MARK}${JSON.stringify({ model })}\n`));
       if (status) ctl.enqueue(enc.encode(`${PROPOSAL_MARK}${JSON.stringify({ status })}\n`));
       ctl.close();
     },

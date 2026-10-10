@@ -136,6 +136,8 @@ Every review is saved to the account: the latest show on **Progress**, all in **
   `AI_REVIEW_MODEL` switches the first model.
 - Coach chat and Tank's food logging (`api/coach.js`) use Claude Haiku 5.5 from the same credit
   (about $0.001 a reply), falling back to free models. `AI_GATEWAY_MODEL` switches it.
+  The fallback is silent, so every reply logs a `coach answered` line in the function logs with
+  the model asked for, the one that answered, and the gateway's routing record of what it tried.
 
 **Settings → Notifications** shows whether this phone allows notifications (and how to fix it if
 not), **Rest alerts** (this phone only) and **Week in review is ready** (every phone). The push
