@@ -188,14 +188,17 @@ export function cleanMeal(m) {
 }
 
 /** A food name for a list: amounts, brackets and "with …" tails removed, Title Case, and cut at a
-    word to at most 28 characters. "PB protein oatmeal with apple (1/2 cup)" -> "PB Protein Oatmeal". */
+    word to at most 28 characters. "PB protein oatmeal with apple (1/2 cup)" -> "PB Protein Oatmeal".
+    Only a number with a unit, a fraction or an "x" count is an amount: numbers that are part of the
+    name stay ("2% Milk Latte", "7 Layer Dip", "Big Mac 2.0"). */
 export function shortName(s) {
   let t = String(s || "").replace(/\([^)]*\)/g, " ");
   // "Oatmeal with peanut butter, apple…": keep the dish; a one-word dish keeps its first addition too.
   const m = t.match(/^(.*?)\s+(?:with|w\/|plus)\s+(.*)$/i);
   if (m) t = m[1].trim().split(/\s+/).length === 1 ? `${m[1].trim()} & ${m[2].split(/,|\band\b|&/i)[0].trim()}` : m[1];
   t = t
-    .replace(/\b\d+([./]\d+)?\s*(g|grams?|oz|ml|cups?|tbsp|tsp|scoops?|slices?|pieces?)?\b/gi, " ")
+    .replace(/(^|\s)\d+([./]\d+)?\s*(g|grams?|oz|ml|cups?|tbsp|tsp|scoops?|slices?|pieces?)\b/gi, " ")
+    .replace(/(^|\s)\d+\/\d+(?=\s|$)|\b\d+\s*x\b/gi, " ")
     .replace(/\b(meal|breakfast|lunch|dinner|snack)\b$/i, "")
     .replace(/\s+/g, " ").trim();
   t = t.replace(/\b([a-z])([a-z]*)/g, (w, a, b) => (["and", "or", "of", "on", "in", "with"].includes(w) ? w : a.toUpperCase() + b));
