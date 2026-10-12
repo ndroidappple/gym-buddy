@@ -357,7 +357,7 @@ export default function Session({ day, existing, draft, sessions, program, weigh
     const more = grid[ex.n].some((r, j) => j !== i && !r.done);
     const upNext = more ? null : nextAfter(ex.n)?.n;
     const alert = more ? `Next: ${ex.n}${next ? ` ${next}` : ""}` : upNext ? `Next up: ${upNext}` : "Time for your next set.";
-    setTimer({ endsAt: Date.now() + ex.rest * 1000, total: ex.rest, coach: coachFor(ex.n), next, alert });
+    setTimer({ endsAt: Date.now() + ex.rest * 1000, total: ex.rest, coach: coachFor(ex.n), alert });
     setActiveIdx(null);
     setEditing(false);
     // The coach reacts first, then settles into recovering while the rest timer runs.
@@ -926,7 +926,8 @@ function RestDock({ timer, setTimer, alertSet, leaving }) {
           <span className="rest-line">
             {!over && alertSet === true && <Bell size={12} strokeWidth={2.5} className="rest-bell" aria-label="Lock-screen alert set" />}
             {!over && alertSet === false && <BellOff size={12} strokeWidth={2.5} className="rest-bell" aria-label="No lock-screen alert: no connection. Keep GymBuddy open." />}
-            {timer.next ? `${over ? "Go" : "Next"}: ${timer.next}` : over ? "Rest over. Next set!" : MOODS.resting.line}
+            {/* The next set's weight and reps are already on screen (the coach's call and the set card). */}
+            {over ? "Rest over. Next set!" : "Rest"}
           </span>
           <span className="clock" aria-live={over ? "assertive" : "off"} aria-label={over ? "Rest over" : `${mmss(left)} of ${mmss(timer.total)} rest left`}>{over ? "Go" : <Roll value={mmss(left)} />}</span>
         </div>
