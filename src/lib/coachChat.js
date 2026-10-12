@@ -95,21 +95,23 @@ export async function askCoach({ coach, messages, context, onText, signal, mode 
     raw += decoder.decode(value, { stream: true });
     onText(raw.split(PROPOSAL_MARK)[0]);
   }
-  // Text first, then records after the mark: program-change proposals, tap-to-reply options, and a
-  // final status when the reply failed or came back empty ("rate" = a real 429, "empty" = nothing written, "error").
+  // Text first, then records after the mark: program-change proposals, food log edits, a meal,
+  // tap-to-reply options, and a final status when the reply failed or came back empty
+  // ("rate" = a real 429, "empty" = nothing written, "error").
   const [text, ...rest] = raw.split(PROPOSAL_MARK);
   const records = rest.map((line) => { try { return JSON.parse(line.trim()); } catch { return null; } }).filter(Boolean);
   const proposals = records.map((r) => r.changes).filter((c) => Array.isArray(c) && c.length);
   const { status, finish } = records.find((r) => r.status) || {};
   const meal = records.filter((r) => r.meal).map((r) => r.meal).pop() || null;
-  if (!text.trim() && !proposals.length && !meal) {
+  const foodEdits = records.map((r) => r.foodEdits).filter((x) => Array.isArray(x) && x.length).flat();
+  if (!text.trim() && !proposals.length && !meal && !foodEdits.length) {
     const kind = status === "rate" ? "rate" : status === "error" ? "busy" : "empty";
     // capped: the model thought until it ran out of room and never answered.
     throw Object.assign(new Error(kind), { kind, capped: finish === "length" });
   }
   const replies = [...new Set(records.flatMap((r) => (Array.isArray(r.replies) ? r.replies : []))
     .filter((x) => typeof x === "string").map((x) => x.trim().slice(0, 60)).filter(Boolean))].slice(0, 3);
-  return { text, changes: proposals.flat(), replies, meal };
+  return { text, changes: proposals.flat(), replies, meal, foodEdits };
 }
 
 /** What Tank reads to review a program the lifter brought in: their goals, days, and every workout. */

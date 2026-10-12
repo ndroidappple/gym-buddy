@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowUp, Check, ListChecks } from "lucide-react";
+import { ArrowUp, Check, ListChecks, Utensils } from "lucide-react";
 import { BorderBeam } from "border-beam";
 import { ThinkingOrb } from "thinking-orbs";
 import { Sheet } from "./ui.jsx";
@@ -8,6 +8,7 @@ import { COACHES, coachFor } from "../data/coaches.js";
 import { activeDays } from "../data/program.js";
 import { askCoach, buildContext } from "../lib/coachChat.js";
 import { applyChanges } from "../lib/programChange.js";
+import { previewFoodEdits, applyFoodEdits } from "../lib/foodEdit.js";
 import { useReducedMotion } from "../lib/motion.js";
 import { useTheme } from "../lib/theme.js";
 
@@ -31,13 +32,14 @@ const TRYABLE = new Set(["rate", "empty", "busy", "offline"]);
 /** Starters for the nutrition chat, from the Nutrition tab. */
 const FOOD_STARTERS = ["What should I eat to hit my protein today?", "How's my eating this week?", "A high-protein snack idea", "Am I eating right for my goal?"];
 
-/** `topic="nutrition"`: Tank as the nutrition coach, from the Nutrition tab, with `foodContext` as his data. */
-export default function CoachChat({ coach, exercise, starter, sessions, program, weighins, profile, phase, nutrition, live, topic, foodContext, onProgramChange, onClose }) {
+/** `topic="nutrition"`: Tank as the nutrition coach, from the Nutrition tab, with `foodContext` as his data.
+    With `foodLog` (useFood()), he can propose edits to today's log, applied only from the card. */
+export default function CoachChat({ coach, exercise, starter, sessions, program, weighins, profile, phase, nutrition, live, topic, foodContext, foodLog, onProgramChange, onClose }) {
   const food = topic === "nutrition";
   const c = COACHES[coach];
-  // {role, content, trouble?, replies?, changes?, preview?: {lines, errors}, decision?: "applied" | "dismissed"}
+  // {role, content, trouble?, replies?, changes?, ops? (food log edits), preview?: {lines, errors}, decision?: "applied" | "dismissed"}
   const [messages, setMessages] = useState([]);
-  const undos = useRef({}); // message index -> undo for an applied program change
+  const undos = useRef({}); // message index -> undo for an applied program change or food edit
   const [draft, setDraft] = useState("");
   const [status, setStatus] = useState("idle"); // idle | thinking | streaming | answered
   const busy = status === "thinking" || status === "streaming";
@@ -97,9 +99,13 @@ export default function CoachChat({ coach, exercise, starter, sessions, program,
     });
     try {
       // A blank reply is usually a one-off (the model ran long thinking); ask once more before saying so.
-      const { text: reply, changes, replies } = await ask().catch((e) => (e.kind === "empty" ? ask() : Promise.reject(e)));
+      const { text: reply, changes, replies, foodEdits } = await ask().catch((e) => (e.kind === "empty" ? ask() : Promise.reject(e)));
       if (changes.length && onProgramChange) {
         put({ content: reply.trim() || "Here's the change I'd make.", changes, preview: applyChanges(program, changes), replies });
+      } else if (foodEdits.length && foodLog) {
+        // Checked against the log now; the ops keep entry ids, so Apply hits the same entries later.
+        const { ops, lines, errors } = previewFoodEdits(foodLog.entries, foodEdits);
+        put({ content: reply.trim() || "Here's the change I'd make.", ops, preview: { lines, errors }, replies });
       } else put({ replies });
       setStatus("answered");
     } catch (e) {
@@ -111,6 +117,13 @@ export default function CoachChat({ coach, exercise, starter, sessions, program,
 
   const decide = (i, decision) => setMessages((ms) => ms.map((m, j) => (j === i ? { ...m, decision } : m)));
   const apply = (i) => {
+    if (messages[i].ops) {
+      const undo = applyFoodEdits(foodLog, messages[i].ops);
+      if (!undo) return;
+      undos.current[i] = undo;
+      decide(i, "applied");
+      return;
+    }
     // Re-check against the program as it is now; the lifter may have edited it since the proposal.
     const r = applyChanges(program, messages[i].changes);
     if (!r.lines.length) return;
@@ -160,7 +173,7 @@ export default function CoachChat({ coach, exercise, starter, sessions, program,
                   </span>
                 )}
               </p>
-              {m.preview && <Proposal preview={m.preview} decision={m.decision}
+              {m.preview && <Proposal preview={m.preview} decision={m.decision} what={m.ops ? "food" : "program"}
                 onApply={() => apply(i)} onDismiss={() => decide(i, "dismissed")} onUndo={() => undo(i)} />}
             </React.Fragment>
           ))}
@@ -186,13 +199,19 @@ export default function CoachChat({ coach, exercise, starter, sessions, program,
   );
 }
 
-/** A coach's proposed program edit. Nothing is saved until the lifter taps Apply; Undo puts it back. */
-function Proposal({ preview, decision, onApply, onDismiss, onUndo }) {
+const PROPOSAL = {
+  program: { icon: ListChecks, label: "Proposed program change", applied: "Program updated" },
+  food: { icon: Utensils, label: "Proposed change to today's log", applied: "Food log updated" },
+};
+
+/** A coach's proposed program or food log edit. Nothing is saved until the lifter taps Apply; Undo puts it back. */
+function Proposal({ preview, decision, what = "program", onApply, onDismiss, onUndo }) {
   const { lines, errors } = preview;
+  const p = PROPOSAL[what];
   return (
-    <div className={"proposal" + (decision ? ` ${decision}` : "")} role="group" aria-label="Proposed program change">
-      <span className="proposal-head"><ListChecks size={16} strokeWidth={2.6} aria-hidden="true" />
-        {decision === "applied" ? "Program updated" : decision === "dismissed" ? "Not applied" : "Proposed program change"}</span>
+    <div className={"proposal" + (decision ? ` ${decision}` : "")} role="group" aria-label={p.label}>
+      <span className="proposal-head"><p.icon size={16} strokeWidth={2.6} aria-hidden="true" />
+        {decision === "applied" ? p.applied : decision === "dismissed" ? "Not applied" : p.label}</span>
       {lines.length > 0 && <ul>{lines.map((l) => <li key={l}>{l}</li>)}</ul>}
       {errors.length > 0 && <p className="proposal-skip">{lines.length ? "Skipped: " : "Couldn't apply: "}{errors.join(" ")}</p>}
       {!decision && lines.length > 0 && (

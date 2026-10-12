@@ -211,6 +211,7 @@ export function shortName(s) {
  * days, the goal or bulk/cut, and bodyweight. Plain text for the model.
  */
 export function nutritionChatContext({ n, entries, phase, sessions, weighins }) {
+  // Same order as todaysEntries() in foodEdit.js: Tank names an entry to edit by its #number here.
   const day = entries.filter((e) => e.date === today()).sort((a, b) => (a.created_at || "").localeCompare(b.created_at || ""));
   const t = n.targets;
   const sum = totals(day);
@@ -219,7 +220,7 @@ export function nutritionChatContext({ n, entries, phase, sessions, weighins }) 
   const lines = [
     nutritionContext(n, entries),
     `Left today: ${r(left.kcal)} kcal, ${r(left.protein)} g protein, ${r(left.carbs)} g carbs, ${r(left.fat)} g fat.`,
-    day.length ? `Eaten today: ${day.map((e) => `${e.meal} ${e.name} (${r(e.kcal)} kcal, P${r(e.protein)} C${r(e.carbs)} F${r(e.fat)})`).join("; ")}.` : "Nothing logged yet today.",
+    day.length ? `Eaten today: ${day.map((e, i) => `#${i + 1} ${e.meal} ${e.name}, ${+e.amount || 1} ${e.unit || "serving"} (${r(e.kcal)} kcal, P${r(e.protein)} C${r(e.carbs)} F${r(e.fat)})`).join("; ")}.` : "Nothing logged yet today.",
   ];
   const week = [];
   for (let i = 6; i >= 1; i--) {
