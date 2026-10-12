@@ -21,23 +21,31 @@ const TROUBLE = {
   busy: "Couldn't get that through. Try again in a moment.",
 };
 const ESTIMATE = "Make your best estimate";
+const SLOW_MS = 20000; // past this, offer manual entry (a slow fallback model can take a minute or more)
 const fmt = (n) => Math.round(n).toLocaleString();
 const r = (n) => Math.round(n);
 
 /** What the model sees of an earlier card, so a correction edits the same meal. */
 const mealNote = (m) => ` [Meal shown: ${m.name}: ${m.items.map((x) => `${x.food} ${x.amount} ${x.kcal} kcal`).join("; ")}.]`;
 
-export default function TankMeal({ meal: slot, onMeal, action, onSave }) {
+export default function TankMeal({ meal: slot, onMeal, action, onSave, onManual }) {
   const [messages, setMessages] = useState([]); // { role, content, meal?, replies?, trouble?, retry? }
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
   const [name, setName] = useState("");
   const [save, setSave] = useState(false); // logged meals show in Your foods anyway; save the ones you repeat
+  const [slow, setSlow] = useState(false);
   const listRef = useRef(null);
   const abort = useRef(null);
   const theme = useTheme();
   useEffect(() => () => abort.current?.abort(), []);
-  useEffect(() => { listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" }); }, [messages, busy]);
+  useEffect(() => { listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" }); }, [messages, busy, slow]);
+  useEffect(() => {
+    setSlow(false);
+    if (!busy) return;
+    const t = setTimeout(() => setSlow(true), SLOW_MS);
+    return () => clearTimeout(t);
+  }, [busy]);
 
   const last = messages[messages.length - 1];
   const card = [...messages].reverse().find((m) => m.meal)?.meal || null;
@@ -94,6 +102,12 @@ export default function TankMeal({ meal: slot, onMeal, action, onSave }) {
         ))}
         {busy && (
           <p className="coach-bubble"><span className="chat-wait"><ThinkingOrb state="breathing" size={20} theme={theme} aria-hidden="true" />Tank is working it out…</span></p>
+        )}
+        {busy && slow && onManual && (
+          <div className="tank-meal-slow">
+            <p className="small muted">Taking longer than usual. Keep waiting, or enter it yourself.</p>
+            <button type="button" className="chip" onClick={onManual}><Pencil size={14} aria-hidden="true" /> Enter manually</button>
+          </div>
         )}
         {chips.length > 0 && (
           <div className="chat-suggest chat-replies" role="group" aria-label="Quick replies">

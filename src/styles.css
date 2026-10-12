@@ -952,6 +952,7 @@ button.coach-card:active { transform: translateY(3px); box-shadow: 0 2px 0 var(-
 .tank-meal .chat-input textarea { min-height: 44px; }
 .tank-meal-hello { display: flex; align-items: flex-end; gap: 8px; }
 .tank-meal-hello .coach-bubble { flex: 1; }
+.tank-meal-slow { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; padding-left: 4px; animation: fade 200ms both; }
 .meal-card { gap: 10px; }
 .meal-name { flex: 1; min-width: 0; font: inherit; font-weight: 800; font-size: 15px; background: none; border: 0; border-bottom: 2px dashed var(--rule); color: var(--ink); padding: 2px 0; }
 .meal-name:focus { outline: none; border-bottom-color: var(--ink); }

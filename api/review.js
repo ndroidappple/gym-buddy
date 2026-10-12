@@ -14,12 +14,12 @@ import {
    The review is saved to the account (storage_kv, key week-review:<date>), so it's written once
    a week and opens instantly after that.
 
-   Model: Claude Sonnet 5.5 through Vercel AI Gateway, paid from the gateway's free monthly credit
-   (about $0.05 a review). If it fails (credit used up, an outage) the gateway tries Claude Haiku 5.5,
-   then a free model; if every model fails, the review is written by code instead (fallbackStory).
-   AI_REVIEW_MODEL switches the first model. */
-const MODEL = process.env.AI_REVIEW_MODEL || "anthropic/claude-sonnet-5.5";
-const FALLBACKS = ["anthropic/claude-haiku-5.5", "inclusionai/ling-3.1-flash-free"].filter((m) => m !== MODEL);
+   Model: Gemini 2.5 Flash through Vercel AI Gateway, paid from the gateway's free monthly credit
+   (about $0.02 a review; no Claude model is eligible for the free credit). If it fails (credit used
+   up, an outage) the gateway tries Gemini 2.5 Flash-Lite, then a free model; if every model fails,
+   the review is written by code instead (fallbackStory). AI_REVIEW_MODEL switches the first model. */
+const MODEL = process.env.AI_REVIEW_MODEL || "google/gemini-2.5-flash";
+const FALLBACKS = ["google/gemini-2.5-flash-lite", "inclusionai/ling-3.1-flash-free"].filter((m) => m !== MODEL);
 const ACCOUNT_KEY = "ironlog-v2"; // STORE_KEY in src/lib/store.js
 const FOOD_DAYS = 56; // eight weeks of food: this week plus seven to compare against
 

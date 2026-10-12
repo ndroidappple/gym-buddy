@@ -157,12 +157,18 @@ export function nutritionInstructions(context = "") {
 
 /* Ask-a-coach. Runs as a Vercel Function; the model is reached through Vercel AI Gateway,
    which authenticates with the deployment's OIDC token (no API key in the app).
-   Default is Claude Haiku 5.5: fast enough for mid-set questions and good at itemizing a meal, at
-   about $0.001 a reply, paid from AI Gateway's free $5 a month (shared with the week in review).
-   Set AI_GATEWAY_MODEL in the project to switch. If it fails (credit used up, an outage) the
-   gateway falls back to free models, in order; free models come and go, so there are two. */
-const MODEL = process.env.AI_GATEWAY_MODEL || "anthropic/claude-haiku-5.5";
-const FALLBACKS = ["inclusionai/ling-3.1-flash-free", "poolside/laguna-s-2.1-free"].filter((m) => m !== MODEL);
+   Models are Gemini 2.5, the ones AI Gateway's free $5 a month covers (no Claude model is eligible
+   for the free credit: the gateway skips them without trying). Flash itemizes meals and reviews
+   programs, where getting the numbers right matters; Flash-Lite answers chat, where speed does
+   (a reply is well under $0.001, a meal about $0.004). AI_GATEWAY_MODEL forces one model for every
+   mode. If the first model fails (credit used up, an outage) the gateway tries the other Gemini,
+   then free models, in order; free models come and go, so there are two. */
+const FLASH = "google/gemini-2.5-flash";
+const LITE = "google/gemini-2.5-flash-lite";
+const FREE = ["inclusionai/ling-3.1-flash-free", "poolside/laguna-s-2.1-free"];
+const MODELS = { chat: LITE, nutrition: LITE, food: FLASH, review: FLASH };
+export const modelFor = (mode) => process.env.AI_GATEWAY_MODEL || MODELS[mode] || MODELS.chat;
+export const fallbacksFor = (model) => [FLASH, LITE, ...FREE].filter((m) => m !== model);
 
 const COACHES = {
   tank: ["Tank", "chest and triceps, and nutrition"], wings: ["Wings", "back and biceps"], boulder: ["Boulder", "shoulders"],
@@ -226,8 +232,9 @@ export async function POST(request) {
   const eat = body.mode === "nutrition";
   const context = typeof body.context === "string" ? body.context.slice(0, review ? 8000 : 5000) : ""; // room for the full program
 
+  const model = modelFor(body.mode);
   const result = streamText({
-    model: MODEL,
+    model,
     instructions: review ? reviewInstructions(context) : food ? foodInstructions(context) : eat ? nutritionInstructions(context) : coachInstructions(body.coach, context),
     messages,
     tools: review ? REVIEW_TOOLS : food ? FOOD_TOOLS : eat ? { offer_replies: COACH_TOOLS.offer_replies } : COACH_TOOLS,
@@ -238,19 +245,21 @@ export async function POST(request) {
     // a verdict: 6000 leaves ample room for all of that on top of long thinking.
     // A meal: thinking plus up to 12 itemized foods (~50 tokens each) and a sentence.
     maxOutputTokens: review ? 6000 : food ? 4000 : eat ? 2000 : 1500,
-    // How hard it thinks first: a quick answer mid-set; more for itemizing a meal or reading a program.
-    reasoning: review || food ? "medium" : "low",
-    providerOptions: { gateway: { models: FALLBACKS } },
+    // How hard it thinks first: a quick answer mid-set or a meal (standard nutrition values need
+    // little thought, and long thinking left slow free models with no tokens to answer); more for
+    // reading a whole program.
+    reasoning: review ? "medium" : "low",
+    providerOptions: { gateway: { models: fallbacksFor(model) } },
     abortSignal: request.signal,
   });
 
-  return new Response(toReplyStream(result), { headers: { "content-type": "text/plain; charset=utf-8", "cache-control": "no-store" } });
+  return new Response(toReplyStream(result, model), { headers: { "content-type": "text/plain; charset=utf-8", "cache-control": "no-store" } });
 }
 
 /** Plain text as it streams, then any proposal as its own line: MARK + JSON. When the reply fails
     or comes back empty, a final MARK + {"status": ...} line tells the app why, so it can say the
     right thing (and retry an empty reply) instead of calling everything a rate limit. */
-export function toReplyStream(result) {
+export function toReplyStream(result, asked) {
   const enc = new TextEncoder();
   return new ReadableStream({
     async start(ctl) {
@@ -275,21 +284,24 @@ export function toReplyStream(result) {
         failure = e;
       }
       let status = null;
+      let finish = null;
       if (failure) {
         status = isRateLimit(failure) ? "rate" : "error";
         console.error(`coach ${status}`, failure?.statusCode ?? "", failure?.message ?? failure);
       } else if (!wrote) {
         status = "empty";
-        const [finish, usage] = await Promise.all([result.finishReason.catch(() => "?"), result.usage.catch(() => ({}))]);
-        console.warn("coach empty reply", { finish, outputTokens: usage.outputTokens, model: MODEL });
+        let usage;
+        [finish, usage] = await Promise.all([result.finishReason.catch(() => null), result.usage.catch(() => ({}))]);
+        console.warn("coach empty reply", { finish, outputTokens: usage.outputTokens, model: asked });
       }
-      // Which model actually answered: the gateway falls back silently, so a Haiku outage or
+      // Which model actually answered: the gateway falls back silently, so a Gemini outage or
       // spent credit only shows here. routing is the gateway's own record of what it tried and why.
       const [response, meta] = await Promise.all([result.response.catch(() => null), result.providerMetadata.catch(() => null)]);
       const model = response?.modelId || null;
-      console.log("coach answered", JSON.stringify({ asked: MODEL, by: model, status, routing: meta?.gateway?.routing ?? null }));
+      console.log("coach answered", JSON.stringify({ asked, by: model, status, routing: meta?.gateway?.routing ?? null }));
       if (model) ctl.enqueue(enc.encode(`${PROPOSAL_MARK}${JSON.stringify({ model })}\n`));
-      if (status) ctl.enqueue(enc.encode(`${PROPOSAL_MARK}${JSON.stringify({ status })}\n`));
+      // finish "length" on an empty reply: it thought until the cap and never answered.
+      if (status) ctl.enqueue(enc.encode(`${PROPOSAL_MARK}${JSON.stringify(finish ? { status, finish } : { status })}\n`));
       ctl.close();
     },
   });

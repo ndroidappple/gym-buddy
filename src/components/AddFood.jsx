@@ -46,7 +46,7 @@ export default function AddFood({ food, meal: meal0, date, onClose, notify }) {
       {view.step === "find" && <Find food={food} meal={meal} onPick={(f, prior) => setView({ step: "portion", food: f, prior })} onTank={() => setView({ step: "tank" })} onScan={() => setView({ step: "scan" })} onManual={() => setView({ step: "manual" })} />}
       {view.step === "scan" && <ScanFood food={food} toFood={scannedFood} onFound={(f) => setView({ step: "portion", food: f })} onManual={(barcode) => setView({ step: "manual", barcode })} />}
       {view.step === "tank" && (
-        <TankMeal meal={meal} onMeal={setMeal} action={`Add to ${mealLabel}`}
+        <TankMeal meal={meal} onMeal={setMeal} action={`Add to ${mealLabel}`} onManual={() => setView({ step: "manual" })}
           onSave={({ meal: m, save }) => {
             // One food for the whole meal; its items ride along in the basis so the breakdown is kept.
             const basis = { perServing: m.total, servingLabel: "meal", items: m.items };

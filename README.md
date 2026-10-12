@@ -114,7 +114,7 @@ Every review is saved to the account: the latest show on **Progress**, all in **
   workouts against plan, sets per coach's area against the 4-week average, records, stalled and
   rising lifts, skipped lifts, food against targets (training vs rest days, weekdays vs weekends,
   top foods, drinks), bodyweight and bulk/cut pace, 8 weeks of trends, and candidate highs/lows.
-- `api/review.js` (a Vercel Function) runs a coach **agent**: Claude Sonnet 5.5 through Vercel AI
+- `api/review.js` (a Vercel Function) runs a coach **agent**: Gemini 2.5 Flash through Vercel AI
   Gateway, with read-only tools to dig further (a lift's history, food by day or item, an earlier
   week) before it hands in the review. It's saved to `storage_kv` as `week-review:<last day>`, so
   it's written once and opens instantly after that (up to 3 runs a week, with updates when more is
@@ -130,12 +130,16 @@ Every review is saved to the account: the latest show on **Progress**, all in **
   data through `review_job_input` / `review_job_save`, which refuse anything without the secret. If
   the scheduled run fails, the app asks for the review itself 20 minutes later, or when it's tapped;
   a "being written" marker stops the two from paying for the same review twice.
-- Cost: about $0.05 a review, paid from AI Gateway's free $5 a month (as long as no gateway credits
-  are bought). If Sonnet fails or the credit runs out, the gateway falls back to Claude Haiku 5.5,
-  then a free model; if no model answers, the review is written by code from the same facts.
-  `AI_REVIEW_MODEL` switches the first model.
-- Coach chat and Tank's food logging (`api/coach.js`) use Claude Haiku 5.5 from the same credit
-  (about $0.001 a reply), falling back to free models. `AI_GATEWAY_MODEL` switches it.
+- Cost: about $0.02 a review, paid from AI Gateway's free $5 a month (as long as no gateway credits
+  are bought). Only some models are eligible for the free credit, and no Claude model is: the
+  gateway skips an ineligible model without trying it (the routing record shows 0 attempts for it)
+  and goes straight to the fallbacks. If Gemini 2.5 Flash fails or the credit runs out, the gateway
+  falls back to Gemini 2.5 Flash-Lite, then a free model; if no model answers, the review is
+  written by code from the same facts. `AI_REVIEW_MODEL` switches the first model.
+- Coach chat and Tank's food logging (`api/coach.js`) use the same credit: Gemini 2.5 Flash for
+  logging a meal and reviewing a program (about $0.004 a meal), Gemini 2.5 Flash-Lite for chat
+  (well under $0.001 a reply). Each falls back to the other Gemini, then to free models.
+  `AI_GATEWAY_MODEL` forces one model for everything.
   The fallback is silent, so every reply logs a `coach answered` line in the function logs with
   the model asked for, the one that answered, and the gateway's routing record of what it tried.
 

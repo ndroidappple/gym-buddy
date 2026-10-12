@@ -100,11 +100,12 @@ export async function askCoach({ coach, messages, context, onText, signal, mode 
   const [text, ...rest] = raw.split(PROPOSAL_MARK);
   const records = rest.map((line) => { try { return JSON.parse(line.trim()); } catch { return null; } }).filter(Boolean);
   const proposals = records.map((r) => r.changes).filter((c) => Array.isArray(c) && c.length);
-  const status = records.find((r) => r.status)?.status;
+  const { status, finish } = records.find((r) => r.status) || {};
   const meal = records.filter((r) => r.meal).map((r) => r.meal).pop() || null;
   if (!text.trim() && !proposals.length && !meal) {
     const kind = status === "rate" ? "rate" : status === "error" ? "busy" : "empty";
-    throw Object.assign(new Error(kind), { kind });
+    // capped: the model thought until it ran out of room and never answered.
+    throw Object.assign(new Error(kind), { kind, capped: finish === "length" });
   }
   const replies = [...new Set(records.flatMap((r) => (Array.isArray(r.replies) ? r.replies : []))
     .filter((x) => typeof x === "string").map((x) => x.trim().slice(0, 60)).filter(Boolean))].slice(0, 3);
@@ -149,6 +150,8 @@ export async function reviewProgram({ program, profile, onText, signal }) {
  */
 export async function describeMeal({ messages, mealSlot, onText, signal }) {
   const ask = () => askCoach({ coach: "tank", mode: "food", messages, signal, onText: onText || (() => {}), context: mealSlot ? `Logging to: ${mealSlot}.` : "" });
-  const r = await ask().catch((e) => (e.kind === "empty" ? ask() : Promise.reject(e)));
+  // A blank reply is retried once, unless the model ran out of room thinking: then the retry would
+  // most likely do the same, and the lifter would wait twice as long for nothing.
+  const r = await ask().catch((e) => (e.kind === "empty" && !e.capped ? ask() : Promise.reject(e)));
   return { text: r.text.trim(), replies: r.replies, meal: r.meal ? cleanMeal(r.meal) : null };
 }
