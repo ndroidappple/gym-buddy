@@ -72,6 +72,30 @@ export function useFood(enabled) {
     }
   }, [uid, commit]);
 
+  // The account's rows on top of this phone's copy. Anything still waiting in the outbox, or saved
+  // here after this read began, is newer than the account's copy, so it's kept.
+  const pull = useCallback(async (id) => {
+    const started = new Date().toISOString();
+    const since = addDays(today(), -WINDOW_DAYS);
+    const [e, f] = await Promise.all([
+      supabase.from("food_entries").select(ENTRY_COLS.join(",")).gte("date", since).order("created_at"),
+      supabase.from("foods").select(FOOD_COLS.join(",")).order("created_at"),
+    ]);
+    if (e.error || f.error) throw e.error || f.error;
+    const cur = stateRef.current;
+    const pending = new Set(cur.outbox.map((o) => o.id));
+    const merge = (rows, mine) => {
+      const out = Object.fromEntries((rows || []).map((r) => [r.id, r]));
+      for (const [k, v] of Object.entries(mine)) if (pending.has(k) || (v.updated_at || "") > started) out[k] = v;
+      for (const o of cur.outbox) if (o.op === "delete") delete out[o.id];
+      return out;
+    };
+    const next = { ...cur, entries: merge(e.data, cur.entries), foods: merge(f.data, cur.foods) };
+    stateRef.current = next;
+    setState(next);
+    writeLocal(id, next);
+  }, []);
+
   // Load: this phone's copy first (instant, works offline), then the account's rows on top.
   useEffect(() => {
     if (!enabled) return;
@@ -85,33 +109,26 @@ export function useFood(enabled) {
       stateRef.current = local;
       setState(local);
       setReady(true);
-      try {
-        const since = addDays(today(), -WINDOW_DAYS);
-        const [e, f] = await Promise.all([
-          supabase.from("food_entries").select(ENTRY_COLS.join(",")).gte("date", since).order("created_at"),
-          supabase.from("foods").select(FOOD_COLS.join(",")).order("created_at"),
-        ]);
-        if (e.error || f.error) throw e.error || f.error;
-        if (!alive) return;
-        const cur = stateRef.current;
-        // Anything still waiting in the outbox is newer than the account's copy: keep it.
-        const pending = new Set(cur.outbox.map((o) => o.id));
-        const merge = (rows, mine) => {
-          const out = Object.fromEntries((rows || []).map((r) => [r.id, r]));
-          for (const [k, v] of Object.entries(mine)) if (pending.has(k)) out[k] = v;
-          for (const o of cur.outbox) if (o.op === "delete") delete out[o.id];
-          return out;
-        };
-        const next = { ...cur, entries: merge(e.data, cur.entries), foods: merge(f.data, cur.foods) };
-        stateRef.current = next;
-        setState(next);
-        writeLocal(id, next);
-      } catch {
-        if (alive) setStatus("offline");
-      }
+      try { if (alive) await pull(id); } catch { if (alive) setStatus("offline"); }
     })();
     return () => { alive = false; };
-  }, [enabled]);
+  }, [enabled, pull]);
+
+  // Food logged elsewhere (another phone, or written to the account directly) shows up when the
+  // app comes back to the front, not only after a restart. At most every 10 s: waking fires both
+  // visibilitychange and focus.
+  useEffect(() => {
+    if (!uid) return;
+    let last = Date.now();
+    const refresh = () => {
+      if (document.visibilityState !== "visible" || Date.now() - last < 10000) return;
+      last = Date.now();
+      pull(uid).catch(() => {});
+    };
+    document.addEventListener("visibilitychange", refresh);
+    addEventListener("focus", refresh);
+    return () => { document.removeEventListener("visibilitychange", refresh); removeEventListener("focus", refresh); };
+  }, [uid, pull]);
 
   useEffect(() => { if (ready) flush(); }, [ready, flush]);
 
