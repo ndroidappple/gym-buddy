@@ -14,7 +14,7 @@ import { MessageCircle } from "lucide-react";
 import { nextSetAdvice, openingAdvice } from "../lib/setCoach.js";
 import { checkRange } from "../lib/repRange.js";
 import { anchorOf, doInstead, swapsFor } from "../lib/busy.js";
-import { loadFrom, loadIn, learnK, adjustedSeries } from "../lib/fatigue.js";
+import { loadParts, partsIn, learnK, adjustedSeries } from "../lib/fatigue.js";
 import BusySheet from "../components/BusySheet.jsx";
 import { COACHES, coachFor } from "../data/coaches.js";
 import { isCardio, specLine } from "../data/program.js";
@@ -82,7 +82,8 @@ export default function Session({ day, existing, draft, sessions, program, weigh
     const past = before.filter((s) => s.sets[lift]?.length);
     const k = learnK(past, lift);
     const fresh = adjustedSeries(past, lift, k);
-    return { now: loadFrom(earlier, lift), past: past.map((s) => loadIn(s, lift)), k, best: fresh.length ? Math.max(...fresh.map((x) => x.fresh)) : 0 };
+    const now = loadParts(earlier, lift), then = past.map((s) => partsIn(s, lift));
+    return { now: now.load, nowSets: now.sets, past: then.map((x) => x.load), pastSets: then.map((x) => x.sets), k, best: fresh.length ? Math.max(...fresh.map((x) => x.fresh)) : 0 };
   };
   // Bodyweight counts in the load for pull-ups and dips: today's entry, else the latest on record.
   const bodyweight = useMemo(() => (bw !== "" && +bw > 0 ? +bw : bodyweightSeries(sessions, weighins).at(-1)?.bw || 180), [bw, sessions, weighins]);
@@ -334,7 +335,7 @@ export default function Session({ day, existing, draft, sessions, program, weigh
       .map((r) => ({ w: +r.w, r: +r.r, rir: hasVal(r.rir) ? +r.rir : null }));
     const left = grid[ex.n].filter((r, j) => j !== i && !r.done).length;
     const fat = existing ? null : fatigueFor(ex.n);
-    const call = existing ? null : nextSetAdvice({ ex, done: doneToday, asked: row.asked, left, history: historyFor(ex.n), best: fat.best || allTimeBest(before, ex.n), pr, bodyweight, load: fat.now, k: fat.k });
+    const call = existing ? null : nextSetAdvice({ ex, done: doneToday, asked: row.asked, left, history: historyFor(ex.n), best: fat.best || allTimeBest(before, ex.n), pr, bodyweight, load: fat.now, loadSets: fat.nowSets, k: fat.k });
     if (call) setAdvice((a) => ({ ...a, [ex.n]: call }));
 
     setGrid((g) => {
