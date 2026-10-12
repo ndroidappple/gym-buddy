@@ -169,6 +169,7 @@ src/
   lib/push.js              # notification permission + this phone's push address (shared)
   lib/restAlerts.js        # lock-screen rest alerts (push; see public/sw.js, api/rest-alert.js)
   lib/weekReview.js        # week in review: facts, timing, agent tools, code-written fallback
+  lib/repRange.js          # is a lift's rep range sane for its kind? (npm run test:range)
   components/ui.jsx        # sheet, toast, tab bar, charts, exercise picker
   views/                   # Today, Session, Summary, Progress (+ Workouts), Lift,
                            # Settings, ProgramEditor, Export
@@ -183,6 +184,12 @@ performance. Light/dark follow the phone's setting. Pounds only.
 - The 4-day Push/Pull/Legs/Shoulders&Arms split, with sets/reps/rest per lift
 - Two weeks of historical sessions imported from the original spreadsheet
 - A ~60-lift library (grouped by muscle) for the in-app "Add exercise" picker
+- A rep-range check (`src/lib/repRange.js`): each lift is sorted by name into heavy barbell,
+  compound, isolation, small-muscle or core, each with the band coaches broadly use (3–10, 5–12,
+  8–15, 12–20, 8–20). A range that clearly misses its band (top more than 2 under, or bottom more
+  than 5 over) gets a note in the program editor with a one-tap fix, and the coach mentions it
+  before the lift's first set. It never changes a range on its own, and the set-by-set coaching
+  still works inside the program's range.
 
 ## Known gaps / next things worth asking Claude Code for
 

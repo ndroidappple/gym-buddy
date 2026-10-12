@@ -12,6 +12,7 @@ import Roll from "../components/Roll.jsx";
 import { useTheme } from "../lib/theme.js";
 import { MessageCircle } from "lucide-react";
 import { nextSetAdvice, openingAdvice } from "../lib/setCoach.js";
+import { checkRange } from "../lib/repRange.js";
 import { anchorOf, doInstead, swapsFor } from "../lib/busy.js";
 import { loadFrom, loadIn, learnK, adjustedSeries } from "../lib/fatigue.js";
 import BusySheet from "../components/BusySheet.jsx";
@@ -629,7 +630,11 @@ function ExerciseCard({ ex, showRir, rows, target, goal, targetDate, onHint, bum
   // The face still reacts (PR, hyped, encourage); the words are always the coaching.
   const calm = mood === "idle" || mood === "focused";
   const started = rows.some((r) => r.done);
+  // A range far off for this kind of lift: said before the first set, every session until it's
+  // changed (or kept on purpose). The coaching after that works in their range as usual.
+  const flag = !started && !isCardio(ex.n) ? checkRange(ex) : null;
   const line = started && call ? call.line
+    : flag ? `Heads up: ${flag.line} Change it in your program if that wasn't on purpose.`
     : opening ? opening.line
     : bump && !started ? `You hit ${bump.sets} × ${bump.reps} at ${fmtW(bump.from)} lb. Go up to ${fmtW(bump.to)} today.`
     : calm && ex.cue ? ex.cue : MOODS[mood].line;

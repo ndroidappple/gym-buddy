@@ -11,6 +11,7 @@
     "test:barcode": "node scripts/test-barcode.mjs",
     "icons": "node scripts/render-icons.mjs",
     "test:food": "node scripts/test-food-picker.mjs && node scripts/test-food-edit.mjs",
+    "test:range": "node scripts/test-rep-range.mjs",
     "test:review": "node scripts/test-week-review.mjs && node scripts/test-review-agent.mjs"
   },
   "dependencies": {
