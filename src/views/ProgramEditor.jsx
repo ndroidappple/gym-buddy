@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { ChevronLeft, ChevronUp, ChevronDown, Trash2, Plus, Pencil, Flame } from "lucide-react";
 import { InfoButton, ExercisePicker, ConfirmSheet, Sheet } from "../components/ui.jsx";
 import { isCardio, isWarmup, specLine, cardioLibrary, WARMUP_MIN, PROGRAM } from "../data/program.js";
+import { checkRange } from "../lib/repRange.js";
 
 export default function ProgramEditor({ day, program, back, ops }) {
   const p = program[day];
@@ -80,9 +81,12 @@ function RenameDay({ name, onSave, onClose }) {
 }
 
 function EditLift({ ex, onChange, onRemove }) {
+  // A range far from what suits this kind of lift gets a note; it's only advice, the range is theirs.
+  const flag = checkRange(ex);
   const numField = (key, label, get, put) => (
     <label className="field"><span className="lbl">{label}</span>
-      <input id={`${ex.n}-${key}`} className="input tn" type="number" inputMode="numeric" defaultValue={get}
+      {/* Keyed by its value, so a change made elsewhere (Use 15–20 below) shows in the field. */}
+      <input key={get} id={`${ex.n}-${key}`} className="input tn" type="number" inputMode="numeric" defaultValue={get}
         onBlur={(e) => { const v = parseInt(e.target.value); if (v > 0) onChange(put(v)); else e.target.value = get; }} /></label>
   );
   return (
@@ -99,6 +103,12 @@ function EditLift({ ex, onChange, onRemove }) {
           {numField("max", "Max reps", ex.reps[1], (v) => ({ reps: [Math.min(v, ex.reps[0]), v] }))}
           {numField("rest", "Rest (sec)", ex.rest, (v) => ({ rest: Math.max(15, v) }))}
         </div>
+      )}
+      {flag && (
+        <p className="range-note" role="status">
+          <span>{flag.line}</span>
+          <button type="button" className="chip" onClick={() => onChange({ reps: flag.suggest })}>Use {flag.suggest[0]}–{flag.suggest[1]}</button>
+        </p>
       )}
       <label className="field"><span className="lbl">Cue</span>
         <textarea id={`${ex.n}-cue`} className="textarea" style={{ minHeight: 64 }} defaultValue={ex.cue || ""} placeholder="Form reminder you want to see mid-set"
