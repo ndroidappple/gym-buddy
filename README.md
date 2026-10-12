@@ -74,6 +74,13 @@ searching, your matching foods come first, then the **Food database** results, b
 saved by default: they show in Your foods anyway, and saving keeps one for good. `npm run test:food`
 checks the ranking.
 
+**Ask Tank** on the Nutrition tab can fix today's log: ask him to correct an entry's numbers, move
+or rename it, add a food or remove one, and he proposes the change on a card (`edit_food_log` in
+`api/coach.js`). Nothing is saved until you tap **Apply**, and **Undo** puts it back
+(`src/lib/foodEdit.js`). He names entries by their number in today's list, and the app checks
+every edit against the log before showing it. Typing new numbers over a portion (e.g. Tank's meal)
+turns that entry into its own numbers, like a quick add. `npm run test:food` checks the edits too.
+
 ### Rest alerts (optional)
 
 A push notification when a rest timer ends, so it arrives with the phone locked (**Settings →
