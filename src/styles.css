@@ -961,6 +961,7 @@ button.coach-card:active { transform: translateY(3px); box-shadow: 0 2px 0 var(-
 .meal-card .meal-items li { display: flex; align-items: flex-start; gap: 10px; }
 .meal-item { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .meal-item small { font-size: 12.5px; color: var(--mute); font-weight: 600; }
+.meal-item .meal-label { display: inline-flex; align-items: center; gap: 4px; margin-top: 2px; color: var(--ink); opacity: .75; }
 .meal-kcal-n { font-weight: 800; font-variant-numeric: tabular-nums; }
 .meal-total { display: flex; flex-direction: column; gap: 2px; padding-top: 8px; border-top: 2px solid var(--rule); }
 .meal-total b { font-size: 18px; font-weight: 800; }

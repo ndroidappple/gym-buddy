@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { ArrowUp, Check, Utensils, Pencil } from "lucide-react";
+import { ArrowUp, Check, Utensils, Pencil, BadgeCheck } from "lucide-react";
 import { ThinkingOrb } from "thinking-orbs";
 import Coach from "./Coach.jsx";
 import { COACHES } from "../data/coaches.js";
@@ -8,7 +8,8 @@ import { describeMeal } from "../lib/coachChat.js";
 import { useTheme } from "../lib/theme.js";
 
 /* Logging a meal by describing it to Tank. He asks for any amount that matters (with tap-to-answer
-   replies, always including "Make your best estimate"), then returns the meal itemized. The card
+   replies, always including "Make your best estimate"), looks up any named product's label, then
+   returns the meal itemized. The card
    shows every item and the total; the lifter can name it, save it to their foods, and add it.
    A correction typed after the card ("it was 2 tbsp") gets a whole new card. */
 
@@ -26,7 +27,7 @@ const fmt = (n) => Math.round(n).toLocaleString();
 const r = (n) => Math.round(n);
 
 /** What the model sees of an earlier card, so a correction edits the same meal. */
-const mealNote = (m) => ` [Meal shown: ${m.name}: ${m.items.map((x) => `${x.food} ${x.amount} ${x.kcal} kcal`).join("; ")}.]`;
+const mealNote = (m) => ` [Meal shown: ${m.name}: ${m.items.map((x) => `${x.food} ${x.amount} ${x.kcal} kcal${x.label ? ` (label: ${x.label})` : ""}`).join("; ")}.]`;
 
 export default function TankMeal({ meal: slot, onMeal, action, onSave, onManual }) {
   const [messages, setMessages] = useState([]); // { role, content, meal?, replies?, trouble?, retry? }
@@ -149,7 +150,8 @@ function MealCard({ meal, name, onName }) {
       <ul className="meal-items">
         {meal.items.map((x, i) => (
           <li key={i}>
-            <span className="meal-item"><b>{x.food}</b><small>{x.estimated ? "~" : ""}{x.amount} · P {r(x.protein)} · C {r(x.carbs)} · F {r(x.fat)}</small></span>
+            <span className="meal-item"><b>{x.food}</b><small>{x.estimated ? "~" : ""}{x.amount} · P {r(x.protein)} · C {r(x.carbs)} · F {r(x.fat)}</small>
+              {x.label && <small className="meal-label"><BadgeCheck size={13} strokeWidth={2.6} aria-hidden="true" /> Label: {x.label}</small>}</span>
             <span className="meal-kcal-n">{x.estimated ? "~" : ""}{fmt(x.kcal)}</span>
           </li>
         ))}
@@ -159,6 +161,7 @@ function MealCard({ meal, name, onName }) {
         <span>{r(t.protein)} g protein · {r(t.carbs)} g carbs · {r(t.fat)} g fat</span>
       </div>
       {meal.estimated && <p className="proposal-skip">~ marks Tank's estimates.</p>}
+      {meal.items.some((x) => x.label) && <p className="proposal-skip">Label: numbers from the product's nutrition label.</p>}
     </div>
   );
 }

@@ -179,7 +179,9 @@ export function cleanMeal(m) {
     if (!Number.isFinite(+x.alcohol) && DRINK.test(food) && !NOT_DRINK.test(food) && kcal > macros + 20) alcohol = r1((kcal - macros) / 7);
     const worked = macros + alcohol * 7;
     if (worked > 0 && Math.abs(kcal - worked) > Math.max(20, worked * 0.2)) kcal = Math.round(worked);
-    return { food, amount: String(x.amount || "").slice(0, 40), grams: x.grams > 0 ? Math.round(x.grams) : null, kcal, protein, carbs, fat, alcohol, estimated: !!x.estimated };
+    // label: the product label Tank looked up for these numbers (absent when he estimated them).
+    const label = typeof x.label === "string" && x.label.trim() ? x.label.trim().slice(0, 80) : null;
+    return { food, amount: String(x.amount || "").slice(0, 40), grams: x.grams > 0 ? Math.round(x.grams) : null, kcal, protein, carbs, fat, alcohol, estimated: !!x.estimated, ...(label ? { label } : {}) };
   }).filter((x) => x.kcal > 0 || x.protein > 0);
   if (!items.length) return null;
   const sum = (k) => Math.round(items.reduce((a, x) => a + x[k], 0) * (k === "kcal" ? 1 : 10)) / (k === "kcal" ? 1 : 10);

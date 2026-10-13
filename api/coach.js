@@ -1,4 +1,5 @@
-import { streamText, tool, jsonSchema } from "ai";
+import { streamText, tool, jsonSchema, stepCountIs } from "ai";
+import { lookUpFood } from "./food.js";
 import { createClient } from "@supabase/supabase-js";
 
 /* The coach can propose program edits but never make them: this tool has no execute, so a call
@@ -110,6 +111,7 @@ export const FOOD_TOOLS = {
               fat: { type: "number", minimum: 0, maximum: 500 },
               alcohol: { type: "number", minimum: 0, maximum: 500, description: "Grams of pure alcohol (ethanol); 0 for anything without alcohol. One US standard drink is 14 g: 12 oz of 5% beer, 5 oz of wine, 1.5 oz of 80-proof spirit." },
               estimated: { type: "boolean", description: "true when the amount was guessed rather than given." },
+              label: { type: "string", maxLength: 80, description: "Only when the numbers come from look_up_food: the product and source used, e.g. \"Ratio Yogurt, Vanilla (USDA)\". Omit for estimates." },
             },
             required: ["food", "amount", "kcal", "protein", "carbs", "fat", "alcohol"],
           },
@@ -117,6 +119,18 @@ export const FOOD_TOOLS = {
       },
       required: ["name", "items"],
     }),
+  }),
+  /* Runs here, on the server: the result goes back to the model, which then logs the meal. */
+  look_up_food: tool({
+    description: "Look up a branded or packaged product's nutrition label (USDA Branded Foods and Open Food Facts). Returns up to 5 matches, best first, each with per_100g numbers and, when the label gives one, a serving with its numbers worked out. Use it for any named brand or product before estimating.",
+    inputSchema: jsonSchema({
+      type: "object",
+      properties: { query: { type: "string", maxLength: 80, description: "Brand and product as the lifter said it, plus flavor if given, e.g. \"Ratio ProFiber yogurt strawberry\"." } },
+      required: ["query"],
+    }),
+    execute: async ({ query }) => {
+      try { return await lookUpFood(query); } catch { return { results: [], error: "Lookup failed." }; }
+    },
   }),
   offer_replies: COACH_TOOLS.offer_replies,
 };
@@ -162,6 +176,7 @@ export function foodInstructions(context = "") {
     "Missing amounts: if any item has no amount, count or size, and the answer would change the calories by more than about 50, do NOT guess. Ask for every missing amount in one short question, and call offer_replies with likely answers plus \"Make your best estimate\".",
     "Small ambiguities you settle yourself and state in the item's amount: oats/rice/pasta by volume mean dry unless they say cooked; one scoop of protein powder is a typical whey scoop (about 30 g, 120 kcal, 24 g protein) unless a brand is named; \"small/medium/large\" fruit uses USDA sizes.",
     "When the lifter says to estimate, use typical portions, mark those items estimated: true, and log it.",
+    "Named products: when the lifter names a brand or packaged product (\"Ratio ProFiber yogurt\", \"Fairlife Core Power\", \"Kirkland protein bar\"), call look_up_food first, once per product, before writing anything. Use a result only if it is the same product: same brand and product line, and the same flavor when flavors differ much. A near miss (regular Ratio when they said Ratio ProFiber) is a different product: don't use it. Prefer USDA (the maker's label) over Open Food Facts (entered by users); distrust numbers that don't fit the product, e.g. a 190 kcal per 100 g protein shake is really per bottle. Scale the label to the amount eaten (use the serving's numbers for one serving) and set label to the product and source used. If nothing fits, estimate as usual and say in your sentence that you couldn't find its label. Generic foods (eggs, rice, chicken breast, an apple) never need a lookup.",
     "Alcohol: for every drink with alcohol, give its alcohol in grams (14 g is one US standard drink: 12 oz of 5% beer, 5 oz of wine, 1.5 oz of 80-proof spirit) and count 7 kcal per gram of it in the calories, on top of any carbs: a 12 oz Modelo is about 144 kcal, not just its 14 g of carbs. Mixers are their own items. Everything without alcohol: alcohol 0. Ask how many drinks if they didn't say.",
     "Naming: the meal's name is what the lifter will tap in a list later, so make it 2 to 4 words, at most 28 characters, Title Case, naming the dish the way a person would say it: \"PB Protein Oats\", \"Chicken Rice Bowl\", \"Eggs & Toast\", \"Greek Yogurt Parfait\". No amounts, no brands, no \"with\" lists, no filler like \"meal\" or \"breakfast\".",
     "When you have what you need, call log_meal once with every item, and write one short sentence (under 25 words) naming the meal and anything you assumed. Don't list the numbers in text; the app shows them.",
@@ -282,6 +297,9 @@ export async function POST(request) {
     // little thought, and long thinking left slow free models with no tokens to answer); more for
     // reading a whole program.
     reasoning: review ? "medium" : "low",
+    // A meal may look products up first: each lookup is a step, then log_meal. After 3 steps it
+    // has to log with what it has.
+    ...(food ? { stopWhen: stepCountIs(4), prepareStep: ({ stepNumber }) => (stepNumber >= 3 ? { activeTools: ["log_meal", "offer_replies"] } : undefined) } : {}),
     providerOptions: { gateway: { models: fallbacksFor(model) } },
     abortSignal: request.signal,
   });
@@ -297,10 +315,17 @@ export function toReplyStream(result, asked) {
   return new ReadableStream({
     async start(ctl) {
       let wrote = false;
+      let newStep = false;
       let failure = null;
       try {
         for await (const part of result.fullStream) {
-          if (part.type === "text-delta" && part.text) { wrote = wrote || !!part.text.trim(); ctl.enqueue(enc.encode(part.text)); }
+          if (part.type === "text-delta" && part.text) {
+            // Text from a later step (after a lookup) starts a new sentence, not glued to the last word.
+            const gap = newStep && wrote && !/^\s/.test(part.text) ? " " : "";
+            newStep = false;
+            wrote = wrote || !!part.text.trim();
+            ctl.enqueue(enc.encode(gap + part.text));
+          } else if (part.type === "start-step") newStep = true;
           else if (part.type === "tool-call" && part.toolName === "propose_program_change") {
             wrote = true;
             ctl.enqueue(enc.encode(`${PROPOSAL_MARK}${JSON.stringify(part.input)}\n`));

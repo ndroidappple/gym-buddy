@@ -74,6 +74,12 @@ searching, your matching foods come first, then the **Food database** results, b
 saved by default: they show in Your foods anyway, and saving keeps one for good. `npm run test:food`
 checks the ranking.
 
+**Add with Tank** looks up named products instead of estimating them: for "Ratio yogurt" or "Fairlife
+Core Power" he searches USDA Branded Foods and Open Food Facts (`look_up_food` in `api/coach.js`,
+`lookUpFood` in `api/food.js`), uses a match only if it's the same product, and the meal card marks
+those items **Label: product (source)**. Anything he can't find is estimated and marked **~** as
+before. Generic foods (eggs, rice) skip the lookup.
+
 **Ask Tank** on the Nutrition tab can fix today's log: ask him to correct an entry's numbers, move
 or rename it, add a food or remove one, and he proposes the change on a card (`edit_food_log` in
 `api/coach.js`). Nothing is saved until you tap **Apply**, and **Undo** puts it back
