@@ -23,23 +23,37 @@ export function doneOrder(session) {
   return [...seen, ...names.filter((n) => !seen.includes(n))];
 }
 
-/** Fatigue load before `lift` from lifts done earlier, given as [{ n, sets }] (sets: logged work sets). */
-export function loadFrom(earlier, lift) {
+/**
+ * What was done before `lift`, given as [{ n, sets }] (sets: logged work sets): the fatigue load,
+ * and the sets behind it by muscle ({ biceps: 3, back: 10 }), so a note can name the real work.
+ */
+export function loadParts(earlier, lift) {
   let load = 0;
-  for (const { n, sets } of earlier) {
+  const sets = {};
+  for (const { n, sets: logged } of earlier) {
     if (n === lift || isCardio(n)) continue;
     const o = overlap(lift, n);
-    if (o) load += (o === 2 ? 1 : 0.5) * lifting(sets).length;
+    const count = lifting(logged).length;
+    if (!o || !count) continue;
+    load += (o === 2 ? 1 : 0.5) * count;
+    const m = muscleOf(n);
+    sets[m] = (sets[m] || 0) + count;
   }
-  return load;
+  return { load, sets };
+}
+
+/** Fatigue load before `lift` from lifts done earlier, given as [{ n, sets }]. */
+export const loadFrom = (earlier, lift) => loadParts(earlier, lift).load;
+
+/** What was done before `lift` in a saved session ({ load, sets }, as loadParts). */
+export function partsIn(session, lift) {
+  const order = doneOrder(session);
+  const i = order.indexOf(lift);
+  return loadParts(order.slice(0, Math.max(0, i)).map((n) => ({ n, sets: session.sets[n] })), lift);
 }
 
 /** Fatigue load before `lift` in a saved session. */
-export function loadIn(session, lift) {
-  const order = doneOrder(session);
-  const i = order.indexOf(lift);
-  return loadFrom(order.slice(0, Math.max(0, i)).map((n) => ({ n, sets: session.sets[n] })), lift);
-}
+export const loadIn = (session, lift) => partsIn(session, lift).load;
 
 /** Share of strength left after `load` (1 = fresh). */
 export const freshness = (load, k = DEFAULT_K) => 1 - Math.min(MAX_CUT, Math.max(0, k * load));
@@ -69,15 +83,26 @@ export function learnK(sessions, lift) {
 export function adjustedSeries(sessions, lift, k = learnK(sessions, lift)) {
   return [...sessions].sort(byDateAsc).filter((s) => lifting(s.sets?.[lift]).length).map((s) => {
     const orm = bestE1rm(s.sets[lift]);
-    const load = loadIn(s, lift);
-    return { id: s.id, date: s.date, orm, load, fresh: freshMax(orm, load, k) };
+    const { load, sets } = partsIn(s, lift);
+    return { id: s.id, date: s.date, orm, load, before: sets, fresh: freshMax(orm, load, k) };
   });
 }
 
-/** "after 9 chest sets" / "after 4 triceps sets" for the note on a late lift (null when fresh-ish). */
-export function loadNote(load, lift) {
+/**
+ * The note on a late lift (null when fresh-ish), naming the sets actually done: "after 9 chest
+ * sets", or for curls after rows and pulldowns "after 10 back sets", not "4 biceps sets" (a set
+ * for a helper muscle counts half in the load, but the lifter did 10 back sets, not 4 curls).
+ * `sets` is the breakdown from loadParts; without it, the load is named for the lift's own muscle.
+ */
+export function loadNote(load, lift, sets = null) {
   if (load < 3) return null;
-  return `after ${Math.round(load)} ${MUSCLE_LABEL[muscleOf(lift)]} set${Math.round(load) === 1 ? "" : "s"}`;
+  const own = muscleOf(lift);
+  // The lift's own muscle first, then the helpers, most sets first.
+  const parts = sets && Object.keys(sets).length
+    ? Object.entries(sets).sort(([a, x], [b, y]) => (b === own) - (a === own) || y - x)
+    : [[own, Math.round(load)]];
+  const say = ([m, n]) => `${n} ${MUSCLE_LABEL[m] || m} set${n === 1 ? "" : "s"}`;
+  return `after ${parts.length > 1 ? `${parts.slice(0, -1).map(say).join(", ")} and ${say(parts.at(-1))}` : say(parts[0])}`;
 }
 
 /** Reps you'd likely get at weight w with `load` behind you, from a fresh-equivalent max. */

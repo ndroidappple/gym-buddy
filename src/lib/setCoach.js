@@ -97,7 +97,7 @@ export function openingAdvice({ ex, history, firstLift, daysSince = null, fatigu
   const bump = readyToIncrease(ex, work);
   const goal = bump ? { w: bump.to, r: ex.reps[0] } : nextGoal(ex, work);
   if (!goal) return null;
-  const note = loadNote(now, ex.n);
+  const note = loadNote(now, ex.n, fatigue?.nowSets);
   if (idx > 0) {
     // An older session done this late is the fair comparison.
     const when = note ? `this late (${note})` : "fresh";
@@ -109,7 +109,7 @@ export function openingAdvice({ ex, history, firstLift, daysSince = null, fatigu
     const adj = Math.max(ex.reps[0], Math.min(ex.reps[1], Math.floor(30 * ((e1rm(goal.w, goal.r) * freshness(now, k)) / freshness(then, k) / goal.w - 1) + 1e-9)));
     if (adj !== goal.r) {
       const when = now > then ? `${note} today` : "fresher today";
-      return { w: goal.w, r: adj, line: `Last time ${listSets(work)}${then >= 3 ? ` (${loadNote(then, ex.n)})` : " (done fresh)"}. ${when[0].toUpperCase()}${when.slice(1)}, ${fmtW(goal.w)} × ${adj} is the same effort as beating it.` };
+      return { w: goal.w, r: adj, line: `Last time ${listSets(work)}${then >= 3 ? ` (${loadNote(then, ex.n, fatigue.pastSets?.[0])})` : " (done fresh)"}. ${when[0].toUpperCase()}${when.slice(1)}, ${fmtW(goal.w)} × ${adj} is the same effort as beating it.` };
     }
   }
   const aim = bump
@@ -132,10 +132,11 @@ export function openingAdvice({ ex, history, firstLift, daysSince = null, fatigu
  *   best:       all-time best estimated 1-rep max before today (0 if none)
  *   pr:         whether the set just logged was a PR
  *   bodyweight: the lifter's bodyweight in lb, for pull-ups/dips with added weight (default 180)
+ *   load:       fatigue from earlier lifts today (see lib/fatigue.js); loadSets, the sets behind it by muscle
  * Returns { w, r, line, kind } for the next set (kind: up | hold | down | check), or, when no sets
  * are left, { line, kind: "done" }.
  */
-export function nextSetAdvice({ ex, done, asked, left, history = [], best = 0, pr = false, bodyweight: bw = 180, load: fatigueLoad = 0, k = DEFAULT_K }) {
+export function nextSetAdvice({ ex, done, asked, left, history = [], best = 0, pr = false, bodyweight: bw = 180, load: fatigueLoad = 0, loadSets = null, k = DEFAULT_K }) {
   const [lo, hi] = ex.reps;
   const s = done[done.length - 1];
   const w = +s.w, r = +s.r;
@@ -164,7 +165,7 @@ export function nextSetAdvice({ ex, done, asked, left, history = [], best = 0, p
   const vsAsk = asked && +asked.w === w && asked.r ? r - asked.r : null;
   const vsLast = same && +same.w === w ? r - same.r : null;
   let said;
-  const lateNote = done.length === 1 && w > 0 && r > 0 ? loadNote(fatigueLoad, ex.n) : null;
+  const lateNote = done.length === 1 && w > 0 && r > 0 ? loadNote(fatigueLoad, ex.n, loadSets) : null;
   const freshReps = lateNote ? Math.floor(30 * (freshMax(e1rm(w, r), fatigueLoad, k) / w - 1) + 1e-9) : 0;
   if (r === 0) said = `No reps at ${fmtW(w)}.`;
   else if (pr && lateNote) said = `PR: ${fmtW(w)} × ${r}, ${lateNote}!`;

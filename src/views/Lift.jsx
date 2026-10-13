@@ -136,7 +136,7 @@ function LiftDetail({ name, sessions, program, back }) {
                   return (
                     <a key={x.id} className="hist-line" href={href("session", x.day, x.id)} style={{ color: "inherit", textDecoration: "none" }} data-day={x.day}>
                       <span className="name"><span className="dot" aria-hidden="true" style={{ marginRight: 8 }} />{shortDate(x.date)}{x.pr && <> <span className="stamp" style={{ marginLeft: 6 }}>PR</span></>}
-                        {loadNote(x.load, name) && <span className="late-note">{loadNote(x.load, name)}</span>}</span>
+                        {loadNote(x.load, name, x.before) && <span className="late-note">{loadNote(x.load, name, x.before)}</span>}</span>
                       <span className="sets">{x.sets.map((s) => `${fmtW(s.w)}×${s.r}`).join("  ")}<br />best {fmtW(b.w)} × {b.r}</span>
                     </a>
                   );
