@@ -77,8 +77,11 @@ checks the ranking.
 **Add with Tank** looks up named products instead of estimating them: for "Ratio yogurt" or "Fairlife
 Core Power" he searches USDA Branded Foods and Open Food Facts (`look_up_food` in `api/coach.js`,
 `lookUpFood` in `api/food.js`), uses a match only if it's the same product, and the meal card marks
-those items **Label: product (source)**. Anything he can't find is estimated and marked **~** as
-before. Generic foods (eggs, rice) skip the lookup.
+those items **Label: product (source)**. A product neither database has gets one Google search
+(`search_web`, `api/_webFood.js`: its own small Gemini call with Google Search, free with Gemini on
+AI Gateway), trusted only with complete numbers for one serving that add up and a source site; the
+item then says **(web: site.com)**. Anything still not found is estimated and marked **~** as
+before. Generic foods (eggs, rice) skip both.
 
 **Ask Tank** on the Nutrition tab can fix today's log: ask him to correct an entry's numbers, move
 or rename it, add a food or remove one, and he proposes the change on a card (`edit_food_log` in
