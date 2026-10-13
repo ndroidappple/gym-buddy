@@ -161,7 +161,7 @@ function MealCard({ meal, name, onName }) {
         <span>{r(t.protein)} g protein · {r(t.carbs)} g carbs · {r(t.fat)} g fat</span>
       </div>
       {meal.estimated && <p className="proposal-skip">~ marks Tank's estimates.</p>}
-      {meal.items.some((x) => x.label) && <p className="proposal-skip">Label: numbers from the product's nutrition label.</p>}
+      {meal.items.some((x) => x.label) && <p className="proposal-skip">Label: numbers from the product's label (a food database, or the web when the databases don't have it).</p>}
     </div>
   );
 }

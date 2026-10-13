@@ -1,5 +1,6 @@
 import { streamText, tool, jsonSchema, stepCountIs } from "ai";
 import { lookUpFood } from "./food.js";
+import { searchFoodWeb } from "./_webFood.js";
 import { createClient } from "@supabase/supabase-js";
 
 /* The coach can propose program edits but never make them: this tool has no execute, so a call
@@ -111,7 +112,7 @@ export const FOOD_TOOLS = {
               fat: { type: "number", minimum: 0, maximum: 500 },
               alcohol: { type: "number", minimum: 0, maximum: 500, description: "Grams of pure alcohol (ethanol); 0 for anything without alcohol. One US standard drink is 14 g: 12 oz of 5% beer, 5 oz of wine, 1.5 oz of 80-proof spirit." },
               estimated: { type: "boolean", description: "true when the amount was guessed rather than given." },
-              label: { type: "string", maxLength: 80, description: "Only when the numbers come from look_up_food: the product and source used, e.g. \"Ratio Yogurt, Vanilla (USDA)\". Omit for estimates." },
+              label: { type: "string", maxLength: 80, description: "Only when the numbers come from look_up_food or search_web: the product and source used, e.g. \"Ratio Yogurt, Vanilla (USDA)\" or \"Ratio ProFiber Yogurt (web: ratiofood.com)\". Omit for estimates." },
             },
             required: ["food", "amount", "kcal", "protein", "carbs", "fat", "alcohol"],
           },
@@ -131,6 +132,16 @@ export const FOOD_TOOLS = {
     execute: async ({ query }) => {
       try { return await lookUpFood(query); } catch { return { results: [], error: "Lookup failed." }; }
     },
+  }),
+  /* The fallback when the databases have no match: a Google search for the product's own label. */
+  search_web: tool({
+    description: "Search the web for a named product's nutrition facts, only after look_up_food found no match for the same product. Returns the numbers for one serving and the site they came from, already checked, or found: false.",
+    inputSchema: jsonSchema({
+      type: "object",
+      properties: { query: { type: "string", maxLength: 80, description: "Brand, product and flavor, e.g. \"Ratio ProFiber yogurt strawberry\"." } },
+      required: ["query"],
+    }),
+    execute: async ({ query }) => searchFoodWeb(query),
   }),
   offer_replies: COACH_TOOLS.offer_replies,
 };
@@ -176,7 +187,7 @@ export function foodInstructions(context = "") {
     "Missing amounts: if any item has no amount, count or size, and the answer would change the calories by more than about 50, do NOT guess. Ask for every missing amount in one short question, and call offer_replies with likely answers plus \"Make your best estimate\".",
     "Small ambiguities you settle yourself and state in the item's amount: oats/rice/pasta by volume mean dry unless they say cooked; one scoop of protein powder is a typical whey scoop (about 30 g, 120 kcal, 24 g protein) unless a brand is named; \"small/medium/large\" fruit uses USDA sizes.",
     "When the lifter says to estimate, use typical portions, mark those items estimated: true, and log it.",
-    "Named products: when the lifter names a brand or packaged product (\"Ratio ProFiber yogurt\", \"Fairlife Core Power\", \"Kirkland protein bar\"), call look_up_food first, once per product, before writing anything. Use a result only if it is the same product: same brand and product line, and the same flavor when flavors differ much. A near miss (regular Ratio when they said Ratio ProFiber) is a different product: don't use it. Prefer USDA (the maker's label) over Open Food Facts (entered by users); distrust numbers that don't fit the product, e.g. a 190 kcal per 100 g protein shake is really per bottle. Scale the label to the amount eaten (use the serving's numbers for one serving) and set label to the product and source used. If nothing fits, estimate as usual and say in your sentence that you couldn't find its label. Generic foods (eggs, rice, chicken breast, an apple) never need a lookup.",
+    "Named products: when the lifter names a brand or packaged product (\"Ratio ProFiber yogurt\", \"Fairlife Core Power\", \"Kirkland protein bar\"), call look_up_food first, once per product, before writing anything. Use a result only if it is the same product: same brand and product line, and the same flavor when flavors differ much. A near miss (regular Ratio when they said Ratio ProFiber) is a different product: don't use it. Prefer USDA (the maker's label) over Open Food Facts (entered by users); distrust numbers that don't fit the product, e.g. a 190 kcal per 100 g protein shake is really per bottle. Scale the label to the amount eaten (use the serving's numbers for one serving) and set label to the product and source used. If nothing fits, call search_web once for that product. If it returns found: true, use its numbers for the serving it names, scaled to the amount eaten, and set label to the product and \"web: \" plus the site, e.g. \"Ratio ProFiber Yogurt (web: ratiofood.com)\". If it returns found: false, estimate as usual and say in your sentence that you couldn't find its label. Generic foods (eggs, rice, chicken breast, an apple) never need a lookup or a search.",
     "Alcohol: for every drink with alcohol, give its alcohol in grams (14 g is one US standard drink: 12 oz of 5% beer, 5 oz of wine, 1.5 oz of 80-proof spirit) and count 7 kcal per gram of it in the calories, on top of any carbs: a 12 oz Modelo is about 144 kcal, not just its 14 g of carbs. Mixers are their own items. Everything without alcohol: alcohol 0. Ask how many drinks if they didn't say.",
     "Naming: the meal's name is what the lifter will tap in a list later, so make it 2 to 4 words, at most 28 characters, Title Case, naming the dish the way a person would say it: \"PB Protein Oats\", \"Chicken Rice Bowl\", \"Eggs & Toast\", \"Greek Yogurt Parfait\". No amounts, no brands, no \"with\" lists, no filler like \"meal\" or \"breakfast\".",
     "When you have what you need, call log_meal once with every item, and write one short sentence (under 25 words) naming the meal and anything you assumed. Don't list the numbers in text; the app shows them.",
@@ -297,9 +308,9 @@ export async function POST(request) {
     // little thought, and long thinking left slow free models with no tokens to answer); more for
     // reading a whole program.
     reasoning: review ? "medium" : "low",
-    // A meal may look products up first: each lookup is a step, then log_meal. After 3 steps it
-    // has to log with what it has.
-    ...(food ? { stopWhen: stepCountIs(4), prepareStep: ({ stepNumber }) => (stepNumber >= 3 ? { activeTools: ["log_meal", "offer_replies"] } : undefined) } : {}),
+    // A meal may look products up first (the databases, then the web for what they don't have):
+    // each round of lookups is a step, then log_meal. After 4 steps it has to log with what it has.
+    ...(food ? { stopWhen: stepCountIs(5), prepareStep: ({ stepNumber }) => (stepNumber >= 4 ? { activeTools: ["log_meal", "offer_replies"] } : undefined) } : {}),
     providerOptions: { gateway: { models: fallbacksFor(model) } },
     abortSignal: request.signal,
   });
