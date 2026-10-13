@@ -2,7 +2,7 @@
    database's relevance order (api/food.js), and Tank's meals with alcohol (cleanMeal).
    Run: npm run test:food   (exits 1 on any failure) */
 import { yourFoods, pickYourFood, matchesQuery, whenLabel } from "../src/lib/yourFoods.js";
-import { relevance, combine } from "../api/food.js";
+import { relevance, combine, forTank } from "../api/food.js";
 import { nutritionFor, cleanMeal } from "../src/lib/nutrition.js";
 
 let failed = 0;
@@ -125,6 +125,17 @@ eq("ginger ale is not a drink with alcohol", meal1([it({ food: "Ginger ale", kca
 eq("root beer and NA beer aren't either", [meal1([it({ food: "Root beer", kcal: 250, carbs: 40 })]).items[0].kcal, meal1([it({ food: "Heineken 0.0 non-alcoholic beer", kcal: 150, carbs: 16 })]).items[0].kcal], [160, 64]);
 eq("drink with impossible alcohol is corrected", meal1([it({ food: "Light beer", kcal: 900, carbs: 5, alcohol: 11 })]).items[0].kcal, 97);
 eq("a meal mixing food and drinks totals both", meal1([it({ food: "Burger", kcal: 650, protein: 35, carbs: 45, fat: 36 }), it({ food: "IPA", kcal: 200, carbs: 15, protein: 2, alcohol: 18 })]).total.alcohol, 18);
+
+// Tank's product lookup: label numbers per serving worked out, the brand named once, the source said.
+const ratio = { source: "usda", name: "Ratio Yogurt, Vanilla", brand: "Ratio", basis: { per100: { kcal: 113, protein: 16.7, carbs: 6, fat: 2.7 }, portions: [{ label: "serving (150 g)", grams: 150 }] } };
+eq("lookup: per serving worked out", forTank(ratio).serving, { label: "serving (150 g)", grams: 150, kcal: 170, protein: 25.1, carbs: 9, fat: 4.1 });
+eq("lookup: brand already in the name isn't repeated", forTank(ratio).product, "Ratio Yogurt, Vanilla");
+eq("lookup: brand added when missing", forTank({ ...ratio, source: "off", name: "Core Power Chocolate", brand: "Fairlife", basis: { ...ratio.basis, portions: [] } }).product, "Fairlife Core Power Chocolate");
+eq("lookup: source named", forTank({ ...ratio, source: "off" }).source, "Open Food Facts");
+eq("lookup: no serving on the label, none made up", "serving" in forTank({ ...ratio, basis: { ...ratio.basis, portions: [] } }), false);
+// The label Tank used rides on the item; an estimate has none.
+eq("meal item keeps its label", meal1([it({ food: "Ratio Yogurt", kcal: 170, protein: 25, carbs: 9, fat: 4, label: "Ratio Yogurt, Vanilla (USDA)" })]).items[0].label, "Ratio Yogurt, Vanilla (USDA)");
+eq("estimated item has no label", "label" in meal1([it({ food: "Eggs", kcal: 140, protein: 12, carbs: 1, fat: 10 })]).items[0], false);
 
 console.log(failed ? `food picker: ${failed} failed` : "food picker: all checks passed");
 process.exit(failed ? 1 : 0);

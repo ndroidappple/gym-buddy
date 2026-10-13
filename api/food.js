@@ -143,6 +143,44 @@ export function combine(usda, off, q = "") {
     .sort((a, b) => b.r - a.r || a.i - b.i).map((x) => x.f).slice(0, 30);
 }
 
+/* ── Tank's lookup ── When the lifter names a product while logging a meal with Tank, he looks it up
+   here instead of estimating: USDA's Branded Foods (manufacturer labels) and Open Food Facts, best
+   matches first, with the numbers per label serving worked out so he doesn't have to. */
+async function searchUsdaBranded(q) {
+  const url = `https://api.nal.usda.gov/fdc/v1/foods/search?api_key=${encodeURIComponent(FDC_KEY)}&query=${encodeURIComponent(q)}`
+    + "&pageSize=15&dataType=Branded";
+  const data = await getJSON(url);
+  // Newest label first: a product reformulated over the years has one record per submission.
+  const foods = (data.foods || []).sort((a, b) => String(b.publishedDate || "").localeCompare(String(a.publishedDate || "")));
+  return foods.map(fromUsda).filter(Boolean);
+}
+
+/** A found food as Tank reads it: label numbers per 100 g and per serving (when the label gives one). */
+export function forTank(f) {
+  const p = f.basis.per100;
+  const s = f.basis.portions?.[0];
+  const at = (g) => ({ kcal: Math.round((p.kcal * g) / 100), protein: r1((p.protein * g) / 100), carbs: r1((p.carbs * g) / 100), fat: r1((p.fat * g) / 100) });
+  return {
+    product: f.brand && !f.name.toLowerCase().includes(f.brand.toLowerCase()) ? `${f.brand} ${f.name}` : f.name,
+    source: f.source === "usda" ? "USDA" : "Open Food Facts",
+    per_100g: p,
+    ...(s ? { serving: { label: s.label, grams: s.grams, ...at(s.grams) } } : {}),
+  };
+}
+
+/** Up to 5 label matches for a product name, best first. Either database failing still returns the other's. */
+export async function lookUpFood(q) {
+  const query = clean(q).slice(0, 80);
+  if (!query) return { results: [] };
+  const [usda, off] = await Promise.allSettled([searchUsdaBranded(query), searchOff(query)]);
+  for (const [name, r] of [["usda", usda], ["off", off]]) if (r.status === "rejected") console.warn(`tank lookup: ${name} failed`, r.reason?.message);
+  const found = combine(usda.status === "fulfilled" ? usda.value : [], off.status === "fulfilled" ? off.value : [], query);
+  // Rank by brand + name together: "Ratio ProFiber yogurt" names the brand as well as the product.
+  const scored = found.map((f, i) => ({ f, i, r: relevance(`${f.brand || ""} ${f.name}`, query) }))
+    .sort((a, b) => b.r - a.r || a.i - b.i).slice(0, 5).map((x) => forTank(x.f));
+  return { results: scored, ...(usda.status === "rejected" && off.status === "rejected" ? { error: "Both food databases are unreachable right now." } : {}) };
+}
+
 export async function GET(request) {
   if (!supabase) return Response.json({ error: "Food search isn't configured." }, { status: 500 });
   const token = (request.headers.get("authorization") || "").replace(/^Bearer /, "");
