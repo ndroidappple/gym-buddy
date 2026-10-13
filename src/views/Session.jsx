@@ -814,6 +814,7 @@ const HOLD_MS = 450, SWIPE_DELETE = 96;
 function DoneRow({ className, label, canDelete, onEdit, onDelete, onHint, children }) {
   const [dx, setDx] = useState(0);
   const [gone, setGone] = useState(false); // swiped away: sliding off, then closing up
+  const [holding, setHolding] = useState(false); // finger down and still: the row presses in until the hold fires
   const g = useRef(null); // the gesture in progress
   const hold = useRef(null);
   const wrap = useRef(null);
@@ -843,7 +844,9 @@ function DoneRow({ className, label, canDelete, onEdit, onDelete, onHint, childr
     if (gone) return;
     g.current = { x: e.clientX, y: e.clientY, dx: 0, moved: false, swiping: false, held: false };
     clearTimeout(hold.current);
+    setHolding(true);
     hold.current = setTimeout(() => {
+      setHolding(false);
       if (g.current && !g.current.moved) { g.current.held = true; vibrate(15); onEdit(); }
     }, HOLD_MS);
   };
@@ -854,6 +857,7 @@ function DoneRow({ className, label, canDelete, onEdit, onDelete, onHint, childr
     if (!t.moved && Math.hypot(mx, my) > 8) {
       t.moved = true;
       clearTimeout(hold.current);
+      setHolding(false);
       t.swiping = canDelete && mx < 0 && Math.abs(mx) > Math.abs(my);
       if (t.swiping) e.currentTarget.setPointerCapture?.(e.pointerId);
     }
@@ -863,16 +867,17 @@ function DoneRow({ className, label, canDelete, onEdit, onDelete, onHint, childr
     const t = g.current;
     g.current = null;
     clearTimeout(hold.current);
+    setHolding(false);
     if (!(t?.swiping && t.dx < -SWIPE_DELETE)) setDx(0);
     if (!t) return;
     if (t.swiping) { if (t.dx < -SWIPE_DELETE) remove(t.dx); return; }
     if (!t.moved && !t.held) onHint();
   };
-  const cancel = () => { g.current = null; clearTimeout(hold.current); setDx(0); };
+  const cancel = () => { g.current = null; clearTimeout(hold.current); setHolding(false); setDx(0); };
   return (
     <div ref={wrap} className={"swipe" + (dx || gone ? " swiping" : "")}>
       {(dx < 0 || gone) && <span className="swipe-del" aria-hidden="true"><Trash2 size={18} strokeWidth={2.4} />{gone ? null : dx < -SWIPE_DELETE ? "Release" : "Delete"}</span>}
-      <button ref={btn} className={className} style={dx ? { transform: `translateX(${dx}px)`, transition: "none" } : undefined}
+      <button ref={btn} className={className + (holding ? " holding" : "")} style={dx ? { transform: `translateX(${dx}px)`, transition: "none" } : undefined}
         onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={cancel}
         onClick={(e) => { if (e.detail === 0) onEdit(); }} onContextMenu={(e) => e.preventDefault()}
         aria-label={label}>

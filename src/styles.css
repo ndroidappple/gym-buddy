@@ -1192,3 +1192,54 @@ button.coach-card:active { transform: translateY(3px); box-shadow: 0 2px 0 var(-
   background-image: linear-gradient(45deg, transparent 50%, var(--mute) 50%), linear-gradient(135deg, var(--mute) 50%, transparent 50%);
   background-position: calc(100% - 20px) 50%, calc(100% - 14px) 50%; background-size: 6px 6px; background-repeat: no-repeat; }
 .review-intro-ping { flex: none; padding: 10px 14px; border: 2px solid var(--rule); border-radius: var(--r); }
+
+/* ═══════════════ PRESS FEEDBACK ═══════════════
+   Every tap shows it landed, matched to what's being pressed (raised buttons already sink onto
+   their lip, see CONTROLS):
+   - cards you tap to open sink onto their lip like the buttons;
+   - rows shade, the way iOS lists do;
+   - pills, chips and round buttons squeeze a little and deepen;
+   - text buttons and links dim, like native text buttons.
+   A press lands in 70 ms and lets go on the slower --pop spring, the same feel as .btn. Only
+   :active, so nothing stays lit after a tap the way :hover would on a phone. (main.jsx listens for
+   touches so iOS shows :active at all.) */
+:where(.lib-row, .meta-chip, .setup-card, .phase-line, .phase-empty, .tank-add, .food-row-main, .pending-row, .done-row,
+  .cal-day, .chip, .pill, .ask-btn, .rest .rb, .coach-link, .chat-input button, .icon-choice, .tab, .coach-hello,
+  .btn-quiet, .proposal-undo, .phase-end, .setup-add, .hist-line, .prog-row .main, .setup-lift, .check-row) {
+  transition: transform var(--pop-ms) var(--pop), box-shadow var(--pop-ms) var(--pop), background-color 160ms ease, opacity 160ms ease, color 120ms ease;
+}
+:is(.lib-row, .meta-chip, .setup-card, .phase-line, .phase-empty, .tank-add, .food-row-main, .pending-row, .done-row,
+  .cal-day, .chip, .pill, .ask-btn, .rest .rb, .coach-link, .chat-input button, .icon-choice, .tab, .coach-hello,
+  .btn-quiet, .proposal-undo, .phase-end, .setup-add, .hist-line, .prog-row .main, .setup-lift, .check-row):active {
+  transition-duration: 70ms; transition-timing-function: ease-out;
+}
+
+/* Cards: sink onto the lip. */
+:is(.lib-row, .meta-chip, .setup-card, .phase-line, .phase-empty):active { transform: translateY(3px); box-shadow: 0 2px 0 var(--lip); }
+.tank-add:active { transform: scale(0.98); filter: brightness(0.94); }
+
+/* Rows: shade. Finished sets also shade while held (see hold-to-edit below). */
+:is(.food-row-main, .pending-row, .done-row):active { background-color: var(--surface-2); }
+.food-row-main { border-radius: var(--r); }
+.cal-day:not(:disabled):not(.is-picked):active { background-color: var(--surface-2); }
+.cal-day.is-picked:active { transform: scale(0.94); }
+
+/* Pills, chips and round buttons: squeeze and deepen. A selected chip deepens too. */
+:is(.chip, .pill, .ask-btn, .coach-link, .chat-input button:not(:disabled), .coach-hello):active { transform: scale(0.95); }
+.chip:active:not([aria-pressed="true"]), .ask-btn:active { background-color: color-mix(in srgb, var(--ink) 14%, var(--surface-2)); }
+.chip[aria-pressed="true"]:active { background-color: color-mix(in srgb, var(--ink) 82%, var(--bg)); }
+.rest .rb:active { transform: scale(0.94); background-color: color-mix(in srgb, var(--on-dock) 24%, transparent); }
+.rest .rb.primary:active { background-color: color-mix(in srgb, var(--ink) 12%, var(--bg)); }
+.icon-choice:active { transform: scale(0.94); }
+
+/* Tab bar: the pill marks where you are; a tab you press lights up and squeezes before you get there. */
+.tab:not([aria-current="page"]):active { color: var(--on-dock); transform: scale(0.92); }
+
+/* Text buttons and text rows: dim. */
+:is(.btn-quiet, .proposal-undo, .phase-end, .setup-add, .hist-line, .prog-row .main, .setup-lift, .check-row):active { opacity: 0.55; }
+
+/* Hold to edit (a finished set): the row presses in for the whole hold, so it's clear holding is
+   doing something, then lets go when the editor opens. */
+.done-row.holding { background-color: var(--surface-2); transform: scale(0.97); transition: transform 450ms var(--pop), background-color 200ms ease; }
+/* The set number's circle is surface-2 too: lift it so it doesn't vanish into the shade. */
+:is(.done-row:active, .done-row.holding) .n { background-color: var(--rule-2); color: var(--ink); }
