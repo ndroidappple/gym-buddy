@@ -12,7 +12,7 @@ import { ReviewChip } from "../components/WeekReviewIntro.jsx";
 import { collapse } from "../lib/motion.js";
 import { byDateDesc, bestSet, fmtW, num, shortDate, weekDates, today, nextDayAfter, bodyweightSeries, daysBetween, plural, readyToIncrease, nextGoal, fmtGoal } from "../lib/util.js";
 
-export default function Today({ name, sessions, program, drafts, weighins, prefs, onWeighin, foodToday, review }) {
+export default function Today({ name, sessions, program, drafts, weighins, prefs, onWeighin, foodToday, review, head }) {
   const sorted = useMemo(() => [...sessions].sort(byDateDesc), [sessions]);
   const draftDay = [...activeDays(program), CUSTOM].find((d) => drafts[d]);
   const t = today();
@@ -41,7 +41,8 @@ export default function Today({ name, sessions, program, drafts, weighins, prefs
   const plannedSets = p.exercises.reduce((a, e) => a + e.sets, 0);
   const crew = useMemo(() => coachesFor(p.exercises.map((e) => e.n)), [p]);
   const daysOff = sorted[0] ? daysBetween(sorted[0].date, t) : null;
-  const lead = crew[0];
+  // The coach up top is the head coach: tapping them opens your conversation.
+  const lead = head || crew[0];
 
   /* Typical length of this day, from sessions with both start and finish times. */
   const usualMins = useMemo(() => {
@@ -84,7 +85,7 @@ export default function Today({ name, sessions, program, drafts, weighins, prefs
             {review
               ? <ReviewChip weekEnd={review.weekEnd} glow={review.glow} />
               : <a className="coach-hello" href="#/coaches" aria-hidden="true" tabIndex={-1}>{greeting(nameInTitle ? null : name, daysOff)}</a>}
-            <a className="coach-link" href="#/coaches" aria-label={nextCoachToMeet(prefs) ? "Meet your coaches" : "Talk to your coaches"}>
+            <a className="coach-link" href="#/coaches" aria-label={nextCoachToMeet(prefs) ? "Meet your coaches" : "Talk to your head coach"}>
               {/* 5+ days away and the lead coach misses you. */}
               <Coach id={lead} mood={daysOff != null && daysOff >= 5 ? "sleepy" : "idle"} size={34} badge decorative />
             </a>

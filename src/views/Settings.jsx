@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { ChevronRight, Download, LogOut, Moon, Gauge, Smartphone, Share, SquarePlus, EllipsisVertical, Check, Sparkles, Scale, Vibrate, Bell, BellRing, Pencil, ClipboardPaste, Users, Utensils, Target, Rows3, CalendarClock, History, BellOff, BellPlus, Info } from "lucide-react";
+import { ChevronRight, Download, LogOut, Moon, Gauge, Smartphone, Share, SquarePlus, EllipsisVertical, Check, Sparkles, Scale, Vibrate, Bell, BellRing, Pencil, ClipboardPaste, Users, Utensils, Target, Bookmark, Trash2, Rows3, CalendarClock, History, BellOff, BellPlus, Info } from "lucide-react";
 import { Sheet, InfoButton, ConfirmSheet } from "../components/ui.jsx";
 import { ICONS, iconSrc } from "../lib/icons.js";
 import { VIEWS, applyView } from "../lib/view.js";
@@ -11,11 +11,15 @@ import { restAlertState, enableRestAlerts, disableRestAlerts } from "../lib/rest
 import { phoneState, allowNotifications, forgetPhone, warmPush } from "../lib/push.js";
 import { reviewPrefs, whenLabel, coversLabel } from "../lib/weekReview.js";
 import { DayPicker, HourPicker, ReviewList } from "../components/WeekReviewIntro.jsx";
+import { HeadPicker } from "../components/Welcome.jsx";
+import Coach from "../components/Coach.jsx";
+import { COACHES } from "../data/coaches.js";
 
-export default function Settings({ program, sessions, prefs, setPref, onRename, go, notify }) {
+export default function Settings({ program, sessions, prefs, setPref, onRename, go, notify, head = "tank", thread }) {
+  const who = COACHES[head].name;
   const [email, setEmail] = useState("");
   const viewRow = useRef(null); // the detail level picker, held still on screen while the level switches
-  const [sheet, setSheet] = useState(null); // "icon" | "install" | "rename" | "redo" | "review-time" | "reviews" | "view"
+  const [sheet, setSheet] = useState(null); // "icon" | "install" | "rename" | "redo" | "review-time" | "reviews" | "view" | "head" | "memory" | "clear-chat"
   const review = reviewPrefs(prefs);
   const setReview = (patch) => setPref("weekReview", { ...review, intro: true, ...patch });
   const icon = ICONS.find((i) => i.id === prefs.icon) || ICONS[0];
@@ -41,10 +45,10 @@ export default function Settings({ program, sessions, prefs, setPref, onRename, 
               <span className="name">Rename workouts<span className="sub detail">{activeDays(program).map((d) => program[d].name).join(", ")}</span></span>
               <ChevronRight size={18} aria-hidden="true" className="muted" />
             </button>
-            {/* Tank's paste-and-review steps on their own, for a lifter who's already set up. */}
-            <a className="list-row" data-help="import" href={href("coaches", "tank", "import")}>
+            {/* The head coach's paste-and-review steps on their own, for a lifter who's already set up. */}
+            <a className="list-row" data-help="import" href={href("coaches", head, "import")}>
               <ClipboardPaste size={18} aria-hidden="true" />
-              <span className="name">Bring in your own program<span className="sub detail">Paste a program you already run. Tank can review it.</span></span>
+              <span className="name">Bring in your own program<span className="sub detail">Paste a program you already run. {who} can review it.</span></span>
               <ChevronRight size={18} aria-hidden="true" className="muted" />
             </a>
           </div>
@@ -55,9 +59,21 @@ export default function Settings({ program, sessions, prefs, setPref, onRename, 
           <div className="list">
             <a className="list-row" data-help="coaches" href={href("coaches")}>
               <Users size={18} aria-hidden="true" />
-              <span className="name">Your coaches<span className="sub detail">Ask a question or change your plan.</span></span>
+              <span className="name">Talk to {who}<span className="sub detail">Your head coach. Sees your training and food, and can change your plan.</span></span>
               <ChevronRight size={18} aria-hidden="true" className="muted" />
             </a>
+            <button className="list-row" data-help="head" onClick={() => setSheet("head")}>
+              <span className="row-coach" aria-hidden="true"><Coach id={head} size={22} still decorative /></span>
+              <span className="name">Head coach<span className="sub">{who}. The rest of the crew coach their lifts in the gym.</span></span>
+              <ChevronRight size={18} aria-hidden="true" className="muted" />
+            </button>
+            {thread && (
+              <button className="list-row" data-help="memory" onClick={() => setSheet("memory")}>
+                <Bookmark size={18} aria-hidden="true" />
+                <span className="name">What {who} remembers<span className="sub">{thread.notes.length ? `${thread.notes.length} note${thread.notes.length === 1 ? "" : "s"} from your chats` : "Nothing yet. Tell them about injuries, equipment or your schedule."}</span></span>
+                <ChevronRight size={18} aria-hidden="true" className="muted" />
+              </button>
+            )}
             {/* Phases live on Progress; this is the side door. */}
             <a className="list-row" href={href("progress", "phase")}>
               <Scale size={18} aria-hidden="true" />
@@ -77,13 +93,13 @@ export default function Settings({ program, sessions, prefs, setPref, onRename, 
           <div className="list">
             {/* Turning it off only hides it: the food log and targets stay saved. */}
             <Toggle help="nutrition" Icon={Utensils} label="Track food & macros"
-              sub={prefs.nutrition?.on ? "Nutrition tab is on. Turning it off keeps your log." : "Adds a Nutrition tab. Tank sets your daily targets."}
+              sub={prefs.nutrition?.on ? "Nutrition tab is on. Turning it off keeps your log." : `Adds a Nutrition tab. ${who} sets your daily targets.`}
               on={!!prefs.nutrition?.on}
               onChange={(v) => { setPref("nutrition", { ...prefs.nutrition, on: v }); if (v && !prefs.nutrition?.targets) go(href("nutrition", "setup")); }} />
             {prefs.nutrition?.on && prefs.nutrition.targets && (
               <a className="list-row" href={href("nutrition", "setup")}>
                 <Target size={18} aria-hidden="true" />
-                <span className="name">Daily targets<span className="sub">{prefs.nutrition.targets.kcal.toLocaleString()} kcal · {prefs.nutrition.targets.protein} g protein. Redo with Tank.</span></span>
+                <span className="name">Daily targets<span className="sub">{prefs.nutrition.targets.kcal.toLocaleString()} kcal · {prefs.nutrition.targets.protein} g protein. Redo with {who}.</span></span>
                 <ChevronRight size={18} aria-hidden="true" className="muted" />
               </a>
             )}
@@ -203,7 +219,34 @@ export default function Settings({ program, sessions, prefs, setPref, onRename, 
       {sheet === "redo" && (
         <ConfirmSheet title="Redo setup?" body="You'll meet each coach again. Your program and history stay as they are unless you change them in the chats."
           confirm="Start setup" danger={false} onClose={() => setSheet(null)}
-          onConfirm={() => { setPref("profile", { ...prefs.profile, doneAt: null }); setPref("coachSetup", {}); go(href("coaches", "tank")); }} />
+          onConfirm={() => { setPref("profile", { ...prefs.profile, doneAt: null }); setPref("coachSetup", {}); go(href("coaches", head)); }} />
+      )}
+      {sheet === "head" && (
+        <Sheet title="Head coach" sub="Who you talk to about your training and food. Your chat history and notes carry over." onClose={() => setSheet(null)} labelledBy="head-coach-title">
+          <HeadPicker value={head} onChange={(id) => { if (id !== head) { setPref("headCoach", id); notify?.(`${COACHES[id].name} is your head coach`); } }} />
+          <button type="button" className="btn btn-ink" onClick={() => setSheet(null)}>Done</button>
+        </Sheet>
+      )}
+      {sheet === "memory" && thread && (
+        <Sheet title={`What ${who} remembers`} sub="Notes your head coach keeps from your chats and reads before every answer. Delete any you don't want kept." onClose={() => setSheet(null)} labelledBy="memory-title">
+          {thread.notes.length ? (
+            <div className="list">
+              {thread.notes.map((n) => (
+                <div key={n} className="list-row memory-row">
+                  <span className="name">{n}</span>
+                  <button type="button" className="icon-btn" aria-label={`Forget: ${n}`} onClick={() => thread.setNotes(thread.notes.filter((x) => x !== n))}><Trash2 size={18} /></button>
+                </div>
+              ))}
+            </div>
+          ) : <p className="note-box">Nothing saved yet. When you tell {who} something worth keeping, like a sore knee, your equipment or when you train, it shows up here.</p>}
+          <p className="small muted">Your chat with {who} is kept for 30 days.</p>
+          <button type="button" className="btn btn-ghost" onClick={() => setSheet("clear-chat")} disabled={!thread.messages.length}>Clear chat history</button>
+        </Sheet>
+      )}
+      {sheet === "clear-chat" && thread && (
+        <ConfirmSheet title="Clear chat history?" body={`Every message with ${who} is deleted from this phone and your account. What ${who} remembers stays until you delete it.`}
+          confirm="Clear history" onClose={() => setSheet("memory")}
+          onConfirm={() => { thread.clearMessages(); notify?.("Chat history cleared"); }} />
       )}
       {sheet === "rename" && <RenameSheet program={program} onRename={onRename} onClose={() => setSheet(null)} />}
       {sheet === "review-time" && (

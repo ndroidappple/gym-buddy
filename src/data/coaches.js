@@ -12,6 +12,19 @@ export const COACHES = {
 };
 export const COACH_ORDER = ["tank", "wings", "boulder", "piston", "brick", "dash"];
 
+/* The head coach is the one the lifter talks to: the whole plan, food included, in one conversation
+   with one memory. Picked at sign-up; the others stay as the crew that coaches each lift in the gym.
+   `vibe` is how each one coaches, shown when picking (api/coach.js has the matching voice). */
+export const VIBES = {
+  tank: "Tough love. Keeps you honest.",
+  wings: "Calm and technical. Lives for good form.",
+  boulder: "Steady and patient. Slow gains are still gains.",
+  piston: "All energy. Never skips leg day, won't let you either.",
+  brick: "No-nonsense. Short answers, solid plans.",
+  dash: "Upbeat. Big on habits and showing up.",
+};
+export const headCoach = (prefs) => (COACHES[prefs?.headCoach] ? prefs.headCoach : "tank");
+
 /* Checked in order: the more specific muscle wins (Leg Press is legs before "press" is chest,
    Face Pulls is shoulders before "pull" is back). */
 const RULES = [

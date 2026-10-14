@@ -17,7 +17,7 @@ import { num, fmtW, shortDate } from "../lib/util.js";
    coaches (the agent in api/review.js, or code when it couldn't be reached). */
 
 const WAIT_LINES = [
-  "Tank is pulling up your workouts…",
+  "Pulling up your workouts…",
   "Checking your food against your targets…",
   "Lining up this week against the last few…",
   "Looking for patterns in your numbers…",
@@ -28,7 +28,7 @@ const WAIT_LINES = [
  * weekEnd: the week to show. current: it's the week Today is offering, so it can be written now and
  * updated when `fingerprint` (what the phone has logged) moves past the review's.
  */
-export default function WeekReview({ weekEnd, current, fingerprint, onClose }) {
+export default function WeekReview({ weekEnd, current, fingerprint, head = "tank", onClose }) {
   const [review, setReview] = useState(null);
   const [status, setStatus] = useState("loading"); // loading | writing | ready | error
   const [error, setError] = useState("");
@@ -108,7 +108,7 @@ export default function WeekReview({ weekEnd, current, fingerprint, onClose }) {
   // Something logged since it was written: offer to update (once per change, while updates are left).
   const canUpdate = current && review && review.fingerprint !== fingerprint && tried !== fingerprint && (review.gens || 1) < MAX_GENERATIONS;
   const card = cards[idx];
-  const coach = card?.coach || "tank";
+  const coach = card?.coach || head;
   const range = rangeLabel(weekEnd);
 
   return createPortal((
@@ -144,7 +144,7 @@ export default function WeekReview({ weekEnd, current, fingerprint, onClose }) {
         </>
       ) : status === "error" ? (
         <div className="review-wait">
-          <Coach id="tank" mood="encourage" size={96} />
+          <Coach id={head} mood="encourage" size={96} />
           <p className="review-wait-line">{error}</p>
           {current && <button type="button" className="btn btn-ink" onClick={() => write()}>Try again</button>}
           <button type="button" className="btn-quiet" onClick={onClose}>Close</button>
@@ -184,15 +184,16 @@ function Writing({ writing }) {
 /** Which cards this review has, in order. Cards with nothing to say are left out. */
 function deck(review) {
   const { facts: f, story: s } = review;
+  const h = f.head || "tank"; // reviews written before head coaches were picked have none: Tank led those
   return [
-    { id: "cover", label: "Your week", coach: "tank", Body: Cover },
-    { id: "training", label: "Training", coach: s.training?.coach || "tank", Body: Training },
+    { id: "cover", label: "Your week", coach: h, Body: Cover },
+    { id: "training", label: "Training", coach: s.training?.coach || h, Body: Training },
     f.nutrition && s.nutrition && { id: "nutrition", label: "Nutrition", coach: s.nutrition.coach, Body: Nutrition },
     f.body && s.body && { id: "body", label: "Bodyweight", coach: s.body.coach, Body: Body },
-    { id: "highlow", label: "High and low", coach: s.high?.coach || "tank", Body: HighLow },
+    { id: "highlow", label: "High and low", coach: s.high?.coach || h, Body: HighLow },
     s.trends?.length > 0 && f.history >= 2 && { id: "trends", label: "Trends", coach: s.trends[0].coach, Body: Trends },
     s.insights?.length > 0 && { id: "insights", label: "Coach's notes", coach: s.insights[0].coach, Body: Insights },
-    { id: "focus", label: "Next week", coach: s.focus?.[0]?.coach || "tank", Body: Focus },
+    { id: "focus", label: "Next week", coach: s.focus?.[0]?.coach || h, Body: Focus },
   ].filter(Boolean);
 }
 

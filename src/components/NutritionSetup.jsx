@@ -8,14 +8,14 @@ import { PHASE_TYPES } from "../lib/phase.js";
 import { num } from "../lib/util.js";
 import { ACTIVITY, GOALS, computeTargets, adjustTargets, latestWeight } from "../lib/nutrition.js";
 
-/* Tank sets nutrition targets: scripted like the other setup chats, so it's instant, free and
+/* The head coach sets nutrition targets: scripted like the other setup chats, so it's instant, free and
    can't misread an answer. Buttons wherever an answer is a choice; typing only for numbers
    (age, height, weight). Ends on the targets with how they were worked out; the lifter can use
    them or adjust calories, protein and fat before saving. Redoing it starts from the saved answers. */
 
 const STEPS = ["sex", "age", "height", "weight", "activity", "goal", "targets"];
 
-export default function NutritionSetup({ prefs, program, sessions, weighins, name, onSave, onWeighin, onClose }) {
+export default function NutritionSetup({ coach = "tank", prefs, program, sessions, weighins, name, onSave, onWeighin, onClose }) {
   const saved = prefs.nutrition || {};
   const phase = prefs.phase && !prefs.phase.endedAt ? prefs.phase : null;
   const recent = latestWeight(sessions, weighins);
@@ -77,9 +77,9 @@ export default function NutritionSetup({ prefs, program, sessions, weighins, nam
   const stepNo = STEPS.indexOf(step) + 1;
 
   return (
-    <Sheet title="Nutrition with Tank" sub={step === "targets" ? "Your daily targets" : `Step ${stepNo} of ${STEPS.length}`} onClose={onClose} labelledBy="nutrition-setup-title" className="sheet-chat setup-chat keep-sub">
-      <div className="chat" style={{ "--c": COACHES.tank.color }}>
-        <div className="chat-coach"><Coach id="tank" mood={step === "targets" ? "hyped" : "idle"} size={72} /></div>
+    <Sheet title={`Nutrition with ${COACHES[coach].name}`} sub={step === "targets" ? "Your daily targets" : `Step ${stepNo} of ${STEPS.length}`} onClose={onClose} labelledBy="nutrition-setup-title" className="sheet-chat setup-chat keep-sub">
+      <div className="chat" style={{ "--c": COACHES[coach].color }}>
+        <div className="chat-coach"><Coach id={coach} mood={step === "targets" ? "hyped" : "idle"} size={72} /></div>
         <div className="chat-list" ref={listRef} aria-live="polite">
           {log.map((x, i) => (<React.Fragment key={i}><p className="coach-bubble">{x.q}</p><p className="chat-me">{x.a}</p></React.Fragment>))}
           {Q[step] && <p className="coach-bubble">{Q[step]}</p>}

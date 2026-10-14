@@ -226,22 +226,28 @@ export function shortName(s) {
   return t.slice(0, 28);
 }
 
-/**
- * What Tank sees when asked from the Nutrition tab: targets, today's foods and totals, the last 7
- * days, the goal or bulk/cut, and bodyweight. Plain text for the model.
- */
-export function nutritionChatContext({ n, entries, phase, sessions, weighins }) {
-  // Same order as todaysEntries() in foodEdit.js: Tank names an entry to edit by its #number here.
+/** Targets, what's left today, and today's entries numbered for edit_food_log. */
+export function todayFood(n, entries) {
+  // Same order as todaysEntries() in foodEdit.js: the coach names an entry to edit by its #number here.
   const day = entries.filter((e) => e.date === today()).sort((a, b) => (a.created_at || "").localeCompare(b.created_at || ""));
   const t = n.targets;
   const sum = totals(day);
   const left = { kcal: t.kcal - sum.kcal, protein: t.protein - sum.protein, carbs: t.carbs - sum.carbs, fat: t.fat - sum.fat };
   const r = Math.round;
-  const lines = [
+  return [
     nutritionContext(n, entries),
     `Left today: ${r(left.kcal)} kcal, ${r(left.protein)} g protein, ${r(left.carbs)} g carbs, ${r(left.fat)} g fat.`,
     day.length ? `Eaten today: ${day.map((e, i) => `#${i + 1} ${e.meal} ${e.name}, ${+e.amount || 1} ${e.unit || "serving"} (${r(e.kcal)} kcal, P${r(e.protein)} C${r(e.carbs)} F${r(e.fat)})`).join("; ")}.` : "Nothing logged yet today.",
   ];
+}
+
+/**
+ * What Tank sees when asked from the Nutrition tab: targets, today's foods and totals, the last 7
+ * days, the goal or bulk/cut, and bodyweight. Plain text for the model.
+ */
+export function nutritionChatContext({ n, entries, phase, sessions, weighins }) {
+  const r = Math.round;
+  const lines = todayFood(n, entries);
   const week = [];
   for (let i = 6; i >= 1; i--) {
     const d = addDays(today(), -i);

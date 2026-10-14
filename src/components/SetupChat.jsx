@@ -12,12 +12,12 @@ import { reviewProgram } from "../lib/coachChat.js";
 import { applyChanges } from "../lib/programChange.js";
 import { useTheme } from "../lib/theme.js";
 
-/* A coach's first chat: scripted, so it's instant, free and can't misread an answer. Tank first asks
+/* A coach's first chat: scripted, so it's instant, free and can't misread an answer. The head coach first asks
    whether the lifter already runs a program: if so they paste it in, check what was read, and later
-   can have Tank review it (the one step that calls the model, and optional). Then goals, weight and
-   training days, and either the plan to confirm or, for their own program, the review offer. Every coach (Tank included) then
+   can have them review it (the one step that calls the model, and optional). Then goals, weight and
+   training days, and either the plan to confirm or, for their own program, the review offer. Every coach (the head coach included) then
    lets the lifter keep, drop or add their lifts, and ends on a card saying exactly what was saved.
-   Tank's answers are saved as they're given (`onSave`), so closing the sheet part way loses nothing;
+   The head coach's answers are saved as they're given (`onSave`), so closing the sheet part way loses nothing;
    `onDone` gets { coach, program?, profile?, weight? } and marks the coach met.
    `next` is the next coach still to meet (null when this is the last), `left` how many remain.
    `importOnly` (from Settings) runs just the paste, check and review steps; the result goes to `onImport`. */
@@ -25,7 +25,7 @@ const TANK_STEPS = ["import", "goals", "weight", "days", "plan", "lifts"];
 // Steps shown under the numbered step they belong to.
 const STEP_OF = { paste: "import", check: "import", offer: "plan", reviewing: "plan", suggest: "plan" };
 
-/* When the review can't run, Tank says so and setup carries on with the program as pasted. */
+/* When the review can't run, the coach says so and setup carries on with the program as pasted. */
 const REVIEW_TROUBLE = {
   offline: "Can't review it without a connection.",
   auth: "Lost track of who you are, so I couldn't review it.",
@@ -33,11 +33,12 @@ const REVIEW_TROUBLE = {
   rate: "The free tier's busy right now, so I couldn't review it.",
 };
 
-export default function SetupChat({ coach, program, profile, name, next, left = 0, importOnly = false, onSave, onDone, onImport, onClose, onNext, onFinish }) {
+export default function SetupChat({ coach, head = "tank", program, profile, name, next, left = 0, importOnly = false, onSave, onDone, onImport, onClose, onNext, onFinish }) {
   const c = COACHES[coach];
   const theme = useTheme();
   // Fixed when the chat opens: saving the profile mid-chat must not flip it out of setup mode.
-  const [tankIntro] = useState(() => !importOnly && coach === "tank" && !profile?.doneAt);
+  // The head coach asks the goals questions; the crew only their lifts.
+  const [tankIntro] = useState(() => !importOnly && coach === head && !profile?.doneAt);
   const [step, setStep] = useState(importOnly ? "paste" : tankIntro ? "import" : "lifts");
   const [log, setLog] = useState([]); // answered exchanges: { q, a }
   const [goals, setGoals] = useState(profile?.goals || []);
@@ -48,7 +49,7 @@ export default function SetupChat({ coach, program, profile, name, next, left = 
   const [working, setWorking] = useState(program); // program as it will be after this chat
   const [planNote, setPlanNote] = useState(null); // what the plan step did, for the summary
   const [saved, setSaved] = useState([]); // lines for the closing summary card
-  // Their own program: the pasted text, what was read from it, and Tank's review.
+  // Their own program: the pasted text, what was read from it, and the head coach's review.
   const [paste, setPaste] = useState("");
   const [parsed, setParsed] = useState(null); // { workouts, notes, errors }
   const [own, setOwn] = useState(false); // the lifter's pasted program is in `working`
@@ -62,7 +63,7 @@ export default function SetupChat({ coach, program, profile, name, next, left = 
 
   const hi = name ? `, ${name}` : "";
   const QUESTIONS = {
-    import: `Welcome in${hi}. I'm Tank. A few quick questions and your plan's set. First up: are you already following a program you like?`,
+    import: `Welcome in${hi}. I'm ${c.name}, your head coach. A few quick questions and your plan's set. First up: are you already following a program you like?`,
     paste: "Paste it in. Workout names on their own lines, then each lift with sets × reps. Straight from your notes app is fine.",
     check: "Here's what I read. Look right?",
     offer: "Want me to look it over and suggest tweaks for your goals? Totally optional. Nothing changes unless you pick it.",
@@ -133,7 +134,7 @@ export default function SetupChat({ coach, program, profile, name, next, left = 
     setStep("reviewing");
     abort.current = new AbortController();
     try {
-      const r = await reviewProgram({ program: working, profile: { ...profile, goals, days }, signal: abort.current.signal });
+      const r = await reviewProgram({ coach, program: working, profile: { ...profile, goals, days }, signal: abort.current.signal });
       setReview(r);
       setPicked(new Set(r.suggestions.map((_, i) => i)));
     } catch (e) {
@@ -142,7 +143,7 @@ export default function SetupChat({ coach, program, profile, name, next, left = 
     }
     setStep("suggest");
   };
-  // The program is final: Tank marks setup done (or, from Settings, the import is saved).
+  // The program is final: the head coach marks setup done (or, from Settings, the import is saved).
   const finishOwn = (programOut, note) => {
     setWorking(programOut);
     if (importOnly) {
@@ -158,7 +159,7 @@ export default function SetupChat({ coach, program, profile, name, next, left = 
     const chosen = review.suggestions.filter((_, i) => picked.has(i));
     const r = applyChanges(working, chosen.map((x) => x.change));
     say(review.text || "Here's what I'd change.", chosen.length ? `Apply ${plural(r.lines.length, "change")}.` : "Keep mine as is.");
-    finishOwn(r.program, r.lines.length ? `Tank's review: ${plural(r.lines.length, "change")} applied` : "Tank's review: kept as is");
+    finishOwn(r.program, r.lines.length ? `${c.name}'s review: ${plural(r.lines.length, "change")} applied` : `${c.name}'s review: kept as is`);
   };
   const afterTrouble = () => { say(review.trouble, "OK."); finishOwn(working, null); };
 
@@ -172,7 +173,7 @@ export default function SetupChat({ coach, program, profile, name, next, left = 
   const options = useMemo(() => coachOptions(working, coach).filter((n) => !added.includes(n)), [working, coach, added]);
   const everyDay = EVERY_DAY.has(coach);
 
-  // Tank's goals, days and plan are saved (and Tank marked met) the moment the plan is answered, so
+  // The head coach's goals, days and plan are saved (and the coach marked met) the moment the plan is answered, so
   // closing the sheet on the lifts step that follows can't lose them. The retired "anything else"
   // note is cleared so an old answer doesn't linger in the coach's context with no way to see it.
   const tankProfile = () => ({ profile: { goals, days, note: undefined, doneAt: Date.now() } });
@@ -207,11 +208,12 @@ export default function SetupChat({ coach, program, profile, name, next, left = 
     setStep("done");
   };
 
+  const intro = tankIntro ? "Last one:" : `I'm ${c.name}.`;
   const liftsQuestion = everyDay
-    ? `I'm ${c.name}. Want some ${group} at the end of each day? Pick any, or skip for now.`
+    ? `${intro} Want some ${group} at the end of each day? Pick any, or skip for now.`
     : mine.length
-      ? `${tankIntro ? "Last one: your chest and triceps." : `I'm ${c.name}, your ${group} coach.`} Here's what I've got you doing. Untick anything you don't want, or add your own.`
-      : `I'm ${c.name}. No ${group} lifts in your plan yet. Want to add some?`;
+      ? `${tankIntro ? `Last one: your ${group}.` : `I'm ${c.name}, your ${group} coach.`} Here's what I've got you doing. Untick anything you don't want, or add your own.`
+      : `${intro} No ${group} lifts in your plan yet. Want to add some?`;
 
   const doneLine = importOnly ? "Your program's in. Rename workouts or tweak lifts any time in Settings." : next
     ? `${tankIntro ? "You're set up." : "Saved."} Next up: ${COACHES[next].name}, your ${COACHES[next].group.toLowerCase()} coach` +
@@ -223,7 +225,7 @@ export default function SetupChat({ coach, program, profile, name, next, left = 
   const pickedCount = review?.suggestions ? picked.size : 0;
 
   return (
-    <Sheet title={tankIntro ? "Set up with Tank" : importOnly ? "Bring in your program" : `Meet ${c.name}`} sub={sub} onClose={onClose} labelledBy="setup-title" className="sheet-chat setup-chat">
+    <Sheet title={tankIntro ? `Set up with ${c.name}` : importOnly ? "Bring in your program" : `Meet ${c.name}`} sub={sub} onClose={onClose} labelledBy="setup-title" className="sheet-chat setup-chat">
       <div className="chat" style={{ "--c": c.color }}>
         <div className="chat-coach"><Coach id={coach} mood={step === "done" ? "hyped" : step === "reviewing" ? "focused" : "idle"} size={72} /></div>
         <div className="chat-list" ref={listRef} aria-live="polite">
@@ -262,7 +264,7 @@ export default function SetupChat({ coach, program, profile, name, next, left = 
           {step === "reviewing" && (
             <p className="coach-bubble"><span className="chat-wait">
               <ThinkingOrb state="breathing" size={20} theme={theme} aria-hidden="true" />
-              Tank is reading your program… this can take up to a minute.
+              {c.name} is reading your program… this can take up to a minute.
             </span></p>
           )}
           {step === "suggest" && review && (
@@ -270,7 +272,7 @@ export default function SetupChat({ coach, program, profile, name, next, left = 
               <>
                 <p className="coach-bubble">{review.text || (review.suggestions.length ? "Here's what I'd change." : "It's solid. I wouldn't change a thing.")}</p>
                 {review.suggestions.length > 0 && (
-                  <div className="proposal setup-lifts" role="group" aria-label="Tank's suggestions">
+                  <div className="proposal setup-lifts" role="group" aria-label={`${c.name}'s suggestions`}>
                     {review.suggestions.map((x, i) => (
                       <label key={i} className="setup-lift">
                         <input type="checkbox" checked={picked.has(i)} onChange={() => setPicked((s) => { const n = new Set(s); n.has(i) ? n.delete(i) : n.add(i); return n; })} />
