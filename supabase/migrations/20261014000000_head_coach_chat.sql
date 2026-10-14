@@ -1,3 +1,4 @@
+-- Applied to the ironlog project on 2026-10-14 (migration "head_coach_chat").
 -- Head coach chat: the conversation with the lifter's head coach, and what the coach remembers.
 -- Written from the app with client-made ids (like food_entries), so an offline retry never duplicates.
 -- Messages are kept 30 days; the memory is how anything older carries forward.
