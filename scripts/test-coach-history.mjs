@@ -13,10 +13,10 @@ process.env.VITE_SUPABASE_ANON_KEY ||= "test";
 const vite = await createServer({ server: { middlewareMode: true }, appType: "custom", logLevel: "error" });
 const { headContext } = await vite.ssrLoadModule("/src/lib/coachChat.js");
 const { PROGRAM } = await vite.ssrLoadModule("/src/data/program.js");
+const DAYS = ["push", "pull", "legs", "shoulders"];
 await vite.close();
 
 const day = (n) => iso(new Date(Date.now() - n * 864e5));
-const DAYS = ["push", "pull", "legs", "shoulders"];
 const LIFTS = { push: ["Flat DB Press", "Machine Pec Dec", "Tricep Pushdown (Rope)"], pull: ["Lat Pulldown (Wide Grip)", "Hammer Curl"], legs: ["Leg Press (Heavy)", "Romanian Deadlift"], shoulders: ["Seated DB Shoulder Press", "Lateral Raise (Cable)"] };
 // Two years, four days a week, with a 6-week break from 300 to 258 days ago.
 const sessions = [];
@@ -69,6 +69,37 @@ const gWeekRows = gWeeks.slice(0, gWeeks.findIndex((l) => !l.startsWith("- 20"))
 const nothing = gWeekRows.filter((l) => l.endsWith("nothing logged"));
 const [from, to] = (nothing[0] || "").slice(2).split(":")[0].split(" to ");
 ok("an empty stretch of weeks folds into one line, oldest date first", nothing.length === 1 && from < to, gWeekRows.join("\n"));
+
+// The worst case: three years, six days a week, every planned lift with 4 sets, 20 long memory notes,
+// a big program. The context must still fit its budget, keep the program (the coach needs exact day
+// keys and lift names to propose a change), and trim the oldest detail first.
+const { HEAD_BUDGET, buildContext } = await (async () => {
+  const v = await createServer({ server: { middlewareMode: true }, appType: "custom", logLevel: "error" });
+  const m = await v.ssrLoadModule("/src/lib/coachChat.js");
+  await v.close();
+  return m;
+})();
+const big = { ...PROGRAM };
+for (const d of ["push", "pull", "legs", "shoulders"]) big[d] = { ...PROGRAM[d], exercises: [...PROGRAM[d].exercises, ...PROGRAM[d].exercises.map((e) => ({ ...e, n: `${e.n} (Paused, Tempo 3-1-1)` }))] };
+const heavy = [];
+for (let i = 1095, j = 0; i >= 1; i--) {
+  if (i % 7 === 6) continue;
+  const d = DAYS[j++ % 4];
+  heavy.push({ id: `h${i}`, date: day(i), day: d, finishedAt: i, sets: Object.fromEntries(big[d].exercises.map((e, x) => [e.n, Array.from({ length: 4 }, (_, s) => ({ w: 40 + x * 5 + Math.floor((1095 - i) / 15) * 2.5, r: 10 - s, rir: 2 }))])) });
+}
+const notes = Array.from({ length: 20 }, (_, i) => `Note ${i}: left knee gets sore on deep lunges and split squats, keep them shallow for now (Oct 2026)`.slice(0, 120));
+const worst = headContext({ sessions: heavy, program: big, weighins, profile: { goals: ["muscle"], days: 6, doneAt: 1 }, phase: null, n, entries, foodDays, notes });
+ok("worst case fits the budget", worst.length <= HEAD_BUDGET, `${worst.length} characters`);
+ok("worst case keeps the whole program", worst.includes("Program (day key (name)") && worst.includes("Skull Crushers (Paused, Tempo 3-1-1)"), worst.slice(-500));
+ok("worst case keeps notes, ranking and today's food", worst.includes("Note 19:") && worst.includes("Long-term progress") && worst.includes("Eaten today: #1"));
+ok("worst case trims the oldest detail first", !worst.includes("month by month") || worst.split("\n").filter((l) => /^- \d{4}-\d{2}-\d{2} to/.test(l)).length < 30, worst);
+console.log(`  worst case: ${worst.length.toLocaleString()} characters (budget ${HEAD_BUDGET.toLocaleString()})`);
+const heavyHead = headContext({ sessions, program: PROGRAM, weighins, profile: {}, phase: null, n, entries, foodDays });
+ok("an ordinary long history isn't trimmed", heavyHead.includes("month by month") && heavyHead.includes("last 12 months trained"), heavyHead.slice(-800));
+
+// Crew coaches mid-workout: the program comes early, well inside the server's cap.
+const crew = buildContext({ coach: "tank", sessions: heavy, program: big, weighins, profile: { goals: ["muscle"], days: 6, doneAt: 1 }, phase: null, nutrition: "Nutrition targets: 2600 kcal.", notes });
+ok("crew: program well inside the 16,000-character cap", crew.indexOf("Program (day key") > 0 && crew.indexOf("Program (day key") < 8000, `${crew.indexOf("Program (day key")} of ${crew.length}`);
 
 if (failed) { console.error(`\n${failed} coach history check(s) failed`); process.exit(1); }
 console.log("coach history: all checks passed");

@@ -350,8 +350,10 @@ export async function POST(request) {
   const review = body.mode === "review";
   const food = body.mode === "food";
   const eat = body.mode === "nutrition";
-  // Room for the full program; the head coach's whole history (30 days in full, then weekly and monthly) needs the most.
-  const context = typeof body.context === "string" ? body.context.slice(0, head ? 32000 : review ? 8000 : 5000) : "";
+  // A safety cap, above what the app sends: the head coach's context is fitted to 30,000 characters
+  // (HEAD_BUDGET in src/lib/coachChat.js) and a heavy lifter's crew context runs about 11,000 plus the live workout. The app
+  // puts what matters most first, so a cut here would only lose the oldest history.
+  const context = typeof body.context === "string" ? body.context.slice(0, head ? 48000 : review ? 8000 : 16000) : "";
   const headCoach = COACHES[body.head] ? body.head : "tank";
 
   const model = modelFor(body.mode);
@@ -367,8 +369,9 @@ export async function POST(request) {
     // A review thinks through the whole program, then writes up to 8 changes (~60 tokens each) and
     // a verdict: 6000 leaves ample room for all of that on top of long thinking.
     // A meal: thinking plus up to 12 itemized foods (~50 tokens each) and a sentence.
-    // The head coach: thinking over 30 days of data, a reply, and possibly the whole memory list.
-    maxOutputTokens: review ? 6000 : food ? 4000 : eat || head ? 2500 : 1500,
+    // The head coach: thinking over the whole history, a reply, and in one turn possibly a program
+    // change, the whole memory list (up to ~700 tokens) and replies; 4000 leaves room for all of it.
+    maxOutputTokens: review ? 6000 : food ? 4000 : head ? 4000 : eat ? 2500 : 1500,
     // How hard it thinks first: a quick answer mid-set or a meal (standard nutrition values need
     // little thought, and long thinking left slow free models with no tokens to answer); more for
     // reading a whole program.
