@@ -107,5 +107,56 @@ g.removeEntry("a");
 eq("deleted since: nothing to apply", applyFoodEdits(g, p.ops), null);
 eq("deleted since: not re-added", g.entries.some((e) => e.id === "a"), false);
 
+// Changing what's in a meal: the smoothie from a saved food, 2% milk swapped for ultrafiltered.
+// The coach sends the whole new ingredient list; the app adds it up and keeps the breakdown.
+const SMOOTHIE = [
+  { food: "2% Milk", amount: "1 cup", kcal: 122, protein: 8, carbs: 12, fat: 5, alcohol: 0 },
+  { food: "Banana", amount: "1 medium", kcal: 105, protein: 1.3, carbs: 27, fat: 0.4, alcohol: 0 },
+  { food: "Mixed Berries", amount: "1 cup", kcal: 70, protein: 1, carbs: 17, fat: 0.5, alcohol: 0 },
+  { food: "Whey Protein", amount: "1 scoop", kcal: 120, protein: 24, carbs: 3, fat: 1.5, alcohol: 0 },
+];
+const perServing = { kcal: 417, protein: 34.3, carbs: 59, fat: 7.4, alcohol: 0 };
+const smoothieEntry = { id: "s", date: d, meal: "dinner", name: "Banana Berry Smoothie", amount: 1, unit: "meal", ...perServing, source: "ai", source_ref: "saved1", basis: { perServing, servingLabel: "meal", items: SMOOTHIE }, created_at: "2026-10-12T18:00:00Z" };
+const savedSmoothie = { id: "saved1", name: "Banana Berry Smoothie", basis: { perServing, servingLabel: "meal", items: SMOOTHIE } };
+const swapped = [{ food: "Ultrafiltered Fat-Free Milk", amount: "6 oz", kcal: 60, protein: 10.5, carbs: 4.5, fat: 0, alcohol: 0, label: "Fairlife Fat Free (USDA)" }, ...SMOOTHIE.slice(1)];
+
+const ctxS = nutritionChatContext({ n: { targets: { kcal: 2160, protein: 160, carbs: 245, fat: 60 } }, entries: [smoothieEntry], sessions: [], weighins: [] });
+eq("context lists a meal's ingredients", /#1 dinner Banana Berry Smoothie.*\[ingredients, logged from a saved food: 2% Milk 1 cup \(122 kcal, P8 C12 F5\), Banana 1 medium/.test(ctxS), true);
+
+p = previewFoodEdits([smoothieEntry], [{ action: "update", entry: 1, items: swapped }], [savedSmoothie]);
+eq("items: one update op", p.ops.map((o) => o.type), ["update"]);
+eq("items: totals added up by the app", [p.ops[0].patch.kcal, p.ops[0].patch.protein, p.ops[0].patch.carbs, p.ops[0].patch.fat], [355, 36.8, 51.5, 2.4]);
+eq("items: breakdown kept", p.ops[0].patch.basis.items.map((x) => x.food), ["Ultrafiltered Fat-Free Milk", "Banana", "Mixed Berries", "Whey Protein"]);
+eq("items: label kept on the looked-up item", p.ops[0].patch.basis.items[0].label, "Fairlife Fat Free (USDA)");
+eq("items: still a meal from its saved food", [p.ops[0].patch.source, p.ops[0].patch.source_ref], [undefined, undefined]);
+eq("items: card says the swap", p.lines, ["Dinner: Banana Berry Smoothie, 2% Milk (1 cup) → Ultrafiltered Fat-Free Milk (6 oz). 417 → 355 kcal (P 37 · C 52 · F 2)"]);
+
+// Two smoothies logged: the entry scales with its amount.
+p = previewFoodEdits([{ ...smoothieEntry, amount: 2, kcal: 834 }], [{ action: "update", entry: 1, items: swapped }]);
+eq("items: scaled by the entry's amount", p.ops[0].patch.kcal, 710);
+
+// The saved food too, when the lifter said yes.
+p = previewFoodEdits([smoothieEntry], [{ action: "update", entry: 1, items: swapped, update_saved_food: true }], [savedSmoothie]);
+eq("saved food: second op", p.ops.map((o) => [o.type, o.id]), [["update", "s"], ["saved", "saved1"]]);
+eq("saved food: card says so", p.lines[1], "Your saved Banana Berry Smoothie gets the same change");
+const sl = (() => {
+  const rows = new Map([["s", { ...smoothieEntry }]]);
+  const foods = new Map([["saved1", { ...savedSmoothie }]]);
+  return {
+    get entries() { return [...rows.values()]; }, get foods() { return [...foods.values()]; },
+    addEntry: () => {}, removeEntry: () => {}, updateEntry: (id, x) => rows.set(id, { ...rows.get(id), ...x }),
+    updateFood: (id, x) => foods.set(id, { ...foods.get(id), ...x }),
+  };
+})();
+const undoS = applyFoodEdits(sl, p.ops);
+eq("applied: entry and saved food both have the new milk", [sl.entries[0].basis.items[0].food, sl.foods[0].basis.items[0].food], ["Ultrafiltered Fat-Free Milk", "Ultrafiltered Fat-Free Milk"]);
+eq("applied: saved food's per-serving numbers updated", sl.foods[0].basis.perServing.kcal, 355);
+undoS();
+eq("undo: both back to 2% milk", [sl.entries[0].basis.items[0].food, sl.foods[0].basis.items[0].food, sl.entries[0].kcal], ["2% Milk", "2% Milk", 417]);
+
+// Asked to change a saved food that doesn't exist: only today's entry changes, and it says why.
+p = previewFoodEdits([{ ...smoothieEntry, source: "quick", source_ref: null }], [{ action: "update", entry: 1, items: swapped, update_saved_food: true }]);
+eq("no saved food: just the entry, with a note", [p.ops.length, p.errors.length], [1, 1]);
+
 console.log(failed ? `food edit: ${failed} failed` : "food edit: all checks passed");
 process.exit(failed ? 1 : 0);

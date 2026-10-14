@@ -226,7 +226,18 @@ export function shortName(s) {
   return t.slice(0, 28);
 }
 
-/** Targets, what's left today, and today's entries numbered for edit_food_log. */
+/* A logged meal's ingredients as the coach reads them, so a change to one ingredient can be made
+   without asking the lifter for the new totals. Per serving of the entry when it was logged as more than one. */
+function ingredients(e) {
+  const items = e.basis?.items;
+  if (!Array.isArray(items) || !items.length) return "";
+  const r = Math.round;
+  const per = (+e.amount || 1) !== 1 ? ` per ${e.basis.servingLabel || "serving"}` : "";
+  const saved = ["custom", "ai"].includes(e.source) && e.source_ref ? ", logged from a saved food" : "";
+  return ` [ingredients${per}${saved}: ${items.map((x) => `${x.food} ${x.amount || ""} (${r(x.kcal)} kcal, P${r(x.protein)} C${r(x.carbs)} F${r(x.fat)}${x.label ? `, label: ${x.label}` : ""})`.replace(/ {2,}/g, " ")).join(", ")}]`;
+}
+
+/** Targets, what's left today, and today's entries numbered for edit_food_log, with each meal's ingredients. */
 export function todayFood(n, entries) {
   // Same order as todaysEntries() in foodEdit.js: the coach names an entry to edit by its #number here.
   const day = entries.filter((e) => e.date === today()).sort((a, b) => (a.created_at || "").localeCompare(b.created_at || ""));
@@ -237,7 +248,7 @@ export function todayFood(n, entries) {
   return [
     nutritionContext(n, entries),
     `Left today: ${r(left.kcal)} kcal, ${r(left.protein)} g protein, ${r(left.carbs)} g carbs, ${r(left.fat)} g fat.`,
-    day.length ? `Eaten today: ${day.map((e, i) => `#${i + 1} ${e.meal} ${e.name}, ${+e.amount || 1} ${e.unit || "serving"} (${r(e.kcal)} kcal, P${r(e.protein)} C${r(e.carbs)} F${r(e.fat)})`).join("; ")}.` : "Nothing logged yet today.",
+    day.length ? `Eaten today: ${day.map((e, i) => `#${i + 1} ${e.meal} ${e.name}, ${+e.amount || 1} ${e.unit || "serving"} (${r(e.kcal)} kcal, P${r(e.protein)} C${r(e.carbs)} F${r(e.fat)})${ingredients(e)}`).join("; ")}.` : "Nothing logged yet today.",
   ];
 }
 

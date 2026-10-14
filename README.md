@@ -87,7 +87,11 @@ before. Generic foods (eggs, rice) skip both.
 or rename it, add a food or remove one, and he proposes the change on a card (`edit_food_log` in
 `api/coach.js`). Nothing is saved until you tap **Apply**, and **Undo** puts it back
 (`src/lib/foodEdit.js`). He names entries by their number in today's list, and the app checks
-every edit against the log before showing it. Typing new numbers over a portion (e.g. Tank's meal)
+every edit against the log before showing it. A meal's ingredients go with it, so "use ultrafiltered
+milk in my smoothie" is one ingredient swapped: the coach sends the meal's whole new ingredient list
+(looking the product up first, as when logging a meal), the app adds up the totals and keeps the
+breakdown, and the card shows "2% Milk (1 cup) → Ultrafiltered Fat-Free Milk (6 oz)". With the
+lifter's yes, the saved food it came from gets the same change. Typing new numbers over a portion (e.g. Tank's meal)
 turns that entry into its own numbers, like a quick add. `npm run test:food` checks the edits too.
 
 ### Head coach

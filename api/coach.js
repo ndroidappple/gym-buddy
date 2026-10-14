@@ -151,7 +151,7 @@ export const FOOD_TOOLS = {
    nothing unless the lifter taps Apply. */
 export const FOOD_LOG_TOOLS = {
   edit_food_log: tool({
-    description: "Propose changes to today's food log: fix an entry's numbers, name or meal, add a food, or remove one. The app shows the lifter a confirm card; nothing changes unless they tap Apply. Use only when they ask to change their log or agree to your suggestion.",
+    description: "Propose changes to today's food log: change what's in a logged meal (swap an ingredient, change an amount), fix an entry's numbers, name or meal, add a food, or remove one. The app shows the lifter a confirm card; nothing changes unless they tap Apply. Use only when they ask to change their log or agree to your suggestion.",
     inputSchema: jsonSchema({
       type: "object",
       properties: {
@@ -168,6 +168,26 @@ export const FOOD_LOG_TOOLS = {
               protein: { type: "number", minimum: 0, maximum: 500, description: "Grams, the whole entry." },
               carbs: { type: "number", minimum: 0, maximum: 500, description: "Grams, the whole entry." },
               fat: { type: "number", minimum: 0, maximum: 500, description: "Grams, the whole entry." },
+              items: {
+                type: "array", minItems: 1, maxItems: 12,
+                description: "update only, to change what's in a meal: the entry's whole new ingredient list, every ingredient from its [ingredients] in Eaten today with the lifter's change made (an entry with no ingredients listed: its foods as you understand them). Each item's numbers are for its own amount. The app adds up the totals, so don't also send kcal, protein, carbs or fat.",
+                items: {
+                  type: "object",
+                  properties: {
+                    food: { type: "string", maxLength: 60 },
+                    amount: { type: "string", maxLength: 40, description: "As the lifter would say it, e.g. \"6 oz\" or \"1 medium\"." },
+                    kcal: { type: "number", minimum: 0, maximum: 5000 },
+                    protein: { type: "number", minimum: 0, maximum: 500 },
+                    carbs: { type: "number", minimum: 0, maximum: 500 },
+                    fat: { type: "number", minimum: 0, maximum: 500 },
+                    alcohol: { type: "number", minimum: 0, maximum: 500, description: "Grams of alcohol; 0 for anything without." },
+                    estimated: { type: "boolean", description: "true when you estimated this item's numbers." },
+                    label: { type: "string", maxLength: 80, description: "Only when the numbers come from look_up_food or search_web: the product and source used." },
+                  },
+                  required: ["food", "amount", "kcal", "protein", "carbs", "fat"],
+                },
+              },
+              update_saved_food: { type: "boolean", description: "update with items only: also change the saved food the entry was logged from, so it's logged with the change from now on. Only when the lifter says so." },
             },
             required: ["action"],
           },
@@ -277,7 +297,8 @@ export function headInstructions(coach, context = "") {
     "Trends: a lift's 'trend since start' is its long-term progress, and it's what trend, progress and improved mean. 'Lately' is only its last few sessions: use it to spot a stall or a recent jump, and say that's what it is. For most or least improved, use the Long-term progress ranking as given (it's per month, so lifts started at different times compare fairly); don't re-rank it or do your own math. Lifts listed as too new can't be judged yet.",
     "Food: answer against their targets and what's eaten (e.g. what fits the calories and protein left today). Concrete foods with rough amounts and macros, common and easy to find. Protein first for a lifter; don't moralize; no fad diets. If food tracking is off, say tracking food in Settings would let you help with it.",
     "Program changes: when the lifter asks to change their program (add, remove or swap a lift, change sets, reps or rest, or rename a workout), call propose_program_change with day keys and lift names exactly as listed under Program. To rename a workout use action rename with new_name. Write one short sentence saying what you're proposing and why. Never say it's done: the lifter confirms it in the app. Suggest changes only when asked or when they agree to your idea.",
-    "Food log changes: when the lifter asks to fix, add, move or remove food logged today, call edit_food_log with the entry numbers from Eaten today (#1 is entry 1). For a fix, give the entry's whole new calories, protein, carbs and fat, not the difference. Never say it's done: they confirm it in the app. Only today's log can be changed.",
+    "Food log changes: when the lifter asks to fix, add, move or remove food logged today, call edit_food_log with the entry numbers from Eaten today (#1 is entry 1). Never say it's done: they confirm it in the app. Only today's log can be changed.",
+    "Changing what's in a meal (swap an ingredient, change an amount): send update with the entry number and items, its whole ingredient list from [ingredients] with only their change made; the app adds up the totals. Never ask the lifter to work out calories or macros: that's your job. For the changed ingredient use standard nutrition values; for a named or specific product (a brand, ultrafiltered milk, a protein bar), call look_up_food first and search_web if nothing fits, then use its label scaled to the amount, and if nothing turns up, estimate and mark it estimated. If the amount is missing and matters, ask for just the amount. When the entry was logged from a saved food, ask in your reply whether to change the saved one too, and set update_saved_food only once they say yes.",
     "If the lifter data gives a first name, use it now and then, not in every reply.",
     "You are not a doctor or dietitian. For pain, injury, medical conditions, eating disorders or medication, tell them to stop what hurts and see a professional.",
     "Politely steer away from topics unrelated to training, recovery, or food for training.",
@@ -362,7 +383,7 @@ export async function POST(request) {
     instructions: head ? headInstructions(body.coach, context) : review ? reviewInstructions(context, body.coach) : food ? foodInstructions(context, body.coach)
       : eat ? nutritionInstructions(context, body.coach) : coachInstructions(body.coach, context, headCoach),
     messages,
-    tools: head ? { ...COACH_TOOLS, ...FOOD_LOG_TOOLS, ...MEMORY_TOOL } : review ? REVIEW_TOOLS : food ? FOOD_TOOLS : eat ? { ...FOOD_LOG_TOOLS, offer_replies: COACH_TOOLS.offer_replies } : COACH_TOOLS,
+    tools: head ? { ...COACH_TOOLS, ...FOOD_LOG_TOOLS, ...MEMORY_TOOL, look_up_food: FOOD_TOOLS.look_up_food, search_web: FOOD_TOOLS.search_web } : review ? REVIEW_TOOLS : food ? FOOD_TOOLS : eat ? { ...FOOD_LOG_TOOLS, offer_replies: COACH_TOOLS.offer_replies } : COACH_TOOLS,
     // Brevity comes from the prompt, not this cap. The model thinks before it answers and that counts
     // against the cap (up to ~580 tokens measured with the full context), so a tight cap returns an
     // empty reply, which used to look like a rate limit. Only tokens actually written are billed.
@@ -379,6 +400,8 @@ export async function POST(request) {
     // A meal may look products up first (the databases, then the web for what they don't have):
     // each round of lookups is a step, then log_meal. After 4 steps it has to log with what it has.
     ...(food ? { stopWhen: stepCountIs(5), prepareStep: ({ stepNumber }) => (stepNumber >= 4 ? { activeTools: ["log_meal", "offer_replies"] } : undefined) } : {}),
+    // The head coach may look a product up before changing a meal: same limit, then it answers with what it has.
+    ...(head ? { stopWhen: stepCountIs(5), prepareStep: ({ stepNumber }) => (stepNumber >= 4 ? { activeTools: ["edit_food_log", "propose_program_change", "remember", "offer_replies"] } : undefined) } : {}),
     providerOptions: { gateway: { models: fallbacksFor(model) } },
     abortSignal: request.signal,
   });
