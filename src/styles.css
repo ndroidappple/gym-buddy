@@ -289,6 +289,8 @@ button.chip { min-height: 38px; padding: 0 14px; border: 2px solid var(--rule); 
 .coach-sink { animation: c-sink 4s ease-in-out infinite; }
 .coach-nod { animation: c-nod 1.6s ease-in-out infinite; }
 .coach-poked .coach-body { animation: c-boing 600ms cubic-bezier(.3, 1.6, .5, 1); }
+/* Jump twice from the start, then hold still (the head coach picker swaps back to idle after). */
+.coach-twice .coach-body { animation-iteration-count: 2; animation-delay: 0s; }
 .coach-twinkle { transform-box: fill-box; transform-origin: 50% 50%; animation: c-twinkle 1s ease-in-out infinite alternate; }
 .coach-drip { animation: c-drip 1.8s ease-in infinite; }
 .coach-zzz { animation: c-zzz 2.6s ease-in-out infinite; }
@@ -789,7 +791,10 @@ button.coach-card:active { transform: translateY(3px); box-shadow: 0 2px 0 var(-
 /* Picking a head coach: one large slide per coach, swiped through. The track bleeds to the sheet's
    edges and pads both sides so the neighbors peek in; the slide in the middle is the pick. */
 .head-pick { display: flex; flex-direction: column; gap: 6px; margin-inline: calc(-1 * var(--bleed, 16px)); }
-.head-pick-track { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; padding: 4px 14% 2px; scrollbar-width: none; overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch; }
+.head-pick-track { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; padding: 4px 0 2px; scrollbar-width: none; overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch; }
+/* Spacers, not padding, center the first and last slides: Safari leaves a scroller's end padding out
+   of the scrollable width, so the last coach could never reach the middle. */
+.head-pick-track::before, .head-pick-track::after { content: ""; flex: 0 0 14%; }
 .head-pick-track::-webkit-scrollbar { display: none; }
 .head-pick-track:focus-visible { outline: 3px solid var(--ink); outline-offset: -3px; border-radius: 28px; }
 .head-pick-slide { flex: 0 0 72%; scroll-snap-align: center; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 2px; padding: 0 6px;

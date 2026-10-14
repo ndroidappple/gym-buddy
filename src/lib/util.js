@@ -107,6 +107,25 @@ export function trend(values) {
   return ((recent - before) / before) * 100;
 }
 
+/**
+ * A lift's long-term trend from its liftSeries(): where it started to where it is now. Each end is
+ * the average of up to 3 sessions, so one great or bad day doesn't decide it (the best of them would
+ * pick the third session as the start of a lift that climbed from day one, and understate it). `perMonth` puts lifts
+ * started at different times on one scale (null until there are 3 weeks of history).
+ * Returns { pct, perMonth, days, from, start, now } or null (fewer than 2 sessions, or bodyweight-only).
+ */
+export function longTrend(series) {
+  if (!series || series.length < 2) return null;
+  const k = Math.min(3, Math.floor(series.length / 2));
+  const mean = (xs) => xs.reduce((a, x) => a + x.orm, 0) / xs.length;
+  const start = mean(series.slice(0, k));
+  const now = mean(series.slice(-k));
+  if (!start) return null;
+  const days = daysBetween(series[0].date, series[series.length - 1].date);
+  const pct = ((now - start) / start) * 100;
+  return { pct, perMonth: days >= 21 ? (pct / days) * 30 : null, days, from: series[0].date, start, now };
+}
+
 export function repPRs(sessions, lift) {
   const m = {};
   sessions.forEach((s) => lifting(s.sets[lift]).forEach((x) => {

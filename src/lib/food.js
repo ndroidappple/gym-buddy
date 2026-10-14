@@ -9,7 +9,11 @@ import { addDays } from "./nutrition.js";
    (localStorage), then an outbox sends it to Supabase, retrying until it's through. Ids are made
    here, so a retried insert is an upsert of the same row and never a duplicate. */
 
-const WINDOW_DAYS = 120; // how far back the app loads entries
+export const WINDOW_DAYS = 120; // how far back the app loads entries
+/* Older days come as daily totals only (food_daily_totals in the database), for the head coach's
+   month-by-month view: a few hundred small rows instead of thousands of entries. Refreshed at most
+   twice a day; days that old rarely change. */
+const HISTORY_EVERY_MS = 12 * 3600_000;
 const KEY = (uid) => `ironlog-food:${uid}`;
 const ENTRY_COLS = ["id", "date", "meal", "name", "brand", "amount", "unit", "grams", "kcal", "protein", "carbs", "fat", "source", "source_ref", "basis", "created_at", "updated_at"];
 const FOOD_COLS = ["id", "name", "brand", "basis", "created_at", "updated_at"];
@@ -24,7 +28,7 @@ function readLocal(uid) {
 function writeLocal(uid, s) {
   try { localStorage.setItem(KEY(uid), JSON.stringify(s)); } catch {}
 }
-const EMPTY = { entries: {}, foods: {}, outbox: [] };
+const EMPTY = { entries: {}, foods: {}, outbox: [], history: null }; // history: { days: { date: { kcal, protein, n } }, before, at }
 
 /**
  * The food log for the signed-in lifter, or nothing while `enabled` is false.
@@ -96,6 +100,20 @@ export function useFood(enabled) {
     writeLocal(id, next);
   }, []);
 
+  // Daily totals before the window. Missing function (migration not applied) or offline: keep what's cached.
+  const pullHistory = useCallback(async (id) => {
+    const before = addDays(today(), -WINDOW_DAYS);
+    const had = stateRef.current.history;
+    if (had && had.before === before && Date.now() - had.at < HISTORY_EVERY_MS) return;
+    const { data, error } = await supabase.rpc("food_daily_totals", { p_before: before });
+    if (error || !Array.isArray(data)) return;
+    const days = Object.fromEntries(data.map((r) => [r.date, { kcal: +r.kcal || 0, protein: +r.protein || 0, n: +r.entries || 0 }]));
+    const next = { ...stateRef.current, history: { days, before, at: Date.now() } };
+    stateRef.current = next;
+    setState(next);
+    writeLocal(id, next);
+  }, []);
+
   // Load: this phone's copy first (instant, works offline), then the account's rows on top.
   useEffect(() => {
     if (!enabled) return;
@@ -110,9 +128,10 @@ export function useFood(enabled) {
       setState(local);
       setReady(true);
       try { if (alive) await pull(id); } catch { if (alive) setStatus("offline"); }
+      if (alive) pullHistory(id).catch(() => {});
     })();
     return () => { alive = false; };
-  }, [enabled, pull]);
+  }, [enabled, pull, pullHistory]);
 
   // Food logged elsewhere (another phone, or written to the account directly) shows up when the
   // app comes back to the front, not only after a restart. At most every 10 s: waking fires both
@@ -169,6 +188,8 @@ export function useFood(enabled) {
     ready: enabled && ready,
     entries: Object.values(state.entries),
     foods: Object.values(state.foods),
+    // Daily totals before the loaded window: { date: { kcal, protein, n } } (empty until fetched).
+    history: state.history?.days || {},
     status: enabled ? status : "synced",
     addEntry, updateEntry, removeEntry, addFood, updateFood, removeFood,
   };

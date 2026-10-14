@@ -16,7 +16,7 @@ import Roll from "../components/Roll.jsx";
 
 const fmt = (n) => Math.round(n).toLocaleString();
 
-export default function Nutrition({ food, prefs, notify, sessions, weighins, program, head, coachChat, nutrition, onProgramChange }) {
+export default function Nutrition({ food, prefs, notify, sessions, weighins, program, name, head, coachChat, nutrition, onProgramChange }) {
   const [asking, setAsking] = useState(false);
   const n = prefs.nutrition || {};
   const t = n.targets;
@@ -112,7 +112,7 @@ export default function Nutrition({ food, prefs, notify, sessions, weighins, pro
       </div>
 
       {asking && (
-        <CoachChat coach={head} head={head} topic="nutrition" {...coachChat} sessions={sessions} program={program} weighins={weighins} profile={prefs.profile} phase={prefs.phase}
+        <CoachChat coach={head} head={head} name={name} topic="nutrition" {...coachChat} sessions={sessions} program={program} weighins={weighins} profile={prefs.profile} phase={prefs.phase}
           nutrition={nutrition} onProgramChange={onProgramChange} onClose={() => setAsking(false)} />
       )}
       {adding && <AddFood food={food} head={head} meal={adding} date={date} notify={notify} onClose={() => setAdding(null)} />}

@@ -76,7 +76,7 @@ export default function Coaches({ program, sessions, weighins, prefs, name, go, 
           onFinish={() => { setOpen(null); go(href("today")); }} />
       )}
       {talking && (
-        <CoachChat coach={head} head={head} {...coachChat} sessions={sessions} program={program} weighins={weighins}
+        <CoachChat coach={head} head={head} name={name} {...coachChat} sessions={sessions} program={program} weighins={weighins}
           profile={prefs.profile} phase={prefs.phase} nutrition={nutrition} onProgramChange={onProgramChange} onClose={close} />
       )}
     </main>

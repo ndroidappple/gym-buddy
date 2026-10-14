@@ -12,7 +12,7 @@ import { previewFoodEdits, applyFoodEdits } from "../lib/foodEdit.js";
 import { useReducedMotion } from "../lib/motion.js";
 import { useTheme } from "../lib/theme.js";
 import { cleanNotes } from "../lib/coachThread.js";
-import { byDateDesc, bestSet, bestE1rm, cardioTotals, daysBetween, fmtW, num, today } from "../lib/util.js";
+import { daysBetween, today } from "../lib/util.js";
 
 /* When the coach can't answer, it still answers in character. */
 const TROUBLE = {
@@ -62,7 +62,7 @@ function dayLabel(at) {
  * - A crew coach mid-workout: `exercise` is the lift the chat was opened from; the chat isn't kept.
  *   `notes` (the head coach's memory) and `head` go along so the crew knows what the head coach knows.
  */
-export default function CoachChat({ coach, exercise, starter, sessions, program, weighins, profile, phase, nutrition, notes, head, live, topic, foodLog, thread, buildHead, onProgramChange, onClose }) {
+export default function CoachChat({ coach, name, exercise, starter, sessions, program, weighins, profile, phase, nutrition, notes, head, live, topic, foodLog, thread, buildHead, onProgramChange, onClose }) {
   const food = topic === "nutrition";
   const headChat = !!thread;
   const c = COACHES[coach];
@@ -135,10 +135,10 @@ export default function CoachChat({ coach, exercise, starter, sessions, program,
   // The head coach says hi on a new visit: first time, or hours since the last message.
   const lastAt = [...messages].reverse().find((m) => m.at)?.at;
   const [greeting] = useState(() => {
-    if (!headChat) return exercise ? null : hello(coach, sessions);
+    if (!headChat) return exercise ? null : hello(name);
     const latest = thread.messages[thread.messages.length - 1]?.created_at;
     if (latest && Date.now() - new Date(latest) < NEW_VISIT_MS) return null;
-    return food ? "Food questions? Ask me: what to eat, your macros, how your week's going." : hello(coach, sessions, true);
+    return hello(name, food);
   });
   const greetingShown = !!greeting && !messages.some((m) => m.greeting)
     && (headChat ? !lastAt || Date.now() - new Date(lastAt) >= NEW_VISIT_MS : messages.length === 0);
@@ -313,23 +313,29 @@ export default function CoachChat({ coach, exercise, starter, sessions, program,
   );
 }
 
-/** How a coach says hi: like a coach who was there, from the last time you trained one of their lifts
-    (`any`: the head coach, who watches every lift). */
-function hello(coach, sessions, any = false) {
-  const mine = (s) => Object.entries(s.sets).filter(([n, v]) => v?.length && (any || coachFor(n) === coach));
-  const last = [...sessions].sort(byDateDesc).find((s) => mine(s).length);
-  if (!last) return any ? "Ready when you are. Ask me anything about your training or food." : sessions.length ? `We haven't trained together yet. Want to talk ${COACHES[coach].group.toLowerCase()}?` : "What do you want to know? Ask me anything about your training.";
-  const d = daysBetween(last.date, today());
-  if (d >= 7) return `${d >= 14 ? "Been a while" : "Been about a week"} since ${any ? "your last workout" : "we trained"}. Everything good?`;
-  // Their heaviest lift that day, which is usually the one the lifter cares about.
-  const [lift, sets] = mine(last).sort((a, b) => bestE1rm(b[1]) - bestE1rm(a[1]))[0];
-  const name = lift.replace(/\s*\(.*?\)/g, "");
-  const b = bestSet(sets);
-  const what = !b ? `${num(cardioTotals(sets).min)}-minute ${name}` : b.w ? `${fmtW(b.w)}×${b.r} on ${name}` : `${b.r} reps of ${name}`;
-  if (d <= 0) return `Nice ${what} today. Anything on your mind?`;
-  if (d === 1) return `Yesterday's ${what} looked solid. How's the body feeling?`;
-  const day = new Date(last.date + "T12:00:00").toLocaleDateString(undefined, { weekday: "long" });
-  return `How are you feeling after ${day}'s ${what}?`;
+/* How a coach says hi: casual, like texting a coach you know, with the lifter's first name when
+   there is one. One is picked per visit so it doesn't read the same every time. */
+const HELLOS = [
+  (n) => `How can I help${n}?`,
+  (n) => `Hey${n}. What's on your mind?`,
+  (n) => `What can I do for you${n}?`,
+  (n) => `Hey${n}, what are we working on?`,
+  (n) => `What's up${n}?`,
+  (n) => `Talk to me${n}. What do you need?`,
+];
+const FOOD_HELLOS = [
+  (n) => `Hey${n}. What can I help you with food-wise?`,
+  (n) => `Hungry${n}? Ask me anything about food.`,
+  (n) => `What are we eating${n}?`,
+];
+const PART_OF_DAY = (h) => (h < 5 ? null : h < 12 ? "Morning" : h < 17 ? null : "Evening");
+function hello(name, food = false) {
+  const n = name ? `, ${name}` : "";
+  const pool = food ? FOOD_HELLOS : HELLOS;
+  const line = pool[Math.floor(Math.random() * pool.length)](n);
+  // Now and then, the time of day leads instead: "Morning, Nick. How can I help?"
+  const part = PART_OF_DAY(new Date().getHours());
+  return !food && part && Math.random() < 0.3 ? `${part}${n}. How can I help?` : line;
 }
 
 const PROPOSAL = {

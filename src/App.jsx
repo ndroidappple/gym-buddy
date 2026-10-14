@@ -291,10 +291,10 @@ export default function App() {
   // What the coaches see about food: targets, what's eaten today and each day of the past week.
   const nutrition = nutritionOn && prefs.nutrition.targets ? coachFoodContext(prefs.nutrition, food.entries) : null;
   const foodToday = nutrition ? { sum: totals(food.entries.filter((e) => e.date === today())), targets: prefs.nutrition.targets } : null;
-  // The head coach reads 30 days of training and food, and their own notes, fresh for every message.
+  // The head coach reads 30 days of training and food in full, older history summarized, and their own notes, fresh for every message.
   const head = headCoach(prefs);
   const buildHead = () => headContext({ sessions, program, weighins, profile: prefs.profile, phase: prefs.phase,
-    n: nutritionOn ? prefs.nutrition : null, entries: nutritionOn ? food.entries : [], notes: thread.notes });
+    n: nutritionOn ? prefs.nutrition : null, entries: nutritionOn ? food.entries : [], foodDays: nutritionOn ? food.history : {}, notes: thread.notes });
   const coachChat = { thread, buildHead, foodLog: nutritionOn ? food : null };
   const common = { sessions, program, drafts, weighins, prefs, setPref, name, go, back, notify, onWeighin: logWeighin, onProgramChange: applyCoachProgram, nutrition, foodToday,
     head, coachNotes: thread.notes };
