@@ -99,7 +99,7 @@ export const HELP = {
   coaches: {
     title: "Coaches",
     steps: [
-      { name: "Your coaches", Icon: Users, spot: "coaches", text: "One per muscle group. Meet each once to shape your plan." },
+      { name: "Your coaches", Icon: Users, spot: "coaches", text: "One per muscle group. Meet each once to shape your plan, then talk to them any time. They see your workouts and food log." },
       { name: "Ask a coach", Icon: MessageCircle, spot: "coaches", text: "Ask anything or change your program. Nothing changes until you tap [Apply]." },
       { name: "In your workout", Icon: Dumbbell, text: "Your coach calls a cue on each lift and reacts to your sets." },
     ],

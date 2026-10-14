@@ -3,7 +3,7 @@ import { InfoButton } from "../components/ui.jsx";
 import { ChevronLeft, Check } from "lucide-react";
 import { activeDays } from "../data/program.js";
 import { COACHES, COACH_ORDER, coachFor } from "../data/coaches.js";
-import { plural } from "../lib/util.js";
+import { plural, daysBetween, today } from "../lib/util.js";
 import { href } from "../lib/router.js";
 import { coachesLeft, needsSetup } from "../lib/setup.js";
 import Coach from "../components/Coach.jsx";
@@ -24,7 +24,18 @@ export default function Coaches({ program, sessions, weighins, prefs, name, go, 
     new Set(activeDays(program).flatMap((d) => program[d].exercises.map((e) => e.n))).forEach((n) => { const id = coachFor(n); m[id] = (m[id] || 0) + 1; });
     return m;
   }, [program]);
+  // When each coach's lifts were last trained, from the newest session with one of their sets.
+  const lastTrained = useMemo(() => {
+    const m = {};
+    for (const s of sessions) for (const [n, v] of Object.entries(s.sets)) {
+      const id = v?.length && coachFor(n);
+      if (id && !(m[id] >= s.date)) m[id] = s.date;
+    }
+    return m;
+  }, [sessions]);
   const left = coachesLeft(prefs.coachSetup);
+  // Everyone met: no longer an introduction, just your coaches, who know your training (and food).
+  const met = !COACH_ORDER.some((id) => needsSetup(prefs, id));
   const nextUp = needsSetup(prefs, "tank") ? "tank" : left[0];
   // Decided when the chat opens, so a finished setup stays on screen until the lifter moves on.
   const setupOpen = open?.setup;
@@ -41,9 +52,11 @@ export default function Coaches({ program, sessions, weighins, prefs, name, go, 
       </header>
       <div className="body" style={{ gap: 16 }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-          <h1 className="page-title">Meet your coaches</h1>
+          <h1 className="page-title">{met ? "Your coaches" : "Meet your coaches"}</h1>
           <p className="muted" style={{ fontWeight: 500, fontSize: 15 }}>
-            {left.length ? "Say hi to each coach to shape your plan. The gold ring shows who's next." : "Six coaches, one per training area. Tap one to ask a question or change your plan."}
+            {!met ? "Say hi to each coach to shape your plan. The gold ring shows who's next."
+              : nutrition ? "They see your workouts and what you've been eating. Tap one to talk it through or change your plan."
+              : "They see every set you log. Tap one to talk it through or change your plan."}
           </p>
         </div>
         <div className="coach-grid" data-help="coaches">
@@ -57,7 +70,7 @@ export default function Coaches({ program, sessions, weighins, prefs, name, go, 
                 <Coach id={id} size={72} decorative />
                 <b>{COACHES[id].name}</b>
                 <span>{COACHES[id].group}</span>
-                <i>{counts[id] ? `${plural(counts[id], "lift")} in your program` : "No lifts yet"}</i>
+                <i>{met && lastTrained[id] ? `Trained ${ago(lastTrained[id])}` : counts[id] ? `${plural(counts[id], "lift")} in your program` : "No lifts yet"}</i>
               </button>
             );
           })}
@@ -75,4 +88,9 @@ export default function Coaches({ program, sessions, weighins, prefs, name, go, 
       )}
     </main>
   );
+}
+
+function ago(date) {
+  const d = daysBetween(date, today());
+  return d <= 0 ? "today" : d === 1 ? "yesterday" : `${d} days ago`;
 }

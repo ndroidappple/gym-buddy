@@ -84,7 +84,7 @@ export default function Today({ name, sessions, program, drafts, weighins, prefs
             {review
               ? <ReviewChip weekEnd={review.weekEnd} glow={review.glow} />
               : <a className="coach-hello" href="#/coaches" aria-hidden="true" tabIndex={-1}>{greeting(nameInTitle ? null : name, daysOff)}</a>}
-            <a className="coach-link" href="#/coaches" aria-label="Meet your coaches">
+            <a className="coach-link" href="#/coaches" aria-label={nextCoachToMeet(prefs) ? "Meet your coaches" : "Talk to your coaches"}>
               {/* 5+ days away and the lead coach misses you. */}
               <Coach id={lead} mood={daysOff != null && daysOff >= 5 ? "sleepy" : "idle"} size={34} badge decorative />
             </a>

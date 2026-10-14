@@ -151,6 +151,24 @@ export function nutritionContext(n, entries) {
   ].join("\n");
 }
 
+/** What every coach sees of the food log: targets, what's been eaten today, and each of the last 6 days. */
+export function coachFoodContext(n, entries) {
+  const r = Math.round;
+  const day = entries.filter((e) => e.date === today()).sort((a, b) => (a.created_at || "").localeCompare(b.created_at || ""));
+  const lines = [
+    nutritionContext(n, entries),
+    day.length ? `Eaten today: ${day.map((e) => `${e.meal} ${e.name} (${r(e.kcal)} kcal, ${r(e.protein)} g protein)`).join("; ")}.` : "Nothing logged yet today.",
+  ];
+  const week = [];
+  for (let i = 6; i >= 1; i--) {
+    const d = addDays(today(), -i);
+    const x = totals(entries.filter((e) => e.date === d));
+    week.push(x.kcal ? `${d}: ${r(x.kcal)} kcal, ${r(x.protein)} g protein` : `${d}: nothing logged`);
+  }
+  lines.push(`Previous days: ${week.join("; ")}.`);
+  return lines.join("\n");
+}
+
 /** Grams of pure alcohol in one US standard drink (12 oz of 5% beer, 5 oz of wine, 1.5 oz of 80-proof spirit). */
 export const STANDARD_DRINK_G = 14;
 /* Names that are drinks with alcohol in them, for a reply that didn't say how much alcohol; NOT_DRINK are look-alikes without any. */

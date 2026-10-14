@@ -23,7 +23,7 @@ import Coaches from "./views/Coaches.jsx";
 import Nutrition from "./views/Nutrition.jsx";
 import NutritionSetup from "./components/NutritionSetup.jsx";
 import { useFood } from "./lib/food.js";
-import { nutritionContext, totals } from "./lib/nutrition.js";
+import { coachFoodContext, totals } from "./lib/nutrition.js";
 import NamePrompt from "./components/NamePrompt.jsx";
 import Welcome from "./components/Welcome.jsx";
 import WeekReview from "./components/WeekReview.jsx";
@@ -283,8 +283,8 @@ export default function App() {
     if (profile) setPrefs((p) => ({ ...p, profile: { ...p.profile, ...profile } }));
     if (weight) setWeighins((ws) => [...ws.filter((w) => w.date !== today()), { date: today(), bw: weight }]);
   };
-  // What the coaches see about food: targets, today so far and the week's averages.
-  const nutrition = nutritionOn && prefs.nutrition.targets ? nutritionContext(prefs.nutrition, food.entries) : null;
+  // What the coaches see about food: targets, what's eaten today and each day of the past week.
+  const nutrition = nutritionOn && prefs.nutrition.targets ? coachFoodContext(prefs.nutrition, food.entries) : null;
   const foodToday = nutrition ? { sum: totals(food.entries.filter((e) => e.date === today())), targets: prefs.nutrition.targets } : null;
   const common = { sessions, program, drafts, weighins, prefs, setPref, name, go, back, notify, onWeighin: logWeighin, onProgramChange: applyCoachProgram, nutrition, foodToday };
   let view;

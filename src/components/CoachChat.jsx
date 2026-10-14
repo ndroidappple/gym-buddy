@@ -74,7 +74,7 @@ export default function CoachChat({ coach, exercise, starter, sessions, program,
     return [
       lift ? `What's a great mental cue for ${lift}?` : `What's a good ${c.group.toLowerCase()} lift to add?`,
       `How was my last ${c.group.toLowerCase()} work?`,
-      // Opened mid-workout (from a lift) the day's focus matters; from Meet your coaches, the program does.
+      // Opened mid-workout (from a lift) the day's focus matters; from the Coaches screen, the program does.
       exercise || !onProgramChange ? "What should I focus on today?" : `Adjust my program's ${c.group.toLowerCase()} work`,
       // Tank runs the program as a whole, so renaming workouts is his to offer.
       ...(coach === "tank" && onProgramChange && !exercise ? ["Rename my workouts"] : []),
@@ -156,7 +156,7 @@ export default function CoachChat({ coach, exercise, starter, sessions, program,
         <div className="chat-list" ref={listRef} aria-live="polite">
           {messages.length === 0 && (
             <div className="chat-empty">
-              <p className="coach-bubble">{food ? "Food questions? Ask me: what to eat, your macros, how your week's going." : "What do you want to know? Ask me anything about your training."}</p>
+              <p className="coach-bubble">{food ? "Food questions? Ask me: what to eat, your macros, how your week's going." : sessions.length ? `I've seen your last workouts${nutrition ? " and what you've been eating" : ""}. What's on your mind?` : "What do you want to know? Ask me anything about your training."}</p>
               <div className="chat-suggest">
                 {suggestions.map((s) => <button key={s} className="chip" onClick={() => send(s)}>{s}</button>)}
               </div>
@@ -193,7 +193,7 @@ export default function CoachChat({ coach, exercise, starter, sessions, program,
             <button type="submit" aria-label="Send" disabled={!draft.trim() || busy}><ArrowUp size={20} strokeWidth={2.8} /></button>
           </form>
         </BorderBeam>
-        <p className="chat-note">{food ? "Answers use your food log and targets." : "Answers use your logged sets."} AI can be wrong. Not medical advice.</p>
+        <p className="chat-note">{food ? "Answers use your food log and targets." : nutrition ? "Answers use your logged sets and food log." : "Answers use your logged sets."} AI can be wrong. Not medical advice.</p>
       </div>
     </Sheet>
   );

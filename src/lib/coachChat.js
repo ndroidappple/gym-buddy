@@ -24,6 +24,18 @@ export function buildContext({ coach, sessions, program, weighins, profile, phas
   }
   const sorted = [...sessions].sort(byDateDesc);
   if (sorted[0]) lines.push(`Last workout: ${program[sorted[0].day]?.name || sorted[0].day}, ${daysBetween(sorted[0].date, today())} days ago.`);
+  // The last few workouts as logged, so the coach can talk about what the lifter has actually been doing.
+  if (sorted.length) {
+    const within = (n) => sorted.filter((s) => daysBetween(s.date, today()) < n).length;
+    lines.push(`Workouts: ${within(7)} in the last 7 days, ${within(28)} in the last 28.`, "Recent workouts (newest first, best set per lift):",
+      ...sorted.slice(0, 5).map((s) => {
+        const done = Object.entries(s.sets).filter(([, v]) => v?.length).map(([n, v]) => {
+          const b = bestSet(v);
+          return b ? `${n} ${fmtW(b.w)}x${b.r}` : `${n} ${v.map(fmtSet).join(" + ")}`;
+        });
+        return `- ${s.date} ${program[s.day]?.name || s.day}: ${done.join(", ") || "nothing logged"}`;
+      }));
+  }
   lines.push(`Next up: ${program[nextDayAfter(sessions, program)].name}. Program: ${activeDays(program).map((d) => `${program[d].name} (${program[d].detail})`).join(", ")}.`);
 
   const lifts = [...new Set(activeDays(program).flatMap((d) => program[d].exercises.map((e) => e.n)))];
