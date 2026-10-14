@@ -542,6 +542,8 @@ button.chip { min-height: 38px; padding: 0 14px; border: 2px solid var(--rule); 
 .list-row { display: flex; align-items: center; gap: 12px; min-height: 58px; padding: 8px 16px; border-top: 2px solid var(--rule); text-align: left; width: 100%; text-decoration: none; color: var(--ink); }
 .list-row:first-child { border-top: 0; }
 .list-row .name { flex: 1; min-width: 0; font-weight: 700; }
+.row-coach { width: 18px; height: 18px; display: grid; place-items: center; overflow: visible; }
+.memory-row .name { font-weight: 500; line-height: 1.35; }
 .list-row .sub { display: block; font-size: 13.5px; color: var(--mute); font-weight: 500; }
 .list-row:active { background: var(--surface-2); }
 /* Switch: a puffy pill that slides; the list row carries role="switch". */
@@ -688,6 +690,11 @@ button.chip { min-height: 38px; padding: 0 14px; border: 2px solid var(--rule); 
 .chat-note { font-size: 12px; color: var(--faint); text-align: center; font-weight: 500; }
 .chat-wait { display: inline-flex; align-items: center; gap: 8px; color: var(--mute); animation: fade 200ms 600ms both; }
 .chat-wait canvas { flex: none; }
+/* The head coach's ongoing chat: nearly full height, a day label where the conversation picks up
+   again, and a quiet line when the coach saves something to memory. */
+.sheet-chat.sheet-head-chat { height: calc(100% - var(--safe-t) - 8px); max-height: none; }
+.chat-day { flex: none; align-self: center; margin: 6px 0 0; font-size: 12px; font-weight: 700; color: var(--faint); letter-spacing: 0.02em; }
+.chat-memory { flex: none; align-self: flex-start; display: inline-flex; align-items: center; gap: 5px; margin: -4px 0 0 6px; font-size: 12px; font-weight: 600; color: var(--mute); }
 .ask-btn { flex: none; display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 12px; border-radius: 999px; font-size: 13px; font-weight: 800; background: var(--surface-2); color: var(--ink); }
 button.coach-card { width: 100%; font: inherit; color: inherit; cursor: pointer; }
 button.coach-card:active { transform: translateY(3px); box-shadow: 0 2px 0 var(--lip); }
@@ -777,11 +784,29 @@ button.coach-card:active { transform: translateY(3px); box-shadow: 0 2px 0 var(-
 .coach-card { position: relative; }
 .coach-card.next-up { box-shadow: 0 0 0 3px var(--pr), 0 4px 0 var(--lip); }
 .coach-card .coach-done { position: absolute; top: 10px; right: 10px; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; background: var(--shoulders); color: #FFFFFF; }
-.welcome { gap: 14px; }
+.welcome { display: flex; flex-direction: column; gap: 14px; }
 .welcome p { font-size: 15.5px; font-weight: 500; line-height: 1.4; color: var(--mute); }
-.welcome-crew { display: flex; justify-content: center; padding: 6px 0 2px; }
-.welcome-crew .coach-chip { width: 50px; height: 50px; margin-left: -8px; box-shadow: 0 0 0 3px var(--bg); animation: pop var(--pop-ms) var(--pop) calc(var(--i) * 70ms) both; }
-.welcome-crew .coach-chip:first-child { margin-left: 0; }
+/* Picking a head coach: one large slide per coach, swiped through. The track bleeds to the sheet's
+   edges and pads both sides so the neighbors peek in; the slide in the middle is the pick. */
+.head-pick { display: flex; flex-direction: column; gap: 6px; margin-inline: calc(-1 * var(--bleed, 16px)); }
+.head-pick-track { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; padding: 4px 14% 2px; scrollbar-width: none; overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch; }
+.head-pick-track::-webkit-scrollbar { display: none; }
+.head-pick-track:focus-visible { outline: 3px solid var(--ink); outline-offset: -3px; border-radius: 28px; }
+.head-pick-slide { flex: 0 0 72%; scroll-snap-align: center; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 2px; padding: 0 6px;
+  transform: scale(0.86); opacity: 0.45; transition: transform var(--pop-ms) var(--pop), opacity 200ms ease; cursor: pointer; }
+.head-pick-slide.on { transform: none; opacity: 1; cursor: default; }
+.head-pick-stage { width: 100%; aspect-ratio: 1 / 0.92; display: grid; place-items: center; margin-bottom: 10px; border-radius: 28px;
+  background: radial-gradient(circle at 50% 58%, color-mix(in srgb, var(--c) 34%, transparent), color-mix(in srgb, var(--c) 8%, transparent) 72%);
+  border: 2px solid color-mix(in srgb, var(--c) 45%, transparent); }
+.head-pick-slide b { font-size: 26px; font-weight: 800; line-height: 1.1; }
+.head-pick-group { font-size: 13px; font-weight: 700; color: var(--c); }
+.head-pick-slide p { margin: 4px 0 0; min-height: 2.7em; font-size: 15px; font-weight: 500; line-height: 1.35; color: var(--mute); }
+.head-pick-nav { display: flex; align-items: center; justify-content: center; gap: 6px; }
+.head-pick-dots { display: flex; }
+.head-pick-dots button { width: 20px; height: 32px; padding: 0; display: grid; place-items: center; }
+.head-pick-dots button::after { content: ""; width: 8px; height: 8px; border-radius: 4px; background: var(--rule); transition: width var(--pop-ms) var(--pop), background 150ms ease; }
+.head-pick-dots button.on { width: 30px; }
+.head-pick-dots button.on::after { width: 22px; background: var(--c); }
 .setup-card { display: flex; align-items: center; gap: 12px; padding: 12px 14px; color: var(--ink); text-decoration: none; }
 .setup-card .coach-chip { flex: none; width: 48px; height: 48px; }
 .setup-card-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }

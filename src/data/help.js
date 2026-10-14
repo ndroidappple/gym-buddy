@@ -60,10 +60,10 @@ export const HELP = {
     title: "Nutrition",
     steps: [
       { name: "Calories left", Icon: PieChart, spot: "summary", text: "What's left of today's calories, and your protein, carbs and fat." },
-      { name: "Add", Icon: Plus, spot: "meal", text: "Log food: [Add with Tank], a recent food, search, or enter it manually." },
-      { name: "Add with Tank", Icon: MessageCircle, text: "Describe a meal in your own words. Tank itemizes it and saves it as one food." },
+      { name: "Add", Icon: Plus, spot: "meal", text: "Log food: describe it to your head coach, pick a recent food, search, or enter it manually." },
+      { name: "Describe a meal", Icon: MessageCircle, text: "Say what you ate in your own words. Your head coach itemizes it and saves it as one food." },
       { name: "Copy", Icon: Copy, text: "An empty meal can copy yesterday's in one tap." },
-      { name: "Ask", Icon: MessageCircle, spot: "ask", text: "Ask Tank what to eat, about your macros, or how your week's going." },
+      { name: "Ask", Icon: MessageCircle, spot: "ask", text: "Ask your head coach what to eat, about your macros, or how your week's going. Same chat as on Today." },
       { name: "This week", Icon: CalendarDays, spot: "week", text: "Each day against your target. The line is your calorie target." },
     ],
   },
@@ -72,8 +72,10 @@ export const HELP = {
     steps: [
       { name: "Program", Icon: Dumbbell, spot: "program", text: "Each day's lifts, sets, reps and rest." },
       { name: "Rename workouts", Icon: Pencil, spot: "rename", text: "Call your days whatever you call them." },
-      { name: "Bring in your own program", Icon: ClipboardPaste, spot: "import", text: "Paste a program you already run. Tank can review it." },
-      { name: "Your coaches", Icon: Users, spot: "coaches", text: "Ask a question or change your plan." },
+      { name: "Bring in your own program", Icon: ClipboardPaste, spot: "import", text: "Paste a program you already run. Your head coach can review it." },
+      { name: "Your head coach", Icon: Users, spot: "coaches", text: "Talk through your training and food, or change your plan." },
+      { name: "Head coach", Icon: Users, spot: "head", text: "Switch who you talk to. Your chat and their notes carry over." },
+      { name: "What they remember", Icon: MessageCircle, spot: "memory", text: "Notes your head coach keeps from your chats. Delete any, or clear the chat." },
       { name: "Redo setup", Icon: Sparkles, spot: "redo", text: "Meet your coaches again to reshape your plan." },
       { name: "Track food & macros", Icon: Utensils, spot: "nutrition", text: "Adds a Nutrition tab with daily calorie and macro targets." },
       { name: "Week in review", Icon: Sparkles, spot: "review", text: "Turn it on or off, and pick the day and time it comes out." },
@@ -99,9 +101,9 @@ export const HELP = {
   coaches: {
     title: "Coaches",
     steps: [
-      { name: "Your coaches", Icon: Users, spot: "coaches", text: "One per muscle group. Meet each once to shape your plan." },
-      { name: "Ask a coach", Icon: MessageCircle, spot: "coaches", text: "Ask anything or change your program. Nothing changes until you tap [Apply]." },
-      { name: "In your workout", Icon: Dumbbell, text: "Your coach calls a cue on each lift and reacts to your sets." },
+      { name: "Your crew", Icon: Users, spot: "coaches", text: "One coach per muscle group. Meet each once to pick their lifts." },
+      { name: "Your head coach", Icon: MessageCircle, text: "Who you talk to after setup: one ongoing chat that sees 30 days of workouts and food and remembers what you tell it. Nothing changes until you tap [Apply]." },
+      { name: "In your workout", Icon: Dumbbell, text: "Each lift's coach calls a cue and reacts to your sets." },
     ],
   },
 };

@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Search, Plus, PenLine, Pencil, ChevronLeft, Trash2, Check, ScanBarcode } from "lucide-react";
 import Coach from "./Coach.jsx";
+import { COACHES } from "../data/coaches.js";
 import TankMeal from "./TankMeal.jsx";
 import ScanFood from "./ScanFood.jsx";
 import { Sheet } from "./ui.jsx";
@@ -22,7 +23,9 @@ const asFood = (x) => ({ name: x.name, brand: x.brand || null, source: x.source,
 /** A barcode match on this phone (see foodForBarcode) as a food. */
 const scannedFood = ({ kind, item }) => (kind === "saved" ? asFood({ ...item, source: "custom" }) : asFood(item));
 
-export default function AddFood({ food, meal: meal0, date, onClose, notify }) {
+/** `head`: the head coach, who itemizes a described meal. */
+export default function AddFood({ food, head = "tank", meal: meal0, date, onClose, notify }) {
+  const who = COACHES[head].name;
   const [view, setView] = useState({ step: "find" }); // find | portion {food} | tank | scan | manual {barcode?}
   const [meal, setMeal] = useState(meal0);
   const mealLabel = MEALS.find((m) => m.id === meal)?.label;
@@ -34,19 +37,19 @@ export default function AddFood({ food, meal: meal0, date, onClose, notify }) {
   const [editing, setEditing] = useState(null); // the saved food being renamed or deleted
   const saved = view.step === "portion" && ["custom", "ai"].includes(view.food.source) ? food.foods.find((f) => f.id === view.food.ref) || null : null;
   const picked = saved ? { ...view.food, name: saved.name } : view.food; // a rename shows (and logs) at once
-  const title = view.step === "tank" ? "Add with Tank" : view.step === "scan" ? "Scan a barcode" : view.step === "manual" ? (view.barcode ? "Enter from the label" : "Enter manually")
+  const title = view.step === "tank" ? `Add with ${who}` : view.step === "scan" ? "Scan a barcode" : view.step === "manual" ? (view.barcode ? "Enter from the label" : "Enter manually")
     : view.step === "portion" ? "How much?" : `Add to ${mealLabel}`;
 
   return (
-    <Sheet title={title} sub={view.step === "find" ? "Pick one of your foods, search, or describe it to Tank." : view.step === "tank" ? "Say what you ate. Tank works out the macros." : null}
+    <Sheet title={title} sub={view.step === "find" ? `Pick one of your foods, search, or describe it to ${who}.` : view.step === "tank" ? `Say what you ate. ${who} works out the macros.` : null}
       onClose={onClose} labelledBy="add-food-title" className={"sheet-tall" + (view.step === "tank" ? " sheet-chat" : "")}>
       {view.step !== "find" && (
         <button type="button" className="btn-quiet food-back" onClick={() => setView({ step: "find" })}><ChevronLeft size={16} aria-hidden="true" /> Back</button>
       )}
-      {view.step === "find" && <Find food={food} meal={meal} onPick={(f, prior) => setView({ step: "portion", food: f, prior })} onTank={() => setView({ step: "tank" })} onScan={() => setView({ step: "scan" })} onManual={() => setView({ step: "manual" })} />}
+      {view.step === "find" && <Find food={food} head={head} meal={meal} onPick={(f, prior) => setView({ step: "portion", food: f, prior })} onTank={() => setView({ step: "tank" })} onScan={() => setView({ step: "scan" })} onManual={() => setView({ step: "manual" })} />}
       {view.step === "scan" && <ScanFood food={food} toFood={scannedFood} onFound={(f) => setView({ step: "portion", food: f })} onManual={(barcode) => setView({ step: "manual", barcode })} />}
       {view.step === "tank" && (
-        <TankMeal meal={meal} onMeal={setMeal} action={`Add to ${mealLabel}`} onManual={() => setView({ step: "manual" })}
+        <TankMeal coach={head} meal={meal} onMeal={setMeal} action={`Add to ${mealLabel}`} onManual={() => setView({ step: "manual" })}
           onSave={({ meal: m, save }) => {
             // One food for the whole meal; its items ride along in the basis so the breakdown is kept.
             const basis = { perServing: m.total, servingLabel: "meal", items: m.items };
@@ -82,7 +85,8 @@ export default function AddFood({ food, meal: meal0, date, onClose, notify }) {
 const TOP = 8; // your foods shown before "Show all"
 const MEAL_WORD = Object.fromEntries(MEALS.map((m) => [m.id, m.label.toLowerCase()]));
 
-function Find({ food, meal, onPick, onTank, onScan, onManual }) {
+function Find({ food, head, meal, onPick, onTank, onScan, onManual }) {
+  const who = COACHES[head].name;
   const [q, setQ] = useState("");
   const [state, setState] = useState({ status: "idle", results: [] }); // idle | loading | done | error
   const [all, setAll] = useState(false); // every one of your foods, not just the top
@@ -122,10 +126,10 @@ function Find({ food, meal, onPick, onTank, onScan, onManual }) {
       </label>
       {!query && (
         <>
-          {/* The fastest way for a mixed meal: say it, Tank itemizes it. */}
+          {/* The fastest way for a mixed meal: say it, the head coach itemizes it. */}
           <button type="button" className="tank-add" onClick={onTank}>
-            <Coach id="tank" size={40} still decorative />
-            <span><b>Add with Tank</b><small className="detail">Describe your meal. Tank works out the macros.</small></span>
+            <Coach id={head} size={40} still decorative />
+            <span><b>Add with {who}</b><small className="detail">Describe your meal. {who} works out the macros.</small></span>
           </button>
           <div className="food-actions">
             <button type="button" className="chip" onClick={onScan}><ScanBarcode size={15} aria-hidden="true" /> Scan barcode</button>
@@ -173,7 +177,7 @@ function Find({ food, meal, onPick, onTank, onScan, onManual }) {
                 <>
                   <p className="small muted">Nothing found for "{q.trim()}"{state.partial ? " (one food database didn't answer, so try again in a moment)" : ""}. Try fewer words, or:</p>
                   <div className="food-actions">
-                    <button type="button" className="chip" onClick={onTank}><Coach id="tank" size={18} still decorative /> Describe it to Tank</button>
+                    <button type="button" className="chip" onClick={onTank}><Coach id={head} size={18} still decorative /> Describe it to {who}</button>
                     <button type="button" className="chip" onClick={onManual}><PenLine size={15} aria-hidden="true" /> Enter manually</button>
                   </div>
                 </>

@@ -23,7 +23,7 @@ const hasVal = (v) => v !== "" && v != null;
 // A draft untouched this long is a new workout when lifting picks back up (a set tapped days ago isn't when it started).
 const RESUME_GAP = 12 * 3600e3;
 
-export default function Session({ day, existing, draft, sessions, program, weighins, prefs, back, notify, onSaveDraft, onDiscardDraft, onFinish, onUpdate, onDelete, onProgramChange, nutrition }) {
+export default function Session({ day, existing, draft, sessions, program, weighins, prefs, back, notify, onSaveDraft, onDiscardDraft, onFinish, onUpdate, onDelete, onProgramChange, nutrition, head, coachNotes }) {
   const dayProgram = program[day];
   const [extras, setExtras] = useState(() => draft?.extras || []);
   const [skipped, setSkipped] = useState(() => draft?.skipped || []);
@@ -552,7 +552,7 @@ export default function Session({ day, existing, draft, sessions, program, weigh
           onDoNow={(n) => busyDoNow(busy, n)} onSwap={(sw) => busySwap(busy, sw)} onLater={() => busyLater(busy)} onClose={() => setBusy(null)} />
       )}
       {chat && <CoachChat key={`${chat.coach}|${chat.exercise}`} coach={chat.coach} exercise={chat.exercise} sessions={sessions} program={program} weighins={weighins} profile={prefs.profile} phase={prefs.phase} nutrition={nutrition}
-        live={liveContext(exercises, grid, advice, chat.exercise)} onProgramChange={onProgramChange} onClose={() => setChat(null)} />}
+        head={head} notes={coachNotes} live={liveContext(exercises, grid, advice, chat.exercise)} onProgramChange={onProgramChange} onClose={() => setChat(null)} />}
       {sheet === "delete" && (
         <ConfirmSheet title="Delete session?" body={`${dayProgram.name} on ${shortDate(existing.date)} and all its sets will be removed.`}
           confirm="Delete" onClose={() => setSheet(null)} onConfirm={() => { onDelete(existing); back("#/progress/workouts"); }} />

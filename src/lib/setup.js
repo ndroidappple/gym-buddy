@@ -1,6 +1,6 @@
 import { DAYS, EXTRA_DAYS, PROGRAM, allDays, LIBRARY, activeDays, isCardio, isFinisherCardio } from "../data/program.js";
 import { CUES } from "../data/cues.js";
-import { COACH_ORDER, coachFor } from "../data/coaches.js";
+import { COACH_ORDER, coachFor, headCoach } from "../data/coaches.js";
 
 /* First-run setup with the coaches. Tank asks about goals, weight and training days; every coach
    then lets the lifter pick their lifts. All of it is plain functions over the program, so the
@@ -142,10 +142,10 @@ export function applyPicks(program, coach, { drop = [], add = [] }) {
 /** Coaches still to meet, in order. */
 export const coachesLeft = (setup = {}) => COACH_ORDER.filter((id) => !setup[id]);
 
-/** Tank also counts as unmet until the goals part is done. */
-export const needsSetup = (prefs, id) => !prefs?.coachSetup?.[id] || (id === "tank" && !prefs?.profile?.doneAt);
-/** The next coach to meet, or null when everyone is set up. */
-export const nextCoachToMeet = (prefs) => (needsSetup(prefs, "tank") ? "tank" : COACH_ORDER.find((id) => needsSetup(prefs, id)) || null);
+/** The head coach also counts as unmet until the goals part is done. */
+export const needsSetup = (prefs, id) => !prefs?.coachSetup?.[id] || (id === headCoach(prefs) && !prefs?.profile?.doneAt);
+/** The next coach to meet, head coach first, or null when everyone is set up. */
+export const nextCoachToMeet = (prefs) => { const h = headCoach(prefs); return needsSetup(prefs, h) ? h : COACH_ORDER.find((id) => needsSetup(prefs, id)) || null; };
 
 /** Adds the 10-15 min incline-walk finisher to the end of every active day without cardio. Returns { program, lines }. */
 export function addFinisher(program) {

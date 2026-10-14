@@ -151,6 +151,24 @@ export function nutritionContext(n, entries) {
   ].join("\n");
 }
 
+/** What every coach sees of the food log: targets, what's been eaten today, and each of the last 6 days. */
+export function coachFoodContext(n, entries) {
+  const r = Math.round;
+  const day = entries.filter((e) => e.date === today()).sort((a, b) => (a.created_at || "").localeCompare(b.created_at || ""));
+  const lines = [
+    nutritionContext(n, entries),
+    day.length ? `Eaten today: ${day.map((e) => `${e.meal} ${e.name} (${r(e.kcal)} kcal, ${r(e.protein)} g protein)`).join("; ")}.` : "Nothing logged yet today.",
+  ];
+  const week = [];
+  for (let i = 6; i >= 1; i--) {
+    const d = addDays(today(), -i);
+    const x = totals(entries.filter((e) => e.date === d));
+    week.push(x.kcal ? `${d}: ${r(x.kcal)} kcal, ${r(x.protein)} g protein` : `${d}: nothing logged`);
+  }
+  lines.push(`Previous days: ${week.join("; ")}.`);
+  return lines.join("\n");
+}
+
 /** Grams of pure alcohol in one US standard drink (12 oz of 5% beer, 5 oz of wine, 1.5 oz of 80-proof spirit). */
 export const STANDARD_DRINK_G = 14;
 /* Names that are drinks with alcohol in them, for a reply that didn't say how much alcohol; NOT_DRINK are look-alikes without any. */
@@ -208,22 +226,28 @@ export function shortName(s) {
   return t.slice(0, 28);
 }
 
-/**
- * What Tank sees when asked from the Nutrition tab: targets, today's foods and totals, the last 7
- * days, the goal or bulk/cut, and bodyweight. Plain text for the model.
- */
-export function nutritionChatContext({ n, entries, phase, sessions, weighins }) {
-  // Same order as todaysEntries() in foodEdit.js: Tank names an entry to edit by its #number here.
+/** Targets, what's left today, and today's entries numbered for edit_food_log. */
+export function todayFood(n, entries) {
+  // Same order as todaysEntries() in foodEdit.js: the coach names an entry to edit by its #number here.
   const day = entries.filter((e) => e.date === today()).sort((a, b) => (a.created_at || "").localeCompare(b.created_at || ""));
   const t = n.targets;
   const sum = totals(day);
   const left = { kcal: t.kcal - sum.kcal, protein: t.protein - sum.protein, carbs: t.carbs - sum.carbs, fat: t.fat - sum.fat };
   const r = Math.round;
-  const lines = [
+  return [
     nutritionContext(n, entries),
     `Left today: ${r(left.kcal)} kcal, ${r(left.protein)} g protein, ${r(left.carbs)} g carbs, ${r(left.fat)} g fat.`,
     day.length ? `Eaten today: ${day.map((e, i) => `#${i + 1} ${e.meal} ${e.name}, ${+e.amount || 1} ${e.unit || "serving"} (${r(e.kcal)} kcal, P${r(e.protein)} C${r(e.carbs)} F${r(e.fat)})`).join("; ")}.` : "Nothing logged yet today.",
   ];
+}
+
+/**
+ * What Tank sees when asked from the Nutrition tab: targets, today's foods and totals, the last 7
+ * days, the goal or bulk/cut, and bodyweight. Plain text for the model.
+ */
+export function nutritionChatContext({ n, entries, phase, sessions, weighins }) {
+  const r = Math.round;
+  const lines = todayFood(n, entries);
   const week = [];
   for (let i = 6; i >= 1; i--) {
     const d = addDays(today(), -i);

@@ -23,7 +23,10 @@ import Coaches from "./views/Coaches.jsx";
 import Nutrition from "./views/Nutrition.jsx";
 import NutritionSetup from "./components/NutritionSetup.jsx";
 import { useFood } from "./lib/food.js";
-import { nutritionContext, totals } from "./lib/nutrition.js";
+import { useCoachThread } from "./lib/coachThread.js";
+import { headContext } from "./lib/coachChat.js";
+import { headCoach } from "./data/coaches.js";
+import { coachFoodContext, totals } from "./lib/nutrition.js";
 import NamePrompt from "./components/NamePrompt.jsx";
 import Welcome from "./components/Welcome.jsx";
 import WeekReview from "./components/WeekReview.jsx";
@@ -60,6 +63,8 @@ export default function App() {
   // Food log: its own tables, loaded only while tracking is on (see lib/food.js).
   const nutritionOn = !!prefs.nutrition?.on;
   const food = useFood(ready && nutritionOn);
+  // The head coach conversation and memory: their own tables too (see lib/coachThread.js).
+  const thread = useCoachThread(ready);
 
   const load = useCallback(async () => {
     setLoadFailed(false);
@@ -283,10 +288,16 @@ export default function App() {
     if (profile) setPrefs((p) => ({ ...p, profile: { ...p.profile, ...profile } }));
     if (weight) setWeighins((ws) => [...ws.filter((w) => w.date !== today()), { date: today(), bw: weight }]);
   };
-  // What the coaches see about food: targets, today so far and the week's averages.
-  const nutrition = nutritionOn && prefs.nutrition.targets ? nutritionContext(prefs.nutrition, food.entries) : null;
+  // What the coaches see about food: targets, what's eaten today and each day of the past week.
+  const nutrition = nutritionOn && prefs.nutrition.targets ? coachFoodContext(prefs.nutrition, food.entries) : null;
   const foodToday = nutrition ? { sum: totals(food.entries.filter((e) => e.date === today())), targets: prefs.nutrition.targets } : null;
-  const common = { sessions, program, drafts, weighins, prefs, setPref, name, go, back, notify, onWeighin: logWeighin, onProgramChange: applyCoachProgram, nutrition, foodToday };
+  // The head coach reads 30 days of training and food, and their own notes, fresh for every message.
+  const head = headCoach(prefs);
+  const buildHead = () => headContext({ sessions, program, weighins, profile: prefs.profile, phase: prefs.phase,
+    n: nutritionOn ? prefs.nutrition : null, entries: nutritionOn ? food.entries : [], notes: thread.notes });
+  const coachChat = { thread, buildHead, foodLog: nutritionOn ? food : null };
+  const common = { sessions, program, drafts, weighins, prefs, setPref, name, go, back, notify, onWeighin: logWeighin, onProgramChange: applyCoachProgram, nutrition, foodToday,
+    head, coachNotes: thread.notes };
   let view;
   switch (route.name) {
     case "session": {
@@ -308,6 +319,7 @@ export default function App() {
           <Today {...common} review={review} />
           <WeekReview key={route.id} weekEnd={route.id} current={current}
             fingerprint={fingerprint({ sessions, weighins, food: foodLog }, route.id)}
+            head={head}
             onClose={() => back(href("today"))} />
         </>
       );
@@ -320,7 +332,7 @@ export default function App() {
     }
     case "progress": view = <Progress key={route.open || "p"} {...common} open={route.open} />; break;
     case "lift": view = <Lift {...common} name={route.lift} />; break;
-    case "settings": view = <Settings {...common} onRename={programOps.rename} />; break;
+    case "settings": view = <Settings {...common} thread={thread} onRename={programOps.rename} />; break;
     case "program": view = allDays(program).includes(route.day) ? <ProgramEditor {...common} day={route.day} ops={programOps} /> : <Settings {...common} />; break;
     case "export": view = <Export {...common} food={nutritionOn ? food : null} />; break;
     case "nutrition": {
@@ -329,9 +341,9 @@ export default function App() {
       const closeSetup = () => go(href("nutrition"), { replace: true });
       view = (
         <>
-          <Nutrition {...common} food={food} />
+          <Nutrition {...common} food={food} coachChat={coachChat} />
           {route.open === "setup" && (
-            <NutritionSetup prefs={prefs} program={program} sessions={sessions} weighins={weighins} name={name}
+            <NutritionSetup coach={head} prefs={prefs} program={program} sessions={sessions} weighins={weighins} name={name}
               onWeighin={(bw) => setWeighins((ws) => [...ws.filter((w) => w.date !== today()), { date: today(), bw }])}
               onSave={(n) => { setPref("nutrition", n); closeSetup(); notify("Targets saved"); }} onClose={closeSetup} />
           )}
@@ -339,7 +351,7 @@ export default function App() {
       );
       break;
     }
-    case "coaches": view = <Coaches key={(route.coach || "grid") + (route.mode || "")} {...common} openCoach={route.coach} openMode={route.mode} onSetupDone={finishSetup} onSetupProgress={saveSetupProgress} />; break;
+    case "coaches": view = <Coaches key={(route.coach || "grid") + (route.mode || "")} {...common} coachChat={coachChat} openCoach={route.coach} openMode={route.mode} onSetupDone={finishSetup} onSetupProgress={saveSetupProgress} />; break;
     default: view = <Today {...common} review={review} />;
   }
 
@@ -357,7 +369,7 @@ export default function App() {
         <WeekReviewIntro settings={reviewPrefs(prefs)} onSave={(v) => { setPref("weekReview", v); if (!v.on) notify("Week in review off. Turn it on in Settings."); }} />
       )}
       {nameSettled && !prefs.welcomed && route.name !== "coaches" && (
-        <Welcome name={name} onStart={() => { setPref("welcomed", true); go(href("coaches", "tank")); }} onLater={() => setPref("welcomed", true)} />
+        <Welcome name={name} onStart={(head) => { setPrefs((p) => ({ ...p, welcomed: true, headCoach: head })); go(href("coaches", head)); }} onLater={() => setPref("welcomed", true)} />
       )}
       <Toast toast={toast} onDismiss={() => setToast(null)} raised={route.name === "session"} />
     </div>

@@ -1,5 +1,5 @@
 import { activeDays, baseOf, isWarmup } from "../data/program.js";
-import { COACHES, COACH_ORDER, coachFor } from "../data/coaches.js";
+import { COACHES, COACH_ORDER, coachFor, headCoach } from "../data/coaches.js";
 import { GOALS as TRAIN_GOALS } from "./setup.js";
 import { GOALS as FOOD_GOALS, MEALS, addDays, totals, isAlcoholic } from "./nutrition.js";
 import { PHASE_TYPES, phaseStatus } from "./phase.js";
@@ -309,7 +309,8 @@ export function buildWeekFacts({ sessions = [], program, weighins = [], prefs = 
     days: target, note: prefs.profile?.note ? String(prefs.profile.note).slice(0, 200) : null,
   };
   const facts = {
-    v: 1, weekEnd, start: w.start, dates, history, goals, training, nutrition, body, weeks,
+    // The head coach leads the review and speaks for training days, food and the scale.
+    v: 1, weekEnd, start: w.start, dates, history, goals, training, nutrition, body, weeks, head: headCoach(prefs),
     notes: cur.sessions.filter((s) => s.note).map((s) => ({ date: s.date, note: String(s.note).slice(0, 200) })),
     fingerprint: fingerprint({ sessions: sorted, weighins: weighs, food: foodUpTo }, weekEnd),
   };
@@ -317,18 +318,18 @@ export function buildWeekFacts({ sessions = [], program, weighins = [], prefs = 
 }
 
 /** Candidate high and low points, best first. The agent picks and words them; the code-written review uses the first. */
-function highsAndLows({ training: t, nutrition: n, body: b }) {
+function highsAndLows({ training: t, nutrition: n, body: b, head = "tank" }) {
   const highs = [], lows = [];
   const pr = t.prs[0];
   if (pr) highs.push({ text: `New best on ${pr.lift}: ${pr.set}, est. max ${num(pr.e1rm)} lb (+${pr.pct}%)${t.prs.length > 1 ? `, one of ${t.prs.length} records` : ""}.`, coach: pr.coach });
-  if (t.target && t.days >= t.target) highs.push({ text: t.streak >= 2 ? `Trained ${t.days} of ${t.target} days, ${t.streak} weeks in a row on target.` : `Trained all ${t.target} planned days.`, coach: "tank" });
-  if (t.avg4Sets && t.sets >= t.avg4Sets * 1.1) highs.push({ text: `${t.sets} working sets, up ${pct(t.sets, t.avg4Sets)}% on your recent average.`, coach: "tank" });
-  if (n && n.proteinHit >= 5) highs.push({ text: `Protein target hit on ${n.proteinHit} days.`, coach: "tank" });
-  if (b?.phase && ["on", "ahead"].includes(b.phase.status)) highs.push({ text: `${b.phase.label} on pace: ${num(b.phase.current)} lb, week ${b.phase.week} of ${b.phase.weeks}.`, coach: "tank" });
+  if (t.target && t.days >= t.target) highs.push({ text: t.streak >= 2 ? `Trained ${t.days} of ${t.target} days, ${t.streak} weeks in a row on target.` : `Trained all ${t.target} planned days.`, coach: head });
+  if (t.avg4Sets && t.sets >= t.avg4Sets * 1.1) highs.push({ text: `${t.sets} working sets, up ${pct(t.sets, t.avg4Sets)}% on your recent average.`, coach: head });
+  if (n && n.proteinHit >= 5) highs.push({ text: `Protein target hit on ${n.proteinHit} days.`, coach: head });
+  if (b?.phase && ["on", "ahead"].includes(b.phase.status)) highs.push({ text: `${b.phase.label} on pace: ${num(b.phase.current)} lb, week ${b.phase.week} of ${b.phase.weeks}.`, coach: head });
   const riser = t.risers[0];
   if (riser && riser.lift !== pr?.lift) highs.push({ text: `${riser.lift} est. max up ${riser.change4}% on four weeks ago.`, coach: riser.coach });
 
-  if (t.target && t.days < t.target) lows.push({ text: t.days ? `Trained ${t.days} of ${t.target} planned days.` : "No workouts logged this week.", coach: "tank" });
+  if (t.target && t.days < t.target) lows.push({ text: t.days ? `Trained ${t.days} of ${t.target} planned days.` : "No workouts logged this week.", coach: head });
   const down = t.downs[0];
   if (down) lows.push({ text: `${down.lift} came in ${Math.abs(down.pct)}% under last time (est. max ${num(down.e1rm)} vs ${num(down.was)} lb).`, coach: down.coach });
   const skip = t.skipped.find((s) => s.times >= 1);
@@ -337,12 +338,12 @@ function highsAndLows({ training: t, nutrition: n, body: b }) {
   if (missed) lows.push({ text: `No ${missed.name.toLowerCase()} work, usually about ${Math.round(missed.avg4)} sets a week.`, coach: missed.id });
   if (n) {
     const low = n.days.filter((d) => d.logged && !n.partialDays.includes(d.date)).sort((a, b) => a.protein - b.protein)[0];
-    if (low && low.protein < n.targets.protein * 0.7) lows.push({ text: `Protein dipped to ${low.protein} g on ${WEEKDAYS[weekday(low.date)]} (target ${n.targets.protein} g).`, coach: "tank" });
+    if (low && low.protein < n.targets.protein * 0.7) lows.push({ text: `Protein dipped to ${low.protein} g on ${WEEKDAYS[weekday(low.date)]} (target ${n.targets.protein} g).`, coach: head });
     const over = n.days.filter((d) => d.logged).sort((a, b) => b.kcal - a.kcal)[0];
-    if (over && over.kcal > n.targets.kcal * 1.15) lows.push({ text: `${WEEKDAYS[weekday(over.date)]} ran to ${over.kcal.toLocaleString("en-US")} kcal, ${over.kcal - n.targets.kcal} over target.`, coach: "tank" });
-    if (n.logged <= 4) lows.push({ text: `Food logged on ${n.logged} of 7 days.`, coach: "tank" });
+    if (over && over.kcal > n.targets.kcal * 1.15) lows.push({ text: `${WEEKDAYS[weekday(over.date)]} ran to ${over.kcal.toLocaleString("en-US")} kcal, ${over.kcal - n.targets.kcal} over target.`, coach: head });
+    if (n.logged <= 4) lows.push({ text: `Food logged on ${n.logged} of 7 days.`, coach: head });
   }
-  if (b?.phase?.status === "behind") lows.push({ text: `${b.phase.label} behind pace: ${num(b.phase.current)} lb, planned ${num(b.phase.expected)} lb by now.`, coach: "tank" });
+  if (b?.phase?.status === "behind") lows.push({ text: `${b.phase.label} behind pace: ${num(b.phase.current)} lb, planned ${num(b.phase.expected)} lb by now.`, coach: head });
   return { highs, lows };
 }
 
@@ -418,17 +419,18 @@ const note = (x, d, maxT = 70, maxB = 360) => (x && str(x.body, maxB) ? { title:
 
 /** The agent's write_review input, trimmed and checked, with anything missing filled from `fallback`. */
 export function cleanStory(input, facts, fallback) {
+  const head = facts.head || "tank";
   const s = input && typeof input === "object" ? input : {};
   const list = (xs, fn, max) => (Array.isArray(xs) ? xs.map(fn).filter(Boolean).slice(0, max) : []);
   const story = {
     headline: str(s.headline, 90), summary: str(s.summary, 420),
-    training: note(s.training, "tank"),
-    nutrition: facts.nutrition ? note(s.nutrition, "tank") : null,
-    body: facts.body ? note(s.body, "tank") : null,
-    high: note(s.high, "tank", 70, 280), low: note(s.low, "tank", 70, 280),
-    trends: list(s.trends, (x) => note(x, "tank", 70, 280), 3),
-    insights: list(s.insights, (x) => { const n = note(x, "tank", 80, 360); return n && { ...n, evidence: str(x.evidence, 180) }; }, 4),
-    focus: list(s.focus, (x) => (x && str(x.action, 120) ? { action: str(x.action, 120), why: str(x.why, 220), coach: coachId(x.coach) } : null), 3),
+    training: note(s.training, head),
+    nutrition: facts.nutrition ? note(s.nutrition, head) : null,
+    body: facts.body ? note(s.body, head) : null,
+    high: note(s.high, head, 70, 280), low: note(s.low, head, 70, 280),
+    trends: list(s.trends, (x) => note(x, head, 70, 280), 3),
+    insights: list(s.insights, (x) => { const n = note(x, head, 80, 360); return n && { ...n, evidence: str(x.evidence, 180) }; }, 4),
+    focus: list(s.focus, (x) => (x && str(x.action, 120) ? { action: str(x.action, 120), why: str(x.why, 220), coach: coachId(x.coach, head) } : null), 3),
   };
   for (const k of ["headline", "summary", "training", "high", "low"]) if (!story[k]) story[k] = fallback[k];
   if (facts.nutrition && !story.nutrition) story.nutrition = fallback.nutrition;
@@ -442,6 +444,7 @@ const signed = (x, unit = "") => `${x > 0 ? "+" : x < 0 ? "−" : ""}${num(Math.
 
 /** The review written by plain code: used when no model answers, and to fill any gap in the agent's. */
 export function fallbackStory(f) {
+  const head = f.head || "tank";
   const t = f.training, n = f.nutrition, b = f.body;
   const all = t.target && t.days >= t.target;
   const headline = !t.count ? (n?.logged ? "A week off the iron, food still logged." : "A quiet week.")
@@ -461,7 +464,7 @@ export function fallbackStory(f) {
       t.prs.length ? `New records on ${t.prs.slice(0, 3).map((p) => p.lift).join(", ")}.` : "No new records this week.",
       t.avgMins ? `Sessions ran about ${t.avgMins} minutes.` : "",
     ].filter(Boolean).join(" ") : "Nothing logged in the gym this week. One session gets the rhythm back.",
-    coach: "tank",
+    coach: head,
   };
   const nutrition = n && {
     title: n.avgKcal != null ? `${n.avgKcal.toLocaleString("en-US")} kcal a day` : "Food",
@@ -471,7 +474,7 @@ export function fallbackStory(f) {
       `Calories within 10% of target on ${plural(n.kcalOnTarget, "day")}.`,
       n.trainingDays.days && n.restDays.days ? `Training days averaged ${n.trainingDays.protein} g protein, rest days ${n.restDays.protein} g.` : "",
     ].filter(Boolean).join(" ") : "No food logged this week.",
-    coach: "tank",
+    coach: head,
   };
   const body_ = b && {
     title: b.weekAvg != null ? `${num(b.weekAvg)} lb average` : `${num(b.last.bw)} lb`,
@@ -480,19 +483,19 @@ export function fallbackStory(f) {
       b.phase ? `${b.phase.label}: week ${b.phase.week} of ${b.phase.weeks}, planned ${signed(b.phase.rate, " lb")}/week.` : "",
       b.rate4 != null ? `Four-week trend ${signed(b.rate4, " lb")}/week.` : "",
     ].filter(Boolean).join(" ") || "Weigh in once a week and this card starts tracking the trend.",
-    coach: "tank",
+    coach: head,
   };
-  const high = f.highs[0] ? { title: "High point", body: f.highs[0].text, coach: f.highs[0].coach } : { title: "High point", body: t.count ? "You showed up. Consistency is what moves the numbers." : "Every week logged makes the next review sharper.", coach: "tank" };
-  const low = f.lows[0] ? { title: "Low point", body: f.lows[0].text, coach: f.lows[0].coach } : { title: "Low point", body: "Nothing went backwards this week.", coach: "tank" };
+  const high = f.highs[0] ? { title: "High point", body: f.highs[0].text, coach: f.highs[0].coach } : { title: "High point", body: t.count ? "You showed up. Consistency is what moves the numbers." : "Every week logged makes the next review sharper.", coach: head };
+  const low = f.lows[0] ? { title: "Low point", body: f.lows[0].text, coach: f.lows[0].coach } : { title: "Low point", body: "Nothing went backwards this week.", coach: head };
   const trends = [];
   const active = f.weeks.filter((x) => x.sessions);
-  if (active.length >= 3) trends.push({ title: "Training", body: `${active.length} of the last 8 weeks had workouts, averaging ${Math.round(avg(active.map((x) => x.sets)))} sets.`, coach: "tank" });
-  if (b?.rate4 != null) trends.push({ title: "Bodyweight", body: `Moving ${signed(b.rate4, " lb")} a week over the last month.`, coach: "tank" });
+  if (active.length >= 3) trends.push({ title: "Training", body: `${active.length} of the last 8 weeks had workouts, averaging ${Math.round(avg(active.map((x) => x.sets)))} sets.`, coach: head });
+  if (b?.rate4 != null) trends.push({ title: "Bodyweight", body: `Moving ${signed(b.rate4, " lb")} a week over the last month.`, coach: head });
   const focus = [
     ...t.ready.slice(0, 2).map((r) => ({ action: `Go up to ${fmtW(r.to)} lb on ${r.lift}`, why: `You hit the top of the range at ${fmtW(r.from)} lb.`, coach: r.coach })),
-    t.target && t.days < t.target ? { action: `Train ${t.target} days`, why: `This week was ${t.days}.`, coach: "tank" } : null,
-    n && n.logged && n.proteinHit < 5 ? { action: `Reach ${n.targets.protein} g protein on 5+ days`, why: `This week: ${n.proteinHit} days.`, coach: "tank" } : null,
+    t.target && t.days < t.target ? { action: `Train ${t.target} days`, why: `This week was ${t.days}.`, coach: head } : null,
+    n && n.logged && n.proteinHit < 5 ? { action: `Reach ${n.targets.protein} g protein on 5+ days`, why: `This week: ${n.proteinHit} days.`, coach: head } : null,
   ].filter(Boolean).slice(0, 3);
-  if (!focus.length) focus.push({ action: "Keep the same rhythm", why: "Repeat this week and add a rep where you can.", coach: "tank" });
+  if (!focus.length) focus.push({ action: "Keep the same rhythm", why: "Repeat this week and add a rep where you can.", coach: head });
   return { headline, summary, training, nutrition, body: body_, high, low, trends, insights: [], focus };
 }

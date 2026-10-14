@@ -5,7 +5,7 @@ import CoachChat from "../components/CoachChat.jsx";
 import { COACHES } from "../data/coaches.js";
 import { InfoButton, Sheet, EmptyState } from "../components/ui.jsx";
 import AddFood, { Portion, QuickAdd, amountLabel } from "../components/AddFood.jsx";
-import { MEALS, totals, byDate, weekSummary, addDays, nutritionChatContext } from "../lib/nutrition.js";
+import { MEALS, totals, byDate, weekSummary, addDays } from "../lib/nutrition.js";
 import { savedFoodFor } from "../lib/food.js";
 import { href } from "../lib/router.js";
 import { today, longDate, plural } from "../lib/util.js";
@@ -16,7 +16,7 @@ import Roll from "../components/Roll.jsx";
 
 const fmt = (n) => Math.round(n).toLocaleString();
 
-export default function Nutrition({ food, prefs, notify, sessions, weighins, program }) {
+export default function Nutrition({ food, prefs, notify, sessions, weighins, program, head, coachChat, nutrition, onProgramChange }) {
   const [asking, setAsking] = useState(false);
   const n = prefs.nutrition || {};
   const t = n.targets;
@@ -35,8 +35,8 @@ export default function Nutrition({ food, prefs, notify, sessions, weighins, pro
       <main className="screen has-tabs">
         <header className="top"><h1 className="page-title">Nutrition</h1><span className="spacer" /></header>
         <div className="body">
-          <EmptyState title="Set your targets first" action="Set up with Tank" href={href("nutrition", "setup")}>
-            Tank works out your daily calories and protein, carbs and fat from your body, training and goal. About a minute.
+          <EmptyState coach={head} title="Set your targets first" action={`Set up with ${COACHES[head].name}`} href={href("nutrition", "setup")}>
+            {COACHES[head].name} works out your daily calories and protein, carbs and fat from your body, training and goal. About a minute.
           </EmptyState>
         </div>
       </main>
@@ -71,15 +71,15 @@ export default function Nutrition({ food, prefs, notify, sessions, weighins, pro
 
         <Summary sum={sum} t={t} />
 
-        {/* Tank answers food questions here, like the coaches do mid-workout. */}
-        <div className="ex-coach nut-ask" style={{ "--c": COACHES.tank.color }} data-help="ask">
-          <Coach id="tank" size={48} mood="idle" />
+        {/* The head coach answers food questions here, in the same conversation as the Coaches screen. */}
+        <div className="ex-coach nut-ask" style={{ "--c": COACHES[head].color }} data-help="ask">
+          <Coach id={head} size={48} mood="idle" />
           <button type="button" className="coach-bubble bubble-btn" onClick={() => setAsking(true)}>
             {isToday && sum.kcal < t.kcal && t.protein - sum.protein > 20
               ? `${Math.round(t.protein - sum.protein)} g protein to go today. Ask me what to eat.`
               : "Questions about food? Ask me."}
           </button>
-          <button className="ask-btn compact" onClick={() => setAsking(true)} aria-label="Ask Tank, your nutrition coach"><MessageCircle size={18} strokeWidth={2.6} aria-hidden="true" /><span>Ask</span></button>
+          <button className="ask-btn compact" onClick={() => setAsking(true)} aria-label={`Ask ${COACHES[head].name}, your head coach`}><MessageCircle size={18} strokeWidth={2.6} aria-hidden="true" /><span>Ask</span></button>
         </div>
 
         {MEALS.map((m) => {
@@ -112,10 +112,10 @@ export default function Nutrition({ food, prefs, notify, sessions, weighins, pro
       </div>
 
       {asking && (
-        <CoachChat coach="tank" topic="nutrition" sessions={sessions} program={program} weighins={weighins} profile={prefs.profile} phase={prefs.phase}
-          foodContext={nutritionChatContext({ n, entries: food.entries, phase: prefs.phase, sessions, weighins })} foodLog={food} onClose={() => setAsking(false)} />
+        <CoachChat coach={head} head={head} topic="nutrition" {...coachChat} sessions={sessions} program={program} weighins={weighins} profile={prefs.profile} phase={prefs.phase}
+          nutrition={nutrition} onProgramChange={onProgramChange} onClose={() => setAsking(false)} />
       )}
-      {adding && <AddFood food={food} meal={adding} date={date} notify={notify} onClose={() => setAdding(null)} />}
+      {adding && <AddFood food={food} head={head} meal={adding} date={date} notify={notify} onClose={() => setAdding(null)} />}
       {entry && (
         <Sheet title={entry.source === "quick" ? "Edit calories" : "Edit food"} onClose={() => setEditing(null)} labelledBy="edit-food-title">
           {entry.basis

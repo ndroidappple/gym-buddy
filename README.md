@@ -90,6 +90,30 @@ or rename it, add a food or remove one, and he proposes the change on a card (`e
 every edit against the log before showing it. Typing new numbers over a portion (e.g. Tank's meal)
 turns that entry into its own numbers, like a quick add. `npm run test:food` checks the edits too.
 
+### Head coach
+
+At sign-up the lifter picks a **head coach** from the six (`prefs.headCoach`, Tank when unset;
+changeable in **Settings → Head coach**). The head coach runs setup (goals, weight, days), nutrition
+(targets, describing a meal, food questions) and leads the week in review. The other five are the
+crew: each still coaches their own lifts in the gym (cues, set reactions, the mid-workout chat).
+
+After setup, the Coaches screen and the Nutrition tab's **Ask** open one ongoing conversation with
+the head coach (`mode: "head"` in `api/coach.js`). Every message sends the last 30 days of training
+and food side by side (`headContext()` in `src/lib/coachChat.js`): every workout, week-by-week sets
+and volume, each lift's trend, bodyweight, and food by day and by week against the targets, so the
+coach can tie the two together. It can propose program changes and edits to today's food log, both
+applied only from the card.
+
+The conversation and the coach's memory have their own tables (migration
+`20261014000000_head_coach_chat.sql`), own-rows-only like the food tables, written through the same
+phone-first outbox (`src/lib/coachThread.js`):
+
+- `coach_messages`: one row per message. A nightly pg_cron job deletes anything older than 30 days.
+- `coach_memory`: one row per lifter, up to 20 short notes. The coach updates them with the
+  `remember` tool when the lifter says something lasting (an injury, equipment, schedule), and reads
+  them before every answer. The crew sees them too. **Settings → What … remembers** lists them, deletes
+  any, and clears the chat history.
+
 ### Rest alerts (optional)
 
 A push notification when a rest timer ends, so it arrives with the phone locked (**Settings →
@@ -178,6 +202,8 @@ src/
   lib/push.js              # notification permission + this phone's push address (shared)
   lib/restAlerts.js        # lock-screen rest alerts (push; see public/sw.js, api/rest-alert.js)
   lib/weekReview.js        # week in review: facts, timing, agent tools, code-written fallback
+  lib/coachThread.js       # head coach conversation + memory (coach_messages, coach_memory)
+  lib/coachChat.js         # what each coach reads (crew: buildContext, head: headContext), streaming
   lib/repRange.js          # is a lift's rep range sane for its kind? (npm run test:range)
   components/ui.jsx        # sheet, toast, tab bar, charts, exercise picker
   views/                   # Today, Session, Summary, Progress (+ Workouts), Lift,

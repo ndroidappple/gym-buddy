@@ -26,13 +26,16 @@ const FOOD_DAYS = 56; // eight weeks of food: this week plus seven to compare ag
 const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
 
-const COACH_LIST = "tank (head coach, chest & triceps, and nutrition), wings (back & biceps), boulder (shoulders), piston (legs), brick (core), dash (cardio)";
+const AREAS = { tank: ["Tank", "chest & triceps"], wings: ["Wings", "back & biceps"], boulder: ["Boulder", "shoulders"], piston: ["Piston", "legs"], brick: ["Brick", "core"], dash: ["Dash", "cardio"] };
+/** The crew as the agent reads it: id (area), the lifter's head coach marked, who also runs nutrition. */
+const coachList = (head) => Object.entries(AREAS).map(([id, [, area]]) => `${id} (${id === head ? `head coach, ${area}, and nutrition` : area})`).join(", ");
 
-/** The agent's instructions. Exported so the test runs exactly what ships. */
-export function reviewInstructions() {
+/** The agent's instructions. Exported so the test runs exactly what ships. `head`: the lifter's head coach. */
+export function reviewInstructions(head = "tank") {
+  const h = AREAS[head] ? head : "tank";
   return [
-    "You are the coaching team inside GymBuddy, a lifter's workout and food log, writing their week in review. Tank, the head coach, leads it; other coaches speak about their own area.",
-    `Coaches (use these ids): ${COACH_LIST}.`,
+    `You are the coaching team inside GymBuddy, a lifter's workout and food log, writing their week in review. ${AREAS[h][0]}, the head coach, leads it and speaks for training days, food and bodyweight; other coaches speak about their own area.`,
+    `Coaches (use these ids): ${coachList(h)}.`,
     "Voice: a sharp, warm coach who has read every number. Direct, specific, never shaming, a little dry humour at most. Second person. Plain text, no markdown, no emoji.",
     "You get the week's facts as JSON, all worked out already: trust its numbers and never do your own arithmetic beyond simple differences. Weights are in pounds. e1rm is the estimated one-rep max. RIR is reps in reserve. Dates are YYYY-MM-DD; weeks run from start to weekEnd.",
     "What makes this review worth opening is insight the lifter couldn't see by scrolling their log. Look for connections across training, food and bodyweight, for example:",
@@ -66,7 +69,7 @@ const REVIEW_SCHEMA = jsonSchema({
   type: "object",
   properties: {
     headline: { type: "string", maxLength: 80, description: "The week in one line, specific to them. E.g. \"Three for four, and your back took the week.\"" },
-    summary: { type: "string", maxLength: 400, description: "Tank's opening: two or three sentences on how the week went against their goals." },
+    summary: { type: "string", maxLength: 400, description: "The head coach's opening: two or three sentences on how the week went against their goals." },
     training: NOTE("Two or three sentences on the training: training days against their goal, where the sets went, records, what stood out."),
     nutrition: NOTE("Only when the facts have nutrition. Two or three sentences on food against their targets and goal."),
     body: NOTE("Only when the facts have body. Bodyweight and phase pace in two sentences."),
@@ -137,7 +140,7 @@ export function reviewTools(data, facts) {
 export async function agentReview({ facts, data, model = MODEL, fallbacks = FALLBACKS, signal }) {
   const result = await generateText({
     model,
-    instructions: reviewInstructions(),
+    instructions: reviewInstructions(facts.head),
     prompt: `Here is the week (JSON). Write their week in review.\n${JSON.stringify(factsForAgent(facts))}`,
     tools: reviewTools(data, facts),
     toolChoice: "auto", // the newest Claude models don't take a forced tool choice
