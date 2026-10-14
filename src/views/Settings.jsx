@@ -222,10 +222,8 @@ export default function Settings({ program, sessions, prefs, setPref, onRename, 
           onConfirm={() => { setPref("profile", { ...prefs.profile, doneAt: null }); setPref("coachSetup", {}); go(href("coaches", head)); }} />
       )}
       {sheet === "head" && (
-        <Sheet title="Head coach" sub="Who you talk to about your training and food. Your chat history and notes carry over." onClose={() => setSheet(null)} labelledBy="head-coach-title">
-          <HeadPicker value={head} onChange={(id) => { if (id !== head) { setPref("headCoach", id); notify?.(`${COACHES[id].name} is your head coach`); } }} />
-          <button type="button" className="btn btn-ink" onClick={() => setSheet(null)}>Done</button>
-        </Sheet>
+        <HeadSheet head={head} onClose={() => setSheet(null)}
+          onPick={(id) => { setPref("headCoach", id); notify?.(`${COACHES[id].name} is your head coach`); setSheet(null); }} />
       )}
       {sheet === "memory" && thread && (
         <Sheet title={`What ${who} remembers`} sub="Notes your head coach keeps from your chats and reads before every answer. Delete any you don't want kept." onClose={() => setSheet(null)} labelledBy="memory-title">
@@ -496,6 +494,19 @@ function InstallSheet({ onClose }) {
       </ol>
       <p className="note-box">Changing the icon? First press and hold GymBuddy on your home screen, tap <b>Remove App</b>, then <b>Delete from Home Screen</b>. Your sessions stay saved to your account.</p>
       <button className="btn btn-ink" onClick={onClose}>Got it</button>
+    </Sheet>
+  );
+}
+
+/** Switching head coach: swipe to one, then confirm, so passing coaches on the way doesn't switch. */
+function HeadSheet({ head, onPick, onClose }) {
+  const [pick, setPick] = useState(head);
+  return (
+    <Sheet title="Head coach" sub="Who you talk to about training and food. Your chat and their notes carry over." onClose={onClose} labelledBy="head-coach-title">
+      <HeadPicker value={pick} onChange={setPick} />
+      {pick === head
+        ? <button type="button" className="btn btn-ghost" onClick={onClose}>Keep {COACHES[head].name}</button>
+        : <button type="button" className="btn btn-ink" onClick={() => onPick(pick)}>Make {COACHES[pick].name} head coach</button>}
     </Sheet>
   );
 }
