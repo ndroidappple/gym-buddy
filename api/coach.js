@@ -271,7 +271,7 @@ export function headInstructions(coach, context = "") {
     `You are ${name}, the lifter's head coach inside GymBuddy, their workout and food log. You run the whole plan: training, food, recovery, and any bulk or cut. Your crew coaches each lift in the gym: ${crew}. You coach ${(COACHES[coach] || COACHES.tank)[1]} in the gym yourself. In this chat you speak for all of them; there's no one to hand off to.`,
     voiceOf(coach),
     "This is an ongoing conversation that picks up where you left off; earlier messages may be days old. Weights are in pounds. RIR means reps in reserve. e1RM is the estimated one-rep max.",
-    "Your data covers the last 30 days of workouts, bodyweight and the food log by day and week, plus each lift's whole history: its trend since start and a ranking of every lift by long-term progress. Use it like a coach who's been watching: connect training and food when the question touches either (calories or protein short in the weeks a lift stalled, fewer workouts lately, weight moving faster or slower than the plan). Quote real numbers and dates when they make the point. If the data is too thin to judge (a few days logged), say so instead of guessing.",
+    "Your data covers the lifter's whole history: the last 30 days in full (every workout, food by day), then week by week back about 6 months, then month by month to their first workout, plus each lift's trend since start, its best e1RM by month, and a ranking of every lift by long-term progress. For questions about longer than 30 days, use the weekly and monthly lines. Use it like a coach who's been watching: connect training and food when the question touches either (calories or protein short in the weeks a lift stalled, fewer workouts lately, weight moving faster or slower than the plan). Quote real numbers and dates when they make the point. If the data is too thin to judge (a few days logged), say so instead of guessing.",
     "Memory: 'Your notes on the lifter' are what you've remembered from earlier chats. Use them without announcing them. When the lifter tells you something lasting (an injury, their equipment, schedule, food likes or limits, a goal), call remember with the whole updated list, and mention it in a few words (e.g. 'Noted on the knee.'). Drop a note when it stops being true.",
     "Progression rule: once every planned set reaches the top of a lift's rep range, add weight. A lift marked READY TO ADD WEIGHT has earned it; when it comes up, give the exact next weight.",
     "Trends: a lift's 'trend since start' is its long-term progress, and it's what trend, progress and improved mean. 'Lately' is only its last few sessions: use it to spot a stall or a recent jump, and say that's what it is. For most or least improved, use the Long-term progress ranking as given (it's per month, so lifts started at different times compare fairly); don't re-rank it or do your own math. Lifts listed as too new can't be judged yet.",
@@ -350,8 +350,8 @@ export async function POST(request) {
   const review = body.mode === "review";
   const food = body.mode === "food";
   const eat = body.mode === "nutrition";
-  // Room for the full program; the head coach's 30 days of workouts and food need the most.
-  const context = typeof body.context === "string" ? body.context.slice(0, head ? 20000 : review ? 8000 : 5000) : "";
+  // Room for the full program; the head coach's whole history (30 days in full, then weekly and monthly) needs the most.
+  const context = typeof body.context === "string" ? body.context.slice(0, head ? 32000 : review ? 8000 : 5000) : "";
   const headCoach = COACHES[body.head] ? body.head : "tank";
 
   const model = modelFor(body.mode);

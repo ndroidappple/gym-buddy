@@ -5,7 +5,7 @@ import { describeProgram, applyChanges } from "./programChange.js";
 import { GOALS } from "./setup.js";
 import { cleanMeal, todayFood, totals, addDays } from "./nutrition.js";
 import { PHASE_TYPES, phaseStatus, statusLine } from "./phase.js";
-import { fmtSet, liftSeries, trend, num, fmtW, bestSet, bodyweightSeries, byDateAsc, byDateDesc, daysBetween, today, nextDayAfter, readyToIncrease, compact, lifting, volume, longTrend } from "./util.js";
+import { fmtSet, liftSeries, trend, num, fmtW, bestSet, bodyweightSeries, byDateAsc, byDateDesc, daysBetween, today, nextDayAfter, readyToIncrease, compact, lifting, volume, longTrend, iso } from "./util.js";
 
 const signed = (x, unit = "%") => `${x >= 0 ? "+" : ""}${x.toFixed(1)}${unit}`;
 
@@ -104,6 +104,92 @@ export function buildContext({ coach, sessions, program, weighins, profile, phas
 }
 
 export const HEAD_DAYS = 30;
+const WEEKLY_DAYS = 182; // beyond the 30 days in full, a line a week back to here (about 6 months), then a line a month
+const MAX_MONTHS = 36;
+
+/**
+ * Everything older than the 30 days in full, at less detail the further back it goes, so the coach
+ * can see trends across the whole history while the context stays bounded: a line per week back to
+ * about 6 months, a line per month before that (up to 3 years), and each lift's best e1RM by month.
+ * `foodDays` is { date: { kcal, protein, n } } for days before the loaded food window.
+ */
+function olderHistory({ sessions, weighins, n, entries, foodDays }) {
+  const t = today();
+  const ago = (d) => daysBetween(d, t);
+  const food = { ...foodDays };
+  for (const e of entries) {
+    const f = (food[e.date] = food[e.date]?.fresh ? food[e.date] : { kcal: 0, protein: 0, n: 0, fresh: true });
+    f.kcal += +e.kcal || 0; f.protein += +e.protein || 0; f.n++;
+  }
+  const bw = bodyweightSeries(sessions, weighins);
+  const dates = [...sessions.map((x) => x.date), ...bw.map((x) => x.date), ...(n ? Object.keys(food) : [])].filter((d) => ago(d) >= HEAD_DAYS);
+  if (!dates.length) return [];
+  const first = dates.reduce((a, d) => (d < a ? d : a));
+
+  // One period's line: training, food (when tracked) and bodyweight. null when nothing was logged.
+  const row = (from, to) => {
+    const ss = sessions.filter((x) => x.date >= from && x.date <= to);
+    const fd = n ? Object.entries(food).filter(([d, v]) => d >= from && d <= to && v.n).map(([, v]) => v) : [];
+    const ws = bw.filter((x) => x.date >= from && x.date <= to);
+    if (!ss.length && !fd.length && !ws.length) return null;
+    const sets = ss.reduce((a, x) => a + Object.values(x.sets).reduce((b, v) => b + lifting(v).length, 0), 0);
+    const vol = ss.reduce((a, x) => a + Object.values(x.sets).reduce((b, v) => b + volume(v), 0), 0);
+    const avg = (xs, k) => Math.round(xs.reduce((a, x) => a + x[k], 0) / xs.length);
+    return [
+      ss.length ? `${ss.length} workouts, ${sets} sets, ${compact(vol)} lb` : "no workouts",
+      n && (fd.length ? `food ${fd.length} days logged, avg ${avg(fd, "kcal")} kcal, ${avg(fd, "protein")} g protein` : "no food logged"),
+      ws.length && `bodyweight ${num(ws.reduce((a, x) => a + x.bw, 0) / ws.length)} lb`,
+    ].filter(Boolean).join("; ");
+  };
+  // Runs of empty periods (oldest first) fold into one "nothing logged" line.
+  const fold = (periods) => {
+    const out = [];
+    for (const p of periods) {
+      const last = out[out.length - 1];
+      if (!p.text && last && !last.text) last.to = p.to;
+      else out.push({ ...p });
+    }
+    return out.map((p) => `- ${p.from}${p.to !== p.from ? ` to ${p.to}` : ""}: ${p.text || "nothing logged"}`);
+  };
+
+  const lines = [];
+  const weeks = [];
+  for (let start = HEAD_DAYS; start < WEEKLY_DAYS; start += 7) {
+    const to = addDays(t, -start), from = addDays(t, -(start + 6));
+    if (to < first) break;
+    weeks.unshift({ from: from < first ? first : from, to, text: row(from, to) });
+  }
+  if (weeks.length) lines.push("Before that, week by week (oldest first):", ...fold(weeks));
+
+  const cut = addDays(t, -WEEKLY_DAYS); // monthly rows end the day before the weekly ones begin
+  if (first < cut) {
+    const months = [];
+    for (let m = first.slice(0, 7); m + "-01" < cut; ) {
+      const from = m + "-01" < first ? first : m + "-01";
+      const end = iso(new Date(+m.slice(0, 4), +m.slice(5, 7), 0)); // last day of the month
+      const to = end < cut ? end : addDays(cut, -1);
+      months.push({ from, to, text: row(from, to) });
+      const d = new Date(+m.slice(0, 4), +m.slice(5, 7), 1);
+      m = iso(d).slice(0, 7);
+    }
+    const shown = months.slice(-MAX_MONTHS);
+    if (months.length > shown.length) lines.push(`History before ${shown[0].from} is left out (${months.length - shown.length} older months).`);
+    lines.push("Before that, month by month (oldest first):", ...fold(shown));
+  }
+
+  // Each lift's best e1RM by month, the last 12 months it was trained, for lifts with history past the 30 days.
+  const lifts = [...new Set(sessions.flatMap((x) => Object.keys(x.sets).filter((k) => lifting(x.sets[k]).length)))];
+  const byMonth = lifts.map((name) => {
+    const ser = liftSeries(sessions, name);
+    if (ser.length < 4 || ago(ser[0].date) < HEAD_DAYS) return null;
+    const best = {};
+    for (const x of ser) best[x.date.slice(0, 7)] = Math.max(best[x.date.slice(0, 7)] || 0, x.orm);
+    const ms = Object.entries(best).slice(-12);
+    return `- ${name}: ${ms.map(([m, v]) => `${m} ${Math.round(v)}`).join(", ")}`;
+  }).filter(Boolean);
+  if (byMonth.length) lines.push("Each lift's best e1RM by month (lb, last 12 months trained):", ...byMonth);
+  return lines;
+}
 
 /**
  * What the head coach reads: the last 30 days of training and food side by side, so trends across
@@ -111,12 +197,12 @@ export const HEAD_DAYS = 30;
  * every lift's trend, bodyweight, today's food numbered for edits, the program, and the coach's
  * own notes from earlier chats. `n` is prefs.nutrition (null when food tracking is off).
  */
-export function headContext({ sessions, program, weighins, profile, phase, n, entries = [], notes }) {
+export function headContext({ sessions, program, weighins, profile, phase, n, entries = [], foodDays = {}, notes }) {
   const t = today();
   const ago = (d) => daysBetween(d, t);
   const lines = notes?.length ? notesLines(notes, "Your notes on the lifter") : ["Your notes on the lifter: none yet."];
   const first = [...sessions].sort(byDateAsc)[0];
-  if (first) lines.push(`Training history: ${sessions.length} workouts since ${first.date}. Lift trends below cover the whole history; the workout log covers the last ${HEAD_DAYS} days.`);
+  if (first) lines.push(`Training history: ${sessions.length} workouts since ${first.date}. The last ${HEAD_DAYS} days are in full; older weeks and months are summarized further down. Lift trends cover the whole history.`);
   if (profile?.doneAt) lines.push(goalsLine(profile));
   if (phase) lines.push(phaseLine(phase, sessions, weighins));
 
@@ -143,6 +229,7 @@ export function headContext({ sessions, program, weighins, profile, phase, n, en
   // Lifts trained before but no longer in the program still count toward "since I started".
   const dropped = [...new Set(sessions.flatMap((x) => Object.keys(x.sets).filter((n) => lifting(x.sets[n]).length)))].filter((n) => !plan[n]);
   lines.push(...progressRanking(sessions, [...liftsOf(program), ...dropped]));
+  lines.push(...olderHistory({ sessions, weighins, n: n?.targets ? n : null, entries, foodDays }));
 
   // Bodyweight over the same 30 days.
   const bw = bodyweightSeries(sessions, weighins);
