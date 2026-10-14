@@ -3,7 +3,7 @@ import { COACHES, COACH_ORDER, coachFor, headCoach } from "../data/coaches.js";
 import { GOALS as TRAIN_GOALS } from "./setup.js";
 import { GOALS as FOOD_GOALS, MEALS, addDays, totals, isAlcoholic } from "./nutrition.js";
 import { PHASE_TYPES, phaseStatus } from "./phase.js";
-import { lifting, volume, bestE1rm, bestSet, cardioTotals, liftSeries, trend, bodyweightSeries, readyToIncrease, byDateAsc, fmtW, num, plural, iso } from "./util.js";
+import { lifting, volume, bestE1rm, bestSet, cardioTotals, liftSeries, trend, bodyweightSeries, readyToIncrease, byDateAsc, fmtW, num, plural, iso, longTrend } from "./util.js";
 
 /* The week in review. Everything here is plain functions over the account data, shared by the app
    (when to offer a review, drawing its cards) and api/review.js (the facts the coach agent reads,
@@ -204,7 +204,10 @@ export function buildWeekFacts({ sessions = [], program, weighins = [], prefs = 
     const then = series.filter((p) => p.date < w.start && p.date >= addDays(w.start, -28)).map((p) => p.orm);
     const recent = series.filter((p) => p.date >= addDays(w.end, -41)).map((p) => p.orm);
     const t = recent.length >= 4 ? trend(recent) : null;
-    return { lift: n, coach: coachFor(baseOf(n)), sessions: series.length, e1rm: r1(now), change4: then.length ? pct(now, Math.max(...then)) : null, trend6: t == null ? null : r1(t) };
+    // The long-term trend: since the lift was first logged, per month so lifts compare fairly.
+    const lt = longTrend(series);
+    return { lift: n, coach: coachFor(baseOf(n)), sessions: series.length, e1rm: r1(now), change4: then.length ? pct(now, Math.max(...then)) : null, trend6: t == null ? null : r1(t),
+      started: series[0].date, sinceStart: lt ? r1(lt.pct) : null, perMonth: lt?.perMonth != null ? r1(lt.perMonth) : null };
   });
   const ready = trainedLifts.map((n) => {
     const last = [...cur.sessions].reverse().find((s) => lifting(s.sets?.[n]).length);

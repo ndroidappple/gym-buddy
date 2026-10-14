@@ -5,9 +5,12 @@ import { describeProgram, applyChanges } from "./programChange.js";
 import { GOALS } from "./setup.js";
 import { cleanMeal, todayFood, totals, addDays } from "./nutrition.js";
 import { PHASE_TYPES, phaseStatus, statusLine } from "./phase.js";
-import { fmtSet, liftSeries, trend, num, fmtW, bestSet, bodyweightSeries, byDateAsc, byDateDesc, daysBetween, today, nextDayAfter, readyToIncrease, compact, lifting, volume } from "./util.js";
+import { fmtSet, liftSeries, trend, num, fmtW, bestSet, bodyweightSeries, byDateAsc, byDateDesc, daysBetween, today, nextDayAfter, readyToIncrease, compact, lifting, volume, longTrend } from "./util.js";
 
-/** One lift for the coach: its plan, latest best set, e1RM trend, RIR, and whether it's earned more weight. */
+const signed = (x, unit = "%") => `${x >= 0 ? "+" : ""}${x.toFixed(1)}${unit}`;
+
+/** One lift for the coach: its plan, latest best set, its trend since the lifter started it (the
+    long-term one), how it's gone lately, RIR, and whether it's earned more weight. */
 function describeLift(sessions, plan, n) {
   if (isCardio(n)) {
     const logs = [...sessions].sort(byDateDesc).filter((x) => x.sets[n]?.length);
@@ -17,16 +20,32 @@ function describeLift(sessions, plan, n) {
   if (!s.length) return `${n}: not logged yet`;
   const last = s[s.length - 1];
   const b = bestSet(last.sets);
-  const t = trend(s.map((x) => x.orm));
+  const lt = longTrend(s);
+  const lately = trend(s.map((x) => x.orm));
+  const best = s.reduce((a, x) => (x.orm > a.orm ? x : a), s[0]);
   const rir = last.sets.filter((x) => x.rir != null).map((x) => x.rir);
   const up = readyToIncrease(plan[n], last.sets);
   const target = plan[n] ? `plan ${plan[n].sets}x${plan[n].reps[0]}-${plan[n].reps[1]}, ` : "";
-  return `${n}: ${target}last ${last.date} best set ${fmtW(b.w)}x${b.r}, e1RM ${num(last.orm)} lb, ${s.length} sessions` +
-    (t != null ? `, trend ${t >= 0 ? "+" : ""}${t.toFixed(1)}%` : "") + (rir.length ? `, RIR ${rir.join("/")}` : "") +
+  return `${n}: ${target}last ${last.date} best set ${fmtW(b.w)}x${b.r}, e1RM ${num(last.orm)} lb, ${s.length} sessions since ${s[0].date}` +
+    (lt ? `, trend since start ${signed(lt.pct)} (e1RM ${num(lt.start)} -> ${num(lt.now)} lb${lt.perMonth != null ? `, ${signed(lt.perMonth)}/month` : ""})` : "") +
+    (best.orm > last.orm ? `, best ever e1RM ${num(best.orm)} lb on ${best.date}` : "") +
+    (lately != null ? `, lately ${signed(lately)} (last 3 sessions vs the 3 before)` : "") + (rir.length ? `, RIR ${rir.join("/")}` : "") +
     (up ? `, READY TO ADD WEIGHT (hit ${up.sets}x${up.reps} at ${up.from} lb; next: ${up.to} lb)` : "");
 }
 const planOf = (program) => Object.fromEntries(activeDays(program).flatMap((d) => program[d].exercises.map((e) => [e.n, e])));
 const liftsOf = (program) => [...new Set(activeDays(program).flatMap((d) => program[d].exercises.map((e) => e.n)))];
+/** Every lift ranked by long-term progress per month, most to least, worked out here so the model
+    never sorts numbers itself. Lifts with under 4 sessions or 3 weeks of history are listed as too new. */
+function progressRanking(sessions, lifts) {
+  const rows = lifts.filter((n) => !isCardio(n)).map((n) => { const s = liftSeries(sessions, n); return { n, s, lt: longTrend(s) }; }).filter((x) => x.s.length);
+  const ranked = rows.filter((x) => x.lt?.perMonth != null && x.s.length >= 4).sort((a, b) => b.lt.perMonth - a.lt.perMonth);
+  const fresh = rows.filter((x) => !ranked.includes(x)).map((x) => x.n);
+  const lines = [];
+  if (ranked.length) lines.push(`Long-term progress, most to least improved (e1RM per month since each lift was started): ${ranked.map((x) => `${x.n} ${signed(x.lt.perMonth)}/month (${signed(x.lt.pct)} since ${x.lt.from})`).join("; ")}.`);
+  if (fresh.length) lines.push(`Too new to rank (under 4 sessions or 3 weeks): ${fresh.join(", ")}.`);
+  return lines;
+}
+
 /** A workout as one line: each lift's best set (cardio: what was logged). */
 function workoutLine(s, program) {
   const done = Object.entries(s.sets).filter(([, v]) => v?.length).map(([n, v]) => {
@@ -72,6 +91,7 @@ export function buildContext({ coach, sessions, program, weighins, profile, phas
   lines.push(`Your lifts (${COACHES[coach].group}):`, ...mine.map((n) => `- ${describe(n)}`));
   const others = lifts.filter((n) => coachFor(n) !== coach).map(describe).filter((x) => !x.endsWith("not logged yet"));
   if (others.length) lines.push("Other lifts:", ...others.slice(0, 12).map((x) => `- ${x}`));
+  lines.push(...progressRanking(sessions, lifts));
 
   const bw = bodyweightSeries(sessions, weighins);
   if (bw.length) {
@@ -95,6 +115,8 @@ export function headContext({ sessions, program, weighins, profile, phase, n, en
   const t = today();
   const ago = (d) => daysBetween(d, t);
   const lines = notes?.length ? notesLines(notes, "Your notes on the lifter") : ["Your notes on the lifter: none yet."];
+  const first = [...sessions].sort(byDateAsc)[0];
+  if (first) lines.push(`Training history: ${sessions.length} workouts since ${first.date}. Lift trends below cover the whole history; the workout log covers the last ${HEAD_DAYS} days.`);
   if (profile?.doneAt) lines.push(goalsLine(profile));
   if (phase) lines.push(phaseLine(phase, sessions, weighins));
 
@@ -118,6 +140,9 @@ export function headContext({ sessions, program, weighins, profile, phase, n, en
   const unlogged = lifts.filter(([, d]) => d.endsWith("not logged yet")).map(([x]) => x);
   lines.push("Each lift in the program:", ...lifts.filter(([x]) => !unlogged.includes(x)).map(([, d]) => `- ${d}`));
   if (unlogged.length) lines.push(`Never logged: ${unlogged.join(", ")}.`);
+  // Lifts trained before but no longer in the program still count toward "since I started".
+  const dropped = [...new Set(sessions.flatMap((x) => Object.keys(x.sets).filter((n) => lifting(x.sets[n]).length)))].filter((n) => !plan[n]);
+  lines.push(...progressRanking(sessions, [...liftsOf(program), ...dropped]));
 
   // Bodyweight over the same 30 days.
   const bw = bodyweightSeries(sessions, weighins);

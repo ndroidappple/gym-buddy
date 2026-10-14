@@ -101,7 +101,10 @@ After setup, the Coaches screen and the Nutrition tab's **Ask** open one ongoing
 the head coach (`mode: "head"` in `api/coach.js`). Every message sends the last 30 days of training
 and food side by side (`headContext()` in `src/lib/coachChat.js`): every workout, week-by-week sets
 and volume, each lift's trend, bodyweight, and food by day and by week against the targets, so the
-coach can tie the two together. It can propose program changes and edits to today's food log, both
+coach can tie the two together. Lift trends are long-term (`longTrend()` in `src/lib/util.js`): each
+lift's change since it was first logged, and every lift ranked by progress per month, so "which lift
+have I improved least on?" has a real answer. The last-few-sessions comparison is still sent, labeled
+"lately", for spotting a stall. `npm run test:coach` checks it. It can propose program changes and edits to today's food log, both
 applied only from the card.
 
 The conversation and the coach's memory have their own tables (migration
