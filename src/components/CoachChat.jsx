@@ -11,6 +11,7 @@ import { applyChanges } from "../lib/programChange.js";
 import { previewFoodEdits, applyFoodEdits } from "../lib/foodEdit.js";
 import { useReducedMotion } from "../lib/motion.js";
 import { useTheme } from "../lib/theme.js";
+import { byDateDesc, bestSet, bestE1rm, cardioTotals, daysBetween, fmtW, num, today } from "../lib/util.js";
 
 /* When the coach can't answer, it still answers in character. */
 const TROUBLE = {
@@ -156,7 +157,7 @@ export default function CoachChat({ coach, exercise, starter, sessions, program,
         <div className="chat-list" ref={listRef} aria-live="polite">
           {messages.length === 0 && (
             <div className="chat-empty">
-              <p className="coach-bubble">{food ? "Food questions? Ask me: what to eat, your macros, how your week's going." : sessions.length ? `I've seen your last workouts${nutrition ? " and what you've been eating" : ""}. What's on your mind?` : "What do you want to know? Ask me anything about your training."}</p>
+              <p className="coach-bubble">{food ? "Food questions? Ask me: what to eat, your macros, how your week's going." : exercise ? "What do you want to know? Ask me anything about your training." : hello(coach, sessions)}</p>
               <div className="chat-suggest">
                 {suggestions.map((s) => <button key={s} className="chip" onClick={() => send(s)}>{s}</button>)}
               </div>
@@ -197,6 +198,24 @@ export default function CoachChat({ coach, exercise, starter, sessions, program,
       </div>
     </Sheet>
   );
+}
+
+/** How a coach says hi: like a coach who was there, from the last time you trained one of their lifts. */
+function hello(coach, sessions) {
+  const mine = (s) => Object.entries(s.sets).filter(([n, v]) => v?.length && coachFor(n) === coach);
+  const last = [...sessions].sort(byDateDesc).find((s) => mine(s).length);
+  if (!last) return sessions.length ? `We haven't trained together yet. Want to talk ${COACHES[coach].group.toLowerCase()}?` : "What do you want to know? Ask me anything about your training.";
+  const d = daysBetween(last.date, today());
+  if (d >= 7) return `${d >= 14 ? "Been a while" : "Been about a week"} since we trained. Everything good?`;
+  // Their heaviest lift that day, which is usually the one the lifter cares about.
+  const [lift, sets] = mine(last).sort((a, b) => bestE1rm(b[1]) - bestE1rm(a[1]))[0];
+  const name = lift.replace(/\s*\(.*?\)/g, "");
+  const b = bestSet(sets);
+  const what = !b ? `${num(cardioTotals(sets).min)}-minute ${name}` : b.w ? `${fmtW(b.w)}×${b.r} on ${name}` : `${b.r} reps of ${name}`;
+  if (d <= 0) return `Nice ${what} today. Anything on your mind?`;
+  if (d === 1) return `Yesterday's ${what} looked solid. How's the body feeling?`;
+  const day = new Date(last.date + "T12:00:00").toLocaleDateString(undefined, { weekday: "long" });
+  return `How are you feeling after ${day}'s ${what}?`;
 }
 
 const PROPOSAL = {
