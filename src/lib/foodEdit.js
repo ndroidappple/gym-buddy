@@ -1,4 +1,4 @@
-import { MEALS } from "./nutrition.js";
+import { MEALS, cleanMeal, nutritionFor } from "./nutrition.js";
 import { today } from "./util.js";
 
 /* Tank editing today's food log from the nutrition chat. Like program changes, he only proposes:
@@ -37,12 +37,30 @@ function readNumbers(e) {
 
 const macroLine = (x) => `${fmt(x.kcal)} kcal · P ${r(x.protein)} · C ${r(x.carbs)} · F ${r(x.fat)}`;
 
+/** What changed between a meal's old and new ingredients, in words: "2% Milk (1 cup) → Ultrafiltered
+    Fat-Free Milk (6 oz)" for a swap, else what was added, removed or changed. */
+function itemsDiff(before = [], after = []) {
+  const key = (x) => String(x.food || "").trim().toLowerCase();
+  const was = new Map(before.map((x) => [key(x), x]));
+  const now = new Map(after.map((x) => [key(x), x]));
+  const removed = before.filter((x) => !now.has(key(x)));
+  const added = after.filter((x) => !was.has(key(x)));
+  const changed = after.filter((x) => was.has(key(x)) && (was.get(key(x)).amount !== x.amount || r(was.get(key(x)).kcal) !== r(x.kcal)));
+  const amt = (x) => (x.amount ? ` (${x.amount})` : "");
+  if (removed.length === 1 && added.length === 1) return [`${removed[0].food}${amt(removed[0])} → ${added[0].food}${amt(added[0])}`, ...changed.map((x) => `${x.food}: ${was.get(key(x)).amount} → ${x.amount}`)];
+  return [
+    ...removed.map((x) => `remove ${x.food}`),
+    ...added.map((x) => `add ${x.food}${amt(x)}`),
+    ...changed.map((x) => `${x.food}: ${was.get(key(x)).amount || "?"} → ${x.amount || "?"}`),
+  ];
+}
+
 /**
  * Checks Tank's proposed edits against today's log. Returns { ops, lines, errors }: ops are what
  * Apply does (by entry id, so they survive the list reordering), lines say it in words for the
  * card, errors say what was skipped and why.
  */
-export function previewFoodEdits(entries, edits) {
+export function previewFoodEdits(entries, edits, foods = []) {
   const day = todaysEntries(entries);
   const ops = [], lines = [], errors = [];
   const touched = new Set();
@@ -72,6 +90,33 @@ export function previewFoodEdits(entries, edits) {
     if (action === "remove") {
       ops.push({ type: "remove", entry });
       lines.push(`Remove ${entry.name} from ${mealLabel(entry.meal)} (${fmt(entry.kcal)} kcal)`);
+      continue;
+    }
+
+    // A change to what's in a meal: the coach sends the whole new ingredient list and the app adds it
+    // up (models are poor at arithmetic), keeping the breakdown so the meal can be edited again.
+    if (Array.isArray(e?.items)) {
+      const cooked = cleanMeal({ name: entry.name, items: e.items });
+      if (!cooked) { errors.push(`The new ingredients for ${entry.name} didn't add up to anything.`); continue; }
+      const meal0 = entry.basis?.perServing && !entry.basis.per100;
+      const basis = { ...(meal0 ? entry.basis : { servingLabel: "meal" }), perServing: cooked.total, items: cooked.items };
+      const amount = meal0 ? +entry.amount || 1 : 1;
+      const t = nutritionFor(basis, amount, entry.unit);
+      const patch = { kcal: t.kcal, protein: t.protein, carbs: t.carbs, fat: t.fat, basis, ...(meal0 ? {} : { amount: 1, unit: "meal", grams: null }) };
+      if (name && name !== entry.name) patch.name = name;
+      if (meal && meal !== entry.meal) patch.meal = meal;
+      const before = Object.fromEntries(Object.keys(patch).map((k) => [k, entry[k] ?? null]));
+      ops.push({ type: "update", id: entry.id, patch, before });
+      const diff = itemsDiff(entry.basis?.items, cooked.items);
+      lines.push(`${mealLabel(entry.meal)}: ${entry.name}, ${diff.length ? diff.join("; ") : "same ingredients"}. ${fmt(entry.kcal)} → ${fmt(t.kcal)} kcal (P ${r(t.protein)} · C ${r(t.carbs)} · F ${r(t.fat)})`);
+      // The saved food it was logged from, so the next time it's logged it has the change too.
+      if (e.update_saved_food) {
+        const saved = ["custom", "ai"].includes(entry.source) && entry.source_ref ? foods.find((f) => f.id === entry.source_ref) : null;
+        if (saved) {
+          ops.push({ type: "saved", id: saved.id, patch: { basis: { ...saved.basis, perServing: cooked.total, items: cooked.items } }, before: { basis: saved.basis } });
+          lines.push(`Your saved ${saved.name} gets the same change`);
+        } else errors.push(`${entry.name} wasn't logged from a saved food, so only today's entry changes.`);
+      }
       continue;
     }
 
@@ -116,6 +161,9 @@ export function applyFoodEdits(food, ops) {
     } else if (op.type === "update" && live.has(op.id)) {
       food.updateEntry(op.id, op.patch);
       undo.push(() => food.updateEntry(op.id, op.before));
+    } else if (op.type === "saved" && food.foods?.some((f) => f.id === op.id)) {
+      food.updateFood(op.id, op.patch);
+      undo.push(() => food.updateFood(op.id, op.before));
     } else if (op.type === "remove" && live.has(op.entry.id)) {
       const { created_at, updated_at, ...rest } = live.get(op.entry.id); // eslint-disable-line no-unused-vars
       food.removeEntry(op.entry.id);

@@ -182,7 +182,7 @@ export default function CoachChat({ coach, name, exercise, starter, sessions, pr
       if (changes.length && onProgramChange) Object.assign(done, { content: done.content || "Here's the change I'd make.", changes, what: "program", preview: applyChanges(program, changes) });
       else if (foodEdits.length && foodLog) {
         // Checked against the log now; the ops keep entry ids, so Apply hits the same entries later.
-        const { ops, lines, errors } = previewFoodEdits(foodLog.entries, foodEdits);
+        const { ops, lines, errors } = previewFoodEdits(foodLog.entries, foodEdits, foodLog.foods);
         Object.assign(done, { content: done.content || "Here's the change I'd make.", ops, what: "food", preview: { lines, errors } });
       }
       if (memory && thread) {
