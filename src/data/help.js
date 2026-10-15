@@ -78,7 +78,7 @@ export const HELP = {
       { name: "What they remember", Icon: MessageCircle, spot: "memory", text: "Notes your head coach keeps from your chats. Delete any, or clear the chat." },
       { name: "Redo setup", Icon: Sparkles, spot: "redo", text: "Meet your coaches again to reshape your plan." },
       { name: "Track food & macros", Icon: Utensils, spot: "nutrition", text: "Adds a Nutrition tab with daily calorie and macro targets." },
-      { name: "Week in review", Icon: Sparkles, spot: "review", text: "Turn it on or off, and pick the day and time it comes out." },
+      { name: "Week in review", Icon: Sparkles, spot: "review", text: "Turn it on or off, and pick its release day and time." },
       { name: "Notifications", Icon: Bell, spot: "notifications", text: "Rest alerts, and a heads-up when your week in review is ready." },
       { name: "Reps in reserve", Icon: Gauge, spot: "rir", text: "Rate how many more reps you had in you." },
       { name: "Export", Icon: Download, spot: "export", text: "Download a copy of all your data." },

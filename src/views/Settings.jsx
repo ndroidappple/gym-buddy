@@ -115,7 +115,7 @@ export default function Settings({ program, sessions, prefs, setPref, onRename, 
             {review.on && (
               <button className="list-row" onClick={() => setSheet("review-time")}>
                 <CalendarClock size={18} aria-hidden="true" />
-                <span className="name">Comes out<span className="sub">{whenLabel(review)}. Covers {coversLabel(review)}.</span></span>
+                <span className="name">Release day<span className="sub">{whenLabel(review)}. Covers {coversLabel(review)}.</span></span>
                 <ChevronRight size={18} aria-hidden="true" className="muted" />
               </button>
             )}
@@ -248,10 +248,10 @@ export default function Settings({ program, sessions, prefs, setPref, onRename, 
       )}
       {sheet === "rename" && <RenameSheet program={program} onRename={onRename} onClose={() => setSheet(null)} />}
       {sheet === "review-time" && (
-        <Sheet title="When it comes out" sub="Your coaches write the review at this time, even with the app closed." onClose={() => setSheet(null)} labelledBy="review-time-title">
+        <Sheet title="Release day" sub="Your coaches write the review at this time, even with the app closed." onClose={() => setSheet(null)} labelledBy="review-time-title">
           <DayPicker value={review.day} onChange={(d) => setReview({ day: d })} />
           <HourPicker value={review.hour} onChange={(h) => setReview({ hour: h })} />
-          <p className="note-box"><b>{whenLabel(review)}</b>, covering {coversLabel(review)}: the 7 full days before it comes out. It waits on Today until you open it.</p>
+          <p className="note-box"><b>{whenLabel(review)}</b>, covering {coversLabel(review)}: the 7 full days before it's released. It waits on Today until you open it.</p>
           <button type="button" className="btn btn-ink" onClick={() => setSheet(null)}>Done</button>
         </Sheet>
       )}
@@ -451,7 +451,7 @@ function ReviewsSheet({ onClose }) {
     <Sheet title="Past reviews" sub="Every week in review, newest first." onClose={onClose} labelledBy="reviews-title">
       <ReviewList onLoaded={setCount} />
       {count === null && <p className="note-box">Loading…</p>}
-      {count === 0 && <p className="note-box">No reviews yet. Your first one comes out on your review day, once you've logged a workout or some food that week.</p>}
+      {count === 0 && <p className="note-box">No reviews yet. Your first one is released on your release day, once you've logged a workout or some food that week.</p>}
     </Sheet>
   );
 }
