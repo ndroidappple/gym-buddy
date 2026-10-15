@@ -13,7 +13,7 @@ export default function ProgramEditor({ day, program, back, ops }) {
   return (
     <main className="screen" data-day={day}>
       <header className="top ruled">
-        <button className="icon-btn boxed" onClick={() => back("#/settings")} aria-label="Back"><ChevronLeft size={20} /></button>
+        <button className="icon-btn boxed" onClick={() => back("#/settings/program")} aria-label="Back"><ChevronLeft size={20} /></button>
         <h1 className="top-title" data-day={day}>{p.name}</h1>
         <button className="icon-btn" onClick={() => setSheet("rename")} aria-label={`Rename ${p.name}`}><Pencil size={17} /></button>
         <span className="spacer" />

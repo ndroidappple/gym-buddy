@@ -1,9 +1,9 @@
 import React, { useEffect, useRef, useState } from "react";
-import { ChevronRight, Download, LogOut, Moon, Gauge, Smartphone, Share, SquarePlus, EllipsisVertical, Check, Sparkles, Scale, Vibrate, Bell, BellRing, Pencil, ClipboardPaste, Users, Utensils, Target, Bookmark, Trash2, Rows3, CalendarClock, History, BellOff, BellPlus, Info } from "lucide-react";
+import { ChevronRight, Download, LogOut, Moon, Gauge, Smartphone, Share, SquarePlus, EllipsisVertical, Check, Sparkles, Scale, Vibrate, Bell, BellRing, Users, Utensils, Target, Bookmark, Trash2, Rows3, CalendarClock, History, BellOff, BellPlus, Info, Dumbbell } from "lucide-react";
 import { Sheet, InfoButton, ConfirmSheet } from "../components/ui.jsx";
 import { ICONS, iconSrc } from "../lib/icons.js";
 import { VIEWS, applyView } from "../lib/view.js";
-import { DAYS, allDays, activeDays, specLine, isCardio } from "../data/program.js";
+import { activeDays, specLine, isCardio } from "../data/program.js";
 import { href } from "../lib/router.js";
 import { shortDate, canVibrate } from "../lib/util.js";
 import { supabase } from "../supabase-client.js";
@@ -15,58 +15,57 @@ import { HeadPicker } from "../components/Welcome.jsx";
 import Coach from "../components/Coach.jsx";
 import { COACHES } from "../data/coaches.js";
 
-export default function Settings({ program, sessions, prefs, setPref, onRename, go, notify, head = "tank", thread }) {
+/**
+ * Grouped by what you're doing: your coach, your training, the rest timer, food, the week in review,
+ * then how the app looks. Each feature keeps its own switches and notification together; the phone's
+ * notification permission only shows, up top, when something you turned on can't reach you.
+ */
+export default function Settings({ program, sessions, prefs, setPref, go, notify, head = "tank", thread }) {
   const who = COACHES[head].name;
   const [email, setEmail] = useState("");
   const viewRow = useRef(null); // the detail level picker, held still on screen while the level switches
-  const [sheet, setSheet] = useState(null); // "icon" | "install" | "rename" | "redo" | "review-time" | "reviews" | "view" | "head" | "memory" | "clear-chat"
+  const [sheet, setSheet] = useState(null); // "account" | "icon" | "install" | "redo" | "review-time" | "reviews" | "view" | "head" | "memory" | "clear-chat"
   const review = reviewPrefs(prefs);
   const setReview = (patch) => setPref("weekReview", { ...review, intro: true, ...patch });
+  const alerts = useAlerts({ review, setReview, notify, onInstall: () => setSheet("install") });
   const icon = ICONS.find((i) => i.id === prefs.icon) || ICONS[0];
+  const days = activeDays(program);
   useEffect(() => { supabase.auth.getUser().then(({ data }) => setEmail(data.user?.email || "")); }, []);
 
   return (
     <main className="screen has-tabs">
       <header className="top"><h1 className="page-title">Settings</h1><span className="spacer" /><InfoButton screen="settings" /></header>
       <div className="body">
-        <section className="section">
-          <h2 className="lbl">Program</h2>
-          <div className="list" data-help="program">
-            {/* Built-in days show even when switched off; extra days only while in the rotation. */}
-            {allDays(program).filter((d) => DAYS.includes(d) || !program[d].off).map((d) => (
-              <a key={d} className="list-row" href={href("settings", "program", d)} data-day={d}>
-                <span className="dot" aria-hidden="true" />
-                <span className="name">{program[d].name}<span className="sub detail">{program[d].off ? "Not in your rotation" : `${program[d].detail} · ${program[d].exercises.length} lifts`}</span></span>
-                <ChevronRight size={18} aria-hidden="true" className="muted" />
-              </a>
-            ))}
-            <button className="list-row" data-help="rename" onClick={() => setSheet("rename")}>
-              <Pencil size={18} aria-hidden="true" />
-              <span className="name">Rename workouts<span className="sub detail">{activeDays(program).map((d) => program[d].name).join(", ")}</span></span>
-              <ChevronRight size={18} aria-hidden="true" className="muted" />
-            </button>
-            {/* The head coach's paste-and-review steps on their own, for a lifter who's already set up. */}
-            <a className="list-row" data-help="import" href={href("coaches", head, "import")}>
-              <ClipboardPaste size={18} aria-hidden="true" />
-              <span className="name">Bring in your own program<span className="sub detail">Paste a program you already run. {who} can review it.</span></span>
-              <ChevronRight size={18} aria-hidden="true" className="muted" />
-            </a>
-          </div>
-        </section>
+        <div className="list">
+          <button className="list-row account-row" data-help="account" onClick={() => setSheet("account")}>
+            <span className="account-avatar" aria-hidden="true">{(email[0] || "?").toUpperCase()}</span>
+            <span className="name">{email || "Your account"}<span className="sub detail">{sessions.length} session{sessions.length === 1 ? "" : "s"} logged · Export, sign out</span></span>
+            <ChevronRight size={18} aria-hidden="true" className="muted" />
+          </button>
+        </div>
+
+        {alerts.banner && (() => {
+          const B = alerts.banner;
+          const Tag = B.onClick ? "button" : "div";
+          return (
+            <div className="list alert-banner" role="status">
+              <Tag className="list-row" {...(B.onClick ? { type: "button", onClick: B.onClick, disabled: alerts.busy } : {})}>
+                <B.Icon size={18} aria-hidden="true" />
+                <span className="name">{B.label}<span className="sub">{B.sub}</span></span>
+                {B.onClick && <ChevronRight size={18} aria-hidden="true" className="muted" />}
+              </Tag>
+            </div>
+          );
+        })()}
 
         <section className="section">
-          <h2 className="lbl">Coaches &amp; goals</h2>
+          <h2 className="lbl">Coach</h2>
           <div className="list">
             <a className="list-row" data-help="coaches" href={href("coaches")}>
-              <Users size={18} aria-hidden="true" />
+              <span className="row-coach" aria-hidden="true"><Coach id={head} size={22} still decorative /></span>
               <span className="name">Talk to {who}<span className="sub detail">Your head coach. Sees your training and food, and can change your plan.</span></span>
               <ChevronRight size={18} aria-hidden="true" className="muted" />
             </a>
-            <button className="list-row" data-help="head" onClick={() => setSheet("head")}>
-              <span className="row-coach" aria-hidden="true"><Coach id={head} size={22} still decorative /></span>
-              <span className="name">Head coach<span className="sub">{who}. The rest of the crew coach their lifts in the gym.</span></span>
-              <ChevronRight size={18} aria-hidden="true" className="muted" />
-            </button>
             {thread && (
               <button className="list-row" data-help="memory" onClick={() => setSheet("memory")}>
                 <Bookmark size={18} aria-hidden="true" />
@@ -74,17 +73,49 @@ export default function Settings({ program, sessions, prefs, setPref, onRename, 
                 <ChevronRight size={18} aria-hidden="true" className="muted" />
               </button>
             )}
+            <button className="list-row" data-help="head" onClick={() => setSheet("head")}>
+              <Users size={18} aria-hidden="true" />
+              <span className="name">Change head coach<span className="sub detail">The rest of the crew coach their lifts in the gym.</span></span>
+              <ChevronRight size={18} aria-hidden="true" className="muted" />
+            </button>
+            <button className="list-row" data-help="redo" onClick={() => setSheet("redo")}>
+              <Sparkles size={18} aria-hidden="true" />
+              <span className="name">Redo setup with your coaches<span className="sub detail">Goals, training days and the lifts each coach runs.</span></span>
+              <ChevronRight size={18} aria-hidden="true" className="muted" />
+            </button>
+          </div>
+        </section>
+
+        <section className="section">
+          <h2 className="lbl">Training</h2>
+          <div className="list">
+            <a className="list-row" data-help="program" href={href("settings", "program")}>
+              <Dumbbell size={18} aria-hidden="true" />
+              <span className="name">Program<span className="sub">{days.length} day{days.length === 1 ? "" : "s"} · {days.map((d) => program[d].name).join(", ")}</span></span>
+              <ChevronRight size={18} aria-hidden="true" className="muted" />
+            </a>
             {/* Phases live on Progress; this is the side door. */}
             <a className="list-row" href={href("progress", "phase")}>
               <Scale size={18} aria-hidden="true" />
               <span className="name">Bulk or cut phase<span className="sub">{prefs.phase ? `${prefs.phase.type === "cut" ? "Cut" : "Bulk"} to ${prefs.phase.target} lb · ends ${shortDate(prefs.phase.end)}` : "Set a short-term bodyweight goal."}</span></span>
               <ChevronRight size={18} aria-hidden="true" className="muted" />
             </a>
-            <button className="list-row" data-help="redo" onClick={() => setSheet("redo")}>
-              <Sparkles size={18} aria-hidden="true" />
-              <span className="name">Redo setup with your coaches<span className="sub detail">Goals, training days and the lifts each coach runs.</span></span>
-              <ChevronRight size={18} aria-hidden="true" className="muted" />
-            </button>
+            <Toggle help="rir" Icon={Gauge} label="Reps in reserve (RIR)" sub="Rate how many reps you had left on each set." on={prefs.rir}
+              onChange={(v) => setPref("rir", v)} />
+          </div>
+        </section>
+
+        <section className="section">
+          <h2 className="lbl">Rest timer</h2>
+          <div className="list" data-help="rest">
+            <Toggle Icon={Bell} label="Sound" sub="A short chime when rest is over." on={prefs.sound !== false}
+              onChange={(v) => setPref("sound", v)} />
+            {/* iPhone browsers can't vibrate, so the switch only shows where it does something. */}
+            {canVibrate() && (
+              <Toggle Icon={Vibrate} label="Vibration" sub="A buzz on logged sets, PRs and when rest ends." on={prefs.haptics !== false}
+                onChange={(v) => setPref("haptics", v)} />
+            )}
+            {alerts.phone !== "unsupported" && <Toggle Icon={BellRing} label="Lock screen alert" sub={alerts.restSub} on={alerts.rest === "on"} onChange={alerts.toggleRest} />}
           </div>
         </section>
 
@@ -109,8 +140,8 @@ export default function Settings({ program, sessions, prefs, setPref, onRename, 
         <section className="section">
           <h2 className="lbl">Week in review</h2>
           <div className="list">
-            <Toggle help="review" Icon={Sparkles} label="Week in review"
-              sub={review.on ? "Your coaches look back at your week: goals, highs and lows, trends." : "A weekly look back with your coaches: goals, highs and lows, trends."}
+            <Toggle help="review" Icon={Sparkles} label="Weekly look back"
+              sub="Your coaches review your goals, highs and lows, and trends."
               on={review.on} onChange={(v) => setReview({ on: v })} />
             {review.on && (
               <button className="list-row" onClick={() => setSheet("review-time")}>
@@ -118,6 +149,9 @@ export default function Settings({ program, sessions, prefs, setPref, onRename, 
                 <span className="name">Release day<span className="sub">{whenLabel(review)}. Covers {coversLabel(review)}.</span></span>
                 <ChevronRight size={18} aria-hidden="true" className="muted" />
               </button>
+            )}
+            {review.on && alerts.phone !== "unsupported" && (
+              <Toggle Icon={BellRing} label="Notify me when it's ready" sub={alerts.reviewSub} on={review.notify !== false} onChange={alerts.toggleReview} />
             )}
             <button className="list-row" onClick={() => setSheet("reviews")}>
               <History size={18} aria-hidden="true" />
@@ -128,37 +162,11 @@ export default function Settings({ program, sessions, prefs, setPref, onRename, 
         </section>
 
         <section className="section">
-          <h2 className="lbl">Notifications</h2>
-          <Notifications review={review} setReview={setReview} notify={notify} onInstall={() => setSheet("install")} />
-        </section>
-
-        <section className="section">
-          <h2 className="lbl">Display</h2>
+          <h2 className="lbl">Appearance</h2>
           <div className="list">
             <ViewPicker value={prefs.view === "focused" ? "focused" : "detailed"} row={viewRow} onChange={(v) => setPref("view", v)} onInfo={() => setSheet("view")} />
             <Toggle Icon={Moon} label="Dark mode" sub="Easier on the eyes between sets." on={prefs.theme === "dark"}
               onChange={(v) => setPref("theme", v ? "dark" : "light")} />
-            <Toggle help="rir" Icon={Gauge} label="Reps in reserve (RIR)" sub="Rate how many reps you had left on each set." on={prefs.rir}
-              onChange={(v) => setPref("rir", v)} />
-          </div>
-        </section>
-
-        <section className="section">
-          <h2 className="lbl">Feedback</h2>
-          <div className="list">
-            <Toggle Icon={Bell} label="Rest timer sound" sub="A short chime when rest is over." on={prefs.sound !== false}
-              onChange={(v) => setPref("sound", v)} />
-            {/* iPhone browsers can't vibrate, so the switch only shows where it does something. */}
-            {canVibrate() && (
-              <Toggle Icon={Vibrate} label="Vibration" sub="A buzz on logged sets, PRs and when rest ends." on={prefs.haptics !== false}
-                onChange={(v) => setPref("haptics", v)} />
-            )}
-          </div>
-        </section>
-
-        <section className="section">
-          <h2 className="lbl">Home screen</h2>
-          <div className="list">
             <button className="list-row" onClick={() => setSheet("icon")}>
               <img className="app-icon sm" src={iconSrc(icon.id)} alt="" />
               <span className="name">App icon<span className="sub">{icon.label}</span></span>
@@ -171,32 +179,27 @@ export default function Settings({ program, sessions, prefs, setPref, onRename, 
             </button>
           </div>
         </section>
-
-        <section className="section">
-          <h2 className="lbl">Data</h2>
-          <div className="list">
-            <a className="list-row" data-help="export" href="#/settings/export">
-              <Download size={18} aria-hidden="true" />
-              <span className="name">Export<span className="sub detail">{sessions.length} sessions as CSV or JSON</span></span>
-              <ChevronRight size={18} aria-hidden="true" className="muted" />
-            </a>
-          </div>
-        </section>
-
-        <section className="section">
-          <h2 className="lbl">Account</h2>
-          <div className="list">
-            <div className="list-row"><span className="name">Signed in<span className="sub">{email || "—"}</span></span></div>
-            <button className="list-row" onClick={() => supabase.auth.signOut()}>
-              <LogOut size={18} aria-hidden="true" />
-              <span className="name">Sign out<span className="sub detail">Your data stays saved to your account.</span></span>
-            </button>
-          </div>
-        </section>
-
-        <p className="small muted detail">Weights are in pounds.</p>
       </div>
 
+      {sheet === "account" && (
+        <Sheet title="Account" sub={email || undefined} onClose={() => setSheet(null)} labelledBy="account-title">
+          <div className="list">
+            <a className="list-row" href="#/settings/export">
+              <Download size={18} aria-hidden="true" />
+              <span className="name">Export your data<span className="sub">{sessions.length} sessions as CSV or JSON</span></span>
+              <ChevronRight size={18} aria-hidden="true" className="muted" />
+            </a>
+            <div className="list-row">
+              <Scale size={18} aria-hidden="true" />
+              <span className="name">Units<span className="sub">Weights are in pounds.</span></span>
+            </div>
+            <button className="list-row" onClick={() => supabase.auth.signOut()}>
+              <LogOut size={18} aria-hidden="true" />
+              <span className="name">Sign out<span className="sub">Your data stays saved to your account.</span></span>
+            </button>
+          </div>
+        </Sheet>
+      )}
       {sheet === "view" && (
         <ViewSheet value={prefs.view === "focused" ? "focused" : "detailed"} program={program} onPick={(v) => switchView(v, viewRow.current, (x) => setPref("view", x))} onClose={() => setSheet(null)} />
       )}
@@ -246,7 +249,6 @@ export default function Settings({ program, sessions, prefs, setPref, onRename, 
           confirm="Clear history" onClose={() => setSheet("memory")}
           onConfirm={() => { thread.clearMessages(); notify?.("Chat history cleared"); }} />
       )}
-      {sheet === "rename" && <RenameSheet program={program} onRename={onRename} onClose={() => setSheet(null)} />}
       {sheet === "review-time" && (
         <Sheet title="Release day" sub="Your coaches write the review at this time, even with the app closed." onClose={() => setSheet(null)} labelledBy="review-time-title">
           <DayPicker value={review.day} onChange={(d) => setReview({ day: d })} />
@@ -260,37 +262,12 @@ export default function Settings({ program, sessions, prefs, setPref, onRename, 
   );
 }
 
-/* Every workout's name in one place. Names are saved together on Save; a blank field keeps the old name. */
-function RenameSheet({ program, onRename, onClose }) {
-  const days = activeDays(program);
-  const [names, setNames] = useState(() => Object.fromEntries(days.map((d) => [d, program[d].name])));
-  const save = (e) => {
-    e.preventDefault();
-    for (const d of days) onRename(d, names[d] || "");
-    onClose();
-  };
-  return (
-    <Sheet title="Rename workouts" sub="Past sessions show the new name too." onClose={onClose} labelledBy="rename-title">
-      <form className="rename-form" onSubmit={save}>
-        {days.map((d, i) => (
-          <label key={d} className="field rename-field" data-day={d}>
-            <span className="lbl"><span className="dot" aria-hidden="true" />Day {i + 1} · {program[d].detail}</span>
-            <input className="input" value={names[d]} maxLength={20} enterKeyHint="done" placeholder={program[d].name}
-              onChange={(e) => setNames((n) => ({ ...n, [d]: e.target.value }))} />
-          </label>
-        ))}
-        <button type="submit" className="btn btn-ink">Save names</button>
-      </form>
-    </Sheet>
-  );
-}
-
-/* Rest alerts are per phone (they ride on its notification permission), so they live outside prefs. */
 /**
- * Notifications: whether this phone can show them, rest alerts (this phone only) and the week in
- * review's "ready" notification (the account: every phone that allows notifications gets it).
+ * Notifications: rest alerts (this phone only: they ride on its notification permission, so they live
+ * outside prefs) and the week in review's "ready" notification (the account: every phone that allows
+ * notifications gets it). `banner` is the phone's permission, only while something turned on can't arrive.
  */
-function Notifications({ review, setReview, notify, onInstall }) {
+function useAlerts({ review, setReview, notify, onInstall }) {
   const [phone, setPhone] = useState(phoneState);
   const [rest, setRest] = useState(restAlertState);
   const [busy, setBusy] = useState(false);
@@ -332,31 +309,15 @@ function Notifications({ review, setReview, notify, onInstall }) {
     if (phone === "ask") allow(); // asked from this tap: iOS only shows the prompt in response to one
   };
 
-  const status = {
-    on: { Icon: Bell, label: "On for this phone", sub: "To stop them all, use your phone's Settings › Notifications › GymBuddy." },
-    ask: { Icon: BellPlus, label: "Allow notifications on this phone", sub: "Needed for rest alerts and the week in review.", onClick: allow },
-    denied: { Icon: BellOff, label: "Blocked on this phone", sub: "Turn them on in your phone's Settings › Notifications › GymBuddy." },
+  const banner = !reviewOn ? null : {
+    ask: { Icon: BellPlus, label: "Allow notifications on this phone", sub: "So your week in review reaches you here.", onClick: allow },
+    denied: { Icon: BellOff, label: "Notifications are blocked", sub: "Turn them on in your phone's Settings › Notifications › GymBuddy." },
     install: { Icon: BellOff, label: "Add GymBuddy to your home screen", sub: "iPhone only shows notifications for the home screen app.", onClick: onInstall },
-    unsupported: { Icon: BellOff, label: "Not available in this browser", sub: "Open GymBuddy in Safari or Chrome on your phone." },
-  }[phone];
-  const Status = status.onClick ? "button" : "div";
-  const restSub = { install: "Add GymBuddy to your home screen first.", denied: "Blocked in your phone's settings." }[rest] || "When rest is over, even with your phone locked. This phone only.";
-  const reviewSub = !review.on ? "Turn on the week in review above first."
-    : phone !== "on" && review.notify !== false ? `${whenLabel(review)}. Allow notifications on this phone to get it here.`
+  }[phone] || null;
+  const restSub = { install: "Add GymBuddy to your home screen first.", denied: "Blocked in your phone's settings." }[rest] || "A notification when rest is over, even with your phone locked. This phone only.";
+  const reviewSub = phone !== "on" && review.notify !== false ? `${whenLabel(review)}. Allow notifications on this phone to get it here.`
     : `${whenLabel(review)}, with the week's headline. Every phone that allows notifications.`;
-  return (
-    <div className="list" data-help="notifications">
-      <Status className="list-row" {...(status.onClick ? { type: "button", onClick: status.onClick, disabled: busy } : {})}>
-        <status.Icon size={18} aria-hidden="true" />
-        <span className="name">{status.label}<span className="sub detail">{status.sub}</span></span>
-        {status.onClick ? <ChevronRight size={18} aria-hidden="true" className="muted" /> : phone === "on" ? <Check size={18} strokeWidth={2.6} aria-hidden="true" /> : null}
-      </Status>
-      {phone !== "unsupported" && <Toggle Icon={BellRing} label="Rest alerts" sub={restSub} on={rest === "on"} onChange={toggleRest} />}
-      {phone !== "unsupported" && review.on && (
-        <Toggle Icon={Sparkles} label="Week in review is ready" sub={reviewSub} on={review.notify !== false} onChange={toggleReview} />
-      )}
-    </div>
-  );
+  return { phone, rest, busy, banner, restSub, reviewSub, toggleRest, toggleReview };
 }
 
 /* Switching the detail level adds or removes the grey lines on the rows above the picker, which

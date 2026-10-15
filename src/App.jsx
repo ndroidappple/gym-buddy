@@ -18,6 +18,7 @@ import Progress from "./views/Progress.jsx";
 import Lift from "./views/Lift.jsx";
 import Settings from "./views/Settings.jsx";
 import ProgramEditor from "./views/ProgramEditor.jsx";
+import ProgramList from "./views/ProgramList.jsx";
 import Export from "./views/Export.jsx";
 import Coaches from "./views/Coaches.jsx";
 import Nutrition from "./views/Nutrition.jsx";
@@ -333,7 +334,7 @@ export default function App() {
     case "progress": view = <Progress key={route.open || "p"} {...common} open={route.open} />; break;
     case "lift": view = <Lift {...common} name={route.lift} />; break;
     case "settings": view = <Settings {...common} thread={thread} onRename={programOps.rename} />; break;
-    case "program": view = allDays(program).includes(route.day) ? <ProgramEditor {...common} day={route.day} ops={programOps} /> : <Settings {...common} />; break;
+    case "program": view = allDays(program).includes(route.day) ? <ProgramEditor {...common} day={route.day} ops={programOps} /> : <ProgramList {...common} onRename={programOps.rename} />; break;
     case "export": view = <Export {...common} food={nutritionOn ? food : null} />; break;
     case "nutrition": {
       // Off: Settings is where it's turned on. Setup opens over the tab and returns to it.

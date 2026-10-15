@@ -1,6 +1,6 @@
 import {
   Play, Bell, ArrowLeftRight, Target, CalendarCheck, Scale, Trophy, TrendingUp, Flag, List, CalendarDays, Pencil,
-  Gauge, LineChart, Hash, History, Dumbbell, Plus, FileSpreadsheet, Users, MessageCircle, Sparkles, SlidersHorizontal, Download, ClipboardPaste, Utensils, PieChart, Copy,
+  Gauge, LineChart, Hash, History, Dumbbell, Plus, FileSpreadsheet, Users, MessageCircle, Sparkles, SlidersHorizontal, Download, ClipboardPaste, Utensils, PieChart, Copy, CircleUser, Timer,
 } from "lucide-react";
 
 /* What each screen is for, shown from the (i) in its header as a short tap-through: one feature per
@@ -70,18 +70,24 @@ export const HELP = {
   settings: {
     title: "Settings",
     steps: [
-      { name: "Program", Icon: Dumbbell, spot: "program", text: "Each day's lifts, sets, reps and rest." },
+      { name: "Your account", Icon: CircleUser, spot: "account", text: "Export your data, see your units, or sign out." },
+      { name: "Your head coach", Icon: Users, spot: "coaches", text: "Talk through your training and food, or change your plan." },
+      { name: "What they remember", Icon: MessageCircle, spot: "memory", text: "Notes your head coach keeps from your chats. Delete any, or clear the chat." },
+      { name: "Change head coach", Icon: Users, spot: "head", text: "Switch who you talk to. Your chat and their notes carry over." },
+      { name: "Redo setup", Icon: Sparkles, spot: "redo", text: "Meet your coaches again to reshape your plan." },
+      { name: "Program", Icon: Dumbbell, spot: "program", text: "Each day's lifts, sets, reps and rest. Rename days or bring in your own program." },
+      { name: "Reps in reserve", Icon: Gauge, spot: "rir", text: "Rate how many more reps you had in you." },
+      { name: "Rest timer", Icon: Timer, spot: "rest", text: "A chime, a buzz, and an alert on your lock screen when rest is over." },
+      { name: "Track food & macros", Icon: Utensils, spot: "nutrition", text: "Adds a Nutrition tab with daily calorie and macro targets." },
+      { name: "Week in review", Icon: Sparkles, spot: "review", text: "Turn it on or off, pick its release day, and get a notification when it's ready." },
+    ],
+  },
+  programs: {
+    title: "Program",
+    steps: [
+      { name: "Your days", Icon: Dumbbell, spot: "program", text: "Tap one to change its lifts, sets, reps and rest." },
       { name: "Rename workouts", Icon: Pencil, spot: "rename", text: "Call your days whatever you call them." },
       { name: "Bring in your own program", Icon: ClipboardPaste, spot: "import", text: "Paste a program you already run. Your head coach can review it." },
-      { name: "Your head coach", Icon: Users, spot: "coaches", text: "Talk through your training and food, or change your plan." },
-      { name: "Head coach", Icon: Users, spot: "head", text: "Switch who you talk to. Your chat and their notes carry over." },
-      { name: "What they remember", Icon: MessageCircle, spot: "memory", text: "Notes your head coach keeps from your chats. Delete any, or clear the chat." },
-      { name: "Redo setup", Icon: Sparkles, spot: "redo", text: "Meet your coaches again to reshape your plan." },
-      { name: "Track food & macros", Icon: Utensils, spot: "nutrition", text: "Adds a Nutrition tab with daily calorie and macro targets." },
-      { name: "Week in review", Icon: Sparkles, spot: "review", text: "Turn it on or off, and pick its release day and time." },
-      { name: "Notifications", Icon: Bell, spot: "notifications", text: "Rest alerts, and a heads-up when your week in review is ready." },
-      { name: "Reps in reserve", Icon: Gauge, spot: "rir", text: "Rate how many more reps you had in you." },
-      { name: "Export", Icon: Download, spot: "export", text: "Download a copy of all your data." },
     ],
   },
   program: {
