@@ -117,7 +117,7 @@ export default function Nutrition({ food, prefs, notify, sessions, weighins, pro
       )}
       {adding && <AddFood food={food} head={head} meal={adding} date={date} notify={notify} onClose={() => setAdding(null)} />}
       {entry && (
-        <Sheet title={entry.source === "quick" ? "Edit calories" : "Edit food"} onClose={() => setEditing(null)} labelledBy="edit-food-title">
+        <Sheet title={entry.source === "quick" ? "Edit calories" : "Edit food"} onClose={() => setEditing(null)} labelledBy="edit-food-title" focusField={false}>
           {entry.basis
             ? <Portion item={entry} editName amount={entry.amount} unit={entry.unit} meal={entry.meal} onMeal={(meal) => food.updateEntry(entry.id, { meal })} action="Save"
                 onSave={({ amount, unit, n: x, name }) => {
