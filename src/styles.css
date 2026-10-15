@@ -1301,3 +1301,9 @@ button.coach-card:active { transform: translateY(3px); box-shadow: 0 2px 0 var(-
 .done-row.holding { background-color: var(--surface-2); transform: scale(0.97); transition: transform 450ms var(--pop), background-color 200ms ease; }
 /* The set number's circle is surface-2 too: lift it so it doesn't vanish into the shade. */
 :is(.done-row:active, .done-row.holding) .n { background-color: var(--rule-2); color: var(--ink); }
+
+/* Settings: the account row up top, and the notification permission banner (only while it blocks something). */
+.account-avatar { flex: none; width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; background: var(--ink); color: var(--bg); font-weight: 800; font-size: 17px; }
+.account-row .name { overflow-wrap: anywhere; }
+.alert-banner { background: color-mix(in srgb, var(--accent) 14%, var(--surface)); border: 2px solid color-mix(in srgb, var(--accent) 45%, var(--rule)); }
+.alert-banner svg:first-child { color: var(--accent); }

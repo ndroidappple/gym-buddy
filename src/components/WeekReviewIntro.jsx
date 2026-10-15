@@ -71,7 +71,7 @@ export default function WeekReviewIntro({ settings, onSave }) {
         <li><Lightbulb size={20} aria-hidden="true" /><span>Patterns in your own numbers, and what to focus on next week</span></li>
       </ul>
       <div className="review-intro-day">
-        <span className="lbl">Comes out every {whenLabel(r)}, covering {coversLabel(r)}</span>
+        <span className="lbl">Released every {whenLabel(r)}, covering {coversLabel(r)}</span>
         <DayPicker value={day} onChange={setDay} />
         <HourPicker value={hour} onChange={setHour} />
       </div>
