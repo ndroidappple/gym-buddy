@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowUp, Bookmark, Check, ListChecks, Utensils } from "lucide-react";
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { ArrowDown, ArrowUp, Bookmark, Check, ListChecks, Utensils } from "lucide-react";
 import { BorderBeam } from "border-beam";
 import { ThinkingOrb } from "thinking-orbs";
 import { Sheet } from "./ui.jsx";
@@ -78,21 +78,45 @@ export default function CoachChat({ coach, name, exercise, starter, sessions, pr
   const reduced = useReducedMotion();
   const theme = useTheme();
   const listRef = useRef(null);
+  const inputRef = useRef(null);
   const abort = useRef(null);
+  // Scrolled up to reread: new messages don't yank the list down, and a button jumps back.
+  const pinned = useRef(true);
+  const [away, setAway] = useState(false);
+  const toEnd = (smooth) => listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: smooth && !reduced ? "smooth" : "auto" });
   useEffect(() => () => abort.current?.abort(), []);
-  useEffect(() => { listRef.current?.scrollTo({ top: listRef.current.scrollHeight }); }, [messages]);
+  useEffect(() => { if (pinned.current) toEnd(); }, [messages]); // eslint-disable-line react-hooks/exhaustive-deps
   // The list resizes on every frame while the keyboard animates; stay pinned to the newest
   // message throughout, unless the lifter has scrolled up to reread something.
   useEffect(() => {
     const el = listRef.current;
     if (!el || typeof ResizeObserver === "undefined") return;
-    let pinned = true;
-    const onScroll = () => { pinned = el.scrollHeight - el.scrollTop - el.clientHeight < 24; };
-    const ro = new ResizeObserver(() => { if (pinned) el.scrollTop = el.scrollHeight; });
+    // Only the lifter's own scrolling unpins. Ours fires a scroll event too, and by the time it runs
+    // the list has shrunk again (it does every frame while the keyboard comes up), which would read
+    // as scrolling away from the bottom.
+    let ours = -1;
+    const onScroll = () => {
+      if (Math.abs(el.scrollTop - ours) < 2) return;
+      const gap = el.scrollHeight - el.scrollTop - el.clientHeight;
+      pinned.current = gap < 24;
+      setAway(gap > 240);
+    };
+    const ro = new ResizeObserver(() => {
+      if (!pinned.current) return;
+      el.scrollTop = el.scrollHeight;
+      ours = el.scrollTop;
+    });
     el.addEventListener("scroll", onScroll, { passive: true });
     ro.observe(el);
     return () => { ro.disconnect(); el.removeEventListener("scroll", onScroll); };
   }, []);
+  // The message box grows with what's typed, up to about five lines, then scrolls.
+  useLayoutEffect(() => {
+    const t = inputRef.current;
+    if (!t) return;
+    t.style.height = "auto";
+    t.style.height = `${Math.min(t.scrollHeight, 132)}px`;
+  }, [draft]);
   useEffect(() => {
     if (status !== "answered") return;
     const t = setTimeout(() => setStatus("idle"), 2200);
@@ -164,6 +188,7 @@ export default function CoachChat({ coach, name, exercise, starter, sessions, pr
     const userMsg = { role: "user", content: q, coach, at: new Date().toISOString() };
     userMsg.id = save(userMsg);
     const history = [...base, userMsg].slice(headChat ? -16 : -10).map((m) => ({ role: m.role, content: when(m) + m.content + noteFor(m) }));
+    pinned.current = true; // what was just sent is what they want to see
     setMessages([...base, userMsg, { role: "assistant", content: "", coach }]);
     setDraft("");
     setStatus("thinking");
@@ -244,11 +269,23 @@ export default function CoachChat({ coach, name, exercise, starter, sessions, pr
     : (last.replies?.length ? last.replies : unasked).slice(0, 3);
   const tapReply = (r) => (r === "Try again" && last?.retry ? send(last.retry) : send(r));
 
+  // Tapping the conversation puts the keyboard away, like iMessage, so there's more to read.
+  const dismiss = (e) => {
+    if (e.target.closest("button, a, input, textarea, label")) return;
+    if (document.activeElement === inputRef.current) inputRef.current.blur();
+  };
+  const note = `${headChat ? "Knows your training and food history, and what you've told it." : nutrition ? "Answers use your logged sets and food log." : "Answers use your logged sets."} AI can be wrong. Not medical advice.`;
+  const empty = messages.length === 0;
+
   return (
-    <Sheet title={headChat ? c.name : `Ask ${c.name}`} sub={headChat ? "Your head coach" : `${c.group} coach`} onClose={onClose} labelledBy="coach-chat-title" className={"sheet-chat" + (headChat ? " sheet-head-chat" : "")}>
+    <Sheet title={headChat ? c.name : `Ask ${c.name}`} sub={headChat ? "Your head coach" : `${c.group} coach`} onClose={onClose} labelledBy="coach-chat-title"
+      lead={<span className="chat-head-coach" style={{ "--c": c.color }}><Coach id={coach} mood={mood} size={40} /></span>}
+      className={"sheet-chat sheet-convo" + (headChat ? " sheet-head-chat" : "")} focusField={false}>
       <div className="chat" style={{ "--c": c.color }}>
-        <div className="chat-coach"><Coach id={coach} mood={mood} size={88} /></div>
-        <div className="chat-list" ref={listRef} aria-live="polite">
+        <div className="chat-list" ref={listRef} aria-live="polite" onPointerDown={dismiss}>
+          {/* The footnote leads the conversation and scrolls away with it, instead of taking room by the keyboard. */}
+          <p className="chat-note">{note}</p>
+          {empty && <div className="chat-hero" aria-hidden="true"><Coach id={coach} mood={mood} size={96} /></div>}
           {messages.map((m, i) => {
             const day = headChat && m.at && localDay(m.at);
             const prevDay = headChat && i > 0 && messages[i - 1].at && localDay(messages[i - 1].at);
@@ -271,43 +308,38 @@ export default function CoachChat({ coach, name, exercise, starter, sessions, pr
             );
           })}
           {greetingShown && (
-            <div className="chat-empty">
+            <>
               {headChat && lastAt && localDay(lastAt) !== today() && <p className="chat-day">Today</p>}
               <p className="coach-bubble">{greeting}</p>
-              {messages.length === 0 && (
-                <div className="chat-suggest">
-                  {suggestions.map((s) => <button key={s} className="chip" onClick={() => send(s)}>{s}</button>)}
-                </div>
-              )}
-            </div>
+            </>
           )}
-          {!greetingShown && messages.length === 0 && (
-            <div className="chat-empty">
-              <p className="coach-bubble">What do you want to know? Ask me anything about your training.</p>
-              <div className="chat-suggest">
-                {suggestions.map((s) => <button key={s} className="chip" onClick={() => send(s)}>{s}</button>)}
-              </div>
-            </div>
-          )}
-          {replies.length > 0 && (
-            <div className="chat-suggest chat-replies" role="group" aria-label="Quick replies">
-              {replies.map((r) => <button key={r} type="button" className="chip" onClick={() => tapReply(r)}>{r}</button>)}
-            </div>
-          )}
+          {!greetingShown && empty && <p className="coach-bubble">What do you want to know? Ask me anything about your training.</p>}
         </div>
-        {/* Line beam from send until the answer finishes; the line type ignores reduced motion, so gate it here. */}
-        <BorderBeam size="line" theme={theme} active={busy && !reduced} className="chat-input-wrap">
-          <form className="chat-input" aria-busy={busy} onSubmit={(e) => { e.preventDefault(); send(draft); }}>
-            <label htmlFor="coach-q" className="sr-only">Your message for {c.name}</label>
-            <textarea id="coach-q" rows={1} value={draft} placeholder={headChat ? `Message ${c.name}…` : `Ask ${c.name}…`} maxLength={600}
-              onChange={(e) => setDraft(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(draft); } }} />
-            <button type="submit" aria-label="Send" disabled={!draft.trim() || busy}><ArrowUp size={20} strokeWidth={2.8} /></button>
-          </form>
-        </BorderBeam>
-        <p className="chat-note">
-          {headChat ? "Knows your last 30 days and what you've told it." : nutrition ? "Answers use your logged sets and food log." : "Answers use your logged sets."} AI can be wrong. Not medical advice.
-        </p>
+        <div className="chat-dock">
+          {away && (
+            <button type="button" className="chat-jump" onClick={() => { pinned.current = true; toEnd(true); }} aria-label="Jump to the latest message">
+              <ArrowDown size={18} strokeWidth={2.8} />
+            </button>
+          )}
+          {/* Tap-to-reply in one row that scrolls sideways, so it never crowds out the conversation;
+              out of the way while typing. On a first visit it holds the starter questions. */}
+          {(empty ? suggestions : replies).length > 0 && !busy && !draft.trim() && (
+            <div className="chat-replies" role="group" aria-label={empty ? "Suggested questions" : "Quick replies"}>
+              {(empty ? suggestions : replies).map((r) => <button key={r} type="button" className="chip" onClick={() => (empty ? send(r) : tapReply(r))}>{r}</button>)}
+            </div>
+          )}
+          {/* Line beam from send until the answer finishes; the line type ignores reduced motion, so gate it here. */}
+          <BorderBeam size="line" theme={theme} active={busy && !reduced} className="chat-input-wrap">
+            <form className="chat-input" aria-busy={busy} onSubmit={(e) => { e.preventDefault(); send(draft); }}>
+              <label htmlFor="coach-q" className="sr-only">Your message for {c.name}</label>
+              <textarea id="coach-q" ref={inputRef} rows={1} value={draft} placeholder={headChat ? `Message ${c.name}…` : `Ask ${c.name}…`} maxLength={600}
+                enterKeyHint="send" autoComplete="off"
+                onChange={(e) => setDraft(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(draft); } }} />
+              <button type="submit" aria-label="Send" disabled={!draft.trim() || busy}><ArrowUp size={20} strokeWidth={2.8} /></button>
+            </form>
+          </BorderBeam>
+        </div>
       </div>
     </Sheet>
   );

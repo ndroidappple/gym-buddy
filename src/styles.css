@@ -586,9 +586,10 @@ button.chip { min-height: 38px; padding: 0 14px; border: 2px solid var(--rule); 
 .coach-card i { font-style: normal; font-size: 12px; font-weight: 500; color: var(--faint); }
 
 /* ═══════════════ SHEET / TOAST ═══════════════ */
-/* Only the wrap animates when the keyboard moves (on a curve close to iOS's own keyboard); the
-   sheet sizes from the wrap in %, so everything inside moves together in one smooth motion. */
-.sheet-wrap { --kb-ease: cubic-bezier(.38, .7, .125, 1); --kb-ms: 280ms; position: fixed; left: 0; right: 0; top: var(--vv-top, 0px); height: var(--vv-h, 100dvh); z-index: 50; display: flex; align-items: flex-end; justify-content: center; transition: top var(--kb-ms) var(--kb-ease), height var(--kb-ms) var(--kb-ease); }
+/* Only the wrap's height animates when the keyboard moves (on a curve close to iOS's own keyboard,
+   started on focus so the two move together; see useVisibleViewport); the sheet sizes from the wrap
+   in %, so everything inside moves as one. Its top follows iOS's scroll of the page as it happens. */
+.sheet-wrap { --kb-ease: cubic-bezier(.38, .7, .125, 1); --kb-ms: 300ms; position: fixed; left: 0; right: 0; top: var(--vv-top, 0px); height: var(--vv-h, 100dvh); z-index: 50; display: flex; align-items: flex-end; justify-content: center; transition: height var(--kb-ms) var(--kb-ease); }
 .sheet { position: relative; width: 100%; max-width: 560px; background: var(--bg); border-radius: 28px 28px 0 0; max-height: min(90dvh, calc(100% - var(--safe-t) - 8px)); display: flex; flex-direction: column; padding-bottom: var(--safe-b); transition: padding-bottom var(--kb-ms) var(--kb-ease); animation: sheet-in var(--surface-ms) var(--surface); }
 /* The scrim is its own layer so a drag can fade it with the sheet's travel. */
 .sheet-scrim { position: absolute; inset: 0; background: var(--scrim); animation: fade var(--enter-ms) var(--enter); }
@@ -663,12 +664,12 @@ button.chip { min-height: 38px; padding: 0 14px; border: 2px solid var(--rule); 
 .sheet-chat .sheet-sub { max-height: 2.6em; }
 .chat-coach { max-height: 110px; }
 .chat-note { max-height: 3em; }
-.sheet-wrap[data-kb] .sheet-chat .sheet-grab { max-height: 0; margin-top: 4px; margin-bottom: 0; opacity: 0; }
-.sheet-wrap[data-kb] .sheet-chat .sheet-sub { max-height: 0; margin-top: 0; opacity: 0; }
-.sheet-wrap[data-kb] .sheet-chat .sheet-head { padding-bottom: 6px; }
+.sheet-wrap[data-kb] .sheet-chat:not(.sheet-convo) .sheet-grab { max-height: 0; margin-top: 4px; margin-bottom: 0; opacity: 0; }
+.sheet-wrap[data-kb] .sheet-chat:not(.sheet-convo) .sheet-sub { max-height: 0; margin-top: 0; opacity: 0; }
+.sheet-wrap[data-kb] .sheet-chat:not(.sheet-convo) .sheet-head { padding-bottom: 6px; }
 /* -10px cancels the .chat gap next to each folded block. */
 .sheet-wrap[data-kb] .chat-coach { max-height: 0; padding-top: 0; margin-bottom: -10px; opacity: 0; }
-.sheet-wrap[data-kb] .chat-note { max-height: 0; margin-top: -10px; opacity: 0; }
+.sheet-wrap[data-kb] .sheet-chat:not(.sheet-convo) .chat-note { max-height: 0; margin-top: -10px; opacity: 0; }
 .sheet-chat .sheet-head { transition: padding var(--kb-ms) var(--kb-ease); }
 .chat-list { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; padding: 2px 8px 4px; }
 .chat-list .coach-bubble { flex: none; align-self: flex-start; max-width: 88%; margin: 0; }
@@ -680,7 +681,6 @@ button.chip { min-height: 38px; padding: 0 14px; border: 2px solid var(--rule); 
 .chat-empty { display: flex; flex-direction: column; gap: 10px; }
 .chat-suggest { display: flex; flex-wrap: wrap; gap: 6px; }
 .chat-suggest .chip { white-space: normal; text-align: left; min-height: 40px; height: auto; padding: 8px 14px; }
-.chat-replies { justify-content: flex-end; padding-left: 32px; }
 /* The beam clips its wrapper, so the lip shadow lives on the wrapper, not the form. */
 .chat-input-wrap { flex: none; border-radius: 26px; box-shadow: 0 4px 0 var(--lip); }
 .chat-input { display: flex; align-items: flex-end; gap: 8px; padding: 6px; border-radius: 26px; background: var(--surface); border: 2px solid var(--rule); }
@@ -697,6 +697,34 @@ button.chip { min-height: 38px; padding: 0 14px; border: 2px solid var(--rule); 
 .sheet-chat.sheet-head-chat { height: calc(100% - var(--safe-t) - 8px); max-height: none; }
 .chat-day { flex: none; align-self: center; margin: 6px 0 0; font-size: 12px; font-weight: 700; color: var(--faint); letter-spacing: 0.02em; }
 .chat-memory { flex: none; align-self: flex-start; display: inline-flex; align-items: center; gap: 5px; margin: -4px 0 0 6px; font-size: 12px; font-weight: 600; color: var(--mute); }
+
+/* The coach chat as a conversation screen (CoachChat), modeled on messaging apps: full height, a
+   compact header with the coach (who still reacts as they think and answer), the conversation, and a
+   dock at the bottom. Nothing folds or reflows when the keyboard comes up: only the sheet's height
+   changes, in step with the keyboard, so the conversation stays put and readable. */
+.sheet-chat.sheet-convo { height: calc(100% - var(--safe-t) - 8px); max-height: none; }
+.sheet-convo .sheet-head { align-items: center; gap: 12px; padding: 4px 12px 10px 16px; border-bottom: 1.5px solid var(--rule); }
+.sheet-convo .sheet-title { font-size: 20px; }
+.sheet-convo .sheet-sub { font-size: 13px; margin-top: 1px; }
+.chat-head-coach { flex: none; width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center; overflow: visible; background: color-mix(in srgb, var(--c) 18%, transparent); }
+.sheet-convo .sheet-body { padding: 0 12px; }
+.sheet-convo .chat { gap: 0; }
+.sheet-convo .chat-list { gap: 12px; padding: 12px 4px 16px; overscroll-behavior: contain; }
+.sheet-convo .chat-note { flex: none; max-width: 300px; margin: 0 auto 4px; line-height: 1.4; }
+.chat-hero { flex: none; display: grid; place-items: center; padding: 8px 0 4px; }
+.sheet-convo .coach-bubble, .sheet-convo .chat-me { font-size: 16px; line-height: 1.45; }
+.sheet-convo .chat-list .coach-bubble { max-width: 90%; }
+.sheet-convo .chat-me { max-width: 84%; }
+/* The dock: jump-to-latest, one sideways row of replies, the message box. */
+.chat-dock { flex: none; position: relative; display: flex; flex-direction: column; gap: 8px; padding: 8px 0 4px; }
+.chat-replies { display: flex; gap: 8px; overflow-x: auto; margin: 0 -12px; padding: 0 12px 4px; scrollbar-width: none; overscroll-behavior-x: contain; scroll-padding-inline: 12px; }
+.chat-replies::-webkit-scrollbar { display: none; }
+.chat-replies .chip { flex: none; white-space: nowrap; min-height: 40px; padding: 0 16px; animation: bubble-in var(--pop-ms) var(--pop) both; }
+.chat-replies .chip:nth-child(2) { animation-delay: 40ms; }
+.chat-replies .chip:nth-child(3) { animation-delay: 80ms; }
+.chat-replies .chip:nth-child(n + 4) { animation-delay: 120ms; }
+.chat-jump { position: absolute; right: 2px; top: -48px; width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; background: var(--surface); color: var(--ink); border: 2px solid var(--rule); box-shadow: 0 3px 0 var(--lip); animation: bubble-in var(--pop-ms) var(--pop); }
+.sheet-convo .chat-input textarea { padding: 10px 12px; line-height: 1.4; max-height: 132px; overflow-y: auto; }
 .ask-btn { flex: none; display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 12px; border-radius: 999px; font-size: 13px; font-weight: 800; background: var(--surface-2); color: var(--ink); }
 button.coach-card { width: 100%; font: inherit; color: inherit; cursor: pointer; }
 button.coach-card:active { transform: translateY(3px); box-shadow: 0 2px 0 var(--lip); }
@@ -1255,7 +1283,7 @@ button.coach-card:active { transform: translateY(3px); box-shadow: 0 2px 0 var(-
 .cal-day.is-picked:active { transform: scale(0.94); }
 
 /* Pills, chips and round buttons: squeeze and deepen. A selected chip deepens too. */
-:is(.chip, .pill, .ask-btn, .coach-link, .chat-input button:not(:disabled), .coach-hello):active { transform: scale(0.95); }
+:is(.chip, .pill, .ask-btn, .coach-link, .chat-jump, .chat-input button:not(:disabled), .coach-hello):active { transform: scale(0.95); }
 .chip:active:not([aria-pressed="true"]), .ask-btn:active { background-color: color-mix(in srgb, var(--ink) 14%, var(--surface-2)); }
 .chip[aria-pressed="true"]:active { background-color: color-mix(in srgb, var(--ink) 82%, var(--bg)); }
 .rest .rb:active { transform: scale(0.94); background-color: color-mix(in srgb, var(--on-dock) 24%, transparent); }

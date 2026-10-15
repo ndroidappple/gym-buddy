@@ -9,6 +9,19 @@ import Coach from "./Coach.jsx";
 
 /* iOS lays the keyboard over the page instead of resizing it. The sheet follows the visible
    viewport instead, so the keyboard pushes it up rather than covering it. */
+/* Keeps a sheet inside the part of the screen the keyboard leaves visible. iOS Safari reports the
+   keyboard only once its slide-up has finished (one visualViewport resize at the end), so waiting for
+   that makes the sheet lag a beat behind and then catch up. Instead the keyboard's height is
+   remembered: the moment a text field is focused, the sheet starts moving to where the keyboard will
+   end, in step with it, and the real resize only confirms it (or corrects a first guess). Closing is
+   predicted the same way. The top follows iOS's own scroll of the page immediately, never animated:
+   iOS has already moved the page, so animating it too would be a second, lagging move. */
+const KB_KEY = "ironlog-kb-h";
+const kbFor = () => { try { return JSON.parse(sessionStorage.getItem(KB_KEY) || "{}")[orientation()] || 0; } catch { return 0; } };
+const orientation = () => (window.innerWidth > window.innerHeight ? "land" : "port");
+function rememberKb(h) {
+  try { const m = JSON.parse(sessionStorage.getItem(KB_KEY) || "{}"); m[orientation()] = Math.round(h); sessionStorage.setItem(KB_KEY, JSON.stringify(m)); } catch {}
+}
 function useVisibleViewport(wrap) {
   useEffect(() => {
     const vv = window.visualViewport;
@@ -17,22 +30,43 @@ function useVisibleViewport(wrap) {
     // Newer iOS shrinks innerHeight along with the visual viewport, so the height gap alone can
     // miss the keyboard. On touch screens a focused text field inside the sheet means it's up.
     const touch = window.matchMedia("(pointer: coarse)").matches;
-    const typing = () => touch && el.contains(document.activeElement) && /^(INPUT|TEXTAREA)$/.test(document.activeElement.tagName);
-    const fit = () => {
-      el.style.setProperty("--vv-top", `${vv.offsetTop}px`);
-      el.style.setProperty("--vv-h", `${vv.height}px`);
-      el.toggleAttribute("data-kb", window.innerHeight - vv.height > 120 || typing());
+    const isField = (n) => !!n && /^(INPUT|TEXTAREA)$/.test(n.tagName) && !/^(checkbox|radio|button|submit|range|file)$/.test(n.type);
+    const typing = () => touch && el.contains(document.activeElement) && isField(document.activeElement);
+    const set = (top, h, kb) => {
+      el.style.setProperty("--vv-top", `${top}px`);
+      el.style.setProperty("--vv-h", `${h}px`);
+      el.toggleAttribute("data-kb", kb);
     };
-    // focusout fires before focus lands elsewhere; wait a tick so moving between fields doesn't flicker.
-    const blur = () => setTimeout(fit, 0);
+    const fit = () => {
+      const gap = window.innerHeight - vv.height;
+      if (gap > 120) rememberKb(gap);
+      set(vv.offsetTop, vv.height, gap > 120 || typing());
+    };
+    // A field just got focus from a tap: go where the keyboard will end, now, instead of after it
+    // lands. Only after a tap: iOS focuses a field from code without showing the keyboard at all.
+    let tapped = 0;
+    const tap = (e) => { if (isField(e.target)) tapped = Date.now(); };
+    const focusin = (e) => {
+      const h = kbFor();
+      if (touch && isField(e.target) && h && Date.now() - tapped < 800 && window.innerHeight - vv.height < 120) set(0, window.innerHeight - h, true);
+      else fit();
+    };
+    // Focus left the fields (not just moved between them): the keyboard is going down.
+    const focusout = () => setTimeout(() => {
+      if (typing()) return;
+      if (touch && window.innerHeight - vv.height > 120) set(0, window.innerHeight, false);
+      else fit();
+    }, 0);
     fit();
     vv.addEventListener("resize", fit);
     vv.addEventListener("scroll", fit);
-    el.addEventListener("focusin", fit);
-    el.addEventListener("focusout", blur);
+    el.addEventListener("touchend", tap, { passive: true });
+    el.addEventListener("focusin", focusin);
+    el.addEventListener("focusout", focusout);
     return () => {
       vv.removeEventListener("resize", fit); vv.removeEventListener("scroll", fit);
-      el.removeEventListener("focusin", fit); el.removeEventListener("focusout", blur);
+      el.removeEventListener("touchend", tap);
+      el.removeEventListener("focusin", focusin); el.removeEventListener("focusout", focusout);
     };
   }, [wrap]);
 }
@@ -158,7 +192,9 @@ function useDragToClose(sheetRef, wrapRef, close) {
   }, [sheetRef, wrapRef, close]);
 }
 
-export function Sheet({ title, sub, onClose, children, labelledBy = "sheet-title", className = "" }) {
+/** `lead`: something shown before the title in the header, e.g. a chat's coach. `focusField`: false
+    keeps the keyboard down on open (a chat you open to read), instead of focusing the first field. */
+export function Sheet({ title, sub, lead, onClose, children, labelledBy = "sheet-title", className = "", focusField = true }) {
   const ref = useRef(null);
   const wrap = useRef(null);
   useVisibleViewport(wrap);
@@ -168,7 +204,7 @@ export function Sheet({ title, sub, onClose, children, labelledBy = "sheet-title
   useDragToClose(ref, wrap, close);
   useEffect(() => {
     const prev = document.activeElement;
-    const first = ref.current?.querySelector("input, textarea");
+    const first = focusField ? ref.current?.querySelector("input, textarea") : null;
     (first || ref.current)?.focus();
     const onKey = (e) => { if (e.key === "Escape") close.current(); };
     addEventListener("keydown", onKey);
@@ -182,7 +218,8 @@ export function Sheet({ title, sub, onClose, children, labelledBy = "sheet-title
       <div className={"sheet " + className} role="dialog" aria-modal="true" aria-labelledby={labelledBy} ref={ref} tabIndex={-1} onClick={(e) => e.stopPropagation()}>
         <div className="sheet-grab" aria-hidden="true" />
         <div className="sheet-head">
-          <div style={{ flex: 1 }}>
+          {lead}
+          <div style={{ flex: 1, minWidth: 0 }}>
             <h2 className="sheet-title" id={labelledBy}>{title}</h2>
             {sub && <p className="sheet-sub">{sub}</p>}
           </div>
