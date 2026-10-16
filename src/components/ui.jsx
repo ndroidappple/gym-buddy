@@ -316,13 +316,51 @@ export function ConfirmSheet({ title, body, confirm, onConfirm, onClose, danger 
   );
 }
 
+const TOAST_SLOP = 6, TOAST_FLING = 44;
 export function Toast({ toast, onDismiss, raised }) {
   // Slides down and fades when it times out or Undo is tapped; a new message rises in its place.
+  // A tap anywhere but Undo puts it away, and so does a swipe down or to either side, which it follows.
   const [t, leaving] = usePresence(toast);
+  const g = useRef(null);
+  const down = (e) => {
+    if (e.target.closest("button")) return;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    g.current = { id: e.pointerId, x: e.clientX, y: e.clientY, dx: 0, dy: 0, on: false };
+  };
+  const move = (e) => {
+    const d = g.current;
+    if (!d || d.id !== e.pointerId) return;
+    d.dx = e.clientX - d.x;
+    d.dy = Math.max(0, e.clientY - d.y); // down only: up has nowhere to go
+    if (!d.on && Math.max(Math.abs(d.dx), d.dy) < TOAST_SLOP) return;
+    const el = e.currentTarget;
+    if (!d.on) { d.on = true; el.style.animation = "none"; el.style.transition = "none"; }
+    el.style.transform = `translate(${d.dx}px, ${d.dy}px)`;
+    el.style.opacity = String(1 - Math.min(0.6, Math.max(Math.abs(d.dx), d.dy) / 200));
+  };
+  const up = (e) => {
+    const d = g.current;
+    if (!d || d.id !== e.pointerId) return;
+    g.current = null;
+    const el = e.currentTarget;
+    if (!d.on) { if (e.type === "pointerup") onDismiss(); return; } // a tap
+    const side = Math.abs(d.dx) > d.dy;
+    if (e.type === "pointerup" && Math.max(Math.abs(d.dx), d.dy) > TOAST_FLING) {
+      // Off the way it was thrown, over the same time usePresence keeps it around.
+      el.style.transition = reducedMotion() ? "none" : `transform ${EXIT_MS}ms ${EXIT_EASE}, opacity ${EXIT_MS}ms ${EXIT_EASE}`;
+      el.style.transform = side ? `translateX(${Math.sign(d.dx) * (el.offsetWidth + 40)}px)` : `translateY(${d.dy + 60}px)`;
+      el.style.opacity = "0";
+      onDismiss();
+    } else {
+      el.style.transition = `transform ${MS.slide}ms ${EASE.slide}, opacity ${MS.slide}ms ${EASE.slide}`;
+      el.style.transform = el.style.opacity = "";
+    }
+  };
   return (
     <div aria-live="polite" className="sr-live">
       {t && (
-        <div key={t.at} className={"toast" + (raised ? " raised" : "") + (leaving ? " leaving" : "")} role="status" inert={leaving ? "" : undefined}>
+        <div key={t.at} className={"toast" + (raised ? " raised" : "") + (leaving ? " leaving" : "")} role="status" inert={leaving ? "" : undefined}
+          onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up}>
           <span className="msg">{t.msg}</span>
           {t.undo && <button onClick={() => { t.undo(); onDismiss(); }}>Undo</button>}
         </div>
