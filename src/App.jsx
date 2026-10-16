@@ -134,7 +134,7 @@ export default function App() {
 
   useEffect(() => {
     if (!toast) return;
-    const t = setTimeout(() => setToast(null), toast.undo ? 6000 : 2600);
+    const t = setTimeout(() => setToast(null), toast.undo ? 5000 : 2600);
     return () => clearTimeout(t);
   }, [toast]);
 
