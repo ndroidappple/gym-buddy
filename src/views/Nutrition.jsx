@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight, Plus, Copy, MessageCircle } from "lucide-react";
 import Coach from "../components/Coach.jsx";
 import CoachChat from "../components/CoachChat.jsx";
@@ -20,7 +20,17 @@ export default function Nutrition({ food, prefs, notify, sessions, weighins, pro
   const [asking, setAsking] = useState(false);
   const n = prefs.nutrition || {};
   const t = n.targets;
-  const [date, setDate] = useState(today());
+  // null follows today: the home screen app can sleep for days, and a day picked when it opened
+  // would go stale, logging food to yesterday while the coach reads today.
+  const [picked, setPicked] = useState(null);
+  const date = picked || today();
+  const setDate = (d) => setPicked(d === today() ? null : d);
+  const [, wake] = useState(0);
+  useEffect(() => {
+    const onVis = () => { if (document.visibilityState === "visible") wake((x) => x + 1); };
+    document.addEventListener("visibilitychange", onVis);
+    return () => document.removeEventListener("visibilitychange", onVis);
+  }, []);
   const [adding, setAdding] = useState(null); // meal id
   const [editing, setEditing] = useState(null); // entry id
   const days = useMemo(() => byDate(food.entries), [food.entries]);
