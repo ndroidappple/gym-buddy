@@ -12,7 +12,7 @@ import { previewFoodEdits, applyFoodEdits } from "../lib/foodEdit.js";
 import { useReducedMotion } from "../lib/motion.js";
 import { useTheme } from "../lib/theme.js";
 import { cleanNotes } from "../lib/coachThread.js";
-import { daysBetween, today } from "../lib/util.js";
+import { daysBetween, today, shortDate } from "../lib/util.js";
 
 /* When the coach can't answer, it still answers in character. */
 const TROUBLE = {
@@ -57,12 +57,13 @@ function dayLabel(at) {
  * Two kinds:
  * - The head coach (`thread`, from useCoachThread()): one ongoing conversation, saved to the account,
  *   with 30 days of training and food from `buildHead()` and the coach's memory notes. It can propose
- *   program changes and, with `foodLog` (useFood()), edits to today's food log, applied only from the card.
- *   `topic="nutrition"` (from the Nutrition tab) only changes the starters.
+ *   program changes and, with `foodLog` (useFood()), edits to the food log, applied only from the card.
+ *   `topic="nutrition"` (from the Nutrition tab) changes the starters, and `day` is the date open there:
+ *   the coach reads that day's log and edits go to it.
  * - A crew coach mid-workout: `exercise` is the lift the chat was opened from; the chat isn't kept.
  *   `notes` (the head coach's memory) and `head` go along so the crew knows what the head coach knows.
  */
-export default function CoachChat({ coach, name, exercise, starter, sessions, program, weighins, profile, phase, nutrition, notes, head, live, topic, foodLog, thread, buildHead, onProgramChange, onClose }) {
+export default function CoachChat({ coach, name, exercise, starter, sessions, program, weighins, profile, phase, nutrition, notes, head, live, topic, foodLog, thread, buildHead, day, onProgramChange, onClose }) {
   const food = topic === "nutrition";
   const headChat = !!thread;
   const c = COACHES[coach];
@@ -197,7 +198,7 @@ export default function CoachChat({ coach, name, exercise, starter, sessions, pr
     const put = (patch) => setMessages((ms) => { const c2 = [...ms]; c2[c2.length - 1] = { ...c2[c2.length - 1], ...patch }; return c2; });
     const ask = () => askCoach({
       coach, head, messages: history, signal: abort.current.signal, mode: headChat ? "head" : undefined,
-      context: headChat ? buildHead() : [live, buildContext({ coach, sessions, program, weighins, profile, phase, nutrition, notes })].filter(Boolean).join("\n"),
+      context: headChat ? buildHead(day) : [live, buildContext({ coach, sessions, program, weighins, profile, phase, nutrition, notes })].filter(Boolean).join("\n"),
       onText: (t) => { setStatus("streaming"); put({ content: t }); },
     });
     try {
@@ -207,8 +208,9 @@ export default function CoachChat({ coach, name, exercise, starter, sessions, pr
       if (changes.length && onProgramChange) Object.assign(done, { content: done.content || "Here's the change I'd make.", changes, what: "program", preview: applyChanges(program, changes) });
       else if (foodEdits.length && foodLog) {
         // Checked against the log now; the ops keep entry ids, so Apply hits the same entries later.
-        const { ops, lines, errors } = previewFoodEdits(foodLog.entries, foodEdits, foodLog.foods);
-        Object.assign(done, { content: done.content || "Here's the change I'd make.", ops, what: "food", preview: { lines, errors } });
+        const date = day || today();
+        const { ops, lines, errors } = previewFoodEdits(foodLog.entries, foodEdits, foodLog.foods, date);
+        Object.assign(done, { content: done.content || "Here's the change I'd make.", ops, what: "food", preview: { lines, errors, ...(date !== today() ? { day: date } : {}) } });
       }
       if (memory && thread) {
         const had = new Set(thread.notes.map((x) => x.toLowerCase()));
@@ -378,7 +380,8 @@ const PROPOSAL = {
 /** A coach's proposed program or food log edit. Nothing is saved until the lifter taps Apply; Undo puts it back. */
 function Proposal({ preview, decision, what = "program", canUndo = true, onApply, onDismiss, onUndo }) {
   const { lines, errors } = preview;
-  const p = PROPOSAL[what];
+  // A food edit to a day other than today names the day.
+  const p = what === "food" && preview.day ? { ...PROPOSAL.food, label: `Proposed change to ${shortDate(preview.day)}'s log` } : PROPOSAL[what];
   return (
     <div className={"proposal" + (decision ? ` ${decision}` : "")} role="group" aria-label={p.label}>
       <span className="proposal-head"><p.icon size={16} strokeWidth={2.6} aria-hidden="true" />

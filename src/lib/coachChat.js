@@ -213,7 +213,7 @@ export function headContext(args) {
   }
 }
 
-function headLines({ sessions, program, weighins, profile, phase, n, entries = [], foodDays = {}, notes }, detail) {
+function headLines({ sessions, program, weighins, profile, phase, n, entries = [], foodDays = {}, notes, day }, detail) {
   const t = today();
   const ago = (d) => daysBetween(d, t);
   const lines = notes?.length ? notesLines(notes, "Your notes on the lifter") : ["Your notes on the lifter: none yet."];
@@ -254,9 +254,9 @@ function headLines({ sessions, program, weighins, profile, phase, n, entries = [
     lines.push(`Bodyweight, last ${HEAD_DAYS} days: ${bw30.slice(-10).map((x) => `${x.date.slice(5)} ${num(x.bw)}`).join(", ")} (${num(l.bw - f.bw)} lb, about ${num(((l.bw - f.bw) / span) * 7)} lb/week).`);
   } else if (bw.length) lines.push(`Bodyweight: ${num(bw[bw.length - 1].bw)} lb on ${bw[bw.length - 1].date}.`);
 
-  // Food: today in full (for edits), then each day and each week over the same 30 days.
+  // Food: today in full (for edits; the day open on the Nutrition tab instead, when that's another day), then each day and each week over the same 30 days.
   if (n?.targets) {
-    lines.push(...todayFood(n, entries));
+    lines.push(...todayFood(n, entries, day || t));
     const days = [];
     for (let i = HEAD_DAYS - 1; i >= 1; i--) {
       const d = addDays(t, -i);

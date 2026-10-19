@@ -1,10 +1,10 @@
 import { MEALS, cleanMeal, nutritionFor } from "./nutrition.js";
 import { today } from "./util.js";
 
-/* Tank editing today's food log from the nutrition chat. Like program changes, he only proposes:
-   the edits travel to the app, which checks them against the log, shows them on a card, and
-   changes nothing until the lifter taps Apply. Tank refers to entries by their number in the
-   "Eaten today" list he was given (#1, #2…); the app keeps the matching ids. */
+/* Tank editing a day's food log from the chat: today's, or the day open on the Nutrition tab. Like
+   program changes, he only proposes: the edits travel to the app, which checks them against the
+   log, shows them on a card, and changes nothing until the lifter taps Apply. Tank refers to
+   entries by their number in the "Eaten" list he was given (#1, #2…); the app keeps the matching ids. */
 
 const MEAL_IDS = MEALS.map((m) => m.id);
 const mealLabel = (id) => MEALS.find((m) => m.id === id)?.label || id;
@@ -13,9 +13,9 @@ const fmt = (n) => r(n).toLocaleString();
 const LIMIT = { kcal: 20000, protein: 2000, carbs: 2000, fat: 2000 }; // the food_entries checks
 const MACROS = ["protein", "carbs", "fat"];
 
-/** Today's entries in the order Tank sees them, oldest first. Entry n is "#n". */
-export const todaysEntries = (entries) =>
-  entries.filter((e) => e.date === today()).sort((a, b) => (a.created_at || "").localeCompare(b.created_at || ""));
+/** A day's entries (today's by default) in the order Tank sees them, oldest first. Entry n is "#n". */
+export const todaysEntries = (entries, day = today()) =>
+  entries.filter((e) => e.date === day).sort((a, b) => (a.created_at || "").localeCompare(b.created_at || ""));
 
 const num = (v, hi) => (v === undefined || v === null || v === "" ? undefined : Number.isFinite(+v) && +v >= 0 && +v < hi ? Math.round(+v * 10) / 10 : NaN);
 
@@ -56,12 +56,12 @@ function itemsDiff(before = [], after = []) {
 }
 
 /**
- * Checks Tank's proposed edits against today's log. Returns { ops, lines, errors }: ops are what
+ * Checks Tank's proposed edits against the log of `day` (today unless the Nutrition tab has another day open). Returns { ops, lines, errors }: ops are what
  * Apply does (by entry id, so they survive the list reordering), lines say it in words for the
  * card, errors say what was skipped and why.
  */
-export function previewFoodEdits(entries, edits, foods = []) {
-  const day = todaysEntries(entries);
+export function previewFoodEdits(entries, edits, foods = [], date = today()) {
+  const day = todaysEntries(entries, date);
   const ops = [], lines = [], errors = [];
   const touched = new Set();
   for (const e of (Array.isArray(edits) ? edits : []).slice(0, 6)) {
@@ -75,7 +75,7 @@ export function previewFoodEdits(entries, edits, foods = []) {
 
     if (action === "add") {
       if (!name || !meal || n.kcal === undefined) { errors.push("A food to add needs a name, a meal and its calories."); continue; }
-      const row = { date: today(), meal, name, amount: 1, unit: "serving", kcal: n.kcal, protein: n.protein ?? 0, carbs: n.carbs ?? 0, fat: n.fat ?? 0, source: "quick" };
+      const row = { date, meal, name, amount: 1, unit: "serving", kcal: n.kcal, protein: n.protein ?? 0, carbs: n.carbs ?? 0, fat: n.fat ?? 0, source: "quick" };
       ops.push({ type: "add", row });
       lines.push(`Add to ${mealLabel(meal)}: ${name}, ${macroLine(row)}`);
       continue;
@@ -83,7 +83,7 @@ export function previewFoodEdits(entries, edits, foods = []) {
 
     const ref = Number(e?.entry);
     const entry = Number.isInteger(ref) ? day[ref - 1] : undefined;
-    if (!entry) { errors.push(`There's no entry #${e?.entry} today.`); continue; }
+    if (!entry) { errors.push(`There's no entry #${e?.entry} ${date === today() ? "today" : "that day"}.`); continue; }
     if (touched.has(entry.id)) { errors.push(`${entry.name} was already changed above.`); continue; }
     touched.add(entry.id);
 
@@ -115,7 +115,7 @@ export function previewFoodEdits(entries, edits, foods = []) {
         if (saved) {
           ops.push({ type: "saved", id: saved.id, patch: { basis: { ...saved.basis, perServing: cooked.total, items: cooked.items } }, before: { basis: saved.basis } });
           lines.push(`Your saved ${saved.name} gets the same change`);
-        } else errors.push(`${entry.name} wasn't logged from a saved food, so only today's entry changes.`);
+        } else errors.push(`${entry.name} wasn't logged from a saved food, so only this entry changes.`);
       }
       continue;
     }

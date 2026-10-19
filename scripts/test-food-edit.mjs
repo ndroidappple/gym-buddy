@@ -1,8 +1,8 @@
-/* Checks for Tank editing today's food log from the nutrition chat (src/lib/foodEdit.js): his
+/* Checks for Tank editing the food log (today's, or the day open on the Nutrition tab) from the nutrition chat (src/lib/foodEdit.js): his
    proposed edits are checked against the log, shown as lines, applied by entry id, and undone.
    Run: npm run test:food   (exits 1 on any failure) */
 import { previewFoodEdits, applyFoodEdits, todaysEntries } from "../src/lib/foodEdit.js";
-import { nutritionChatContext } from "../src/lib/nutrition.js";
+import { nutritionChatContext, todayFood, addDays } from "../src/lib/nutrition.js";
 import { today } from "../src/lib/util.js";
 
 let failed = 0;
@@ -157,6 +157,24 @@ eq("undo: both back to 2% milk", [sl.entries[0].basis.items[0].food, sl.foods[0]
 // Asked to change a saved food that doesn't exist: only today's entry changes, and it says why.
 p = previewFoodEdits([{ ...smoothieEntry, source: "quick", source_ref: null }], [{ action: "update", entry: 1, items: swapped, update_saved_food: true }]);
 eq("no saved food: just the entry, with a note", [p.ops.length, p.errors.length], [1, 1]);
+
+// A past day open on the Nutrition tab: Tank reads that day numbered, and edits go to it.
+const y = addDays(d, -1);
+const PAST = [
+  ...ENTRIES,
+  { id: "p", date: y, meal: "dinner", name: "Pizza & Cheese Curds", amount: 1, unit: "meal", kcal: 1169, protein: 57, carbs: 110, fat: 65, source: "quick", created_at: "2026-10-19T16:16:00Z" },
+  { id: "q", date: y, meal: "breakfast", name: "Biscuit & Gravy", amount: 1, unit: "meal", kcal: 812, protein: 28, carbs: 62, fat: 50, source: "quick", created_at: "2026-10-18T16:35:00Z" },
+];
+const N = { targets: { kcal: 2160, protein: 160, carbs: 245, fat: 60 } };
+const past = todayFood(N, PAST, y).join("\n");
+eq("open day: its entries are numbered, oldest first", /Eaten on the open day.*#1 breakfast Biscuit & Gravy.*#2 dinner Pizza & Cheese Curds/.test(past), true);
+eq("open day: today's are listed without numbers", /Eaten today: breakfast Latte/.test(past) && !/#\d+ breakfast Latte/.test(past), true);
+eq("today open: unchanged", todayFood(N, PAST, d).join("\n"), todayFood(N, PAST).join("\n"));
+p = previewFoodEdits(PAST, [{ action: "update", entry: 2, meal: "lunch" }], [], y);
+eq("open day: move dinner to lunch hits that day's entry", [p.ops[0].id, p.ops[0].patch], ["p", { meal: "lunch" }]);
+p = previewFoodEdits(PAST, [{ action: "add", meal: "snacks", name: "Apple", kcal: 95, protein: 0, carbs: 25, fat: 0 }], [], y);
+eq("open day: an added food is dated that day", p.ops[0].row.date, y);
+eq("open day: a number past its list is refused", previewFoodEdits(PAST, [{ action: "remove", entry: 3 }], [], y).errors, ["There's no entry #3 that day."]);
 
 console.log(failed ? `food edit: ${failed} failed` : "food edit: all checks passed");
 process.exit(failed ? 1 : 0);

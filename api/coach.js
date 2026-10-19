@@ -146,12 +146,12 @@ export const FOOD_TOOLS = {
   offer_replies: COACH_TOOLS.offer_replies,
 };
 
-/* Editing today's food log from the nutrition chat. Like program changes this has no execute: the
+/* Editing a day's food log (today's, or the day open on the Nutrition tab) from the chat. Like program changes this has no execute: the
    edits travel to the app, which checks them against the log, shows a confirm card, and changes
    nothing unless the lifter taps Apply. */
 export const FOOD_LOG_TOOLS = {
   edit_food_log: tool({
-    description: "Propose changes to today's food log: change what's in a logged meal (swap an ingredient, change an amount), fix an entry's numbers, name or meal, add a food, or remove one. The app shows the lifter a confirm card; nothing changes unless they tap Apply. Use only when they ask to change their log or agree to your suggestion.",
+    description: "Propose changes to the food log: today's, or the open day's when the data has an Open day. Change what's in a logged meal (swap an ingredient, change an amount), fix an entry's numbers, name or meal, add a food, or remove one. The app shows the lifter a confirm card; nothing changes unless they tap Apply. Use only when they ask to change their log or agree to your suggestion.",
     inputSchema: jsonSchema({
       type: "object",
       properties: {
@@ -161,7 +161,7 @@ export const FOOD_LOG_TOOLS = {
             type: "object",
             properties: {
               action: { type: "string", enum: ["update", "add", "remove"], description: "update = change an entry already logged today; add = log a new food; remove = delete an entry." },
-              entry: { type: "integer", minimum: 1, description: "update/remove: the entry's number from the Eaten today list (#1 is 1)." },
+              entry: { type: "integer", minimum: 1, description: "update/remove: the entry's number from the numbered Eaten list (today's, or the open day's) (#1 is 1)." },
               meal: { type: "string", enum: ["breakfast", "lunch", "dinner", "snacks"], description: "add: the meal to log it to. update: only to move it to another meal." },
               name: { type: "string", maxLength: 60, description: "add: the food's name. update: only to rename it." },
               kcal: { type: "number", minimum: 0, maximum: 5000, description: "The entry's new total calories (the whole entry, not the difference)." },
@@ -170,7 +170,7 @@ export const FOOD_LOG_TOOLS = {
               fat: { type: "number", minimum: 0, maximum: 500, description: "Grams, the whole entry." },
               items: {
                 type: "array", minItems: 1, maxItems: 12,
-                description: "update only, to change what's in a meal: the entry's whole new ingredient list, every ingredient from its [ingredients] in Eaten today with the lifter's change made (an entry with no ingredients listed: its foods as you understand them). Each item's numbers are for its own amount. The app adds up the totals, so don't also send kcal, protein, carbs or fat.",
+                description: "update only, to change what's in a meal: the entry's whole new ingredient list, every ingredient from its [ingredients] in the numbered Eaten list with the lifter's change made (an entry with no ingredients listed: its foods as you understand them). Each item's numbers are for its own amount. The app adds up the totals, so don't also send kcal, protein, carbs or fat.",
                 items: {
                   type: "object",
                   properties: {
@@ -297,7 +297,7 @@ export function headInstructions(coach, context = "") {
     "Trends: a lift's 'trend since start' is its long-term progress, and it's what trend, progress and improved mean. 'Lately' is only its last few sessions: use it to spot a stall or a recent jump, and say that's what it is. For most or least improved, use the Long-term progress ranking as given (it's per month, so lifts started at different times compare fairly); don't re-rank it or do your own math. Lifts listed as too new can't be judged yet.",
     "Food: answer against their targets and what's eaten (e.g. what fits the calories and protein left today). Concrete foods with rough amounts and macros, common and easy to find. Protein first for a lifter; don't moralize; no fad diets. If food tracking is off, say tracking food in Settings would let you help with it.",
     "Program changes: when the lifter asks to change their program (add, remove or swap a lift, change sets, reps or rest, or rename a workout), call propose_program_change with day keys and lift names exactly as listed under Program. To rename a workout use action rename with new_name. Write one short sentence saying what you're proposing and why. Never say it's done: the lifter confirms it in the app. Suggest changes only when asked or when they agree to your idea.",
-    "Food log changes: when the lifter asks to fix, add, move or remove food logged today, call edit_food_log with the entry numbers from Eaten today (#1 is entry 1). Never say it's done: they confirm it in the app. Only today's log can be changed.",
+    "Food log changes: when the lifter asks to fix, add, move or remove food they logged, call edit_food_log with the entry numbers from the numbered Eaten list (#1 is entry 1). That's today's log, unless the data has an Open day: the lifter is looking at that day on the Nutrition tab, so their questions and changes are about it and edits go to it. Never say it's done: they confirm it in the app. Only that one day's log can be changed; for another day, tell them to open it on the Nutrition tab.",
     "Changing what's in a meal (swap an ingredient, change an amount): send update with the entry number and items, its whole ingredient list from [ingredients] with only their change made; the app adds up the totals. Never ask the lifter to work out calories or macros: that's your job. For the changed ingredient use standard nutrition values; for a named or specific product (a brand, ultrafiltered milk, a protein bar), call look_up_food first and search_web if nothing fits, then use its label scaled to the amount, and if nothing turns up, estimate and mark it estimated. If the amount is missing and matters, ask for just the amount. When the entry was logged from a saved food, ask in your reply whether to change the saved one too, and set update_saved_food only once they say yes.",
     "If the lifter data gives a first name, use it now and then, not in every reply.",
     "You are not a doctor or dietitian. For pain, injury, medical conditions, eating disorders or medication, tell them to stop what hurts and see a professional.",
