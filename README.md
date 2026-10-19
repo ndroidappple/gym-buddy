@@ -128,6 +128,42 @@ phone-first outbox (`src/lib/coachThread.js`):
   them before every answer. The crew sees them too. **Settings → What … remembers** lists them, deletes
   any, and clears the chat history.
 
+### Sounds (on by default)
+
+Five short sounds, all behind **Settings → Rest timer → Sound**: a click when a set is logged (iPhone web
+apps can't vibrate, so this is the only feedback there), four dings up C major for a PR, a tick on each of
+the last 3 seconds of rest, a small bell struck twice when rest is over, and a kalimba arpeggio on
+finishing a workout.
+
+They're made in code with [earshot](https://github.com/Leonxlnx/earshot)'s sound bank: no recordings, and
+nothing synthesized in the browser. `scripts/render-sounds.py` names each one (bank ids, seeds, pitches,
+timing, level), renders it, checks it with earshot's audit (clicks, clipping, cut tails, metallic ring) and
+writes `src/assets/sounds/*.mp3` (about 100 KB in all; MP3 because every browser decodes it, and open-source
+Chromium can't decode AAC). Levels follow earshot's calm kit (bell −3 dB, click −4.5, tick −5). To change
+one, edit the script and run `npm run sounds` (it needs Python, ffmpeg and earshot; the script's header says
+how to install them). `npm run sounds -- --listen` also scores each one with earshot's listening models
+(about 1.1 GB, downloaded once). How they score now (z against earshot's 322 descriptions; ≥ 3 is a strong
+match):
+
+| sound | asked for | z | sounds like |
+|---|---|---|---|
+| set | a short solid click of a button locking in place | +3.4 | a mechanical key press, a soft key release click |
+| pr | a bright happy celebratory chime, a reward sound | +3.8 | a success chime, a magic sparkle chime |
+| done | a warm resolving chime, a success sound | +3.1 | a success chime, a magic sparkle chime |
+| rest | a timer bell going off | +3.0 | a triangle hit, a bicycle bell, a small bell |
+| tick | a soft quiet wooden tick | +1.8 | a wooden block hit, lego bricks clicking |
+
+In a forced choice, all five win over "a cheap synthesizer laser zap / a video game blip / an 8-bit chiptune
+sound / an annoying electronic beep" (100%). The old rest chime (two sine tones) scored z +1.8 on "a timer
+bell going off" and won that choice only 5% of the time.
+
+`src/lib/sound.js` decodes them once into the Web Audio context when a workout opens, and plays them from
+memory. The countdown and the bell are booked a moment ahead on the audio clock, so they land exactly a
+second apart even though the screen only updates every 250 ms; +15, −15 and Skip call off one that hasn't
+played. If the audio is asleep (on iOS, after switching to a music app or a call, until the next tap), the
+timer sounds are skipped rather than played late. If the bell's file hasn't loaded, the old two tones play
+instead. Like the old chime, they play through Web Audio, which an iPhone mutes with its silent switch.
+
 ### Rest alerts (optional)
 
 A push notification when a rest timer ends, so it arrives with the phone locked (**Settings →
@@ -212,7 +248,7 @@ src/
   data/program.js          # default program, lift library, seed history, plate map
   lib/util.js              # e1RM, trends, PRs, dates, formatting
   lib/router.js            # hash routing (#/today, #/session/push, #/lift/…)
-  lib/sound.js             # rest-timer chime
+  lib/sound.js             # sounds (set, PR, rest countdown + bell, finish); scripts/render-sounds.py
   lib/push.js              # notification permission + this phone's push address (shared)
   lib/restAlerts.js        # lock-screen rest alerts (push; see public/sw.js, api/rest-alert.js)
   lib/weekReview.js        # week in review: facts, timing, agent tools, code-written fallback

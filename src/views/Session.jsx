@@ -2,7 +2,7 @@ import React, { useState, useEffect, useLayoutEffect, useMemo, useRef, useCallba
 import { ChevronLeft, Check, Plus, Minus, Trash2, Bell, BellOff } from "lucide-react";
 import { BorderBeam } from "border-beam";
 import { fmtSet, uid, e1rm, fmtW, today, shortDate, mmss, byDateDesc, priorSessions, allTimeBest, bestSet, vibrate, readyToIncrease, nextGoal, fmtGoal, weightStep, bodyweightSeries, daysBetween, setChange } from "../lib/util.js";
-import { primeAudio, chime } from "../lib/sound.js";
+import { primeAudio, loadSounds, play, cue } from "../lib/sound.js";
 import { restAlertState, scheduleRestAlert, cancelRestAlert, enableRestAlerts, declineRestAlerts, warmRestAlerts } from "../lib/restAlerts.js";
 import { Sheet, ConfirmSheet, ExercisePicker } from "../components/ui.jsx";
 import Coach, { MOODS } from "../components/Coach.jsx";
@@ -56,6 +56,7 @@ export default function Session({ day, existing, draft, sessions, program, weigh
   const [editing, setEditing] = useState(false); // numbers being adjusted on the active set
   const reactionTimer = useRef(null);
   useEffect(() => () => clearTimeout(reactionTimer.current), []);
+  useEffect(() => { loadSounds(); }, []); // decoded before the first set, so it sounds on the first tap
 
   /* Re-render when rest ends so the coach wakes from "recovering". */
   const [, setTick] = useState(0);
@@ -308,6 +309,7 @@ export default function Session({ day, existing, draft, sessions, program, weigh
     markStart();
     setFlash({ ex: ex.n, i });
     vibrate(20);
+    play("set");
     setActiveIdx(null);
     setEditing(false);
     setReaction({ ex: ex.n, mood: beat ? "proud" : "hyped" });
@@ -354,6 +356,7 @@ export default function Session({ day, existing, draft, sessions, program, weigh
     markStart();
     setFlash({ ex: ex.n, i });
     vibrate(pr ? [40, 60, 40, 60, 80] : 20);
+    play(pr ? "pr" : "set");
     const next = call?.w != null ? `${fmtW(call.w)} × ${call.r}` : null;
     // What the lock-screen alert says when this rest is over: the next set, or the next lift.
     const more = grid[ex.n].some((r, j) => j !== i && !r.done);
@@ -438,6 +441,7 @@ export default function Session({ day, existing, draft, sessions, program, weigh
     const sets = collectSets();
     if (!Object.keys(sets).length) return;
     cancelRestAlert();
+    if (!existing) { primeAudio(); play("done"); } // not for saving changes to a past workout
     // The order lifts were done in, and any swaps, travel with the session (for fair comparisons later).
     const done = order.filter((o) => sets[o.n]);
     onFinish({ id: uid(), day, date, bw: bw !== "" ? parseFloat(bw) : null, note: note.trim() || null, sets, startedAt: startedAt || Date.now(), finishedAt: Date.now(),
@@ -908,17 +912,38 @@ function RestDock({ timer, setTimer, alertSet, leaving }) {
   const [now, setNow] = useState(Date.now());
   const alerted = useRef(false);
   const handedOff = useRef(false);
-  useEffect(() => { alerted.current = timer.endsAt <= Date.now(); handedOff.current = false; }, [timer.endsAt]);
+  const cued = useRef({}); // sounds scheduled for this end time, by seconds before it (3, 2, 1 tick; 0 bell)
+  const callOff = () => Object.values(cued.current).forEach((cancel) => cancel());
+  useEffect(() => {
+    alerted.current = timer.endsAt <= Date.now(); handedOff.current = false; cued.current = {};
+    return callOff; // ±15 or the dock closing: what hasn't played yet won't
+  }, [timer.endsAt]);
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 250);
     return () => clearInterval(id);
   }, []);
   const left = Math.max(0, Math.ceil((timer.endsAt - now) / 1000));
   const over = left === 0;
+  // A tick on each of the last 3 seconds and the bell on the end, each booked a moment ahead on the audio
+  // clock so they keep time (the screen only updates every 250 ms). One already missed (the phone was
+  // locked, or −15 ended the rest) is skipped.
   useEffect(() => {
-    if (over && !alerted.current && !leaving) { alerted.current = true; chime(); vibrate([200, 100, 200]); }
+    if (leaving) { callOff(); return; }
+    const ms = timer.endsAt - now;
+    [3, 2, 1, 0].forEach((s) => {
+      const inS = (ms - s * 1000) / 1000;
+      if (cued.current[s] || inS > 0.3 || inS < -0.25 || (!s && alerted.current)) return;
+      cued.current[s] = cue(s ? "tick" : "rest", inS);
+    });
+  }, [now, timer.endsAt, leaving]);
+  useEffect(() => {
+    if (over && !alerted.current && !leaving) {
+      alerted.current = true;
+      if (!cued.current[0]) cued.current[0] = cue("rest");
+      vibrate([200, 100, 200]);
+    }
   }, [over, leaving]);
-  // On screen near the end: the chime will do, so call off the lock-screen alert. 4 s covers the
+  // On screen near the end: the bell will do, so call off the lock-screen alert. 4 s covers the
   // server sending up to 3 s early; locking the phone inside those 4 s means no alert this time.
   useEffect(() => {
     if (!over && !leaving && left <= 4 && alertSet && !handedOff.current && document.visibilityState === "visible") { handedOff.current = true; cancelRestAlert(); }

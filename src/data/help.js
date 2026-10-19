@@ -77,7 +77,7 @@ export const HELP = {
       { name: "Redo setup", Icon: Sparkles, spot: "redo", text: "Meet your coaches again to reshape your plan." },
       { name: "Program", Icon: Dumbbell, spot: "program", text: "Each day's lifts, sets, reps and rest. Rename days or bring in your own program." },
       { name: "Reps in reserve", Icon: Gauge, spot: "rir", text: "Rate how many more reps you had in you." },
-      { name: "Rest timer", Icon: Timer, spot: "rest", text: "A chime, a buzz, and an alert on your lock screen when rest is over." },
+      { name: "Rest timer", Icon: Timer, spot: "rest", text: "A 3-2-1 and a bell, a buzz, and an alert on your lock screen when rest is over." },
       { name: "Track food & macros", Icon: Utensils, spot: "nutrition", text: "Adds a Nutrition tab with daily calorie and macro targets." },
       { name: "Week in review", Icon: Sparkles, spot: "review", text: "Turn it on or off, pick its release day, and get a notification when it's ready." },
     ],

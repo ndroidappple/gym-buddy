@@ -108,7 +108,7 @@ export default function Settings({ program, sessions, prefs, setPref, go, notify
         <section className="section">
           <h2 className="lbl">Rest timer</h2>
           <div className="list" data-help="rest">
-            <Toggle Icon={Bell} label="Sound" sub="A short chime when rest is over." on={prefs.sound !== false}
+            <Toggle Icon={Bell} label="Sound" sub="A click on logged sets, a chime on PRs, and a 3-2-1 and a bell when rest ends." on={prefs.sound !== false}
               onChange={(v) => setPref("sound", v)} />
             {/* iPhone browsers can't vibrate, so the switch only shows where it does something. */}
             {canVibrate() && (
