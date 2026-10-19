@@ -122,7 +122,7 @@ export default function Nutrition({ food, prefs, notify, sessions, weighins, pro
       </div>
 
       {asking && (
-        <CoachChat coach={head} head={head} name={name} topic="nutrition" {...coachChat} sessions={sessions} program={program} weighins={weighins} profile={prefs.profile} phase={prefs.phase}
+        <CoachChat coach={head} head={head} name={name} topic="nutrition" day={date} {...coachChat} sessions={sessions} program={program} weighins={weighins} profile={prefs.profile} phase={prefs.phase}
           nutrition={nutrition} onProgramChange={onProgramChange} onClose={() => setAsking(false)} />
       )}
       {adding && <AddFood food={food} head={head} meal={adding} date={date} notify={notify} onClose={() => setAdding(null)} />}

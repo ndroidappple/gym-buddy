@@ -1,4 +1,4 @@
-import { bodyweightSeries, daysBetween, today, weekDates, iso } from "./util.js";
+import { bodyweightSeries, daysBetween, today, weekDates, iso, longDate } from "./util.js";
 
 /* Nutrition targets and daily totals. Targets start from a standard estimate of daily burn
    (Mifflin-St Jeor resting rate × an activity factor), shifted by the goal's weekly rate:
@@ -237,19 +237,37 @@ function ingredients(e) {
   return ` [ingredients${per}${saved}: ${items.map((x) => `${x.food} ${x.amount || ""} (${r(x.kcal)} kcal, P${r(x.protein)} C${r(x.carbs)} F${r(x.fat)}${x.label ? `, label: ${x.label}` : ""})`.replace(/ {2,}/g, " ")).join(", ")}]`;
 }
 
-/** Targets, what's left today, and today's entries numbered for edit_food_log, with each meal's ingredients. */
-export function todayFood(n, entries) {
+/** Targets, what's left today, and a day's entries numbered for edit_food_log, with each meal's
+    ingredients: today's, or those of `date` when the Nutrition tab has another day open (today's
+    are then listed without numbers, so there's only one #1). */
+export function todayFood(n, entries, date = today()) {
   // Same order as todaysEntries() in foodEdit.js: the coach names an entry to edit by its #number here.
-  const day = entries.filter((e) => e.date === today()).sort((a, b) => (a.created_at || "").localeCompare(b.created_at || ""));
+  const on = (d) => entries.filter((e) => e.date === d).sort((a, b) => (a.created_at || "").localeCompare(b.created_at || ""));
+  const day = on(today());
   const t = n.targets;
   const sum = totals(day);
   const left = { kcal: t.kcal - sum.kcal, protein: t.protein - sum.protein, carbs: t.carbs - sum.carbs, fat: t.fat - sum.fat };
   const r = Math.round;
-  return [
+  const numbered = (xs) => xs.map((e, i) => `#${i + 1} ${e.meal} ${e.name}, ${+e.amount || 1} ${e.unit || "serving"} (${r(e.kcal)} kcal, P${r(e.protein)} C${r(e.carbs)} F${r(e.fat)})${ingredients(e)}`).join("; ");
+  const lines = [
     nutritionContext(n, entries),
     `Left today: ${r(left.kcal)} kcal, ${r(left.protein)} g protein, ${r(left.carbs)} g carbs, ${r(left.fat)} g fat.`,
-    day.length ? `Eaten today: ${day.map((e, i) => `#${i + 1} ${e.meal} ${e.name}, ${+e.amount || 1} ${e.unit || "serving"} (${r(e.kcal)} kcal, P${r(e.protein)} C${r(e.carbs)} F${r(e.fat)})${ingredients(e)}`).join("; ")}.` : "Nothing logged yet today.",
   ];
+  if (date === today()) {
+    lines.push(day.length ? `Eaten today: ${numbered(day)}.` : "Nothing logged yet today.");
+    return lines;
+  }
+  const open = on(date);
+  const s = totals(open);
+  const ago = daysBetween(date, today());
+  lines.push(
+    day.length ? `Eaten today: ${day.map((e) => `${e.meal} ${e.name} (${r(e.kcal)} kcal, ${r(e.protein)} g protein)`).join("; ")}.` : "Nothing logged yet today.",
+    `Open day: the lifter is looking at ${longDate(date)}${ago === 1 ? " (yesterday)" : ago > 1 ? ` (${ago} days ago)` : ""} on the Nutrition tab, so "breakfast", "dinner" or "my log" mean that day's, and food log changes go to that day, not today.`,
+    open.length
+      ? `Eaten on the open day (${r(s.kcal)} kcal, ${r(s.protein)} g protein, ${r(s.carbs)} g carbs, ${r(s.fat)} g fat): ${numbered(open)}.`
+      : "Nothing logged on the open day.",
+  );
+  return lines;
 }
 
 /**
