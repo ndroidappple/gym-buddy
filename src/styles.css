@@ -533,7 +533,12 @@ button.chip { min-height: 38px; padding: 0 14px; border: 2px solid var(--rule); 
 .pager-track::-webkit-scrollbar { display: none; }
 .pager-page { flex: 0 0 100%; min-width: 0; display: flex; scroll-snap-align: start; scroll-snap-stop: always; }
 .pager-page > * { flex: 1; min-width: 0; }
-.pager-dots { display: flex; justify-content: center; }
+/* Dots in the middle column, Edit in the right one, so a full set of dots never runs under it. */
+.pager-foot { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; min-height: 22px; }
+.pager-edit { grid-column: 3; justify-self: end; margin: -10px 0; }
+.pager-dots { grid-column: 2; display: flex; justify-content: center; }
+.lift-card-empty { margin: auto 0; padding: 12px 0; font-size: 15px; font-weight: 600; opacity: 0.85; }
+.list-row:disabled { opacity: 0.4; }
 .pager-dots button { width: 22px; height: 22px; display: grid; place-items: center; }
 .pager-dots button::before { content: ""; width: 7px; height: 7px; border-radius: 4px; background: var(--mute); opacity: 0.45; transition: width 0.2s, opacity 0.2s; }
 .pager-dots button[aria-current="true"]::before { width: 18px; background: var(--ink); opacity: 1; }

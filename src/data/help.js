@@ -1,6 +1,6 @@
 import {
   Play, Bell, ArrowLeftRight, Target, CalendarCheck, Scale, Trophy, TrendingUp, Flag, List, CalendarDays, Pencil,
-  Gauge, LineChart, Hash, History, Dumbbell, Plus, FileSpreadsheet, Users, MessageCircle, Sparkles, SlidersHorizontal, Download, ClipboardPaste, Utensils, PieChart, Copy, CircleUser, Timer,
+  Gauge, LineChart, Pin, Hash, History, Dumbbell, Plus, FileSpreadsheet, Users, MessageCircle, Sparkles, SlidersHorizontal, Download, ClipboardPaste, Utensils, PieChart, Copy, CircleUser, Timer,
 } from "lucide-react";
 
 /* What each screen is for, shown from the (i) in its header as a short tap-through: one feature per
@@ -44,7 +44,7 @@ export const HELP = {
       { name: "Est. max", Icon: Gauge, text: "The most you could likely lift once. 80 lb × 12 ≈ 112 lb." },
       { name: "Trend", Icon: TrendingUp, spot: "trend", text: "How much a lift has moved lately, counting fatigue: a lift done late isn't a drop." },
       { name: "PR", Icon: Trophy, spot: "pr", text: "A glowing row is a PR from your last workout. A [PR] stamp, the last two weeks." },
-      { name: "Charts", Icon: LineChart, spot: "charts", text: "Swipe the top card for your most-trained lifts. Hold a chart to read a point." },
+      { name: "Charts", Icon: LineChart, spot: "charts", text: "Swipe the top card for your lifts. [Edit] picks which, up to 8. Hold a chart to read a point." },
       { name: "Bulk or cut", Icon: Scale, spot: "phase", text: "Set a target weight. Your coaches track your pace." },
       { name: "Your lifts", Icon: Dumbbell, spot: "lift", text: "Tap one for its chart and records." },
     ],
@@ -52,6 +52,7 @@ export const HELP = {
   lift: {
     title: "Lift detail",
     steps: [
+      { name: "Pin", Icon: Pin, spot: "pin", text: "Give this lift a page in the chart at the top of Progress. Up to 8." },
       { name: "Chart", Icon: LineChart, spot: "metric", text: "Switch between [Est. max], [Top set] and [Volume] over time." },
       { name: "Best by reps", Icon: Hash, spot: "rep-records", text: "Your heaviest weight for each number of reps." },
       { name: "Recent sessions", Icon: History, spot: "sessions", text: "Tap one to open that workout." },
