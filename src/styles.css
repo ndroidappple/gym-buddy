@@ -694,7 +694,13 @@ button.chip { min-height: 38px; padding: 0 14px; border: 2px solid var(--rule); 
 .sheet-wrap[data-kb] .chat-coach { max-height: 0; padding-top: 0; margin-bottom: -10px; opacity: 0; }
 .sheet-wrap[data-kb] .sheet-chat:not(.sheet-convo) .chat-note { max-height: 0; margin-top: -10px; opacity: 0; }
 .sheet-chat .sheet-head { transition: padding var(--kb-ms) var(--kb-ease); }
-.chat-list { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; padding: 2px 8px 4px; }
+/* Up and down only: nothing sideways to drag (a long word wraps), and the sheet behind never scrolls with it. */
+.chat-list { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 10px; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; touch-action: pan-y; padding: 2px 8px 4px; }
+.chat-list .coach-bubble, .chat-me { overflow-wrap: anywhere; }
+.chat-past { flex: 1; min-height: 0; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; touch-action: pan-y; display: flex; flex-direction: column; gap: 10px; padding: 4px 0 8px; }
+.chat-past-title { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
+.chat-past [aria-current] { background: var(--surface-2); }
+.chat-past-note { margin: 0 4px; }
 .chat-list .coach-bubble { flex: none; align-self: flex-start; max-width: 88%; margin: 0; }
 .chat-me, .chat-list .coach-bubble { animation: bubble-in var(--pop-ms) var(--pop); transform-origin: bottom left; }
 .chat-me { transform-origin: bottom right; }

@@ -192,9 +192,10 @@ function useDragToClose(sheetRef, wrapRef, close) {
   }, [sheetRef, wrapRef, close]);
 }
 
-/** `lead`: something shown before the title in the header, e.g. a chat's coach. `focusField`: false
+/** `lead`: something shown before the title in the header, e.g. a chat's coach; `actions`: buttons
+    before the close button. `focusField`: false
     keeps the keyboard down on open (a chat you open to read), instead of focusing the first field. */
-export function Sheet({ title, sub, lead, onClose, children, labelledBy = "sheet-title", className = "", focusField = true }) {
+export function Sheet({ title, sub, lead, actions, onClose, children, labelledBy = "sheet-title", className = "", focusField = true }) {
   const ref = useRef(null);
   const wrap = useRef(null);
   useVisibleViewport(wrap);
@@ -223,6 +224,7 @@ export function Sheet({ title, sub, lead, onClose, children, labelledBy = "sheet
             <h2 className="sheet-title" id={labelledBy}>{title}</h2>
             {sub && <p className="sheet-sub">{sub}</p>}
           </div>
+          {actions}
           <button className="icon-btn" onClick={onClose} aria-label="Close"><X size={20} /></button>
         </div>
         <div className="sheet-body">{children}</div>

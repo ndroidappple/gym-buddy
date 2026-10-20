@@ -5,14 +5,19 @@ import { newId } from "./food.js";
 /* The conversation with the head coach, and what the coach remembers. Same promise as the food
    log: every change lands on this phone first (localStorage), then an outbox sends it to Supabase
    (coach_messages, coach_memory), retrying until it's through. Messages are kept 30 days here and
-   on the server (a nightly job deletes older ones); the memory notes are how older things carry on. */
+   on the server (a nightly job deletes older ones); the memory notes are how older things carry on.
+
+   The thread is split into chats (meta.chat on each message). A chat goes quiet after CHAT_GAP_MS
+   without a message: the next visit opens a new one, and the old one stays under past chats.
+   Messages saved before chats existed are split wherever an hour passed between two of them. */
 
 export const KEEP_DAYS = 30;
 const KEY = (uid) => `ironlog-coach:${uid}`;
 const COLS = ["id", "coach", "role", "content", "meta", "created_at", "updated_at"];
 const pick = (o) => Object.fromEntries(COLS.filter((k) => o[k] !== undefined).map((k) => [k, o[k]]));
 const cutoff = () => new Date(Date.now() - KEEP_DAYS * 86400000).toISOString();
-const EMPTY = { messages: {}, notes: [], notesAt: null, outbox: [] };
+const EMPTY = { messages: {}, notes: [], notesAt: null, outbox: [], current: null }; // current: { id, at } of the chat picked on this phone
+export const CHAT_GAP_MS = 3600_000;
 export const MAX_NOTES = 20;
 
 function readLocal(uid) {
@@ -22,6 +27,24 @@ function writeLocal(uid, s) {
   try { localStorage.setItem(KEY(uid), JSON.stringify(s)); } catch {}
 }
 const fresh = (messages) => { const c = cutoff(); return Object.fromEntries(Object.entries(messages).filter(([, m]) => (m.created_at || "") >= c)); };
+
+/** Saved messages (oldest first) as chats: [{ id, messages, start, end }], each oldest first. */
+export function splitChats(rows) {
+  const chats = new Map();
+  let lastOld = null, oldKey = null;
+  for (const r of rows) {
+    let key = r.meta?.chat;
+    if (!key) {
+      const t = Date.parse(r.created_at);
+      if (lastOld == null || t - lastOld >= CHAT_GAP_MS) oldKey = `old:${r.id}`;
+      lastOld = t;
+      key = oldKey;
+    }
+    if (!chats.has(key)) chats.set(key, { id: key, messages: [] });
+    chats.get(key).messages.push(r);
+  }
+  return [...chats.values()].map((c) => ({ ...c, start: c.messages[0].created_at, end: c.messages[c.messages.length - 1].created_at }));
+}
 
 /** Cleans what the model sent as memory: short, distinct, non-empty strings. */
 export function cleanNotes(notes) {
@@ -34,8 +57,9 @@ export function cleanNotes(notes) {
 }
 
 /**
- * The head coach thread for the signed-in lifter. Returns { ready, messages (oldest first), notes,
- * status, addMessage, updateMessage, setNotes, clearMessages }. status: "synced" | "pending" | "offline".
+ * The head coach thread for the signed-in lifter. Returns { ready, messages (oldest first), chats,
+ * chatId (the chat to open now; null for a new one), notes, status, addMessage, updateMessage, setNotes,
+ * clearMessages, newChat, openChat }. status: "synced" | "pending" | "offline".
  */
 export function useCoachThread(enabled = true) {
   const [uid, setUid] = useState(null);
@@ -176,6 +200,17 @@ export function useCoachThread(enabled = true) {
     later();
   }, [commit, later]);
 
+  // Starting or reopening a chat is this phone's choice: it isn't sent anywhere. Returns the chat's id.
+  const pickChat = useCallback((id) => { commit((s) => ({ ...s, current: { id, at: new Date().toISOString() } })); return id; }, [commit]);
+  const newChat = useCallback(() => pickChat(newId()), [pickChat]);
+
   const messages = useMemo(() => Object.values(state.messages).sort((a, b) => (a.created_at || "").localeCompare(b.created_at || "")), [state.messages]);
-  return { ready: enabled && ready, messages, notes: state.notes, status: enabled ? status : "synced", addMessage, updateMessage, setNotes, clearMessages };
+  const chats = useMemo(() => splitChats(messages), [messages]);
+  // The chat picked here while it's active (picked or written to within the hour), else the latest
+  // chat while it's active, else none: a new one starts.
+  const active = (at) => !!at && Date.now() - Date.parse(at) < CHAT_GAP_MS;
+  const cur = state.current;
+  const latest = chats.reduce((b, c) => (!b || c.end > b.end ? c : b), null);
+  const chatId = cur && (active(cur.at) || active(chats.find((c) => c.id === cur.id)?.end)) ? cur.id : active(latest?.end) ? latest.id : null;
+  return { ready: enabled && ready, messages, chats, chatId, notes: state.notes, status: enabled ? status : "synced", addMessage, updateMessage, setNotes, clearMessages, newChat, openChat: pickChat };
 }

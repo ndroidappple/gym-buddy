@@ -65,7 +65,7 @@ export const HELP = {
       { name: "Add", Icon: Plus, spot: "meal", text: "Log food: describe it to your head coach, pick a recent food, search, or enter it manually." },
       { name: "Describe a meal", Icon: MessageCircle, text: "Say what you ate in your own words. Your head coach itemizes it and saves it as one food." },
       { name: "Copy", Icon: Copy, text: "An empty meal can copy yesterday's in one tap." },
-      { name: "Ask", Icon: MessageCircle, spot: "ask", text: "Ask your head coach what to eat, about your macros, or how your week's going. Same chat as on Today." },
+      { name: "Ask", Icon: MessageCircle, spot: "ask", text: "Ask your head coach what to eat, about your macros, or how your week's going. Same chats as on Today." },
       { name: "This week", Icon: CalendarDays, spot: "week", text: "Each day against your target. The line is your calorie target." },
     ],
   },
@@ -110,7 +110,7 @@ export const HELP = {
     title: "Coaches",
     steps: [
       { name: "Your crew", Icon: Users, spot: "coaches", text: "One coach per muscle group. Meet each once to pick their lifts." },
-      { name: "Your head coach", Icon: MessageCircle, text: "Who you talk to after setup: one ongoing chat that sees 30 days of workouts and food and remembers what you tell it. Nothing changes until you tap [Apply]." },
+      { name: "Your head coach", Icon: MessageCircle, text: "Who you talk to after setup. A chat quiet for an hour starts fresh next time; past chats stay 30 days. It sees 30 days of workouts and food and remembers what you tell it. Nothing changes until you tap [Apply]." },
       { name: "In your workout", Icon: Dumbbell, text: "Each lift's coach calls a cue and reacts to your sets." },
     ],
   },
