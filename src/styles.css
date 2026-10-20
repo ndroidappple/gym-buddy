@@ -170,6 +170,7 @@ html[data-nav="back"]::view-transition-new(root) { animation: vt-fade-in var(--e
 .section > .lbl, .section-head { margin: 0 4px; }
 .section-head { display: flex; align-items: baseline; gap: 10px; }
 .section-head .lbl { flex: 1; margin: 0; }
+.see-all { font-size: 13px; font-weight: 800; color: var(--ink); padding: 10px 4px; margin: -10px -4px; }
 /* Two title sizes: tab screens (page-title) and screens you drill into (top-title, detail-title). */
 .page-title { font-weight: 800; font-size: 32px; line-height: 1.05; letter-spacing: -0.02em; }
 .detail-title { font-weight: 800; font-size: 26px; line-height: 1.1; letter-spacing: -0.02em; }
@@ -488,14 +489,18 @@ button.chip { min-height: 38px; padding: 0 14px; border: 2px solid var(--rule); 
 .summary-done .next { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 600; opacity: 0.75; }
 
 /* ═══════════════ PROGRESS / LIFT ═══════════════ */
-.bw-card { display: flex; flex-direction: column; gap: 10px; padding: 16px; border-radius: var(--r-xl); background: var(--accent); color: #FFFFFF; box-shadow: 0 7px 0 var(--accent-lip); text-decoration: none; }
+.bw-card { --card-bg: var(--accent); --lip: var(--accent-lip); display: flex; flex-direction: column; gap: 10px; padding: 16px; border-radius: var(--r-xl); background: var(--card-bg); color: #FFFFFF; box-shadow: 0 7px 0 var(--lip); text-decoration: none; }
+/* A lift's page in the top card wears its day's plate color (bodyweight's purple when it's off program). */
+.lift-card { --card-bg: var(--day, var(--accent)); --lip: var(--day-lip, var(--accent-lip)); color: var(--on-day, #FFFFFF); }
+.lift-card-head { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+.lift-card-head .lbl { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .bw-card .top-row { display: flex; align-items: flex-start; gap: 10px; }
 .bw-card .lbl { color: inherit; opacity: 0.85; }
 .bw-card .big { font-weight: 800; font-size: 40px; line-height: 1; letter-spacing: -0.02em; }
 .bw-card .big small { font-size: 18px; opacity: 0.8; }
-.bw-card .pill { background: rgba(255, 255, 255, 0.2); color: #FFFFFF; }
+.bw-card .pill { background: rgba(255, 255, 255, 0.2); color: inherit; flex: none; }
 .bw-card svg { display: block; width: 100%; height: auto; overflow: visible; }
-.bw-card .ends { display: flex; font-size: 12px; font-weight: 700; opacity: 0.8; }
+.bw-card .ends { display: flex; font-size: 12px; font-weight: 700; opacity: 0.8; margin-top: auto; }
 .bw-empty { display: flex; align-items: center; gap: 12px; padding: 14px 16px; }
 .lift-row { display: grid; grid-template-columns: 1fr 56px auto; gap: 10px; align-items: center; min-height: 60px; padding: 6px 8px; border-radius: var(--r); text-align: left; width: 100%; color: inherit; text-decoration: none; }
 .lift-row:active { background: var(--surface-2); }
@@ -511,7 +516,7 @@ button.chip { min-height: 38px; padding: 0 14px; border: 2px solid var(--rule); 
 .seg-count { font-weight: 600; opacity: .7; }
 .trends-sum { margin: 0; font-size: 15px; }
 .bw-log { flex: none; width: auto; min-height: 40px; padding: 0 16px; font-size: 15px; } /* .btn is full-width by default */
-.bw-log-pill { background: rgba(255,255,255,.18); color: inherit; font-weight: 800; }
+.bw-log-pill { background: rgba(255,255,255,.18); color: inherit; font-weight: 800; text-decoration: none; }
 .chart { padding: 12px 8px 6px; position: relative; }
 .chart svg { display: block; width: 100%; height: auto; overflow: visible; }
 /* Hold-to-read charts (useScrub): no text selection, callout or magnifier while holding. */
@@ -520,7 +525,18 @@ button.chip { min-height: 38px; padding: 0 14px; border: 2px solid var(--rule); 
   font-size: 12px; font-weight: 600; line-height: 1.25; background: var(--ink); color: var(--bg); padding: 6px 11px; border-radius: 12px; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25); }
 .chart-tip b { font-size: 15px; font-weight: 800; }
 .chart-tip span { opacity: 0.75; }
-.bw-card .chart-tip { background: #FFFFFF; color: var(--accent-lip); }
+.bw-card .chart-tip { background: #FFFFFF; color: var(--lip); }
+/* The top card's pages: a sideways snap scroller, edge to edge so a page slides in from the screen's edge. */
+.pager { display: flex; flex-direction: column; gap: 6px; }
+.pager-track { display: flex; gap: 12px; margin: 0 -16px; padding: 0 16px 8px; scroll-padding: 0 16px; overflow-x: auto; overscroll-behavior-x: contain;
+  scroll-snap-type: x mandatory; scrollbar-width: none; }
+.pager-track::-webkit-scrollbar { display: none; }
+.pager-page { flex: 0 0 100%; min-width: 0; display: flex; scroll-snap-align: start; scroll-snap-stop: always; }
+.pager-page > * { flex: 1; min-width: 0; }
+.pager-dots { display: flex; justify-content: center; }
+.pager-dots button { width: 22px; height: 22px; display: grid; place-items: center; }
+.pager-dots button::before { content: ""; width: 7px; height: 7px; border-radius: 4px; background: var(--mute); opacity: 0.45; transition: width 0.2s, opacity 0.2s; }
+.pager-dots button[aria-current="true"]::before { width: 18px; background: var(--ink); opacity: 1; }
 .table-row { display: grid; grid-template-columns: 84px 1fr auto; gap: 8px; align-items: baseline; font-size: 14px; padding: 10px 4px; border-bottom: 2px solid var(--rule); }
 .table-row b { font-size: 18px; font-weight: 800; }
 

@@ -21,6 +21,18 @@ function writeCache(id, reviews) {
 function remember(id, review) {
   if (review?.weekEnd && review.story) writeCache(id, { ...readCache(id), [review.weekEnd]: review });
 }
+const summaries = (reviews) => Object.values(reviews).sort((a, b) => b.weekEnd.localeCompare(a.weekEnd))
+  .map((r) => ({ weekEnd: r.weekEnd, headline: r.story?.headline || "" }));
+
+/* Who's signed in, known without waiting, so a list can draw from this phone's copies on its first
+   frame instead of popping in once the account answers. */
+let signedIn = null;
+supabase.auth.onAuthStateChange((_e, s) => { signedIn = s?.user?.id || null; });
+
+/** The reviews this phone already has, newest first, right now: what a list shows while listReviews asks the account. */
+export function cachedReviews(limit = 26) {
+  return summaries(readCache(signedIn)).slice(0, limit);
+}
 
 /** This phone's copy of a week's review, if it has one. */
 export async function cachedReview(weekEnd) {
@@ -47,7 +59,7 @@ export async function listReviews(limit = 26) {
       try { const r = JSON.parse(row.value); remember(id, r); return { weekEnd: r.weekEnd, headline: r.story?.headline || "" }; } catch { return null; }
     }).filter(Boolean);
   } catch {
-    return Object.values(readCache(id)).sort((a, b) => b.weekEnd.localeCompare(a.weekEnd)).map((r) => ({ weekEnd: r.weekEnd, headline: r.story?.headline || "" }));
+    return summaries(readCache(id)).slice(0, limit);
   }
 }
 

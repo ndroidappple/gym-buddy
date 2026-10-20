@@ -44,6 +44,7 @@ export const HELP = {
       { name: "Est. max", Icon: Gauge, text: "The most you could likely lift once. 80 lb × 12 ≈ 112 lb." },
       { name: "Trend", Icon: TrendingUp, spot: "trend", text: "How much a lift has moved lately, counting fatigue: a lift done late isn't a drop." },
       { name: "PR", Icon: Trophy, spot: "pr", text: "A glowing row is a PR from your last workout. A [PR] stamp, the last two weeks." },
+      { name: "Charts", Icon: LineChart, spot: "charts", text: "Swipe the top card for your most-trained lifts. Hold a chart to read a point." },
       { name: "Bulk or cut", Icon: Scale, spot: "phase", text: "Set a target weight. Your coaches track your pace." },
       { name: "Your lifts", Icon: Dumbbell, spot: "lift", text: "Tap one for its chart and records." },
     ],

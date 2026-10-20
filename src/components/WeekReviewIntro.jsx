@@ -3,7 +3,7 @@ import { Sparkles, Target, TrendingUp, Lightbulb, ChevronRight, Bell } from "luc
 import { Sheet } from "./ui.jsx";
 import { WEEKDAYS, rangeLabel, hourLabel, whenLabel, coversLabel } from "../lib/weekReview.js";
 import { phoneState, allowNotifications } from "../lib/push.js";
-import { listReviews } from "../lib/reviews.js";
+import { listReviews, cachedReviews } from "../lib/reviews.js";
 import { href } from "../lib/router.js";
 
 /** The glowing button Today shows when a review is ready. `glow` until it's been opened. */
@@ -89,14 +89,19 @@ export default function WeekReviewIntro({ settings, onSave }) {
   );
 }
 
-/** Saved reviews, newest first, each opening its cards. Renders nothing until there's one. */
-export function ReviewList({ limit = 26, onLoaded }) {
-  const [rows, setRows] = useState(null);
+/** Saved reviews, newest first: this phone's copies at once, then the account's list. null while there's nothing to show yet. */
+export function useReviews(limit = 26) {
+  const [rows, setRows] = useState(() => { const c = cachedReviews(limit); return c.length ? c : null; });
   useEffect(() => {
     let alive = true;
-    listReviews(limit).then((r) => { if (alive) { setRows(r); onLoaded?.(r.length); } }).catch(() => { if (alive) { setRows([]); onLoaded?.(0); } });
+    listReviews(limit).then((r) => { if (alive) setRows(r); }).catch(() => { if (alive) setRows((cur) => cur || []); });
     return () => { alive = false; };
-  }, [limit]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [limit]);
+  return rows;
+}
+
+/** Reviews as rows, each opening its cards. */
+export function ReviewList({ rows }) {
   if (!rows?.length) return null;
   return (
     <div className="list review-list">
@@ -108,5 +113,17 @@ export function ReviewList({ limit = 26, onLoaded }) {
         </a>
       ))}
     </div>
+  );
+}
+
+/** Every saved week in review (Settings › Past reviews, and See all on Progress). */
+export function PastReviewsSheet({ onClose }) {
+  const rows = useReviews();
+  return (
+    <Sheet title="Past reviews" sub="Every week in review, newest first." onClose={onClose} labelledBy="reviews-title">
+      <ReviewList rows={rows} />
+      {rows === null && <p className="note-box">Loading…</p>}
+      {rows?.length === 0 && <p className="note-box">No reviews yet. Your first one is released on your release day, once you've logged a workout or some food that week.</p>}
+    </Sheet>
   );
 }
