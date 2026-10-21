@@ -452,6 +452,11 @@ button.chip { min-height: 38px; padding: 0 14px; border: 2px solid var(--rule); 
 .dock { position: fixed; left: 12px; right: 12px; bottom: calc(14px + var(--safe-b)); max-width: 536px; margin: 0 auto; z-index: 30; animation: dock-in var(--surface-ms) var(--surface); }
 .dock.late { animation-delay: 120ms; animation-fill-mode: both; }
 .dock.leaving, .alert-ask.leaving { animation: dock-out var(--exit-ms) var(--exit) forwards; pointer-events: none; }
+/* Typing (lib/keyboard.js): the rest timer and Finish step aside instead of riding up on the keyboard over the field. */
+.dock, .alert-ask { transition: opacity 180ms ease; }
+html[data-typing] :is(.dock, .alert-ask) { opacity: 0; visibility: hidden; transition: opacity 120ms ease, visibility 0s 120ms; }
+/* Keyboard gone but iOS still holding the viewport short (lib/keyboard.js): the bottom bars go back down to the real bottom edge. */
+:is(.tabbar, .dock, .alert-ask, .toast, .sync-note) { translate: 0 var(--kb-stuck, 0px); }
 .rest-beam { border-radius: 30px; box-shadow: 0 6px 0 var(--lip); }
 .rest { display: flex; align-items: center; gap: 10px; padding: 10px 10px 10px 12px; border-radius: 30px; background: var(--dock); color: var(--on-dock); }
 .rest-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
