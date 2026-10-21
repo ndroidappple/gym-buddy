@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import { Scale, CalendarDays, List } from "lucide-react";
 import { isCardio, activeDays } from "../data/program.js";
 import { href } from "../lib/router.js";
@@ -8,7 +8,9 @@ import PhaseCard from "../components/PhaseCard.jsx";
 import { adjustedSeries } from "../lib/fatigue.js";
 import PhaseSheet from "../components/PhaseSheet.jsx";
 import Workouts from "./Workouts.jsx";
-import { ReviewList } from "../components/WeekReviewIntro.jsx";
+import { ReviewList, PastReviewsSheet, useReviews } from "../components/WeekReviewIntro.jsx";
+import { reducedMotion } from "../lib/motion.js";
+import { chartLifts, toggleChartLift, MAX_CHART_LIFTS } from "../lib/chartLifts.js";
 
 /* A lift is "on a PR" when its latest session beat every earlier one (not its first) in the last two weeks.
    Only PRs from the most recent workout glow; older ones keep a still stamp, so the glow stays news. */
@@ -56,13 +58,19 @@ export default function Progress({ open, go, ...props }) {
   );
 }
 
-/** The latest weeks in review (the rest are in Settings › Past reviews). Hidden until there's one. */
+/** The latest week in review; See all opens the rest. Hidden until there's one. */
 function RecentReviews() {
-  const [n, setN] = useState(0);
+  const rows = useReviews(2); // a second one means there's more to see
+  const [all, setAll] = useState(false);
+  if (!rows?.length) return null;
   return (
-    <section className="section" hidden={!n}>
-      <h2 className="lbl">Week in review</h2>
-      <ReviewList limit={4} onLoaded={setN} />
+    <section className="section">
+      <div className="section-head">
+        <h2 className="lbl">Week in review</h2>
+        {rows.length > 1 && <button type="button" className="see-all" onClick={() => setAll(true)}>See all</button>}
+      </div>
+      <ReviewList rows={rows.slice(0, 1)} />
+      {all && <PastReviewsSheet onClose={() => setAll(false)} />}
     </section>
   );
 }
@@ -100,7 +108,7 @@ function Trends({ sessions, program, weighins, prefs, setPref, notify, onWeighin
         const last = series[series.length - 1];
         const pr = series.length > 1 && last.pr && daysBetween(last.date, today()) <= PR_DAYS;
         const top = isIsolation(n) && bestSet(series.flatMap((x) => x.sets));
-        return { n, vals, best: series.length ? Math.max(...series.map((x) => x.orm)) : 0, top, pct: trend(vals), pr, fresh: pr && last.date === latest };
+        return { n, day: g.day, series, vals, best: series.length ? Math.max(...series.map((x) => x.orm)) : 0, top, pct: trend(vals), pr, fresh: pr && last.date === latest };
       });
       return { ...g, logged: rows.filter((r) => r.vals.length), unlogged: rows.filter((r) => !r.vals.length).map((r) => r.n) };
     });
@@ -109,6 +117,12 @@ function Trends({ sessions, program, weighins, prefs, setPref, notify, onWeighin
   const all = groups.flatMap((g) => g.logged).filter((r) => r.pct != null);
   const up = all.filter((r) => r.pct >= 1).length;
   const bw = useMemo(() => bodyweightSeries(sessions, weighins), [sessions, weighins]);
+  // After bodyweight, a page for each lift picked for the chart (see lib/chartLifts.js).
+  // A pick that's left the program unlogged (or was renamed) drops out, freeing its spot.
+  const liftRows = useMemo(() => new Map(groups.flatMap((g) => [...g.logged, ...g.unlogged.map((n) => ({ n, day: g.day, series: [] }))]).map((r) => [r.n, r])), [groups]);
+  const picked = useMemo(() => chartLifts(prefs, sessions).filter((n) => liftRows.has(n)), [prefs, sessions, liftRows]);
+  const featured = picked.map((n) => liftRows.get(n));
+  const [editing, setEditing] = useState(false);
   const [weighing, setWeighing] = useState(false);
 
   return (
@@ -117,7 +131,11 @@ function Trends({ sessions, program, weighins, prefs, setPref, notify, onWeighin
       {/* The prompt to start one can be hidden for good; a phase you're in always shows. */}
       {(phase || !prefs?.phasePromptHidden) && <PhaseCard phase={phase} sessions={sessions} weighins={weighins} program={program}
         onStart={() => setStarting(true)} onHide={() => { setPref("phasePromptHidden", true); notify("Hidden. Start a bulk or cut anytime in Settings.", () => setPref("phasePromptHidden", false)); }} onLog={onWeighin} onUpdate={updatePhase} onEnd={endPhase} onProgramChange={onProgramChange} />}
-      <Bodyweight series={bw} phase={phase} onLog={() => setWeighing(true)} />
+      <ChartPager onEdit={sessions.length ? () => setEditing(true) : null} pages={[
+        { key: "bw", label: "Bodyweight", el: <Bodyweight series={bw} phase={phase} onLog={() => setWeighing(true)} /> },
+        ...featured.map((r) => ({ key: r.n, label: r.n, el: <LiftCard lift={r} /> })),
+      ]} />
+      {editing && <ChartLiftsSheet groups={groups} picked={picked} onChange={(v) => setPref("chartLifts", v)} onClose={() => setEditing(false)} />}
       <RecentReviews />
       {weighing && <WeighSheet last={bw[bw.length - 1]} onClose={() => setWeighing(false)} onSave={(v) => { onWeighin(today(), v); setWeighing(false); }} />}
       {starting && (
@@ -217,11 +235,116 @@ function BwScrub({ W, H, pts, tip, children }) {
     <div className="scrub" {...bind}>
       {on && <ChartTip x={on[0]} y={on[1]} W={W} H={H}>{tip(i)}</ChartTip>}
       <svg viewBox={`0 0 ${W} ${H}`} aria-hidden="true">
-        {on && <line x1={on[0]} x2={on[0]} y1={0} y2={H} stroke="#FFFFFF" strokeOpacity=".45" strokeWidth="1.5" strokeDasharray="3 4" />}
+        {on && <line x1={on[0]} x2={on[0]} y1={0} y2={H} stroke="currentColor" strokeOpacity=".45" strokeWidth="1.5" strokeDasharray="3 4" />}
         {children}
-        {on && <circle cx={on[0]} cy={on[1]} r="8" fill="#FFFFFF" stroke="var(--accent-lip)" strokeWidth="3" />}
+        {on && <circle cx={on[0]} cy={on[1]} r="8" fill="currentColor" stroke="var(--lip)" strokeWidth="3" />}
       </svg>
     </div>
+  );
+}
+
+/* The top card's pages side by side: swipe across, or tap a dot. Always opens on the first (bodyweight).
+   A hold on a chart still reads it (useScrub stops the swipe once the hold picks up). */
+function ChartPager({ pages, onEdit }) {
+  const track = useRef(null);
+  const [at, setAt] = useState(0);
+  const edit = onEdit && <button type="button" className="see-all pager-edit" onClick={onEdit}>{pages.length > 1 ? "Edit" : "Add lifts"}</button>;
+  if (pages.length < 2) return <div className="pager">{pages[0].el}{edit && <div className="pager-foot">{edit}</div>}</div>;
+  const step = () => { const t = track.current; return t.children[1].offsetLeft - t.children[0].offsetLeft; };
+  const onScroll = () => { const i = Math.round(track.current.scrollLeft / step()); if (i !== at) setAt(i); };
+  const show = (i) => track.current.scrollTo({ left: i * step(), behavior: reducedMotion() ? "auto" : "smooth" });
+  return (
+    <div className="pager" data-help="charts">
+      <div className="pager-track" ref={track} onScroll={onScroll}>
+        {pages.map((p) => <div key={p.key} className="pager-page">{p.el}</div>)}
+      </div>
+      <div className="pager-foot">
+        <div className="pager-dots">
+          {pages.map((p, i) => (
+            <button key={p.key} type="button" aria-current={i === at} aria-label={`Show ${p.label}`} onClick={() => show(i)} />
+          ))}
+        </div>
+        {edit}
+      </div>
+    </div>
+  );
+}
+
+/* One lift's est. max, session by session, in its day's color. Details opens its full chart. */
+const LIFT_POINTS = 12;
+function LiftCard({ lift }) {
+  const { n, day, best, top, pct } = lift;
+  if (lift.series.length < 2) {
+    return (
+      <section className="bw-card lift-card" data-day={day || undefined}>
+        <div className="top-row">
+          <div className="lift-card-head">
+            <span className="lbl">{n}</span>
+            {lift.series.length > 0 && <span className="big">{top ? `${fmtW(top.w)} × ${top.r}` : <>{num(best)} <small>lb</small></>}</span>}
+          </div>
+          <a className="pill bw-log-pill" href={href("lift", n)} aria-label={`Open ${n}`}>Details</a>
+        </div>
+        <p className="lift-card-empty">{lift.series.length ? "One session logged. Its line starts after the next one." : "Not logged yet. Its line starts after two sessions."}</p>
+      </section>
+    );
+  }
+  const series = lift.series.slice(-LIFT_POINTS);
+  const first = series[0], last = series[series.length - 1];
+  const vals = series.map((x) => x.orm);
+  const lo = Math.min(...vals), hi = Math.max(...vals), span = hi - lo || 1;
+  const W = 326, H = 86;
+  const pts = series.map((x, i) => [4 + (i / (series.length - 1)) * (W - 10), 8 + (1 - (x.orm - lo) / span) * (H - 16)]);
+  const change = pct == null ? "Baseline" : Math.abs(pct) < 1 ? `— ${Math.abs(pct).toFixed(1)}%` : `${pct > 0 ? "▲" : "▼"} ${Math.abs(pct).toFixed(1)}%`;
+  const headline = top ? `best set ${fmtW(top.w)} × ${top.r}` : `best est. max ${num(best)} pounds`;
+  return (
+    <section className="bw-card lift-card" data-day={day || undefined} aria-label={`${n}: ${headline}. Trend ${change}.`}>
+      <div className="top-row">
+        <div className="lift-card-head">
+          <span className="lbl">{n}</span>
+          <span className="big">{top ? `${fmtW(top.w)} × ${top.r}` : <>{num(best)} <small>lb</small></>}</span>
+        </div>
+        <span className="pill">{change}</span>
+        <a className="pill bw-log-pill" href={href("lift", n)} aria-label={`Open ${n}`}>Details</a>
+      </div>
+      <BwScrub W={W} H={H} pts={pts} tip={(i) => {
+        const d = i > 0 ? series[i].orm - series[i - 1].orm : null;
+        return <><b>{num(series[i].orm)} lb est. max</b><span>{shortDate(series[i].date)}{d != null && ` · ${Math.abs(d) < 0.5 ? "±0" : `${d > 0 ? "▲" : "▼"} ${num(Math.abs(d))}`}`}</span></>;
+      }}>
+        <polyline points={pts.map((p) => p.join(",")).join(" ")} fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
+        {pts.slice(0, -1).map(([x, y], i) => <circle key={i} cx={x} cy={y} r="4" fill="var(--card-bg)" stroke="currentColor" strokeWidth="2.5" />)}
+        <circle cx={pts[pts.length - 1][0]} cy={pts[pts.length - 1][1]} r="7" fill="currentColor" />
+      </BwScrub>
+      <div className="ends"><span style={{ flex: 1 }}>{shortDate(first.date)}</span><span>{shortDate(last.date)}</span></div>
+    </section>
+  );
+}
+
+/** Pick the lifts that get a page in the top card, up to MAX_CHART_LIFTS, in the order picked. */
+function ChartLiftsSheet({ groups, picked, onChange, onClose }) {
+  const full = picked.length >= MAX_CHART_LIFTS;
+  return (
+    <Sheet title="Chart lifts" sub={`${picked.length} of ${MAX_CHART_LIFTS} picked. Each gets a page after bodyweight, in the order you pick them.`} onClose={onClose} labelledBy="chart-lifts-title">
+      {groups.map((g) => {
+        const lifts = [...g.logged.map((r) => r.n), ...g.unlogged];
+        return lifts.length ? (
+          <section key={g.name} className="section" data-day={g.day || undefined}>
+            <h3 className="lbl" style={{ display: "flex", alignItems: "center", gap: 8 }}><span className="dot" aria-hidden="true" />{g.name}</h3>
+            <div className="list">
+              {lifts.map((n) => {
+                const on = picked.includes(n);
+                return (
+                  <button key={n} type="button" className="list-row" role="switch" aria-checked={on} disabled={!on && full}
+                    onClick={() => { const v = toggleChartLift(picked, n); if (v) onChange(v); }}>
+                    <span className="name">{n}{on && <span className="sub">Page {picked.indexOf(n) + 2}</span>}</span>
+                    <span className="switch" aria-hidden="true" />
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+        ) : null;
+      })}
+    </Sheet>
   );
 }
 

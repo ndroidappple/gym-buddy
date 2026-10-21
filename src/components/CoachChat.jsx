@@ -1,5 +1,5 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { ArrowDown, ArrowUp, Bookmark, Check, ListChecks, Utensils } from "lucide-react";
+import { ArrowDown, ArrowUp, Bookmark, Check, ChevronRight, History, ListChecks, SquarePen, Utensils } from "lucide-react";
 import { BorderBeam } from "border-beam";
 import { ThinkingOrb } from "thinking-orbs";
 import { Sheet } from "./ui.jsx";
@@ -35,16 +35,14 @@ const FOOD_STARTERS = ["What should I eat to hit my protein today?", "How's my e
 /* A saved message (coach_messages row) as the chat shows it. A proposal reloaded from history can't
    be applied any more (the program or log may have moved on): it shows as decided or not applied. */
 const fromRow = (r) => ({
-  id: r.id, role: r.role, content: r.content, coach: r.coach, at: r.created_at,
+  id: r.id, role: r.role, content: r.content, coach: r.coach, at: r.created_at, chat: r.meta?.chat,
   preview: r.meta?.preview, what: r.meta?.what, replies: r.meta?.replies, remembered: r.meta?.remembered,
   decision: r.meta?.decision || (r.meta?.preview ? "dismissed" : undefined),
 });
 const metaOf = (m) => {
-  const meta = { preview: m.preview, what: m.what, decision: m.decision, replies: m.replies, remembered: m.remembered };
+  const meta = { chat: m.chat, preview: m.preview, what: m.what, decision: m.decision, replies: m.replies, remembered: m.remembered };
   return Object.values(meta).some((v) => v !== undefined) ? JSON.parse(JSON.stringify(meta)) : null;
 };
-// A new visit: the coach says hi again when the last message is this old.
-const NEW_VISIT_MS = 6 * 3600_000;
 // The lifter's own calendar day for a saved timestamp.
 const localDay = (at) => { const d = new Date(at); return new Date(d - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10); };
 function dayLabel(at) {
@@ -55,8 +53,9 @@ function dayLabel(at) {
 /**
  * Chat with a coach. Answers stream in; the coach looks locked in while thinking and fired up when it lands.
  * Two kinds:
- * - The head coach (`thread`, from useCoachThread()): one ongoing conversation, saved to the account,
- *   with 30 days of training and food from `buildHead()` and the coach's memory notes. It can propose
+ * - The head coach (`thread`, from useCoachThread()): chats saved to the account. It opens on the
+ *   chat still going (a message within the hour), else a new one; past chats are a tap away. The coach
+ *   sees the open chat, 30 days of training and food from `buildHead()`, and its memory notes. It can propose
  *   program changes and, with `foodLog` (useFood()), edits to the food log, applied only from the card.
  *   `topic="nutrition"` (from the Nutrition tab) changes the starters, and `day` is the date open there:
  *   the coach reads that day's log and edits go to it.
@@ -69,7 +68,13 @@ export default function CoachChat({ coach, name, exercise, starter, sessions, pr
   const c = COACHES[coach];
   // {id?, role, content, coach?, at?, trouble?, replies?, changes?, ops? (food log edits), what?, preview?: {lines, errors},
   //  decision?: "applied" | "dismissed", remembered?: [notes added]}
-  const [messages, setMessages] = useState(() => (thread ? thread.messages.map(fromRow) : []));
+  // The head coach chat on screen (null: a new one, given an id when the first message is saved).
+  const [chatId, setChatIdState] = useState(() => thread?.chatId ?? null);
+  const chatRef = useRef(chatId);
+  const setChatId = (id) => { chatRef.current = id; setChatIdState(id); };
+  const rowsOf = (id) => (id && thread?.chats.find((x) => x.id === id)?.messages) || [];
+  const [messages, setMessages] = useState(() => (thread ? rowsOf(chatId).map(fromRow) : []));
+  const [past, setPast] = useState(false); // the past chats list in place of the chat
   const undos = useRef({}); // message key -> undo for an applied program change or food edit
   const [draft, setDraft] = useState("");
   const [status, setStatus] = useState("idle"); // idle | thinking | streaming | answered
@@ -130,14 +135,14 @@ export default function CoachChat({ coach, name, exercise, starter, sessions, pr
     if (!thread || busyRef.current) return;
     setMessages((ms) => {
       const here = new Map(ms.filter((m) => m.id).map((m) => [m.id, m]));
-      const rows = thread.messages.map((r) => {
+      const rows = rowsOf(chatRef.current).map((r) => {
         const m = here.get(r.id);
         // A proposal made on this screen keeps its changes, and stays open until decided.
         return m && (m.changes || m.ops) ? { ...fromRow(r), changes: m.changes, ops: m.ops, decision: m.decision } : fromRow(r);
       });
       return [...rows, ...ms.filter((m) => m.trouble)];
     });
-  }, [thread?.messages]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [thread?.messages, chatId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const suggestions = useMemo(() => {
     if (food) return FOOD_STARTERS;
@@ -157,19 +162,32 @@ export default function CoachChat({ coach, name, exercise, starter, sessions, pr
     ];
   }, [program, coach, c.group, exercise, onProgramChange, food, headChat, nutrition]);
 
-  // The head coach says hi on a new visit: first time, or hours since the last message.
-  const lastAt = [...messages].reverse().find((m) => m.at)?.at;
-  const [greeting] = useState(() => {
-    if (!headChat) return exercise ? null : hello(name);
-    const latest = thread.messages[thread.messages.length - 1]?.created_at;
-    if (latest && Date.now() - new Date(latest) < NEW_VISIT_MS) return null;
-    return hello(name, food);
-  });
-  const greetingShown = !!greeting && !messages.some((m) => m.greeting)
-    && (headChat ? !lastAt || Date.now() - new Date(lastAt) >= NEW_VISIT_MS : messages.length === 0);
+  // The coach says hi to start a chat (not a crew chat opened from a lift).
+  const [greeting, setGreeting] = useState(() => (exercise ? null : hello(name, food)));
+  const greetingShown = !!greeting && messages.length === 0;
+
+  /* A fresh chat, or one from the past list (sending in it carries it on). */
+  const startChat = () => {
+    if (busy) return;
+    setChatId(thread.newChat());
+    setMessages([]);
+    setGreeting(hello(name, food));
+    setPast(false);
+    setDraft("");
+  };
+  const openChat = (id) => {
+    setChatId(thread.openChat(id));
+    setMessages(rowsOf(id).map(fromRow));
+    pinned.current = true;
+    setPast(false);
+  };
 
   const keyOf = (m, i) => m.id || `i${i}`;
-  const save = (m) => (thread ? thread.addMessage({ role: m.role, coach: m.coach || coach, content: m.content, meta: metaOf(m), created_at: m.at }) : undefined);
+  const save = (m) => {
+    if (!thread) return undefined;
+    m.chat = chatRef.current;
+    return thread.addMessage({ role: m.role, coach: m.coach || coach, content: m.content, meta: metaOf(m), created_at: m.at });
+  };
 
   const send = async (text) => {
     const q = text.trim();
@@ -179,6 +197,7 @@ export default function CoachChat({ coach, name, exercise, starter, sessions, pr
     const noteFor = (m) => (m.preview?.lines.length ? ` [Proposed: ${m.preview.lines.join("; ")}. Lifter ${m.decision === "applied" ? "applied it" : m.decision === "dismissed" ? "said no" : "hasn't decided"}.]` : "");
     const when = (m) => (headChat && m.at && localDay(m.at) !== today() ? `[${dayLabel(m.at)}] ` : "");
     let base = messages.filter((m) => !m.trouble);
+    if (headChat && !chatRef.current) setChatId(thread.newChat());
     // The hello becomes part of the conversation once the lifter answers it.
     if (greetingShown && !exercise) {
       // A millisecond before the lifter's answer, so the two never tie on time.
@@ -280,9 +299,16 @@ export default function CoachChat({ coach, name, exercise, starter, sessions, pr
   const empty = messages.length === 0;
 
   return (
-    <Sheet title={headChat ? c.name : `Ask ${c.name}`} sub={headChat ? "Your head coach" : `${c.group} coach`} onClose={onClose} labelledBy="coach-chat-title"
+    <Sheet title={headChat ? c.name : `Ask ${c.name}`} sub={headChat ? (past ? "Past chats" : "Your head coach") : `${c.group} coach`} onClose={onClose} labelledBy="coach-chat-title"
+      actions={headChat && (
+        <>
+          <button type="button" className="icon-btn" onClick={() => setPast(!past)} aria-pressed={past} aria-label={past ? "Back to the chat" : "Past chats"}><History size={20} /></button>
+          <button type="button" className="icon-btn" onClick={startChat} disabled={busy || (!past && empty)} aria-label="New chat"><SquarePen size={20} /></button>
+        </>
+      )}
       lead={<span className="chat-head-coach" style={{ "--c": c.color }}><Coach id={coach} mood={mood} size={40} /></span>}
       className={"sheet-chat sheet-convo" + (headChat ? " sheet-head-chat" : "")} focusField={false}>
+      {past ? <PastChats chats={thread.chats} open={chatId} coachName={c.name} onOpen={openChat} /> : (
       <div className="chat" style={{ "--c": c.color }}>
         <div className="chat-list" ref={listRef} aria-live="polite" onPointerDown={dismiss}>
           {/* The footnote leads the conversation and scrolls away with it, instead of taking room by the keyboard. */}
@@ -309,12 +335,7 @@ export default function CoachChat({ coach, name, exercise, starter, sessions, pr
               </React.Fragment>
             );
           })}
-          {greetingShown && (
-            <>
-              {headChat && lastAt && localDay(lastAt) !== today() && <p className="chat-day">Today</p>}
-              <p className="coach-bubble">{greeting}</p>
-            </>
-          )}
+          {greetingShown && <p className="coach-bubble">{greeting}</p>}
           {!greetingShown && empty && <p className="coach-bubble">What do you want to know? Ask me anything about your training.</p>}
         </div>
         <div className="chat-dock">
@@ -343,7 +364,33 @@ export default function CoachChat({ coach, name, exercise, starter, sessions, pr
           </BorderBeam>
         </div>
       </div>
+      )}
     </Sheet>
+  );
+}
+
+/** The head coach's chats from the last 30 days, newest first. Opening one carries it on. */
+function PastChats({ chats, open, coachName, onOpen }) {
+  const list = [...chats].sort((a, b) => b.end.localeCompare(a.end));
+  const time = (at) => new Date(at).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+  if (!list.length) return <p className="note-box">No past chats yet. Chats are kept for 30 days.</p>;
+  return (
+    <div className="chat-past">
+      <div className="list">
+        {list.map((x) => {
+          const first = x.messages.find((m) => m.role === "user") || x.messages[0];
+          return (
+            <button key={x.id} type="button" className="list-row" onClick={() => onOpen(x.id)} aria-current={x.id === open || undefined}>
+              <span className="name"><span className="chat-past-title">{first.content}</span>
+                <span className="sub">{x.id === open ? "Open now · " : ""}{dayLabel(x.end)}, {time(x.end)} · {x.messages.length} message{x.messages.length === 1 ? "" : "s"}</span>
+              </span>
+              <ChevronRight size={18} aria-hidden="true" className="muted" />
+            </button>
+          );
+        })}
+      </div>
+      <p className="small muted chat-past-note">Chats are kept for 30 days. What {coachName} remembers about you stays either way.</p>
+    </div>
   );
 }
 

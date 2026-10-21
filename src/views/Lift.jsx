@@ -1,10 +1,11 @@
 import React, { useMemo, useState } from "react";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, Pin } from "lucide-react";
 import { allDays, isCardio } from "../data/program.js";
 import { href } from "../lib/router.js";
 import { liftSeries, trend, repPRs, num, fmtW, fmtSet, cardioTotals, compact, shortDate, bestSet, byDateDesc, isIsolation } from "../lib/util.js";
 import { InfoButton, LineChart, Trend } from "../components/ui.jsx";
 import { adjustedSeries, loadNote } from "../lib/fatigue.js";
+import { chartLifts, toggleChartLift, MAX_CHART_LIFTS } from "../lib/chartLifts.js";
 
 const METRICS = [
   { key: "orm", label: "Est. max", fmt: num },
@@ -50,7 +51,7 @@ function CardioLog({ name, sessions, program, back }) {
   );
 }
 
-function LiftDetail({ name, sessions, program, back }) {
+function LiftDetail({ name, sessions, program, back, prefs, setPref, notify }) {
   const iso = isIsolation(name);
   const [metric, setMetric] = useState(iso ? "top" : "orm");
   const series = useMemo(() => {
@@ -81,6 +82,7 @@ function LiftDetail({ name, sessions, program, back }) {
         <button className="icon-btn boxed" onClick={() => back("#/progress/trends")} aria-label="Back"><ChevronLeft size={20} /></button>
         <span className="spacer" />
         {day && <span className="chip"><span className="dot" aria-hidden="true" />{program[day].name}</span>}
+        <ChartPin name={name} sessions={sessions} prefs={prefs} setPref={setPref} notify={notify} />
         <InfoButton screen="lift" />
       </header>
       <div className="body">
@@ -147,5 +149,24 @@ function LiftDetail({ name, sessions, program, back }) {
         )}
       </div>
     </main>
+  );
+}
+
+/* Pins this lift to the top card on Progress (a page of its own after bodyweight), or unpins it. */
+function ChartPin({ name, sessions, prefs, setPref, notify }) {
+  const list = chartLifts(prefs, sessions);
+  const on = list.includes(name);
+  const toggle = () => {
+    const next = toggleChartLift(list, name);
+    if (!next) return notify(`The chart holds ${MAX_CHART_LIFTS} lifts. Tap Edit under it on Progress to make room.`);
+    const before = prefs.chartLifts ?? null;
+    setPref("chartLifts", next);
+    notify(on ? "Removed from your Progress chart" : "Pinned to your Progress chart", () => setPref("chartLifts", before));
+  };
+  return (
+    <button className="icon-btn" data-help="pin" onClick={toggle} aria-pressed={on}
+      aria-label={on ? "Remove from the Progress chart" : "Pin to the Progress chart"}>
+      <Pin size={20} strokeWidth={2.4} fill={on ? "currentColor" : "none"} />
+    </button>
   );
 }

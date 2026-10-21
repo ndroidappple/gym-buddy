@@ -10,7 +10,7 @@ import { supabase } from "../supabase-client.js";
 import { restAlertState, enableRestAlerts, disableRestAlerts } from "../lib/restAlerts.js";
 import { phoneState, allowNotifications, forgetPhone, warmPush } from "../lib/push.js";
 import { reviewPrefs, whenLabel, coversLabel } from "../lib/weekReview.js";
-import { DayPicker, HourPicker, ReviewList } from "../components/WeekReviewIntro.jsx";
+import { DayPicker, HourPicker, PastReviewsSheet } from "../components/WeekReviewIntro.jsx";
 import { HeadPicker } from "../components/Welcome.jsx";
 import Coach from "../components/Coach.jsx";
 import { COACHES } from "../data/coaches.js";
@@ -257,7 +257,7 @@ export default function Settings({ program, sessions, prefs, setPref, go, notify
           <button type="button" className="btn btn-ink" onClick={() => setSheet(null)}>Done</button>
         </Sheet>
       )}
-      {sheet === "reviews" && <ReviewsSheet onClose={() => setSheet(null)} />}
+      {sheet === "reviews" && <PastReviewsSheet onClose={() => setSheet(null)} />}
     </main>
   );
 }
@@ -401,18 +401,6 @@ function ViewSheet({ value, program, onPick, onClose }) {
       <div className="segctl" role="group" aria-label="Detail level">
         {VIEWS.map((v) => <button key={v.id} aria-pressed={v.id === value} onClick={() => v.id !== value && onPick(v.id)}>{v.label}</button>)}
       </div>
-    </Sheet>
-  );
-}
-
-/** Every saved week in review; opening one closes the sheet first so back returns to Settings. */
-function ReviewsSheet({ onClose }) {
-  const [count, setCount] = useState(null);
-  return (
-    <Sheet title="Past reviews" sub="Every week in review, newest first." onClose={onClose} labelledBy="reviews-title">
-      <ReviewList onLoaded={setCount} />
-      {count === null && <p className="note-box">Loading…</p>}
-      {count === 0 && <p className="note-box">No reviews yet. Your first one is released on your release day, once you've logged a workout or some food that week.</p>}
     </Sheet>
   );
 }
