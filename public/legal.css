@@ -1,0 +1,38 @@
+/* The privacy policy and terms: plain pages outside the app, in its Chalk/Iron colors. */
+:root {
+  --bg: #F5F2ED;
+  --surface: #FFFFFF;
+  --ink: #1C1A22;
+  --mute: #66616C;
+  --rule: #E4DED4;
+  --link: #2563D9;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #121117;
+    --surface: #1C1A22;
+    --ink: #F5F2ED;
+    --mute: #A29DA8;
+    --rule: #2E2B36;
+    --link: #7FAEFF;
+  }
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+main {
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 32px 16px 64px;
+}
+.home { font-weight: 700; color: var(--ink); text-decoration: none; }
+h1 { font-size: 28px; line-height: 1.2; margin: 24px 0 4px; }
+h2 { font-size: 18px; margin: 32px 0 8px; padding-top: 16px; border-top: 1px solid var(--rule); }
+.date { color: var(--mute); margin: 0 0 24px; }
+a { color: var(--link); }
+ul { padding-left: 20px; }
+li { margin: 6px 0; }

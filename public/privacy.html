@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>GymBuddy Privacy Policy</title>
+    <link rel="icon" type="image/png" href="/icons/icon-192.png" />
+    <link rel="stylesheet" href="/legal.css" />
+  </head>
+  <body>
+    <main>
+      <a class="home" href="/">GymBuddy</a>
+      <h1>Privacy Policy</h1>
+      <p class="date">Last updated October 22, 2026</p>
+
+      <p>GymBuddy is a training and nutrition log. This page explains what it keeps, where it goes, and how
+        to remove it. GymBuddy never sells your data, never shows ads, and never uses your data for advertising.</p>
+
+      <h2>What GymBuddy keeps</h2>
+      <ul>
+        <li><strong>Your account:</strong> the email address you sign in with.</li>
+        <li><strong>Training:</strong> workouts, sets, reps, weights, notes, your program and settings.</li>
+        <li><strong>Body measurements:</strong> bodyweight you log.</li>
+        <li><strong>Nutrition</strong> (if you turn it on): the foods you log and your targets.</li>
+        <li><strong>Coach chat:</strong> your messages with the in-app coaches, and short notes the coach keeps
+          about you (for example an injury or your equipment). You can see and delete these in Settings.</li>
+        <li><strong>Rest alerts</strong> (if you turn them on): a push subscription for your phone.</li>
+      </ul>
+
+      <h2>Where it's stored</h2>
+      <p>Your data is stored in a Supabase database, readable only by your own signed-in account, and the app is
+        served by Vercel. A copy is kept on your phone so the app works offline. Data is sent over HTTPS and is
+        encrypted at rest by those providers.</p>
+
+      <h2>Who else receives data</h2>
+      <ul>
+        <li><strong>Google Gemini</strong> (through Vercel's AI Gateway): when you use a coach, your recent
+          training, bodyweight and food are sent to generate the answer.</li>
+        <li><strong>USDA FoodData Central and Open Food Facts</strong>: food searches and scanned barcodes, to
+          look up nutrition. Nothing that identifies you is sent.</li>
+        <li><strong>Apple or Google push services</strong>: rest alerts, if you turn them on.</li>
+        <li><strong>Google Health</strong>: only if you connect it (see below).</li>
+      </ul>
+
+      <h2>Google Health</h2>
+      <p>If you choose to connect Google Health, GymBuddy sends your workouts (start and end time and type),
+        bodyweight, and logged food (calories, protein, carbohydrate and fat) to your Google Health account.
+        GymBuddy asks only for permission to write this data. It does not read anything from Google Health.</p>
+      <p>GymBuddy stores the sign-in token Google issues, on its server, only to send this data. Disconnecting in
+        GymBuddy's Settings, or removing GymBuddy at
+        <a href="https://myaccount.google.com/permissions">myaccount.google.com/permissions</a>, stops sending
+        and deletes the token. Data already sent stays in Google Health until you delete it there.</p>
+      <p>The use of information received from Google Health API will adhere to the
+        <a href="https://developers.google.com/health/policies/health-api-developer-user-data-policy">Google Health
+        API Developer and User Data Policy</a>, including the Limited Use requirements. Health data is not sold or
+        transferred to anyone, is not used for advertising, credit or lending decisions, and is not read by people
+        except with your permission, for security, or where the law requires it.</p>
+
+      <h2>Keeping or deleting your data</h2>
+      <p>Settings → Export downloads everything as CSV or JSON. Coach chats are deleted after 30 days, and you can
+        clear them sooner in Settings. To delete your account and all of its data, ask the developer by email; it
+        is deleted from GymBuddy's database, including any Google Health token.</p>
+
+      <h2>Changes</h2>
+      <p>If this policy changes, the date at the top changes with it.</p>
+    </main>
+  </body>
+</html>
