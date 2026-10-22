@@ -220,7 +220,7 @@ things:
   fetched them (localStorage, the last 40 workouts) for the chart, and another phone fetches its own.
   Watches sync on their own schedule, so a workout is asked again every 15 minutes until its readings
   reach the end, for up to a day. The Summary shows the numbers and `components/HeartChart.jsx`: the
-  line colored by zone (one ink ramp, darker for harder; the plate colors belong to the days),
+  line colored by zone (steps of the workout day's color, deeper and bolder for harder),
   threshold lines, a numbered band per lift, a dot on each set's peak, and a touch/keyboard readout
   of the moment (bpm, zone, lift and set). Workouts lists it, and the coaches get it in each workout
   line (`workoutLine` in `src/lib/coachChat.js`, read per `HEART` in `api/coach.js`). The Summary and

@@ -6,8 +6,8 @@ import { fmtSet } from "../lib/util.js";
    with each zone's threshold marked) plus what only GymBuddy knows: a numbered band for each lift
    (the numbers match the lift list under the chart: names don't fit a phone-width band) and a dot on
    each set's peak. Touch or drag across it (or use the arrow keys) to read any moment: bpm, zone,
-   and which lift and set it was. Zones are one ink ramp, darker for harder: they're a scale, and
-   the plate colors belong to the days. */
+   and which lift and set it was. Zones are steps of the workout day's color (styles.css, --hr-z1..4),
+   deeper and bolder for harder: the color says which day, the step how hard. */
 
 const H = 200;
 const PAD = { top: 22, right: 34, bottom: 22, left: 4 };

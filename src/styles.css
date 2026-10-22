@@ -490,10 +490,28 @@ html[data-typing] :is(.dock, .alert-ask) { opacity: 0; visibility: hidden; trans
 .rec .m { font-size: 12.5px; color: var(--mute); font-weight: 500; margin-top: 2px; }
 .rec .v { font-weight: 800; font-size: 18px; text-align: right; white-space: nowrap; }
 .rec.plain { grid-template-columns: 1fr auto; }
-/* Heart rate (Summary). Zones are one ink ramp, darker for harder (checked: one hue, steps light to
-   dark, the lightest clear of the card): a scale, not a plate color, which belong to the days. */
+/* Heart rate (Summary). Zones are steps of the workout day's own color: lighter and thinner for
+   light, deeper and bolder for peak (dark mode runs bright for harder). Color says which day, the
+   step says how hard. Each ramp is checked: one hue, steps light to dark, the lightest clear of the
+   background. Outside a day (no data-day) it's an ink ramp. */
 :root { --hr-z1: #a09fa2; --hr-z2: #77767a; --hr-z3: #49484e; --hr-z4: #1c1a22; }
 :root[data-theme="dark"] { --hr-z1: #7a7772; --hr-z2: #a3a09a; --hr-z3: #cbc8c2; --hr-z4: #f3f0ea; }
+[data-day="push"] { --hr-z1: #ff6b63; --hr-z2: #e1413e; --hr-z3: #bd151f; --hr-z4: #8f0210; }
+[data-day="pull"] { --hr-z1: #6aa0fe; --hr-z2: #3e7eee; --hr-z3: #1f5ecc; --hr-z4: #0040a6; }
+[data-day="legs"] { --hr-z1: #cc9803; --hr-z2: #a67b00; --hr-z3: #826004; --hr-z4: #5f4602; }
+[data-day="shoulders"] { --hr-z1: #27be7a; --hr-z2: #039c61; --hr-z3: #047a4b; --hr-z4: #035936; }
+[data-day="custom"] { --hr-z1: #9d8fff; --hr-z2: #7f6de3; --hr-z3: #644ec1; --hr-z4: #4a2fa0; }
+[data-day="day5"] { --hr-z1: #f17d2d; --hr-z2: #cb6004; --hr-z3: #a04a02; --hr-z4: #763501; }
+[data-day="day6"] { --hr-z1: #0db6c9; --hr-z2: #0294a4; --hr-z3: #057380; --hr-z4: #00555f; }
+[data-day="day7"] { --hr-z1: #f863af; --hr-z2: #d54190; --hr-z3: #b21873; --hr-z4: #870055; }
+:root[data-theme="dark"] [data-day="push"] { --hr-z1: #ba0e1c; --hr-z2: #e84844; --hr-z3: #fe8b81; --hr-z4: #ffcdc7; }
+:root[data-theme="dark"] [data-day="pull"] { --hr-z1: #1c5bc9; --hr-z2: #4484f5; --hr-z3: #84b1ff; --hr-z4: #c7dcfe; }
+:root[data-theme="dark"] [data-day="legs"] { --hr-z1: #7e5d04; --hr-z2: #ae8100; --hr-z3: #dfa705; --hr-z4: #ffd57e; }
+:root[data-theme="dark"] [data-day="shoulders"] { --hr-z1: #027648; --hr-z2: #07a365; --hr-z3: #40ce89; --hr-z4: #72fab2; }
+:root[data-theme="dark"] [data-day="custom"] { --hr-z1: #614bbe; --hr-z2: #8574ea; --hr-z3: #aca4fe; --hr-z4: #d8d6ff; }
+:root[data-theme="dark"] [data-day="day5"] { --hr-z1: #9b4801; --hr-z2: #d46502; --hr-z3: #fe904b; --hr-z4: #ffcfb5; }
+:root[data-theme="dark"] [data-day="day6"] { --hr-z1: #06707d; --hr-z2: #0c9aab; --hr-z3: #2cc6da; --hr-z4: #81eeff; }
+:root[data-theme="dark"] [data-day="day7"] { --hr-z1: #ae1270; --hr-z2: #dc4896; --hr-z3: #ff80bd; --hr-z4: #fecae0; }
 .hr-chart { position: relative; margin: 12px 0 4px; user-select: none; -webkit-user-select: none; }
 .hr-chart svg { display: block; touch-action: pan-y; outline: none; overflow: visible; }
 .hr-chart svg:focus-visible { outline: 2px solid var(--ink); outline-offset: 4px; border-radius: 8px; }
@@ -502,6 +520,7 @@ html[data-typing] :is(.dock, .alert-ask) { opacity: 0; visibility: hidden; trans
 .hr-threshold { stroke: var(--rule-2); stroke-width: 1; }
 .hr-axis { font-size: 11px; fill: var(--mute); font-variant-numeric: tabular-nums; }
 .hr-line { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.hr-line.z1 { stroke-width: 1.5px; } .hr-line.z3 { stroke-width: 2.5px; } .hr-line.z4 { stroke-width: 3px; }
 .hr-line.z1, .hr-dot.z1 { stroke: var(--hr-z1); } .hr-line.z2, .hr-dot.z2 { stroke: var(--hr-z2); }
 .hr-line.z3, .hr-dot.z3 { stroke: var(--hr-z3); } .hr-line.z4, .hr-dot.z4 { stroke: var(--hr-z4); }
 .hr-dot { fill: var(--surface); stroke-width: 3; }
@@ -512,7 +531,8 @@ html[data-typing] :is(.dock, .alert-ask) { opacity: 0; visibility: hidden; trans
   white-space: nowrap; pointer-events: none; z-index: 2; }
 .hr-tip b { font-size: 16px; color: var(--ink); }
 .hr-legend { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 6px; font-size: 12px; color: var(--mute); }
-.hr-legend i { display: inline-block; width: 14px; height: 2px; border-radius: 1px; margin-right: 6px; vertical-align: middle; }
+.hr-legend i { display: inline-block; width: 14px; height: 2px; border-radius: 2px; margin-right: 6px; vertical-align: middle; }
+.hr-legend i.z1 { height: 1.5px; } .hr-legend i.z3 { height: 2.5px; } .hr-legend i.z4 { height: 3px; }
 .hr-legend i.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ink); }
 .hr-legend i.band { width: 10px; height: 10px; border-radius: 3px; background: var(--surface-2); border: 1px solid var(--rule-2); }
 .hr-lift-n { display: inline-grid; place-items: center; min-width: 18px; height: 18px; margin-right: 8px; border-radius: 6px; background: var(--surface-2);
