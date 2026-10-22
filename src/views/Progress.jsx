@@ -51,7 +51,7 @@ export default function Progress({ open, go, ...props }) {
           <button aria-pressed={workouts} onClick={() => pick("workouts")}>Workouts{sessions.length > 0 && <span className="seg-count"> · {sessions.length}</span>}</button>
         </div>
         {workouts
-          ? <Workouts sessions={sessions} program={props.program} calendar={calendar} />
+          ? <Workouts sessions={sessions} program={props.program} calendar={calendar} heart={!!props.prefs?.googleHealth?.on} />
           : <Trends {...props} openPhase={open === "phase"} onPhaseSheetClosed={() => open === "phase" && go(href("progress", "trends"), { replace: true })} />}
       </div>
     </main>

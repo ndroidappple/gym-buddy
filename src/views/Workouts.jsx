@@ -7,7 +7,7 @@ import { fmtSet, bestSet, byDateDesc, longDate, compact, sessionVolume, sessionS
 
 /** Progress → Workouts: every logged workout as a list or a month calendar, filterable by day.
     The list/calendar switch lives in the Progress header (`calendar`). */
-export default function Workouts({ sessions, program, calendar }) {
+export default function Workouts({ sessions, program, calendar, heart = false }) {
   const [filter, setFilter] = useState(null);
   const sorted = useMemo(() => [...sessions].sort(byDateDesc), [sessions]);
   const shown = filter ? sorted.filter((s) => s.day === filter) : sorted;
@@ -51,7 +51,7 @@ export default function Workouts({ sessions, program, calendar }) {
         : (
           <>
             {shown.length === 0 && <p className="muted">No {filter ? program[filter].name : ""} sessions logged yet.</p>}
-            {shown.map((s) => <HistCard key={s.id} s={s} program={program} prs={prs} />)}
+            {shown.map((s) => <HistCard key={s.id} s={s} program={program} prs={prs} heart={heart} />)}
           </>
         )}
       </>)}
@@ -112,14 +112,14 @@ function MonthCalendar({ sessions, program, prs }) {
       </section>
 
       {(byDate[picked] || []).length
-        ? byDate[picked].map((s) => <HistCard key={s.id} s={s} program={program} prs={prs} />)
+        ? byDate[picked].map((s) => <HistCard key={s.id} s={s} program={program} prs={prs} heart={heart} />)
         : <p className="muted cal-none">No workout logged on {longDate(picked)}.</p>}
     </>
   );
 }
 
 /** One logged workout: sets, volume, PRs (with the record set and what it beat) and an edit link. */
-function HistCard({ s, program, prs }) {
+function HistCard({ s, program, prs, heart }) {
   const hits = prs[s.id] || {};
   const n = Object.keys(hits).length;
   // Each lift shows its top set (the record set on a PR); every set is one tap away.
@@ -132,7 +132,7 @@ function HistCard({ s, program, prs }) {
           <div className="hist-meta">
             {program[s.day].name} · {plural(sessionSetCount(s), "set")}{sessionVolume(s) > 0 && ` · ${compact(sessionVolume(s))} lb lifted`}{s.bw != null && ` · ${s.bw} lb bodyweight`}
           </div>
-          {s.hr && !s.hr.none && <div className="hist-meta">Heart rate avg {s.hr.avg} · peak {s.hr.max} bpm{s.hr.hard != null && ` · ${num(s.hr.hard)} min vigorous+`}</div>}
+          {heart && s.hr && !s.hr.none && <div className="hist-meta">Heart rate avg {s.hr.avg} · peak {s.hr.max} bpm{s.hr.hard != null && ` · ${num(s.hr.hard)} min vigorous+`}</div>}
         </div>
         {n > 0 && <span className="stamp">PR{n > 1 ? ` ×${n}` : ""}</span>}
         <a className="icon-btn" data-help="edit" href={href("session", s.day, s.id)} aria-label={`Edit ${program[s.day].name} session on ${longDate(s.date)}`}><Pencil size={17} /></a>
@@ -149,7 +149,7 @@ function HistCard({ s, program, prs }) {
               </span>
               <span className="sets">
                 {all ? sets.map((x, i) => (
-                  <React.Fragment key={i}>{i > 0 && "  "}<span className={i === pr?.idx ? "pr-set" : undefined}>{fmtSet(x)}</span>{x.hr && <span className="set-hr" title="Peak heart rate"> ♥{x.hr}</span>}</React.Fragment>
+                  <React.Fragment key={i}>{i > 0 && "  "}<span className={i === pr?.idx ? "pr-set" : undefined}>{fmtSet(x)}</span>{heart && x.hr && <span className="set-hr" title="Peak heart rate"> ♥{x.hr}</span>}</React.Fragment>
                 )) : <TopSet sets={sets} pr={pr} />}
               </span>
             </a>

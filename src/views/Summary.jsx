@@ -71,9 +71,11 @@ export default function Summary({ session, sessions, program, prefs, go, onUpdat
           <div className="stat"><b>{r.records.length}</b><span>PRs</span>{r.prevRecords != null && <span className="trend flat">{r.prevRecords} last time</span>}</div>
         </div>
 
-        {session.hr && !session.hr.none
+        {/* Only while Google Health is connected: a workout keeps its numbers after a disconnect (they
+            come back on reconnecting), but the chart's readings can't be fetched then. */}
+        {!prefs.googleHealth?.on ? null : session.hr && !session.hr.none
           ? <Heart session={session} />
-          : prefs.googleHealth?.on && prefs.googleHealth.heart !== false && (
+          : prefs.googleHealth.heart !== false && (
             <p className="note-box hr-wait">Heart rate from your watch shows up here once it syncs to Google Health, usually within the hour.</p>
           )}
 
