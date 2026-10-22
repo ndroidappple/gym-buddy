@@ -211,12 +211,23 @@ things:
   workout and set was. Each set now records when it was done (`set.t`, set in `views/Session.jsx`).
   `useHeartRate` (`src/lib/googleHealth.js`) asks the server (`action: "heart"`) for the readings
   during each recent workout (the last 30 days, then each new one), and `src/lib/heart.js` turns them
-  into `session.hr` (average, peak, lowest, minutes at 80%+ and in each zone against an estimated max
-  of 208 − 0.7 × age, from Nutrition setup) and `set.hr` (each set's peak, from 45 s before the set
-  was marked done to 30 s after). Readings aren't kept. Watches sync on their own schedule, so a
-  workout is asked again every 15 minutes until its readings reach the end, for up to a day. The
-  Summary shows it, Workouts lists it, and the coaches get it in each workout line (`workoutLine` in
-  `src/lib/coachChat.js`, read per `HEART` in `api/coach.js`).
+  into `session.hr` (average, peak, lowest, minutes in each of Google's four zones: light, moderate,
+  vigorous, peak) and, per set, `set.hr` (its peak, from 45 s before it was marked done to 30 s
+  after) and `set.hrRest` (the lowest heart rate before the next set). The zones are the lifter's
+  own from Google Health (`daily-heart-rate-zones`, the latest on or before the workout's date), or
+  estimated from max heart rate (208 − 0.7 × age, from Nutrition setup) when Google has none. The
+  account keeps only those numbers; the readings, thinned to one per 5 s, stay on the phone that
+  fetched them (localStorage, the last 40 workouts) for the chart, and another phone fetches its own.
+  Watches sync on their own schedule, so a workout is asked again every 15 minutes until its readings
+  reach the end, for up to a day. The Summary shows the numbers and `components/HeartChart.jsx`: the
+  line colored by zone (steps of the workout day's color, deeper and bolder for harder),
+  threshold lines, a numbered band per lift, a dot on each set's peak, and a touch/keyboard readout
+  of the moment (bpm, zone, lift and set). Workouts lists it, and the coaches get it in each workout
+  line (`workoutLine` in `src/lib/coachChat.js`, read per `HEART` in `api/coach.js`). The Summary and
+  Workouts show heart rate only while Google Health is connected (`prefs.googleHealth.on`). When it
+  isn't (disconnected on any phone, or access taken away in the Google account), the app takes heart
+  rate off every workout (`withoutHeart`: `session.hr`, `set.hr`, `set.hrRest`; set times stay) and
+  clears the phone's readings; reconnecting fills the last 30 days back in.
 - **Sends bodyweight and food** to Google Health from the day they connect: a few seconds after a
   change saves, `useGoogleHealthSync` asks the server to sync; it reads the account and food log from
   Supabase, and `plan()` (`api/_googleHealth.js`) works out what to send: one weight a day, each food
@@ -267,7 +278,8 @@ src/
   lib/coachChat.js         # what each coach reads (crew: buildContext, head: headContext), streaming
   lib/repRange.js          # is a lift's rep range sane for its kind? (npm run test:range)
   lib/googleHealth.js      # Google Health: connect, status, weight/food sync, heart rate (api/google-health.js)
-  lib/heart.js             # workout and set intensity from heart rate (session.hr, set.hr)
+  lib/heart.js             # workout and set intensity from heart rate (session.hr, set.hr), zones, chart readings
+  components/HeartChart.jsx # a workout's heart rate over time: zones, lift bands, set peaks, readout
   components/ui.jsx        # sheet, toast, tab bar, charts, exercise picker
   views/                   # Today, Session, Summary, Progress (+ Workouts), Lift,
                            # Settings, ProgramEditor, Export

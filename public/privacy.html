@@ -26,7 +26,8 @@
           about you (for example an injury or your equipment). You can see and delete these in Settings.</li>
         <li><strong>Rest alerts</strong> (if you turn them on): a push subscription for your phone.</li>
         <li><strong>Workout heart rate</strong> (if you connect Google Health): for each workout, the average,
-          peak, lowest and time in each heart rate zone, and each set's peak. Not the individual readings.</li>
+          peak, lowest, your heart rate zones and time in each, and each set's peak and how far your heart rate came
+          down after it. The individual readings are not saved to your account (see below).</li>
       </ul>
 
       <h2>Where it's stored</h2>
@@ -49,18 +50,20 @@
       <p>If you choose to connect Google Health, GymBuddy:</p>
       <ul>
         <li><strong>Reads your heart rate</strong> during your workouts (from the time each one started to when it
-          finished, plus a minute either side), for workouts in the 30 days before you connect and after. It works
-          out each workout's average, peak and time in each heart rate zone, and each set's peak, shows them on the
-          workout and gives them to your coaches. It keeps only those numbers, never the readings, and reads no other
-          heart rate or any other data.</li>
+          finished, plus a minute either side), for workouts in the 30 days before you connect and after, and
+          the heart rate zones Google Health works out for you. It works out each workout's average, peak and time in
+          each zone, and each set's peak and recovery, shows them on the workout and gives them to your coaches. Your
+          account keeps only those numbers. The readings for a workout's heart rate chart are kept on the phone that
+          showed it (the last 40 workouts), never on GymBuddy's servers. It reads no other heart rate or other data.</li>
         <li><strong>Sends</strong> your bodyweight and logged food (calories, protein, carbohydrate and fat) to your
           Google Health account, from the day you connect.</li>
       </ul>
       <p>GymBuddy stores the sign-in token Google issues, on its server, encrypted, only for this. Disconnecting in
         GymBuddy's Settings, or removing GymBuddy at
         <a href="https://myaccount.google.com/permissions">myaccount.google.com/permissions</a>, stops it and
-        deletes the token. Data already sent stays in Google Health until you delete it there; heart rate summaries
-        stay on your workouts in GymBuddy until you delete the workout or your account.</p>
+        deletes the token. Disconnecting also deletes every
+        heart rate summary from your workouts in GymBuddy and the readings kept on your phone. Data already sent
+        stays in Google Health until you delete it there.</p>
       <p>The use of information received from Google Health API will adhere to the
         <a href="https://developers.google.com/health/policies/health-api-developer-user-data-policy">Google Health
         API Developer and User Data Policy</a>, including the Limited Use requirements. Health data is not sold or

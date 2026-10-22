@@ -177,6 +177,25 @@ export async function heartRate(access, start, end) {
   return { ok: true, readings };
 }
 
+const ZONE_ORDER = ["LIGHT", "MODERATE", "VIGOROUS", "PEAK"];
+const nextDay = (date) => new Date(Date.parse(`${date}T12:00:00Z`) + 86400_000).toISOString().slice(0, 10);
+const daysBefore = (date, n) => new Date(Date.parse(`${date}T12:00:00Z`) - n * 86400_000).toISOString().slice(0, 10);
+/**
+ * The lifter's own heart rate zones (Google works them out daily from their fitness and age) for a
+ * date, or the latest in the two weeks before it: the bpm each of light, moderate, vigorous and peak
+ * starts at. Resolves [light, moderate, vigorous, peak] or null.
+ */
+export async function heartZones(access, date) {
+  const f = "daily_heart_rate_zones.date";
+  const r = await get(access, "daily-heart-rate-zones/dataPoints", { pageSize: "20", filter: `${f} >= "${daysBefore(date, 14)}" AND ${f} < "${nextDay(date)}"` });
+  if (!r.ok) return null;
+  const day = (p) => { const d = p.dailyHeartRateZones?.date; return d ? `${d.year}-${String(d.month).padStart(2, "0")}-${String(d.day).padStart(2, "0")}` : ""; };
+  const latest = (r.body.dataPoints || []).filter((p) => day(p) <= date).sort((a, b) => day(b).localeCompare(day(a)))[0];
+  const zones = latest?.dailyHeartRateZones?.heartRateZones || [];
+  const bounds = ZONE_ORDER.map((type) => Number(zones.find((z) => z.heartRateZoneType === type)?.minBeatsPerMinute));
+  return bounds.every((b, i) => b > 0 && (i === 0 || b > bounds[i - 1])) ? bounds : null;
+}
+
 /* ── time ── */
 
 /** The UTC offset of `tz` at an instant, in seconds (east positive). */

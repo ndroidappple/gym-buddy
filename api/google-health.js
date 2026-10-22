@@ -1,7 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import {
   ghReady, signState, authUrl, openToken, accessToken, revoke, plan, carryOut, localToday, validTz,
-  links, redirectUri, grantedKinds, canReadHeart, heartRate, SUPABASE_URL, SUPABASE_KEY, LINK_SECRET,
+  links, redirectUri, grantedKinds, canReadHeart, heartRate, heartZones, SUPABASE_URL, SUPABASE_KEY, LINK_SECRET,
 } from "./_googleHealth.js";
 
 /* Google Health sync: the app's side. POST /api/google-health with the lifter's sign-in and
@@ -11,10 +11,11 @@ import {
      status            -> { connected, since, syncedAt, error, allowed: { weight, food, heart } }
      sync       { tz }  -> { connected, sent, removed, more }: sends weight and food that's new or
                            changed since the last sync, up to 30 data points (call again while `more`).
-     heart      { workouts: [{ id, start, end }] } (up to 4, ms) -> { connected, allowed,
-                           readings: { id: [[ms, bpm], ...] } }: heart rate during each workout,
-                           and a minute either side. Nothing is kept here: the app works out the
-                           intensity and saves that (src/lib/heart.js).
+     heart      { workouts: [{ id, start, end, date }] } (up to 4, ms) -> { connected, allowed,
+                           readings: { id: [[ms, bpm], ...] }, zones: { id: [bpm x4] or null } }:
+                           heart rate during each workout and a minute either side, and the
+                           lifter's own zones for its date. Nothing is kept here: the app works out
+                           the intensity and saves that (src/lib/heart.js).
      disconnect        -> { connected: false }: takes GymBuddy's access back from Google.
    The link (Google's refresh token, encrypted) is read and written through database functions
    that need the rest alerts' shared secret (REST_ALERT_SECRET); what was sent is the lifter's own
@@ -85,6 +86,7 @@ async function open(db, userId) {
   }
 }
 
+const DATE = /^\d{4}-\d{2}-\d{2}$/;
 const PAD_MS = 60_000; // a set's peak can come just after the workout's last tap
 async function heart(db, userId, workouts) {
   const asked = (Array.isArray(workouts) ? workouts : []).slice(0, 4)
@@ -93,7 +95,7 @@ async function heart(db, userId, workouts) {
   const { link, access, gone } = await open(db, userId);
   if (gone) return gone;
   if (!canReadHeart(link.scopes)) return { connected: true, allowed: false, readings: {} };
-  const readings = {};
+  const readings = {}, zones = {};
   for (const w of asked) {
     const r = await heartRate(access, w.start - PAD_MS, w.end + PAD_MS);
     if (!r.ok) {
@@ -102,8 +104,9 @@ async function heart(db, userId, workouts) {
       throw new Error(r.message);
     }
     readings[w.id] = r.readings;
+    zones[w.id] = DATE.test(w.date || "") ? await heartZones(access, w.date).catch(() => null) : null;
   }
-  return { connected: true, allowed: true, readings };
+  return { connected: true, allowed: true, readings, zones };
 }
 
 async function sync(sb, db, userId, tz) {

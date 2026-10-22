@@ -36,7 +36,7 @@ import { reviewState, reviewPrefs, fingerprint, latestReview } from "./lib/weekR
 import { cachedReview, loadReview, requestReview, syncSchedule } from "./lib/reviews.js";
 import { phoneState, ensureSubscribed } from "./lib/push.js";
 import { useGoogleHealthSync, useHeartRate } from "./lib/googleHealth.js";
-import { summarize, withHeart, maxHrFor } from "./lib/heart.js";
+import { summarize, withHeart, maxHrFor, estimatedBounds, hasHeart, withoutHeart, clearCurves } from "./lib/heart.js";
 
 const TAB_VIEWS = ["today", "nutrition", "progress", "settings", "lift"];
 
@@ -181,11 +181,22 @@ export default function App() {
   /* Google Health: what's logged goes there once it's saved to the account (the server sends it from there). */
   const ghGone = () => { setPref("googleHealth", null); notify("Google Health disconnected. Connect again in Settings."); };
   useGoogleHealthSync({ on: ready && !!prefs.googleHealth?.on, synced, sessions, weighins, food: foodLog, onGone: ghGone });
+  /* Not connected (disconnected here, on another phone, or access taken away in their Google
+     account): heart rate comes off every workout and this phone's readings go. Reconnecting fills the
+     last 30 days back in. */
+  const ghOn = !!prefs.googleHealth?.on;
+  useEffect(() => { if (ready && !ghOn) clearCurves(); }, [ready, ghOn]);
+  // Whenever a workout with heart rate turns up while not connected (also one arriving later, from an
+  // older copy of the account), not only at the moment of disconnecting.
+  const stale = ready && !ghOn && sessions.some(hasHeart);
+  useEffect(() => { if (stale) setSessions((prev) => prev.map(withoutHeart)); }, [stale, sessions]);
   // Heart rate from their watch: each recent workout's intensity, worked out against their age's max.
   const maxHr = maxHrFor(prefs.nutrition?.age);
   useHeartRate({ on: ready && !!prefs.googleHealth?.on && prefs.googleHealth.heart !== false, sessions, onGone: ghGone,
     onAllowed: () => setPrefs((p) => (p.googleHealth ? { ...p, googleHealth: { ...p.googleHealth, heart: false } } : p)),
-    onReadings: (id, readings) => setSessions((prev) => prev.map((s) => (s.id === id ? withHeart(s, summarize(readings, s, maxHr)) : s))) });
+    // Google's own zones for the lifter when it has them, else estimated from their age.
+    onReadings: (id, readings, zones) => setSessions((prev) => prev.map((s) => (s.id === id
+      ? withHeart(s, summarize(readings, s, { bounds: zones || estimatedBounds(maxHr), source: zones ? "google" : maxHr ? "age" : null, maxHr })) : s))) });
   // Opening this week's review stops the glow; the button stays for the rest of the day.
   const opening = route.name === "review" && review?.glow && route.id === reviewWeek;
   useEffect(() => {

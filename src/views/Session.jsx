@@ -106,7 +106,7 @@ export default function Session({ day, existing, draft, sessions, program, weigh
         min: String(ref[i]?.min ?? ex.reps[0]), mi: ref[i]?.mi != null ? String(ref[i].mi) : "", done: false,
       }));
     }
-    if (prev) return prev.map((s) => ({ w: String(s.w), r: String(s.r), rir: s.rir != null ? String(s.rir) : "", done: true, saved: true, t: s.t, hr: s.hr }));
+    if (prev) return prev.map((s) => ({ w: String(s.w), r: String(s.r), rir: s.rir != null ? String(s.rir) : "", done: true, saved: true, t: s.t, hr: s.hr, hrRest: s.hrRest }));
     const ref = lastFor(ex.n)?.sets[ex.n] || [];
     // Earned a weight increase last time: every set starts at the new weight, reps start fresh.
     const bump = readyToIncrease(ex, ref);
@@ -217,8 +217,8 @@ export default function Session({ day, existing, draft, sessions, program, weigh
       const valid = rows.filter((r) => (r.done || r.saved) && hasVal(r.w) && hasVal(r.r)).map((r) => ({
         w: parseFloat(r.w) || 0, r: parseInt(r.r) || 0,
         ...(hasVal(r.rir) ? { rir: parseFloat(r.rir) } : {}),
-        // When it was done, so the watch's heart rate can be matched to it, and its peak once known.
-        ...(r.t ? { t: r.t } : {}), ...(r.hr ? { hr: r.hr } : {}),
+        // When it was done, so the watch's heart rate can be matched to it, and its peak and recovery once known.
+        ...(r.t ? { t: r.t } : {}), ...(r.hr ? { hr: r.hr } : {}), ...(r.hrRest ? { hrRest: r.hrRest } : {}),
       }));
       if (valid.length) sets[n] = valid;
     });

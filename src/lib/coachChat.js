@@ -51,7 +51,7 @@ function progressRanking(sessions, lifts) {
 function workoutLine(s, program) {
   const done = Object.entries(s.sets).filter(([, v]) => v?.length).map(([n, v]) => {
     const b = bestSet(v);
-    const peaks = v.some((x) => x.hr) ? `; set peak HR ${v.map((x) => x.hr ?? "?").join("/")}` : "";
+    const peaks = v.some((x) => x.hr) ? `; set peak HR ${v.map((x) => x.hr ?? "?").join("/")}${v.some((x) => x.hrRest) ? `, came down to ${v.map((x) => x.hrRest ?? "?").join("/")}` : ""}` : "";
     return b ? `${n} ${fmtW(b.w)}x${b.r} (${lifting(v).length} sets${peaks})` : `${n} ${v.map(fmtSet).join(" + ")}`;
   });
   const hr = heartLine(s);

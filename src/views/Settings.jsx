@@ -273,7 +273,7 @@ export default function Settings({ program, sessions, prefs, setPref, go, notify
       {sheet === "reviews" && <PastReviewsSheet onClose={() => setSheet(null)} />}
       {sheet === "google-health" && <GoogleHealthSheet gh={gh} onDisconnect={() => setSheet("google-health-off")} onClose={() => setSheet(null)} />}
       {sheet === "google-health-off" && (
-        <ConfirmSheet title="Disconnect Google Health?" body="GymBuddy stops sending to Google Health. What's already there stays until you delete it in the Google Health app."
+        <ConfirmSheet title="Disconnect Google Health?" body="GymBuddy stops reading heart rate and sending weight and food. Heart rate comes off your workouts in GymBuddy; what's already in Google Health stays there."
           confirm="Disconnect" onClose={() => setSheet(null)} onConfirm={gh.disconnect} />
       )}
     </main>
@@ -521,7 +521,7 @@ function GoogleHealthSheet({ gh, onDisconnect, onClose }) {
         </button>
         <button type="button" className="list-row" disabled={gh.busy} onClick={onDisconnect}>
           <Unlink size={18} aria-hidden="true" />
-          <span className="name">Disconnect<span className="sub">Stop sending. What's in Google Health stays there.</span></span>
+          <span className="name">Disconnect<span className="sub">Heart rate comes off your workouts. What's in Google Health stays there.</span></span>
         </button>
       </div>
     </Sheet>

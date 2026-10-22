@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef } from "react";
 import { supabase } from "../supabase-client.js";
-import { wanting } from "./heart.js";
+import { wanting, cacheCurve, cachedCurve } from "./heart.js";
 
 /* Google Health on the phone side. The server (api/google-health.js) holds the connection, sends
    weight and food, and reads heart rate; this asks it to. prefs.googleHealth ({ on, since, heart })
@@ -90,7 +90,8 @@ export function useGoogleHealthSync({ on, synced, sessions, weighins, food, onGo
  * Heart rate for recent workouts (see heart.js): asks Google Health for each finished workout that
  * hasn't got it complete yet, when the app opens or comes back to the front and every 5 minutes
  * while it's open. Watches sync on their own schedule, so a workout just finished is asked again
- * until its readings reach the end. `onReadings(id, readings)` gets each workout's readings;
+ * until its readings reach the end. `onReadings(id, readings, zones)` gets each workout's readings
+ * and the lifter's own zone thresholds (or null), and the readings are kept on this phone for the chart;
  * `onAllowed(false)` runs when heart rate isn't allowed (they unticked it on Google's page).
  */
 export function useHeartRate({ on, sessions, onReadings, onAllowed, onGone }) {
@@ -111,10 +112,14 @@ export function useHeartRate({ on, sessions, onReadings, onAllowed, onGone }) {
         for (let i = 0; i < due.length && !stop; i += 4) {
           const batch = due.slice(i, i + 4);
           batch.forEach((s) => { tried.current[s.id] = now; });
-          const r = await ask("heart", { workouts: batch.map((s) => ({ id: s.id, start: s.startedAt, end: s.finishedAt })) });
+          const r = await ask("heart", { workouts: batch.map((s) => ({ id: s.id, start: s.startedAt, end: s.finishedAt, date: s.date })) });
           if (!r.connected) { latest.current.onGone?.(); return; }
           if (!r.allowed) { latest.current.onAllowed?.(false); return; }
-          for (const s of batch) if (r.readings[s.id]) latest.current.onReadings(s.id, r.readings[s.id]);
+          for (const s of batch) {
+            if (!r.readings[s.id]) continue;
+            cacheCurve(s.id, r.readings[s.id]);
+            latest.current.onReadings(s.id, r.readings[s.id], r.zones?.[s.id] || null);
+          }
         }
       } catch {} finally { busy.current = false; }
     };
@@ -124,4 +129,18 @@ export function useHeartRate({ on, sessions, onReadings, onAllowed, onGone }) {
     document.addEventListener("visibilitychange", onVis);
     return () => { stop = true; clearTimeout(t); clearInterval(id); document.removeEventListener("visibilitychange", onVis); };
   }, [on]);
+}
+
+/**
+ * A workout's heart rate readings for the chart: from this phone if it has them, otherwise asked for
+ * (and kept). Resolves [[ms, bpm], ...] or null.
+ */
+export async function heartCurve(s) {
+  const have = cachedCurve(s.id);
+  if (have) return have;
+  const r = await ask("heart", { workouts: [{ id: s.id, start: s.startedAt, end: s.finishedAt, date: s.date }] });
+  const readings = r.readings?.[s.id];
+  if (!readings?.length) return null;
+  cacheCurve(s.id, readings);
+  return cachedCurve(s.id);
 }
