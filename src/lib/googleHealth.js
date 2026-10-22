@@ -1,13 +1,15 @@
 import { useEffect, useMemo, useRef } from "react";
 import { supabase } from "../supabase-client.js";
+import { wanting } from "./heart.js";
 
-/* Google Health on the phone side. The server (api/google-health.js) holds the connection and does
-   the sending; this asks it to. prefs.googleHealth ({ on, since }) remembers on the account that
-   it's connected, so every phone signed in knows to send. */
+/* Google Health on the phone side. The server (api/google-health.js) holds the connection, sends
+   weight and food, and reads heart rate; this asks it to. prefs.googleHealth ({ on, since, heart })
+   remembers on the account that it's connected (and whether heart rate was allowed), so every phone
+   signed in knows. */
 
 const tz = () => Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
 
-async function ask(action) {
+async function ask(action, extra = {}) {
   const { data } = await supabase.auth.getSession();
   const token = data.session?.access_token;
   let res;
@@ -15,7 +17,7 @@ async function ask(action) {
     res = await fetch("/api/google-health", {
       method: "POST",
       headers: { "content-type": "application/json", ...(token ? { authorization: `Bearer ${token}` } : {}) },
-      body: JSON.stringify({ action, tz: tz() }),
+      body: JSON.stringify({ action, tz: tz(), ...extra }),
     });
   } catch {
     throw new Error("No connection. Try again when you're back online.");
@@ -82,4 +84,44 @@ export function useGoogleHealthSync({ on, synced, sessions, weighins, food, onGo
     document.addEventListener("visibilitychange", onVis);
     return () => { stop = true; clearTimeout(t); document.removeEventListener("visibilitychange", onVis); };
   }, [on, synced, sig]);
+}
+
+/**
+ * Heart rate for recent workouts (see heart.js): asks Google Health for each finished workout that
+ * hasn't got it complete yet, when the app opens or comes back to the front and every 5 minutes
+ * while it's open. Watches sync on their own schedule, so a workout just finished is asked again
+ * until its readings reach the end. `onReadings(id, readings)` gets each workout's readings;
+ * `onAllowed(false)` runs when heart rate isn't allowed (they unticked it on Google's page).
+ */
+export function useHeartRate({ on, sessions, onReadings, onAllowed, onGone }) {
+  const latest = useRef({ sessions, onReadings, onAllowed, onGone });
+  latest.current = { sessions, onReadings, onAllowed, onGone };
+  const busy = useRef(false);
+  const tried = useRef({}); // id -> when this phone last asked, so a workout with nothing yet isn't asked every minute
+
+  useEffect(() => {
+    if (!on) return;
+    let stop = false;
+    const run = async () => {
+      if (busy.current || stop || document.visibilityState !== "visible") return;
+      busy.current = true;
+      try {
+        const now = Date.now();
+        const due = wanting(latest.current.sessions, now).filter((s) => !(now - (tried.current[s.id] || 0) < 10 * 60_000)).slice(0, 12);
+        for (let i = 0; i < due.length && !stop; i += 4) {
+          const batch = due.slice(i, i + 4);
+          batch.forEach((s) => { tried.current[s.id] = now; });
+          const r = await ask("heart", { workouts: batch.map((s) => ({ id: s.id, start: s.startedAt, end: s.finishedAt })) });
+          if (!r.connected) { latest.current.onGone?.(); return; }
+          if (!r.allowed) { latest.current.onAllowed?.(false); return; }
+          for (const s of batch) if (r.readings[s.id]) latest.current.onReadings(s.id, r.readings[s.id]);
+        }
+      } catch {} finally { busy.current = false; }
+    };
+    const t = setTimeout(run, 3000);
+    const id = setInterval(run, 5 * 60_000);
+    const onVis = () => { if (document.visibilityState === "visible") run(); };
+    document.addEventListener("visibilitychange", onVis);
+    return () => { stop = true; clearTimeout(t); clearInterval(id); document.removeEventListener("visibilitychange", onVis); };
+  }, [on]);
 }

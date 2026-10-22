@@ -436,9 +436,9 @@ function useGoogleHealth({ prefs, setPref, notify }) {
     try {
       const s = await googleHealthStatus();
       setStatus(s);
-      if (s.connected && !on) {
-        setPref("googleHealth", { on: true, since: s.since });
-        if (connecting()) notify?.("Google Health connected");
+      if (s.connected && (!on || prefs.googleHealth.heart !== !!s.allowed?.heart)) {
+        setPref("googleHealth", { on: true, since: s.since, heart: !!s.allowed?.heart });
+        if (!on && connecting()) notify?.("Google Health connected");
       }
       if (!s.connected && on) setPref("googleHealth", null);
       if (s.connected) doneConnecting();
@@ -464,9 +464,9 @@ function useGoogleHealth({ prefs, setPref, notify }) {
     on, status, busy,
     since,
     lastLabel,
-    sub: !on ? "Send your workouts, weight and food to Google Health."
+    sub: !on ? "Heart rate in, for how hard you worked. Weight and food out."
       : status?.error ? "Some items didn't go through. They'll be tried again."
-      : `On since ${since ? shortDate(since) : "today"}${lastLabel ? ` · last sent ${lastLabel}` : ""}`,
+      : `On since ${since ? shortDate(since) : "today"}${lastLabel ? ` · last synced ${lastLabel}` : ""}`,
     connect: () => run(connectGoogleHealth),
     sendNow: () => run(async () => {
       const r = await syncGoogleHealth();
@@ -487,27 +487,30 @@ function useGoogleHealth({ prefs, setPref, notify }) {
    in the privacy policy), or the connection's state once it's on. */
 function GoogleHealthSheet({ gh, onDisconnect, onClose }) {
   const allowed = gh.status?.allowed;
-  const missing = allowed ? [["workouts", "workouts"], ["weight", "weight"], ["food", "food"]].filter(([k]) => !allowed[k]).map(([, l]) => l) : [];
+  const missing = allowed ? [["heart", "heart rate"], ["weight", "weight"], ["food", "food"]].filter(([k]) => !allowed[k]).map(([, l]) => l) : [];
   if (!gh.on) {
     return (
-      <Sheet title="Google Health" sub="Send what you log in GymBuddy to your Google Health account." onClose={onClose} labelledBy="google-health-title">
+      <Sheet title="Google Health" sub="Bring your watch's heart rate into your workouts, and keep your weight and food in Google Health." onClose={onClose} labelledBy="google-health-title">
         <div className="list">
-          <div className="list-row"><Dumbbell size={18} aria-hidden="true" /><span className="name">Workouts<span className="sub">When each one started and finished, as strength training.</span></span></div>
-          <div className="list-row"><Scale size={18} aria-hidden="true" /><span className="name">Bodyweight<span className="sub">Your weigh-ins.</span></span></div>
-          <div className="list-row"><Utensils size={18} aria-hidden="true" /><span className="name">Food<span className="sub">Each entry's calories, protein, carbs and fat.</span></span></div>
+          <div className="list-row"><HeartPulse size={18} aria-hidden="true" /><span className="name">Heart rate, read<span className="sub">Only during your workouts in the last 30 days and from now on, to show how hard each workout and set was. Your coaches see the summary.</span></span></div>
+          <div className="list-row"><Scale size={18} aria-hidden="true" /><span className="name">Bodyweight, sent<span className="sub">Your weigh-ins, from the day you connect.</span></span></div>
+          <div className="list-row"><Utensils size={18} aria-hidden="true" /><span className="name">Food, sent<span className="sub">Each entry's calories, protein, carbs and fat, from the day you connect.</span></span></div>
         </div>
-        <p className="note-box">From the day you connect on. GymBuddy can only add to Google Health: it can't read anything there. Open the Google Health app and sign in before you connect. <a href="/privacy.html" target="_blank" rel="noopener">Privacy policy</a></p>
+        <p className="note-box">GymBuddy doesn't send workouts: record them in Google Health from your watch as you do now. It reads nothing else there. Open the Google Health app and sign in before you connect. <a href="/privacy.html" target="_blank" rel="noopener">Privacy policy</a></p>
         <button type="button" className="btn btn-ink" disabled={gh.busy} onClick={gh.connect}>{gh.busy ? "Opening Google…" : "Connect Google Health"}</button>
         <p className="small muted">Google's page opens over GymBuddy. Once it says connected, close it and come back here.</p>
       </Sheet>
     );
   }
   return (
-    <Sheet title="Google Health" sub={`Sending your workouts, weight and food since ${gh.since ? shortDate(gh.since) : "you connected"}.`} onClose={onClose} labelledBy="google-health-title">
+    <Sheet title="Google Health" sub={`Connected since ${gh.since ? shortDate(gh.since) : "today"}.`} onClose={onClose} labelledBy="google-health-title">
       <div className="list">
-        <div className="list-row"><Check size={18} aria-hidden="true" /><span className="name">{gh.lastLabel ? `Last sent ${gh.lastLabel}` : "Nothing sent yet"}<span className="sub">New workouts, weigh-ins and food go a few seconds after they're saved. Edits and deletes follow.</span></span></div>
+        {allowed?.heart !== false && (
+          <div className="list-row"><HeartPulse size={18} aria-hidden="true" /><span className="name">Heart rate<span className="sub">Each workout's heart rate shows on it once your watch has synced to Google Health, usually within the hour.</span></span></div>
+        )}
+        <div className="list-row"><Check size={18} aria-hidden="true" /><span className="name">{gh.lastLabel ? `Weight and food last sent ${gh.lastLabel}` : "No weight or food sent yet"}<span className="sub">New weigh-ins and food go a few seconds after they're saved. Edits and deletes follow.</span></span></div>
         {missing.length > 0 && (
-          <div className="list-row"><Info size={18} aria-hidden="true" /><span className="name">Not allowed: {missing.join(", ")}<span className="sub">To send it, disconnect, connect again and tick it on Google's page.</span></span></div>
+          <div className="list-row"><Info size={18} aria-hidden="true" /><span className="name">Not allowed: {missing.join(", ")}<span className="sub">To turn it on, disconnect, connect again and tick it on Google's page.</span></span></div>
         )}
         {gh.status?.error && (
           <div className="list-row"><Info size={18} aria-hidden="true" /><span className="name">Some items didn't go through<span className="sub">They'll be tried again with the next change, or tap Send now.</span></span></div>

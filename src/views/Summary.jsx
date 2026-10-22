@@ -5,6 +5,7 @@ import Coach from "../components/Coach.jsx";
 import { InfoButton } from "../components/ui.jsx";
 import SetupCard from "../components/SetupCard.jsx";
 import { coachFor } from "../data/coaches.js";
+import { ZONES } from "../lib/heart.js";
 import { useTheme } from "../lib/theme.js";
 import { fmtSet, cardioTotals, priorSessions, allTimeBest, bestSet, bestE1rm, e1rm, fmtW, num, compact, shortDate, plural, sessionVolume, sessionSetCount, byDateDesc, nextDayAfter } from "../lib/util.js";
 
@@ -67,6 +68,12 @@ export default function Summary({ session, sessions, program, prefs, go, onUpdat
           <div className="stat"><b>{r.sets}</b><span>sets</span><span className="trend flat">{plural(Object.keys(session.sets).length, "lift")}</span></div>
           <div className="stat"><b>{r.records.length}</b><span>PRs</span>{r.prevRecords != null && <span className="trend flat">{r.prevRecords} last time</span>}</div>
         </div>
+
+        {session.hr && !session.hr.none
+          ? <Heart session={session} />
+          : prefs.googleHealth?.on && prefs.googleHealth.heart !== false && (
+            <p className="note-box hr-wait">Heart rate from your watch shows up here once it syncs to Google Health, usually within the hour.</p>
+          )}
 
         {r.records.length > 0 && (
           <Group title="Records" help="records">
@@ -164,6 +171,45 @@ function countRecords(sessions, s) {
 function Delta({ pct }) {
   if (Math.abs(pct) < 0.5) return <span className="trend flat">— even</span>;
   return <span className={"trend" + (pct < 0 ? " flat" : "")}>{pct > 0 ? "▲" : "▼"} {Math.abs(pct).toFixed(0)}%</span>;
+}
+
+/** The workout's heart rate from the lifter's watch: average, peak, hard minutes, zones, and each lift's set peaks. */
+function Heart({ session }) {
+  const h = session.hr;
+  const total = h.zones ? h.zones.reduce((a, m) => a + m, 0) : 0;
+  const lifts = Object.entries(session.sets).filter(([, v]) => v.some((x) => x.hr));
+  return (
+    <section className="section">
+      <h2 className="lbl">Heart rate</h2>
+      <div className="stats">
+        <div className="stat"><b>{h.avg}</b><span>avg bpm</span></div>
+        <div className="stat"><b>{h.max}</b><span>peak bpm</span>{h.maxHr && <span className="trend flat">{Math.round((h.max / h.maxHr) * 100)}% of max</span>}</div>
+        {h.hard != null
+          ? <div className="stat"><b>{num(h.hard)}</b><span>min at 80%+</span></div>
+          : <div className="stat"><b>{h.low}</b><span>lowest bpm</span></div>}
+      </div>
+      {total > 0 && (
+        <div className="hr-zones-wrap">
+          <div className="hr-zones" role="img" aria-label={`Time in zones: ${h.zones.map((m, i) => `${Math.round(ZONES[i] * 100)}%+ ${num(m)} min`).join(", ")}`}>
+            {h.zones.map((m, i) => m > 0 && <span key={i} className={`z${i + 1}`} style={{ flexGrow: m }} />)}
+          </div>
+          <div className="hr-zone-key"><span>Easy</span><span>Zones by % of your est. max {h.maxHr}</span><span>Max</span></div>
+        </div>
+      )}
+      {!h.maxHr && <p className="small muted">Add your age in Nutrition setup to see time in each heart rate zone.</p>}
+      {lifts.length > 0 && (
+        <div className="card-list">
+          {lifts.map(([n, v]) => (
+            <div key={n} className="rec plain">
+              <span className="rec-text"><span className="n">{n}</span><span className="m">Set peaks {v.map((x) => x.hr ?? "–").join(" · ")} bpm</span></span>
+              <span className="trend flat">top {Math.max(...v.map((x) => x.hr || 0))}</span>
+            </div>
+          ))}
+        </div>
+      )}
+      {!h.complete && <p className="small muted">Your watch is still syncing; this fills in as it does.</p>}
+    </section>
+  );
 }
 
 function Group({ title, help, children }) {
