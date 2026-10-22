@@ -1,16 +1,20 @@
 import { createHash, createHmac, createCipheriv, createDecipheriv, hkdfSync, randomBytes, timingSafeEqual } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
-import { bodyweightSeries, lifting, num } from "../src/lib/util.js";
+import { bodyweightSeries, num } from "../src/lib/util.js";
 
 /* Google Health sync, shared by api/google-health.js (the app's requests) and
    api/google-health-callback.js (where Google sends the lifter back after they allow it).
    Files starting with an underscore aren't served as functions.
 
-   GymBuddy only writes: workouts as exercise sessions, bodyweight, and each food entry as a
-   nutrition log, from the day the lifter connected. Every data point gets a name GymBuddy makes up
-   from the item and its contents (gbw-/gbb-/gbf-<item hash>-<content hash>), so sending one twice
-   is harmless, and an edit is a new data point plus a delete of the old one (Google can't edit
-   a nutrition log made this way, so everything works the same way).
+   GymBuddy writes bodyweight and each food entry (as a nutrition log), from the day the lifter
+   connected. Every data point gets a name GymBuddy makes up from the item and its contents
+   (gbb-/gbf-<item hash>-<content hash>), so sending one twice is harmless, and an edit is a new
+   data point plus a delete of the old one (Google can't edit a nutrition log made this way, so
+   everything works the same way). Workouts aren't written: the lifter records them in Google
+   Health from their watch, and a second copy would double them.
+
+   It reads one thing: heart rate during a workout, which the app turns into the workout's
+   intensity (src/lib/heart.js).
 
    Needs GOOGLE_HEALTH_CLIENT_ID and GOOGLE_HEALTH_CLIENT_SECRET (Google Cloud, OAuth client), and
    REST_ALERT_SECRET for the database functions that hold the link. */
@@ -21,13 +25,14 @@ export const ghReady = () => !!(CLIENT_ID && CLIENT_SECRET);
 
 const API = "https://health.googleapis.com/v4/users/me/dataTypes";
 const SCOPE = "https://www.googleapis.com/auth/googlehealth.";
-/** What each kind of item needs from the lifter, and where it goes in Google Health. */
+/** What each kind of item needs from the lifter, and where it goes in Google Health. (Workouts,
+    "w:", were written before and aren't now; ones already sent are left alone.) */
 export const KINDS = {
-  w: { type: "exercise", scope: `${SCOPE}activity_and_fitness.writeonly`, prefix: "gbw" },
   bw: { type: "weight", scope: `${SCOPE}health_metrics_and_measurements.writeonly`, prefix: "gbb" },
   f: { type: "nutrition-log", scope: `${SCOPE}nutrition.writeonly`, prefix: "gbf" },
 };
-export const SCOPES = Object.values(KINDS).map((k) => k.scope);
+export const HEART_SCOPE = `${SCOPE}health_metrics_and_measurements.readonly`;
+export const SCOPES = [...Object.values(KINDS).map((k) => k.scope), HEART_SCOPE];
 
 export const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
 export const SUPABASE_KEY = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
@@ -120,21 +125,56 @@ export const exchangeCode = (code, redirectUri) => tokenRequest({ code, redirect
 export const accessToken = async (refresh) => (await tokenRequest({ refresh_token: refresh, grant_type: "refresh_token" })).access_token;
 export const revoke = (token) => fetch(`https://oauth2.googleapis.com/revoke?token=${encodeURIComponent(token)}`, { method: "POST", signal: AbortSignal.timeout(8000) }).catch(() => {});
 
-/** The kinds a granted scope list allows: ["w", "bw", "f"] or fewer. */
+/** The kinds a granted scope list allows to write: ["bw", "f"] or fewer. */
 export const grantedKinds = (scopes) => Object.entries(KINDS).filter(([, k]) => String(scopes || "").split(" ").includes(k.scope)).map(([kind]) => kind);
+/** Whether a granted scope list allows reading heart rate. */
+export const canReadHeart = (scopes) => String(scopes || "").split(" ").includes(HEART_SCOPE);
+
+async function get(access, path, params) {
+  const res = await fetch(`${API}/${path}?${new URLSearchParams(params)}`, { headers: { authorization: `Bearer ${access}` }, signal: AbortSignal.timeout(15_000) });
+  const body = await res.json().catch(() => ({}));
+  return res.ok ? { ok: true, body } : { ok: false, status: res.status, message: body.error?.message || `${res.status}` };
+}
 
 /**
  * Whether GymBuddy can use the Google account in Google Health (Google asks for the app to be
- * opened once first). The identity call needs a read scope, which GymBuddy doesn't ask for, so
- * this lists GymBuddy's own data points of a kind it was allowed, which works with write-only.
- * Resolves { ok, status, message }.
+ * opened once first). The identity call needs a read scope GymBuddy doesn't ask for, so this lists
+ * one data point it's allowed to: its own weight or food (which works with write-only), or else
+ * heart rate. Resolves { ok, status, message }.
  */
-export async function canWrite(access, kind) {
-  const q = new URLSearchParams({ pageSize: "1", dataSourceFamily: "users/me/dataSourceFamilies/self-sources" });
-  const res = await fetch(`${API}/${KINDS[kind].type}/dataPoints?${q}`, { headers: { authorization: `Bearer ${access}` }, signal: AbortSignal.timeout(10_000) });
-  if (res.ok) return { ok: true };
-  const err = await res.json().catch(() => ({}));
-  return { ok: false, status: res.status, message: err.error?.message || `${res.status}` };
+export async function canUse(access, scopes) {
+  const kind = grantedKinds(scopes)[0];
+  return kind
+    ? get(access, `${KINDS[kind].type}/dataPoints`, { pageSize: "1", dataSourceFamily: "users/me/dataSourceFamilies/self-sources" })
+    : get(access, "heart-rate/dataPoints", { pageSize: "1" });
+}
+
+/**
+ * Heart rate readings between two instants (ms), oldest first: [[ms, bpm], ...]. A long workout
+ * at one reading a second is thousands, so past 3,000 they're averaged into 5-second steps.
+ * Resolves { ok, readings } or { ok: false, status, message }.
+ */
+export async function heartRate(access, start, end) {
+  const iso = (ms) => new Date(ms).toISOString();
+  const params = { pageSize: "10000", filter: `heart_rate.sample_time.physical_time >= "${iso(start)}" AND heart_rate.sample_time.physical_time < "${iso(end)}"` };
+  let readings = [];
+  for (let page = 0; page < 4; page++) {
+    const r = await get(access, "heart-rate/dataPoints", params);
+    if (!r.ok) return r;
+    for (const p of r.body.dataPoints || []) {
+      const t = Date.parse(p.heartRate?.sampleTime?.physicalTime), b = Number(p.heartRate?.beatsPerMinute);
+      if (t && b > 0) readings.push([t, b]);
+    }
+    if (!r.body.nextPageToken) break;
+    params.pageToken = r.body.nextPageToken;
+  }
+  readings.sort((a, b) => a[0] - b[0]);
+  if (readings.length > 3000) {
+    const steps = new Map();
+    for (const [t, b] of readings) { const k = Math.floor(t / 5000) * 5000; const s = steps.get(k) || [0, 0]; steps.set(k, [s[0] + b, s[1] + 1]); }
+    readings = [...steps].map(([t, [sum, n]]) => [t, Math.round(sum / n)]);
+  }
+  return { ok: true, readings };
 }
 
 /* ── time ── */
@@ -172,35 +212,8 @@ const interval = (start, end, tz) => {
 const hash = (v, n) => createHash("sha256").update(JSON.stringify(v)).digest("hex").slice(0, n);
 const nameFor = (kind, item, content) => `users/me/dataTypes/${KINDS[kind].type}/dataPoints/${KINDS[kind].prefix}-${hash(item, 10)}-${hash(content, 8)}`;
 const LB = 453.59237;
-const MAX_WORKOUT = 4 * 3600_000; // a session left open for hours still went in as a workout of at most 4 hours
 // Food has a date and a meal, not a time: each meal goes in at a usual time for it.
 const MEALS = { breakfast: ["08:00", "BREAKFAST"], lunch: ["12:30", "LUNCH"], snacks: ["15:30", "SNACK"], dinner: ["18:30", "DINNER"] };
-
-/** A workout as a Google Health exercise session, or null when there's nothing to send. */
-function workout(s, program, tz) {
-  const sets = Object.values(s.sets || {}).flat();
-  if (!sets.length || !s.finishedAt) return null;
-  const end = s.finishedAt;
-  // No start time (or a muddled one): an hour.
-  const start = s.startedAt && s.startedAt < end - 60_000 ? Math.max(s.startedAt, end - MAX_WORKOUT) : end - 3600_000;
-  const day = program?.[s.day]?.name || "Workout";
-  const lifts = lifting(sets).length;
-  const content = { start, end, day, sets: sets.length };
-  return {
-    content,
-    body: {
-      exercise: {
-        interval: interval(start, end, tz),
-        // Google names the workout from its type; only OTHER takes a name of its own.
-        exerciseType: lifts ? "STRENGTH_TRAINING" : "CARDIO_WORKOUT",
-        displayName: lifts ? "Strength training" : "Cardio",
-        activeDuration: `${Math.round((end - start) / 1000)}s`,
-        metricsSummary: {},
-        notes: `${day} · ${sets.length} set${sets.length === 1 ? "" : "s"} (GymBuddy)`,
-      },
-    },
-  };
-}
 
 /** A food entry as a nutrition log. */
 function meal(f, tz, now) {
@@ -228,7 +241,7 @@ function meal(f, tz, now) {
 
 /**
  * What to send and what to take back, from what's logged and what was sent before.
- * `account`: the saved app data ({ sessions, weighins, program }); `food`: food entries since
+ * `account`: the saved app data ({ sessions, weighins }); `food`: food entries since
  * `since`; `synced`: { item: name } already in Google Health; `granted`: the kinds the lifter
  * allowed. Only dates from `since` to today count. A kind they didn't allow is left alone.
  * Returns { send: [{ item, kind, name, body, replaces }], remove: [{ item, kind, name }] }.
@@ -239,9 +252,6 @@ export function plan({ account, food = [], since, tz, synced = {}, granted = Obj
   const want = {}; // item -> { kind, date, content, body }
   const add = (kind, item, date, out) => { if (out && granted.includes(kind)) want[item] = { kind, date, ...out }; };
 
-  for (const s of account?.sessions || []) {
-    if (inRange(s.date)) add("w", `w:${s.id}`, s.date, workout(s, account.program, tz));
-  }
   // One weight a day: a weigh-in, or the bodyweight entered with that day's workout.
   const sessionEnd = Object.fromEntries((account?.sessions || []).filter((s) => s.bw != null).map((s) => [s.date, s.finishedAt]));
   for (const { date, bw } of bodyweightSeries(account?.sessions || [], account?.weighins || [])) {

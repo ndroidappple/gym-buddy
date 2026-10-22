@@ -35,7 +35,8 @@ import WeekReviewIntro from "./components/WeekReviewIntro.jsx";
 import { reviewState, reviewPrefs, fingerprint, latestReview } from "./lib/weekReview.js";
 import { cachedReview, loadReview, requestReview, syncSchedule } from "./lib/reviews.js";
 import { phoneState, ensureSubscribed } from "./lib/push.js";
-import { useGoogleHealthSync } from "./lib/googleHealth.js";
+import { useGoogleHealthSync, useHeartRate } from "./lib/googleHealth.js";
+import { summarize, withHeart, maxHrFor } from "./lib/heart.js";
 
 const TAB_VIEWS = ["today", "nutrition", "progress", "settings", "lift"];
 
@@ -178,8 +179,13 @@ export default function App() {
     })();
   }, [reviewWeek, synced, clock, latest.weekEnd, latest.at]);
   /* Google Health: what's logged goes there once it's saved to the account (the server sends it from there). */
-  useGoogleHealthSync({ on: ready && !!prefs.googleHealth?.on, synced, sessions, weighins, food: foodLog,
-    onGone: () => { setPref("googleHealth", null); notify("Google Health disconnected. Connect again in Settings."); } });
+  const ghGone = () => { setPref("googleHealth", null); notify("Google Health disconnected. Connect again in Settings."); };
+  useGoogleHealthSync({ on: ready && !!prefs.googleHealth?.on, synced, sessions, weighins, food: foodLog, onGone: ghGone });
+  // Heart rate from their watch: each recent workout's intensity, worked out against their age's max.
+  const maxHr = maxHrFor(prefs.nutrition?.age);
+  useHeartRate({ on: ready && !!prefs.googleHealth?.on && prefs.googleHealth.heart !== false, sessions, onGone: ghGone,
+    onAllowed: () => setPrefs((p) => (p.googleHealth ? { ...p, googleHealth: { ...p.googleHealth, heart: false } } : p)),
+    onReadings: (id, readings) => setSessions((prev) => prev.map((s) => (s.id === id ? withHeart(s, summarize(readings, s, maxHr)) : s))) });
   // Opening this week's review stops the glow; the button stays for the rest of the day.
   const opening = route.name === "review" && review?.glow && route.id === reviewWeek;
   useEffect(() => {

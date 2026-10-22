@@ -1,16 +1,20 @@
 import { createClient } from "@supabase/supabase-js";
 import {
   ghReady, signState, authUrl, openToken, accessToken, revoke, plan, carryOut, localToday, validTz,
-  links, redirectUri, grantedKinds, SUPABASE_URL, SUPABASE_KEY, LINK_SECRET,
+  links, redirectUri, grantedKinds, canReadHeart, heartRate, SUPABASE_URL, SUPABASE_KEY, LINK_SECRET,
 } from "./_googleHealth.js";
 
 /* Google Health sync: the app's side. POST /api/google-health with the lifter's sign-in and
    { action }:
      connect    { tz }  -> { url }: Google's page asking them to allow GymBuddy. Google then sends
                            them to api/google-health-callback.js, which saves the connection.
-     status            -> { connected, since, syncedAt, error, allowed: { workouts, weight, food } }
-     sync       { tz }  -> { connected, sent, removed, more }: sends what's new or changed since
-                           the last sync, up to 30 data points (call again while `more`).
+     status            -> { connected, since, syncedAt, error, allowed: { weight, food, heart } }
+     sync       { tz }  -> { connected, sent, removed, more }: sends weight and food that's new or
+                           changed since the last sync, up to 30 data points (call again while `more`).
+     heart      { workouts: [{ id, start, end }] } (up to 4, ms) -> { connected, allowed,
+                           readings: { id: [[ms, bpm], ...] } }: heart rate during each workout,
+                           and a minute either side. Nothing is kept here: the app works out the
+                           intensity and saves that (src/lib/heart.js).
      disconnect        -> { connected: false }: takes GymBuddy's access back from Google.
    The link (Google's refresh token, encrypted) is read and written through database functions
    that need the rest alerts' shared secret (REST_ALERT_SECRET); what was sent is the lifter's own
@@ -21,7 +25,7 @@ const ACCOUNT_KEY = "ironlog-v2"; // STORE_KEY in src/lib/store.js
 const json = (body, status = 200) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json", "cache-control": "no-store" } });
 const noSession = { auth: { persistSession: false, autoRefreshToken: false } };
 
-const allowed = (scopes) => { const g = grantedKinds(scopes); return { workouts: g.includes("w"), weight: g.includes("bw"), food: g.includes("f") }; };
+const allowed = (scopes) => { const g = grantedKinds(scopes); return { weight: g.includes("bw"), food: g.includes("f"), heart: canReadHeart(scopes) }; };
 
 export async function POST(request) {
   if (!SUPABASE_URL || !SUPABASE_KEY || !LINK_SECRET || !ghReady()) return json({ error: "Google Health isn't set up on the server yet." }, 503);
@@ -53,6 +57,7 @@ export async function POST(request) {
         return json({ connected: false });
       }
       case "sync": return json(await sync(sb, db, user.id, tz));
+      case "heart": return json(await heart(db, user.id, body.workouts));
       default: return json({ error: "Unknown action." }, 400);
     }
   } catch (e) {
@@ -61,20 +66,49 @@ export async function POST(request) {
   }
 }
 
-async function sync(sb, db, userId, tz) {
+/**
+ * The link and a fresh access token, or { gone } when they need to connect again: no link, they
+ * took GymBuddy's access away in their Google account, or the saved token can't be read any more
+ * (the client secret was changed).
+ */
+async function open(db, userId) {
   const link = await db.get(userId);
-  if (!link) return { connected: false };
-  // Gone means connect again: they took GymBuddy's access away in their Google account, or the
-  // saved token can't be read any more (the client secret was changed).
-  const gone = async () => { await db.remove(userId); return { connected: false, expired: true }; };
-  let refresh, access;
+  if (!link) return { gone: { connected: false } };
+  const gone = async () => { await db.remove(userId); return { gone: { connected: false, expired: true } }; };
+  let refresh;
   try { refresh = openToken(link.token); } catch { return gone(); }
   try {
-    access = await accessToken(refresh);
+    return { link, access: await accessToken(refresh) };
   } catch (e) {
     if (e.code === "invalid_grant") return gone();
     throw e;
   }
+}
+
+const PAD_MS = 60_000; // a set's peak can come just after the workout's last tap
+async function heart(db, userId, workouts) {
+  const asked = (Array.isArray(workouts) ? workouts : []).slice(0, 4)
+    .filter((w) => typeof w?.id === "string" && w.id.length <= 40 && Number.isFinite(w.start) && Number.isFinite(w.end)
+      && w.end > w.start && w.end - w.start <= 6 * 3600_000 && w.end <= Date.now() + 3600_000);
+  const { link, access, gone } = await open(db, userId);
+  if (gone) return gone;
+  if (!canReadHeart(link.scopes)) return { connected: true, allowed: false, readings: {} };
+  const readings = {};
+  for (const w of asked) {
+    const r = await heartRate(access, w.start - PAD_MS, w.end + PAD_MS);
+    if (!r.ok) {
+      console.warn("google health heart rate", r.status, r.message);
+      if (r.status === 403) return { connected: true, allowed: false, readings };
+      throw new Error(r.message);
+    }
+    readings[w.id] = r.readings;
+  }
+  return { connected: true, allowed: true, readings };
+}
+
+async function sync(sb, db, userId, tz) {
+  const { link, access, gone } = await open(db, userId);
+  if (gone) return gone;
 
   const today = localToday(tz);
   const [account, food, synced] = await Promise.all([loadAccount(sb, userId), loadFood(sb, userId, link.since, today), loadSynced(sb, userId)]);

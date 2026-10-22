@@ -1,6 +1,7 @@
-/* Checks for the Google Health sync (api/_googleHealth.js): what gets sent, edited and taken back,
-   the shapes Google expects, time zones, the sealed token and signed state, and the order of
-   requests (an edit's old version goes before the new one is sent).
+/* Checks for Google Health (api/_googleHealth.js, src/lib/heart.js): what gets sent, edited and
+   taken back, the shapes Google expects, time zones, the sealed token and signed state, the order of
+   requests (an edit's old version goes before the new one is sent), reading heart rate, and turning
+   it into a workout's intensity.
    Run: npm run test:health   (exits 1 on any failure) */
 process.env.GOOGLE_HEALTH_CLIENT_ID = "test-client";
 process.env.GOOGLE_HEALTH_CLIENT_SECRET = "test-secret";
@@ -17,11 +18,9 @@ const ok = (name, cond) => eq(name, !!cond, true);
 const TZ = "America/New_York";
 const NOW = Date.parse("2026-10-22T20:00:00Z"); // 4 pm in New York
 const at = (s) => Date.parse(s);
-const program = { push: { name: "Push" }, legs: { name: "Legs" } };
 const session = (id, date, start, end, extra = {}) => ({ id, day: "push", date, startedAt: at(start), finishedAt: at(end), sets: { "Bench Press": [{ w: 185, r: 8 }, { w: 185, r: 7 }] }, ...extra });
 const base = {
   account: {
-    program,
     sessions: [
       session("a1", "2026-10-22", "2026-10-22T10:00:00Z", "2026-10-22T11:05:00Z", { bw: 182.4 }),
       session("old", "2026-10-15", "2026-10-15T10:00:00Z", "2026-10-15T11:00:00Z"),
@@ -42,17 +41,11 @@ eq("08:00 in New York", new Date(localInstant("2026-10-22", "08:00", TZ)).toISOS
 eq("today in New York", localToday(TZ, at("2026-10-23T02:00:00Z")), "2026-10-22");
 eq("a bad time zone is UTC", offsetSeconds("Not/AZone", NOW), 0);
 
-// First sync: everything from `since` to today.
+// First sync: everything from `since` to today. Workouts aren't sent (the lifter records them in Google Health).
 const first = plan(base);
-eq("items sent, oldest first", first.send.map((s) => s.item), ["bw:2026-10-21", "bw:2026-10-22", "f:f-1", "f:f-2", "w:a1"]);
+eq("items sent, oldest first", first.send.map((s) => s.item), ["bw:2026-10-21", "bw:2026-10-22", "f:f-1", "f:f-2"]);
 eq("nothing to take back", first.remove, []);
-const w = first.send.find((s) => s.item === "w:a1");
-eq("workout type", w.body.exercise.exerciseType, "STRENGTH_TRAINING");
-eq("workout interval", w.body.exercise.interval, { startTime: "2026-10-22T10:00:00.000Z", startUtcOffset: "-14400s", endTime: "2026-10-22T11:05:00.000Z", endUtcOffset: "-14400s" });
-eq("workout length", w.body.exercise.activeDuration, "3900s");
-eq("workout notes", w.body.exercise.notes, "Push · 2 sets (GymBuddy)");
-ok("workout has the required summary", w.body.exercise.metricsSummary && w.body.exercise.displayName);
-ok("names are users/me/dataTypes/<type>/dataPoints/<4-63 of a-z 0-9 ->", first.send.every((s) => /^users\/me\/dataTypes\/(exercise|weight|nutrition-log)\/dataPoints\/[a-z0-9-]{4,63}$/.test(s.name)));
+ok("names are users/me/dataTypes/<type>/dataPoints/<4-63 of a-z 0-9 ->", first.send.every((s) => /^users\/me\/dataTypes\/(weight|nutrition-log)\/dataPoints\/[a-z0-9-]{4,63}$/.test(s.name)));
 const wt = first.send.find((s) => s.item === "bw:2026-10-22");
 eq("weight in grams", wt.body.weight.weightGrams, Math.round(182.4 * 453.59237));
 eq("a workout's bodyweight is at its end", wt.body.weight.sampleTime, { physicalTime: "2026-10-22T11:05:00.000Z", utcOffset: "-14400s" });
@@ -70,46 +63,39 @@ const synced = Object.fromEntries(first.send.map((s) => [s.item, s.name]));
 const again = plan({ ...base, synced });
 eq("second sync sends nothing", [again.send.length, again.remove.length], [0, 0]);
 
-// An edit: a set added to the workout, a food amount changed.
+// An edit: the workout's bodyweight corrected, a food amount changed.
 const edited = {
   ...base,
   synced,
-  account: { ...base.account, sessions: base.account.sessions.map((s) => (s.id === "a1" ? { ...s, sets: { ...s.sets, Dips: [{ w: 0, r: 12 }] } } : s)) },
+  account: { ...base.account, sessions: base.account.sessions.map((s) => (s.id === "a1" ? { ...s, bw: 181.8 } : s)) },
   food: base.food.map((f) => (f.id === "f-2" ? { ...f, amount: 8, kcal: 373 } : f)),
 };
 const e = plan(edited);
-eq("edits are sent again", e.send.map((s) => s.item), ["f:f-2", "w:a1"]);
-eq("replacing the old versions", e.send.map((s) => s.replaces), [synced["f:f-2"], synced["w:a1"]]);
+eq("edits are sent again", e.send.map((s) => s.item), ["bw:2026-10-22", "f:f-2"]);
+eq("replacing the old versions", e.send.map((s) => s.replaces), [synced["bw:2026-10-22"], synced["f:f-2"]]);
 ok("under new names", e.send.every((s) => s.name !== synced[s.item]));
 
 // Deleted in GymBuddy: taken back.
 const del = plan({ ...base, synced, account: { ...base.account, sessions: base.account.sessions.filter((s) => s.id !== "a1") }, food: base.food.slice(0, 1) });
-// The workout carried today's bodyweight, so that goes too.
-eq("deleted items come out, with the workout's bodyweight", del.remove.map((r) => r.item).sort(), ["bw:2026-10-22", "f:f-2", "w:a1"]);
+// The workout carried today's bodyweight, so that goes with it.
+eq("deleted items come out, with the workout's bodyweight", del.remove.map((r) => r.item).sort(), ["bw:2026-10-22", "f:f-2"]);
 eq("nothing new sent", del.send.map((s) => s.item), []);
 
-// Only what they allowed: a kind they didn't allow is neither sent nor taken back.
-const some = plan({ ...base, synced: { "f:gone": "users/me/dataTypes/nutrition-log/dataPoints/gbf-x" }, granted: ["w"] });
-eq("only workouts", some.send.map((s) => s.item), ["w:a1"]);
-eq("food left alone", some.remove, []);
+// Only what they allowed: a kind they didn't allow is neither sent nor taken back. Workouts sent
+// before (w:) are left alone.
+const some = plan({ ...base, synced: { "f:gone": "users/me/dataTypes/nutrition-log/dataPoints/gbf-x", "w:a1": "users/me/dataTypes/exercise/dataPoints/gbw-x" }, granted: ["bw"] });
+eq("only weight", some.send.map((s) => s.item), ["bw:2026-10-21", "bw:2026-10-22"]);
+eq("food and old workouts left alone", some.remove, []);
 
 // Before connecting, and not yet happened.
 const future = plan({ ...base, food: [{ ...base.food[0], id: "tomorrow", date: "2026-10-23" }], account: { ...base.account, weighins: [{ date: "2026-10-19", bw: 184 }] } });
-ok("nothing from before connecting", !future.send.some((s) => s.item === "bw:2026-10-19" || s.item === "w:old"));
+ok("nothing from before connecting", !future.send.some((s) => s.item === "bw:2026-10-19"));
 ok("nothing dated tomorrow", !future.send.some((s) => s.item === "f:tomorrow"));
 
-// Odd workouts.
-const odd = plan({ ...base, food: [], account: { program, weighins: [], sessions: [
-  session("nostart", "2026-10-21", "2026-10-21T10:00:00Z", "2026-10-21T11:00:00Z", { startedAt: undefined }),
-  session("days", "2026-10-21", "2026-10-18T10:00:00Z", "2026-10-21T12:00:00Z"),
-  session("empty", "2026-10-21", "2026-10-21T10:00:00Z", "2026-10-21T11:00:00Z", { sets: {} }),
-  session("cardio", "2026-10-21", "2026-10-21T13:00:00Z", "2026-10-21T13:30:00Z", { sets: { "Stair Climber": [{ min: 20 }] } }),
-] } });
-const byItem = Object.fromEntries(odd.send.map((s) => [s.item, s.body.exercise]));
-eq("no start time: an hour", byItem["w:nostart"].activeDuration, "3600s");
-eq("left open for days: 4 hours at most", byItem["w:days"].activeDuration, "14400s");
-ok("an empty workout isn't sent", !byItem["w:empty"]);
-eq("cardio only", byItem["w:cardio"].exerciseType, "CARDIO_WORKOUT");
+// Scopes: weight and food written, heart rate read; workouts never asked for.
+eq("scopes asked for", gh.SCOPES.map((x) => x.split(".").slice(-2).join(".")), ["health_metrics_and_measurements.writeonly", "nutrition.writeonly", "health_metrics_and_measurements.readonly"]);
+eq("granted kinds", gh.grantedKinds(gh.SCOPES.join(" ")), ["bw", "f"]);
+ok("heart rate allowed", gh.canReadHeart(gh.SCOPES.join(" ")) && !gh.canReadHeart(gh.SCOPES.slice(0, 2).join(" ")));
 
 // Secrets.
 const sealed = sealToken("1//refresh-token");
@@ -130,18 +116,18 @@ const calls = [];
 globalThis.fetch = async (url, init) => {
   const b = JSON.parse(init.body);
   calls.push(url.endsWith(":batchDelete") ? `delete ${b.names.join(",")}` : `create ${b.name}`);
-  const status = b.name === e.send[0].name ? 409 : url.endsWith(":batchDelete") && b.names[0] === synced["w:a1"] ? 404 : 200;
+  const status = b.name === e.send[0].name ? 409 : url.endsWith(":batchDelete") && b.names[0] === synced["f:f-2"] ? 404 : 200;
   return new Response("{}", { status });
 };
 const recorded = [];
 const out = await carryOut("token", { send: e.send, remove: [{ item: "f:x", kind: "f", name: "users/me/dataTypes/nutrition-log/dataPoints/gbf-x" }] }, async (r) => recorded.push(r));
 eq("request order", calls, [
   "delete users/me/dataTypes/nutrition-log/dataPoints/gbf-x",
-  `delete ${synced["f:f-2"]}`, `create ${e.send[0].name}`,
-  `delete ${synced["w:a1"]}`, `create ${e.send[1].name}`,
+  `delete ${synced["bw:2026-10-22"]}`, `create ${e.send[0].name}`,
+  `delete ${synced["f:f-2"]}`, `create ${e.send[1].name}`,
 ]);
 eq("result", out, { sent: 2, removed: 1, more: false, error: null });
-eq("recorded", recorded, [{ put: [], drop: ["f:x"] }, { put: [{ item: "f:f-2", name: e.send[0].name }], drop: [] }, { put: [{ item: "w:a1", name: e.send[1].name }], drop: [] }]);
+eq("recorded", recorded, [{ put: [], drop: ["f:x"] }, { put: [{ item: "bw:2026-10-22", name: e.send[0].name }], drop: [] }, { put: [{ item: "f:f-2", name: e.send[1].name }], drop: [] }]);
 
 // A failed send isn't recorded, so it goes again next time.
 globalThis.fetch = async () => new Response(JSON.stringify({ error: { message: "bad" } }), { status: 400 });
@@ -160,6 +146,71 @@ globalThis.fetch = async () => new Response("{}", { status: 200 });
 const many = Array.from({ length: 5 }, (_, i) => ({ item: `bw:${i}`, kind: "bw", name: `n${i}`, body: {} }));
 const part = await carryOut("token", { send: many, remove: [] }, async () => {}, { limit: 3 });
 eq("batch of 3, more to come", [part.sent, part.more], [3, true]);
+
+// Reading heart rate: the filter Google wants, pages followed, readings oldest first.
+const asked = [];
+globalThis.fetch = async (url) => {
+  const u = new URL(url);
+  asked.push([u.pathname, u.searchParams.get("filter"), u.searchParams.get("pageToken")]);
+  const page = u.searchParams.get("pageToken") ? 2 : 1;
+  const pts = page === 1
+    ? [{ heartRate: { sampleTime: { physicalTime: "2026-10-22T10:00:10Z" }, beatsPerMinute: "121" } }, { heartRate: { sampleTime: { physicalTime: "2026-10-22T10:00:05Z" }, beatsPerMinute: "118" } }]
+    : [{ heartRate: { sampleTime: { physicalTime: "2026-10-22T10:00:00Z" }, beatsPerMinute: "115" } }];
+  return new Response(JSON.stringify({ dataPoints: pts, ...(page === 1 ? { nextPageToken: "p2" } : {}) }), { status: 200 });
+};
+const hr = await gh.heartRate("token", at("2026-10-22T10:00:00Z"), at("2026-10-22T11:00:00Z"));
+eq("heart rate readings", hr, { ok: true, readings: [[at("2026-10-22T10:00:00Z"), 115], [at("2026-10-22T10:00:05Z"), 118], [at("2026-10-22T10:00:10Z"), 121]] });
+eq("heart rate request", asked[0], ["/v4/users/me/dataTypes/heart-rate/dataPoints", 'heart_rate.sample_time.physical_time >= "2026-10-22T10:00:00.000Z" AND heart_rate.sample_time.physical_time < "2026-10-22T11:00:00.000Z"', null]);
+eq("second page", asked[1][2], "p2");
+globalThis.fetch = async () => new Response(JSON.stringify({ dataPoints: Array.from({ length: 4000 }, (_, i) => ({ heartRate: { sampleTime: { physicalTime: new Date(at("2026-10-22T10:00:00Z") + i * 1000).toISOString() }, beatsPerMinute: String(100 + (i % 5)) } })) }), { status: 200 });
+const dense = await gh.heartRate("token", at("2026-10-22T10:00:00Z"), at("2026-10-22T12:00:00Z"));
+eq("a reading a second becomes one per 5 s", [dense.readings.length, dense.readings[0]], [800, [at("2026-10-22T10:00:00Z"), 102]]);
+globalThis.fetch = async () => new Response(JSON.stringify({ error: { message: "Request had insufficient authentication scopes." } }), { status: 403 });
+eq("not allowed", await gh.heartRate("token", 0, 1), { ok: false, status: 403, message: "Request had insufficient authentication scopes." });
+
+// Intensity (src/lib/heart.js).
+const H = await import("../src/lib/heart.js");
+eq("max heart rate from age", [H.maxHrFor(30), H.maxHrFor(null), H.maxHrFor(8)], [187, null, null]);
+const T0 = at("2026-10-22T10:00:00Z");
+const workout = {
+  id: "hw", startedAt: T0, finishedAt: T0 + 20 * 60_000,
+  sets: {
+    "Bench Press": [{ w: 185, r: 8, t: T0 + 5 * 60_000 }, { w: 185, r: 7, t: T0 + 10 * 60_000 }, { w: 185, r: 6 }],
+    "Stair Climber": [{ min: 5, t: T0 + 18 * 60_000 }],
+    Dips: [{ w: 0, r: 12 }],
+  },
+};
+// A reading every 5 s: 110 resting, 170 around each bench set (from 30 s before the tap to 20 s after).
+const readings = [];
+for (let t = T0 - 60_000; t <= T0 + 21 * 60_000; t += 5000) {
+  const nearSet = workout.sets["Bench Press"].some((x) => x.t && t >= x.t - 30_000 && t <= x.t + 20_000);
+  readings.push([t, nearSet ? 170 : 110]);
+}
+const res = H.summarize(readings, workout, 187);
+eq("peak and low", [res.summary.max, res.summary.low], [170, 110]);
+ok("average between", res.summary.avg > 110 && res.summary.avg < 125);
+eq("hard minutes (170 is 91% of 187)", res.summary.hard, 1.8);
+eq("zones: 110 is under 60%, 170 is over 90%", [res.summary.zones[0], res.summary.zones[4]], [res.summary.zones[0], 1.8]);
+eq("complete", res.summary.complete, true);
+eq("set peaks: only sets that know when they were done, never cardio", res.sets, { "Bench Press": [170, 170, null], "Stair Climber": [null] });
+const saved = H.withHeart(workout, res, 123);
+eq("peaks go on the sets", saved.sets["Bench Press"].map((x) => x.hr), [170, 170, undefined]);
+eq("summary on the workout", [saved.hr.avg, saved.hr.at, saved.sets.Dips], [res.summary.avg, 123, [{ w: 0, r: 12 }]]);
+eq("no max: no zones", "zones" in H.summarize(readings, workout, null).summary, false);
+eq("readings stop early: not complete", H.summarize(readings.filter(([t]) => t < T0 + 10 * 60_000), workout, 187).summary.complete, false);
+eq("nothing during the workout", H.summarize([[T0 - 3600_000, 90]], workout, 187), null);
+eq("no readings: marked none", H.withHeart(workout, null, 5).hr, { none: true, at: 5 });
+ok("coach line", /heart rate avg \d+, peak 170 \(91% of est\. max 187\), 1\.8 min at 80%\+ of max/.test(H.heartLine(saved)));
+
+// Which workouts to ask about.
+const N = T0 + 30 * 3600_000;
+const w8 = (id, endAgoMin, hr) => ({ id, startedAt: N - endAgoMin * 60_000 - 3600_000, finishedAt: N - endAgoMin * 60_000, ...(hr ? { hr } : {}) });
+const list = [
+  w8("new", 30), w8("justnow", 1), w8("done", 60, { complete: true, at: N - 50 * 60_000 }),
+  w8("partial-recent", 60, { complete: false, at: N - 5 * 60_000 }), w8("partial-due", 60, { complete: false, at: N - 20 * 60_000 }),
+  w8("none-old", 3 * 24 * 60, { none: true, at: N - 24 * 3600_000 }), w8("ancient", 40 * 24 * 60),
+];
+eq("wanting", H.wanting(list, N).map((s) => s.id), ["new", "partial-due"]);
 
 if (failed) { console.error(`\n${failed} failed`); process.exit(1); }
 console.log("google health: all passed");

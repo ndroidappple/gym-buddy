@@ -100,13 +100,13 @@ export default function Session({ day, existing, draft, sessions, program, weigh
   const buildRows = useCallback((ex) => {
     const prev = existing?.sets?.[ex.n];
     if (isCardio(ex.n)) {
-      if (prev) return prev.map((s) => ({ min: String(s.min ?? ""), mi: s.mi != null ? String(s.mi) : "", done: true, saved: true }));
+      if (prev) return prev.map((s) => ({ min: String(s.min ?? ""), mi: s.mi != null ? String(s.mi) : "", done: true, saved: true, t: s.t }));
       const ref = lastFor(ex.n)?.sets[ex.n] || [];
       return Array.from({ length: Math.max(1, ex.sets) }, (_, i) => ({
         min: String(ref[i]?.min ?? ex.reps[0]), mi: ref[i]?.mi != null ? String(ref[i].mi) : "", done: false,
       }));
     }
-    if (prev) return prev.map((s) => ({ w: String(s.w), r: String(s.r), rir: s.rir != null ? String(s.rir) : "", done: true, saved: true }));
+    if (prev) return prev.map((s) => ({ w: String(s.w), r: String(s.r), rir: s.rir != null ? String(s.rir) : "", done: true, saved: true, t: s.t, hr: s.hr }));
     const ref = lastFor(ex.n)?.sets[ex.n] || [];
     // Earned a weight increase last time: every set starts at the new weight, reps start fresh.
     const bump = readyToIncrease(ex, ref);
@@ -209,7 +209,7 @@ export default function Session({ day, existing, draft, sessions, program, weigh
       if (skipped.includes(n)) return;
       if (isCardio(n)) {
         const entries = rows.filter((r) => (r.done || r.saved) && hasVal(r.min)).map((r) => ({
-          min: parseFloat(r.min) || 0, ...(hasVal(r.mi) ? { mi: parseFloat(r.mi) || 0 } : {}),
+          min: parseFloat(r.min) || 0, ...(hasVal(r.mi) ? { mi: parseFloat(r.mi) || 0 } : {}), ...(r.t ? { t: r.t } : {}),
         }));
         if (entries.length) sets[n] = entries;
         return;
@@ -217,6 +217,8 @@ export default function Session({ day, existing, draft, sessions, program, weigh
       const valid = rows.filter((r) => (r.done || r.saved) && hasVal(r.w) && hasVal(r.r)).map((r) => ({
         w: parseFloat(r.w) || 0, r: parseInt(r.r) || 0,
         ...(hasVal(r.rir) ? { rir: parseFloat(r.rir) } : {}),
+        // When it was done, so the watch's heart rate can be matched to it, and its peak once known.
+        ...(r.t ? { t: r.t } : {}), ...(r.hr ? { hr: r.hr } : {}),
       }));
       if (valid.length) sets[n] = valid;
     });
@@ -304,7 +306,7 @@ export default function Session({ day, existing, draft, sessions, program, weigh
     if (!hasVal(row.min)) return;
     primeAudio();
     const beat = setChange({ min: +row.min, mi: hasVal(row.mi) ? +row.mi : null }, lastFor(ex.n)?.sets[ex.n]?.[i])?.dir > 0;
-    setGrid((g) => { const rows = [...g[ex.n]]; rows[i] = { ...rows[i], done: true }; return { ...g, [ex.n]: rows }; });
+    setGrid((g) => { const rows = [...g[ex.n]]; rows[i] = { ...rows[i], done: true, ...(existing ? {} : { t: Date.now() }) }; return { ...g, [ex.n]: rows }; });
     markStart();
     setFlash({ ex: ex.n, i });
     vibrate(20);
@@ -340,7 +342,7 @@ export default function Session({ day, existing, draft, sessions, program, weigh
 
     setGrid((g) => {
       const rows = [...g[ex.n]];
-      rows[i] = { ...rows[i], done: true, pr };
+      rows[i] = { ...rows[i], done: true, pr, ...(existing ? {} : { t: Date.now() }) };
       const nx = rows.findIndex((r, j) => j > i && !r.done);
       // The next set takes the coach's numbers, unless the lifter already typed their own.
       if (nx >= 0 && call?.w != null && !rows[nx].touched) rows[nx] = { ...rows[nx], w: String(call.w), r: String(call.r), asked: { w: call.w, r: call.r } };

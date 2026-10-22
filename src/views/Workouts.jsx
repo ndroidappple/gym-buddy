@@ -132,6 +132,7 @@ function HistCard({ s, program, prs }) {
           <div className="hist-meta">
             {program[s.day].name} · {plural(sessionSetCount(s), "set")}{sessionVolume(s) > 0 && ` · ${compact(sessionVolume(s))} lb lifted`}{s.bw != null && ` · ${s.bw} lb bodyweight`}
           </div>
+          {s.hr && !s.hr.none && <div className="hist-meta">Heart rate avg {s.hr.avg} · peak {s.hr.max} bpm{s.hr.hard != null && ` · ${num(s.hr.hard)} min at 80%+`}</div>}
         </div>
         {n > 0 && <span className="stamp">PR{n > 1 ? ` ×${n}` : ""}</span>}
         <a className="icon-btn" data-help="edit" href={href("session", s.day, s.id)} aria-label={`Edit ${program[s.day].name} session on ${longDate(s.date)}`}><Pencil size={17} /></a>
@@ -148,7 +149,7 @@ function HistCard({ s, program, prs }) {
               </span>
               <span className="sets">
                 {all ? sets.map((x, i) => (
-                  <React.Fragment key={i}>{i > 0 && "  "}<span className={i === pr?.idx ? "pr-set" : undefined}>{fmtSet(x)}</span></React.Fragment>
+                  <React.Fragment key={i}>{i > 0 && "  "}<span className={i === pr?.idx ? "pr-set" : undefined}>{fmtSet(x)}</span>{x.hr && <span className="set-hr" title="Peak heart rate"> ♥{x.hr}</span>}</React.Fragment>
                 )) : <TopSet sets={sets} pr={pr} />}
               </span>
             </a>

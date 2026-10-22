@@ -1,4 +1,4 @@
-import { ghReady, readState, exchangeCode, canWrite, grantedKinds, sealToken, revoke, links, redirectUri, LINK_SECRET } from "./_googleHealth.js";
+import { ghReady, readState, exchangeCode, canUse, grantedKinds, canReadHeart, sealToken, revoke, links, redirectUri, LINK_SECRET } from "./_googleHealth.js";
 
 /* Where Google sends the lifter after they allow (or don't allow) GymBuddy into Google Health:
    GET /api/google-health-callback?code=…&state=… (this exact address is the OAuth client's
@@ -30,12 +30,11 @@ export async function GET(request) {
     return page("Couldn't connect", `Google didn't accept the sign-in. ${AGAIN}`, 502);
   }
   if (!tokens.refresh_token) return page("Couldn't connect", `Google didn't give GymBuddy lasting access. ${AGAIN}`, 502);
-  const kinds = grantedKinds(tokens.scope);
-  if (!kinds.length) {
+  if (!grantedKinds(tokens.scope).length && !canReadHeart(tokens.scope)) {
     await revoke(tokens.refresh_token);
-    return page("Nothing allowed", `GymBuddy needs at least one of workouts, weight or food to send anything. ${AGAIN} Leave the boxes ticked on Google's page.`);
+    return page("Nothing allowed", `GymBuddy needs at least one of heart rate, weight or food. ${AGAIN} Leave the boxes ticked on Google's page.`);
   }
-  const check = await canWrite(tokens.access_token, kinds[0]).catch((e) => ({ ok: false, message: e?.message }));
+  const check = await canUse(tokens.access_token, tokens.scope).catch((e) => ({ ok: false, message: e?.message }));
   if (!check.ok) {
     console.warn("google health callback: account check failed", check.status, check.message);
     await revoke(tokens.refresh_token);
@@ -48,5 +47,5 @@ export async function GET(request) {
     await revoke(tokens.refresh_token);
     return page("Couldn't connect", `GymBuddy couldn't save the connection. ${AGAIN}`, 502);
   }
-  return page("Google Health connected", "Your workouts, weight and food will be sent to Google Health from today on. You can close this page and go back to GymBuddy.");
+  return page("Google Health connected", "GymBuddy will read your heart rate during workouts, and send your weight and food to Google Health from today on. You can close this page and go back to GymBuddy.");
 }

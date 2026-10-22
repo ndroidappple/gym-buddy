@@ -6,6 +6,7 @@ import { GOALS } from "./setup.js";
 import { cleanMeal, todayFood, totals, addDays } from "./nutrition.js";
 import { PHASE_TYPES, phaseStatus, statusLine } from "./phase.js";
 import { fmtSet, liftSeries, trend, num, fmtW, bestSet, bodyweightSeries, byDateAsc, byDateDesc, daysBetween, today, nextDayAfter, readyToIncrease, compact, lifting, volume, longTrend, iso } from "./util.js";
+import { heartLine } from "./heart.js";
 
 const signed = (x, unit = "%") => `${x >= 0 ? "+" : ""}${x.toFixed(1)}${unit}`;
 
@@ -46,13 +47,15 @@ function progressRanking(sessions, lifts) {
   return lines;
 }
 
-/** A workout as one line: each lift's best set (cardio: what was logged). */
+/** A workout as one line: each lift's best set (cardio: what was logged), and heart rate from their watch when there is some. */
 function workoutLine(s, program) {
   const done = Object.entries(s.sets).filter(([, v]) => v?.length).map(([n, v]) => {
     const b = bestSet(v);
-    return b ? `${n} ${fmtW(b.w)}x${b.r} (${lifting(v).length} sets)` : `${n} ${v.map(fmtSet).join(" + ")}`;
+    const peaks = v.some((x) => x.hr) ? `; set peak HR ${v.map((x) => x.hr ?? "?").join("/")}` : "";
+    return b ? `${n} ${fmtW(b.w)}x${b.r} (${lifting(v).length} sets${peaks})` : `${n} ${v.map(fmtSet).join(" + ")}`;
   });
-  return `- ${s.date} ${program[s.day]?.name || s.day}: ${done.join(", ") || "nothing logged"}`;
+  const hr = heartLine(s);
+  return `- ${s.date} ${program[s.day]?.name || s.day}: ${done.join(", ") || "nothing logged"}${hr ? `. ${hr}` : ""}`;
 }
 function phaseLine(phase, sessions, weighins) {
   const s = phaseStatus(phase, sessions, weighins);

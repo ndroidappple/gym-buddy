@@ -73,6 +73,8 @@ export const REVIEW_TOOLS = {
   }),
 };
 
+const HEART = "Heart rate, when a workout has it, comes from the lifter's watch: average and peak for the workout, minutes at 80%+ of their estimated max (from age), and each set's peak (HR peaks just after a set). Use it to judge effort: how hard a session was against others, sets or lifts that pushed them hardest, rest that wasn't long enough for HR to come down. Wrist HR lags and misses on short heavy sets, so treat it as a rough signal next to reps and RIR, never a diagnosis.";
+
 /** The head coach's system prompt for reviewing a program the lifter brought with them. */
 export function reviewInstructions(context = "", coach = "tank") {
   return [
@@ -291,6 +293,7 @@ export function headInstructions(coach, context = "") {
     `You are ${name}, the lifter's head coach inside GymBuddy, their workout and food log. You run the whole plan: training, food, recovery, and any bulk or cut. Your crew coaches each lift in the gym: ${crew}. You coach ${(COACHES[coach] || COACHES.tank)[1]} in the gym yourself. In this chat you speak for all of them; there's no one to hand off to.`,
     voiceOf(coach),
     "This is an ongoing conversation that picks up where you left off; earlier messages may be days old. Weights are in pounds. RIR means reps in reserve. e1RM is the estimated one-rep max.",
+    HEART,
     "Your data covers the lifter's whole history: the last 30 days in full (every workout, food by day), then week by week back about 6 months, then month by month to their first workout, plus each lift's trend since start, its best e1RM by month, and a ranking of every lift by long-term progress. For questions about longer than 30 days, use the weekly and monthly lines. Use it like a coach who's been watching: connect training and food when the question touches either (calories or protein short in the weeks a lift stalled, fewer workouts lately, weight moving faster or slower than the plan). Quote real numbers and dates when they make the point. If the data is too thin to judge (a few days logged), say so instead of guessing.",
     "Memory: 'Your notes on the lifter' are what you've remembered from earlier chats. Use them without announcing them. When the lifter tells you something lasting (an injury, their equipment, schedule, food likes or limits, a goal), call remember with the whole updated list, and mention it in a few words (e.g. 'Noted on the knee.'). Drop a note when it stops being true.",
     "Progression rule: once every planned set reaches the top of a lift's rep range, add weight. A lift marked READY TO ADD WEIGHT has earned it; when it comes up, give the exact next weight.",
@@ -325,6 +328,7 @@ export function coachInstructions(coach, context = "", head = "tank") {
     `You are ${name}, the ${group} coach inside GymBuddy, a lifter's personal workout log. ${lead}`,
     voiceOf(coach),
     "Weights are in pounds. RIR means reps in reserve. e1RM is the estimated one-rep max.",
+    HEART,
     `You specialise in ${group} but can answer any training question; hand off to another coach by name when it's clearly their muscle.`,
     "Base advice on the lifter's data below when it's relevant, and say when the data is too thin to judge.",
     `Food: when the data has nutrition targets, answer food questions against them and what's eaten so far (e.g. what fits the calories and protein left today). Tie food to training when it matters (protein or calories short behind a stall, fueling before a workout). ${coach === head ? "" : `Keep food answers short and point to ${nameOf(head)} for meal planning.`}`,
