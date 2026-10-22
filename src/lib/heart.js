@@ -165,3 +165,19 @@ export function cacheCurve(id, readings) {
   try { localStorage.setItem(CURVES, JSON.stringify(keep)); } catch {}
 }
 export const cachedCurve = (id) => readCurves()[id]?.r || null;
+
+/* ── disconnecting ── */
+
+/** Whether a workout carries anything from Google Health. */
+export const hasHeart = (s) => !!s.hr || Object.values(s.sets || {}).some((list) => list.some((x) => x.hr || x.hrRest));
+/**
+ * The workout without what came from Google Health: its summary and each set's peak and recovery.
+ * When each set was done stays (that's the lifter's own log), so reconnecting can work it all out again.
+ */
+export function withoutHeart(s) {
+  if (!hasHeart(s)) return s;
+  const { hr, ...rest } = s;
+  return { ...rest, sets: Object.fromEntries(Object.entries(s.sets).map(([lift, list]) => [lift, list.map(({ hr: _p, hrRest: _r, ...set }) => set)])) };
+}
+/** Forgets every workout's readings kept on this phone. */
+export function clearCurves() { try { localStorage.removeItem(CURVES); } catch {} }

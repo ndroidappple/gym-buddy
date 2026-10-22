@@ -226,6 +226,13 @@ eq("zones filter", asked[asked.length - 1], 'daily_heart_rate_zones.date >= "202
 globalThis.fetch = async () => new Response(JSON.stringify({ dataPoints: [] }), { status: 200 });
 eq("no zones", await gh.heartZones("token", "2026-10-22"), null);
 
+// Disconnecting: heart rate off, set times kept.
+eq("has heart", [H.hasHeart(saved), H.hasHeart(workout)], [true, false]);
+const gone = H.withoutHeart(saved);
+eq("without heart", [gone.hr, gone.sets["Bench Press"].map((x) => [x.hr, x.hrRest, x.t])], [undefined, workout.sets["Bench Press"].map((x) => [undefined, undefined, x.t])]);
+eq("nothing to take off: the same workout", H.withoutHeart(workout) === workout, true);
+eq("reconnecting works it out again", H.summarize(readings, gone, { bounds: B }).sets["Bench Press"][0].hr, 160);
+
 // Which workouts to ask about.
 const N = T0 + 30 * 3600_000;
 const w8 = (id, endAgoMin, hr) => ({ id, startedAt: N - endAgoMin * 60_000 - 3600_000, finishedAt: N - endAgoMin * 60_000, ...(hr ? { hr } : {}) });

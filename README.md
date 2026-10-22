@@ -224,9 +224,10 @@ things:
   threshold lines, a numbered band per lift, a dot on each set's peak, and a touch/keyboard readout
   of the moment (bpm, zone, lift and set). Workouts lists it, and the coaches get it in each workout
   line (`workoutLine` in `src/lib/coachChat.js`, read per `HEART` in `api/coach.js`). The Summary and
-  Workouts show heart rate only while Google Health is connected (`prefs.googleHealth.on`); without it
-  nothing is asked for or drawn, and a workout's numbers from before a disconnect come back on
-  reconnecting.
+  Workouts show heart rate only while Google Health is connected (`prefs.googleHealth.on`). When it
+  isn't (disconnected on any phone, or access taken away in the Google account), the app takes heart
+  rate off every workout (`withoutHeart`: `session.hr`, `set.hr`, `set.hrRest`; set times stay) and
+  clears the phone's readings; reconnecting fills the last 30 days back in.
 - **Sends bodyweight and food** to Google Health from the day they connect: a few seconds after a
   change saves, `useGoogleHealthSync` asks the server to sync; it reads the account and food log from
   Supabase, and `plan()` (`api/_googleHealth.js`) works out what to send: one weight a day, each food
