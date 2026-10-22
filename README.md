@@ -201,6 +201,40 @@ Every review is saved to the account: the latest show on **Progress**, all in **
 not), **Rest alerts** (this phone only) and **Week in review is ready** (every phone). The push
 plumbing is shared in `src/lib/push.js` (phone side) and `api/_push.js` (server side).
 
+### Google Health (optional)
+
+**Settings → Connected apps → Google Health** sends workouts, bodyweight and food to the lifter's
+Google Health account, from the day they connect. GymBuddy only writes; it never reads from Google
+Health. It runs on the server through the Google Health API, so it works from the home screen app
+with nothing to install:
+
+- **Connect:** `api/google-health.js` (`action: "connect"`) returns Google's consent page. Google sends
+  the lifter back to `api/google-health-callback.js`, which trades the code for a refresh token,
+  checks the account is set up in Google Health (Google wants the app opened once first), and saves
+  the link for the lifter named in the signed `state`. On an iPhone that page opens outside the home
+  screen app, so Settings checks the server when the app comes back to the front.
+- **Sync:** a few seconds after a change has saved to the account (`useGoogleHealthSync` in
+  `src/lib/googleHealth.js`), the app asks the server to sync. The server reads the account and food
+  log from Supabase and `plan()` (`api/_googleHealth.js`) works out what to send: each workout as an
+  exercise session (strength training, or cardio when it's all cardio), one weight a day, each food
+  entry as a nutrition log at a usual time for its meal. Every data point is named from its item and
+  contents, so sending twice is harmless, an edit is a delete of the old version then the new one,
+  and something deleted in GymBuddy is deleted there. Up to 30 a request, 2.5 a second (Google's
+  limit for an app it hasn't reviewed); the app asks again while there's more.
+- **Storage** (migration `20261022000000_google_health.sql`): `google_health_links` holds the refresh
+  token, encrypted on the server (AES-GCM, key derived from the client secret), with no policies:
+  only functions that need `REST_ALERT_SECRET` reach it. `google_health_synced` records what was
+  sent, own rows only. Disconnecting revokes the token and clears both; what's in Google Health stays.
+
+Setup: a Google Cloud project with the Google Health API on, an OAuth client (Web application) whose
+redirect URI is `https://<your domain>/api/google-health-callback`, and the scopes
+`googlehealth.activity_and_fitness.writeonly`, `googlehealth.health_metrics_and_measurements.writeonly`
+and `googlehealth.nutrition.writeonly`. In Vercel (Production) set **`GOOGLE_HEALTH_CLIENT_ID`** and
+**`GOOGLE_HEALTH_CLIENT_SECRET`**; `REST_ALERT_SECRET` from rest alerts is needed too. Optional:
+`GOOGLE_HEALTH_REDIRECT_URI` if the callback isn't on the site's own address. Until Google reviews
+the app it's limited to 100 people; publish the consent screen ("In production") or refresh tokens
+expire after 7 days. `npm run test:health` checks the planning, the sealed token and the request order.
+
 ## Project structure
 
 ```
@@ -219,6 +253,7 @@ src/
   lib/coachThread.js       # head coach conversation + memory (coach_messages, coach_memory)
   lib/coachChat.js         # what each coach reads (crew: buildContext, head: headContext), streaming
   lib/repRange.js          # is a lift's rep range sane for its kind? (npm run test:range)
+  lib/googleHealth.js      # Google Health: connect, status, sync after saves (api/google-health.js)
   components/ui.jsx        # sheet, toast, tab bar, charts, exercise picker
   views/                   # Today, Session, Summary, Progress (+ Workouts), Lift,
                            # Settings, ProgramEditor, Export

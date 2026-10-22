@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { ChevronRight, Download, LogOut, Moon, Gauge, Smartphone, Share, SquarePlus, EllipsisVertical, Check, Sparkles, Scale, Vibrate, Bell, BellRing, Users, Utensils, Target, Bookmark, Trash2, Rows3, CalendarClock, History, BellOff, BellPlus, Info, Dumbbell } from "lucide-react";
+import { ChevronRight, Download, LogOut, Moon, Gauge, Smartphone, Share, SquarePlus, EllipsisVertical, Check, Sparkles, Scale, Vibrate, Bell, BellRing, Users, Utensils, Target, Bookmark, Trash2, Rows3, CalendarClock, History, BellOff, BellPlus, Info, Dumbbell, HeartPulse, RefreshCw, Unlink } from "lucide-react";
 import { Sheet, InfoButton, ConfirmSheet } from "../components/ui.jsx";
 import { ICONS, iconSrc } from "../lib/icons.js";
 import { VIEWS, applyView } from "../lib/view.js";
@@ -14,6 +14,7 @@ import { DayPicker, HourPicker, PastReviewsSheet } from "../components/WeekRevie
 import { HeadPicker } from "../components/Welcome.jsx";
 import Coach from "../components/Coach.jsx";
 import { COACHES } from "../data/coaches.js";
+import { connectGoogleHealth, googleHealthStatus, disconnectGoogleHealth, syncGoogleHealth, connecting, doneConnecting } from "../lib/googleHealth.js";
 
 /**
  * Grouped by what you're doing: your coach, your training, the rest timer, food, the week in review,
@@ -24,10 +25,11 @@ export default function Settings({ program, sessions, prefs, setPref, go, notify
   const who = COACHES[head].name;
   const [email, setEmail] = useState("");
   const viewRow = useRef(null); // the detail level picker, held still on screen while the level switches
-  const [sheet, setSheet] = useState(null); // "account" | "icon" | "install" | "redo" | "review-time" | "reviews" | "view" | "head" | "memory" | "clear-chat"
+  const [sheet, setSheet] = useState(null); // "account" | "icon" | "install" | "redo" | "review-time" | "reviews" | "view" | "head" | "memory" | "clear-chat" | "google-health" | "google-health-off"
   const review = reviewPrefs(prefs);
   const setReview = (patch) => setPref("weekReview", { ...review, intro: true, ...patch });
   const alerts = useAlerts({ review, setReview, notify, onInstall: () => setSheet("install") });
+  const gh = useGoogleHealth({ prefs, setPref, notify });
   const icon = ICONS.find((i) => i.id === prefs.icon) || ICONS[0];
   const days = activeDays(program);
   useEffect(() => { supabase.auth.getUser().then(({ data }) => setEmail(data.user?.email || "")); }, []);
@@ -162,6 +164,17 @@ export default function Settings({ program, sessions, prefs, setPref, go, notify
         </section>
 
         <section className="section">
+          <h2 className="lbl">Connected apps</h2>
+          <div className="list">
+            <button className="list-row" onClick={() => setSheet("google-health")}>
+              <HeartPulse size={18} aria-hidden="true" />
+              <span className="name">Google Health<span className="sub">{gh.sub}</span></span>
+              <ChevronRight size={18} aria-hidden="true" className="muted" />
+            </button>
+          </div>
+        </section>
+
+        <section className="section">
           <h2 className="lbl">Appearance</h2>
           <div className="list">
             <ViewPicker value={prefs.view === "focused" ? "focused" : "detailed"} row={viewRow} onChange={(v) => setPref("view", v)} onInfo={() => setSheet("view")} />
@@ -258,6 +271,11 @@ export default function Settings({ program, sessions, prefs, setPref, go, notify
         </Sheet>
       )}
       {sheet === "reviews" && <PastReviewsSheet onClose={() => setSheet(null)} />}
+      {sheet === "google-health" && <GoogleHealthSheet gh={gh} onDisconnect={() => setSheet("google-health-off")} onClose={() => setSheet(null)} />}
+      {sheet === "google-health-off" && (
+        <ConfirmSheet title="Disconnect Google Health?" body="GymBuddy stops sending to Google Health. What's already there stays until you delete it in the Google Health app."
+          confirm="Disconnect" onClose={() => setSheet(null)} onConfirm={gh.disconnect} />
+      )}
     </main>
   );
 }
@@ -400,6 +418,108 @@ function ViewSheet({ value, program, onPick, onClose }) {
       </div>
       <div className="segctl" role="group" aria-label="Detail level">
         {VIEWS.map((v) => <button key={v.id} aria-pressed={v.id === value} onClick={() => v.id !== value && onPick(v.id)}>{v.label}</button>)}
+      </div>
+    </Sheet>
+  );
+}
+
+/**
+ * Google Health: whether it's connected (prefs.googleHealth, on the account) and the server's word on
+ * it. Coming back from Google's page (or opening Settings while connected) asks the server, so a
+ * connection made on Google's page, or taken away in the Google account, shows up here.
+ */
+function useGoogleHealth({ prefs, setPref, notify }) {
+  const on = !!prefs.googleHealth?.on;
+  const [status, setStatus] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const check = async () => {
+    try {
+      const s = await googleHealthStatus();
+      setStatus(s);
+      if (s.connected && !on) {
+        setPref("googleHealth", { on: true, since: s.since });
+        if (connecting()) notify?.("Google Health connected");
+      }
+      if (!s.connected && on) setPref("googleHealth", null);
+      if (s.connected) doneConnecting();
+    } catch {}
+  };
+  useEffect(() => {
+    if (on || connecting()) check();
+    const onVis = () => { if (document.visibilityState === "visible" && connecting()) check(); };
+    document.addEventListener("visibilitychange", onVis);
+    return () => document.removeEventListener("visibilitychange", onVis);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const run = async (fn) => {
+    if (busy) return;
+    setBusy(true);
+    try { await fn(); } catch (e) { notify?.(e.message); } finally { setBusy(false); }
+  };
+  const since = status?.since || prefs.googleHealth?.since;
+  const last = status?.syncedAt ? new Date(status.syncedAt) : null;
+  const lastLabel = last && (last.toDateString() === new Date().toDateString()
+    ? last.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }) : shortDate(last.toISOString().slice(0, 10)));
+  return {
+    on, status, busy,
+    since,
+    lastLabel,
+    sub: !on ? "Send your workouts, weight and food to Google Health."
+      : status?.error ? "Some items didn't go through. They'll be tried again."
+      : `On since ${since ? shortDate(since) : "today"}${lastLabel ? ` · last sent ${lastLabel}` : ""}`,
+    connect: () => run(connectGoogleHealth),
+    sendNow: () => run(async () => {
+      const r = await syncGoogleHealth();
+      if (!r.connected) { setPref("googleHealth", null); notify?.("Google Health disconnected. Connect again to keep sending."); return; }
+      notify?.(r.error || (r.sent || r.removed ? `Sent to Google Health` : "Google Health is up to date"));
+      check();
+    }),
+    disconnect: () => run(async () => {
+      await disconnectGoogleHealth();
+      setPref("googleHealth", null);
+      setStatus({ connected: false });
+      notify?.("Google Health disconnected");
+    }),
+  };
+}
+
+/* What connecting shares, said before Google's page asks (Google requires it in the app, not only
+   in the privacy policy), or the connection's state once it's on. */
+function GoogleHealthSheet({ gh, onDisconnect, onClose }) {
+  const allowed = gh.status?.allowed;
+  const missing = allowed ? [["workouts", "workouts"], ["weight", "weight"], ["food", "food"]].filter(([k]) => !allowed[k]).map(([, l]) => l) : [];
+  if (!gh.on) {
+    return (
+      <Sheet title="Google Health" sub="Send what you log in GymBuddy to your Google Health account." onClose={onClose} labelledBy="google-health-title">
+        <div className="list">
+          <div className="list-row"><Dumbbell size={18} aria-hidden="true" /><span className="name">Workouts<span className="sub">When each one started and finished, as strength training.</span></span></div>
+          <div className="list-row"><Scale size={18} aria-hidden="true" /><span className="name">Bodyweight<span className="sub">Your weigh-ins.</span></span></div>
+          <div className="list-row"><Utensils size={18} aria-hidden="true" /><span className="name">Food<span className="sub">Each entry's calories, protein, carbs and fat.</span></span></div>
+        </div>
+        <p className="note-box">From the day you connect on. GymBuddy can only add to Google Health: it can't read anything there. Open the Google Health app and sign in before you connect. <a href="/privacy.html" target="_blank" rel="noopener">Privacy policy</a></p>
+        <button type="button" className="btn btn-ink" disabled={gh.busy} onClick={gh.connect}>{gh.busy ? "Opening Google…" : "Connect Google Health"}</button>
+        <p className="small muted">Google's page opens over GymBuddy. Once it says connected, close it and come back here.</p>
+      </Sheet>
+    );
+  }
+  return (
+    <Sheet title="Google Health" sub={`Sending your workouts, weight and food since ${gh.since ? shortDate(gh.since) : "you connected"}.`} onClose={onClose} labelledBy="google-health-title">
+      <div className="list">
+        <div className="list-row"><Check size={18} aria-hidden="true" /><span className="name">{gh.lastLabel ? `Last sent ${gh.lastLabel}` : "Nothing sent yet"}<span className="sub">New workouts, weigh-ins and food go a few seconds after they're saved. Edits and deletes follow.</span></span></div>
+        {missing.length > 0 && (
+          <div className="list-row"><Info size={18} aria-hidden="true" /><span className="name">Not allowed: {missing.join(", ")}<span className="sub">To send it, disconnect, connect again and tick it on Google's page.</span></span></div>
+        )}
+        {gh.status?.error && (
+          <div className="list-row"><Info size={18} aria-hidden="true" /><span className="name">Some items didn't go through<span className="sub">They'll be tried again with the next change, or tap Send now.</span></span></div>
+        )}
+        <button type="button" className="list-row" disabled={gh.busy} onClick={gh.sendNow}>
+          <RefreshCw size={18} aria-hidden="true" />
+          <span className="name">{gh.busy ? "Sending…" : "Send now"}<span className="sub">Catch up right away.</span></span>
+        </button>
+        <button type="button" className="list-row" disabled={gh.busy} onClick={onDisconnect}>
+          <Unlink size={18} aria-hidden="true" />
+          <span className="name">Disconnect<span className="sub">Stop sending. What's in Google Health stays there.</span></span>
+        </button>
       </div>
     </Sheet>
   );

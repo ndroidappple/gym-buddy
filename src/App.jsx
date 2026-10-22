@@ -35,6 +35,7 @@ import WeekReviewIntro from "./components/WeekReviewIntro.jsx";
 import { reviewState, reviewPrefs, fingerprint, latestReview } from "./lib/weekReview.js";
 import { cachedReview, loadReview, requestReview, syncSchedule } from "./lib/reviews.js";
 import { phoneState, ensureSubscribed } from "./lib/push.js";
+import { useGoogleHealthSync } from "./lib/googleHealth.js";
 
 const TAB_VIEWS = ["today", "nutrition", "progress", "settings", "lift"];
 
@@ -176,6 +177,9 @@ export default function App() {
       requestReview(reviewWeek).catch(() => {});
     })();
   }, [reviewWeek, synced, clock, latest.weekEnd, latest.at]);
+  /* Google Health: what's logged goes there once it's saved to the account (the server sends it from there). */
+  useGoogleHealthSync({ on: ready && !!prefs.googleHealth?.on, synced, sessions, weighins, food: foodLog,
+    onGone: () => { setPref("googleHealth", null); notify("Google Health disconnected. Connect again in Settings."); } });
   // Opening this week's review stops the glow; the button stays for the rest of the day.
   const opening = route.name === "review" && review?.glow && route.id === reviewWeek;
   useEffect(() => {
