@@ -171,6 +171,9 @@ eq("not allowed", await gh.heartRate("token", 0, 1), { ok: false, status: 403, m
 // Intensity (src/lib/heart.js).
 const H = await import("../src/lib/heart.js");
 eq("max heart rate from age", [H.maxHrFor(30), H.maxHrFor(null), H.maxHrFor(8)], [187, null, null]);
+eq("zones estimated from max", H.estimatedBounds(187), [94, 120, 144, 168]);
+const B = [78, 117, 143, 175]; // Google's: light, moderate, vigorous, peak start here
+eq("zone of a bpm", [70, 78, 120, 150, 180].map((b) => H.zoneOf(b, B)), [-1, 0, 1, 2, 3]);
 const T0 = at("2026-10-22T10:00:00Z");
 const workout = {
   id: "hw", startedAt: T0, finishedAt: T0 + 20 * 60_000,
@@ -180,27 +183,48 @@ const workout = {
     Dips: [{ w: 0, r: 12 }],
   },
 };
-// A reading every 5 s: 110 resting, 170 around each bench set (from 30 s before the tap to 20 s after).
+// A reading every 5 s: 110 resting, 160 around each bench set (from 30 s before the tap to 20 s after),
+// and 100 in the two minutes after the first set.
 const readings = [];
 for (let t = T0 - 60_000; t <= T0 + 21 * 60_000; t += 5000) {
   const nearSet = workout.sets["Bench Press"].some((x) => x.t && t >= x.t - 30_000 && t <= x.t + 20_000);
-  readings.push([t, nearSet ? 170 : 110]);
+  readings.push([t, nearSet ? 160 : t > T0 + 5.5 * 60_000 && t < T0 + 7.5 * 60_000 ? 100 : 110]);
 }
-const res = H.summarize(readings, workout, 187);
-eq("peak and low", [res.summary.max, res.summary.low], [170, 110]);
-ok("average between", res.summary.avg > 110 && res.summary.avg < 125);
-eq("hard minutes (170 is 91% of 187)", res.summary.hard, 1.8);
-eq("zones: 110 is under 60%, 170 is over 90%", [res.summary.zones[0], res.summary.zones[4]], [res.summary.zones[0], 1.8]);
+const res = H.summarize(readings, workout, { bounds: B, source: "google" });
+eq("peak and low", [res.summary.max, res.summary.low], [160, 100]);
+ok("average between", res.summary.avg > 100 && res.summary.avg < 125);
+eq("zones in minutes: 160 is vigorous, the rest moderate-or-below", [res.summary.zones.vigorous, res.summary.zones.peak], [1.8, 0]);
+eq("hard = vigorous + peak", res.summary.hard, 1.8);
+eq("bounds and source kept", [res.summary.bounds, res.summary.source, res.summary.v], [B, "google", 2]);
 eq("complete", res.summary.complete, true);
-eq("set peaks: only sets that know when they were done, never cardio", res.sets, { "Bench Press": [170, 170, null], "Stair Climber": [null] });
+eq("sets: peak, and how far it came down before the next set; cardio and untimed sets have none", res.sets, {
+  "Bench Press": [{ hr: 160, hrRest: 100 }, { hr: 160, hrRest: 110 }, null],
+});
 const saved = H.withHeart(workout, res, 123);
-eq("peaks go on the sets", saved.sets["Bench Press"].map((x) => x.hr), [170, 170, undefined]);
+eq("peaks go on the sets", saved.sets["Bench Press"].map((x) => [x.hr, x.hrRest]), [[160, 100], [160, 110], [undefined, undefined]]);
 eq("summary on the workout", [saved.hr.avg, saved.hr.at, saved.sets.Dips], [res.summary.avg, 123, [{ w: 0, r: 12 }]]);
-eq("no max: no zones", "zones" in H.summarize(readings, workout, null).summary, false);
-eq("readings stop early: not complete", H.summarize(readings.filter(([t]) => t < T0 + 10 * 60_000), workout, 187).summary.complete, false);
-eq("nothing during the workout", H.summarize([[T0 - 3600_000, 90]], workout, 187), null);
-eq("no readings: marked none", H.withHeart(workout, null, 5).hr, { none: true, at: 5 });
-ok("coach line", /heart rate avg \d+, peak 170 \(91% of est\. max 187\), 1\.8 min at 80%\+ of max/.test(H.heartLine(saved)));
+eq("no zones: no zone minutes", "zones" in H.summarize(readings, workout).summary, false);
+eq("readings stop early: not complete", H.summarize(readings.filter(([t]) => t < T0 + 10 * 60_000), workout).summary.complete, false);
+eq("nothing during the workout", H.summarize([[T0 - 3600_000, 90]], workout), null);
+eq("no readings: marked none", H.withHeart(workout, null, 5).hr, { v: 2, none: true, at: 5 });
+ok("coach line", /heart rate avg \d+, peak 160 \(vigorous zone; zones from Google Health: moderate 117\+, vigorous 143\+, peak 175\+\), minutes light\/moderate\/vigorous\/peak [\d.]+\/[\d.]+\/1\.8\/0/.test(H.heartLine(saved)));
+eq("hardest lift needs two lifts with peaks", H.hardestLift(saved), null);
+eq("hardest lift", H.hardestLift({ sets: { A: [{ hr: 150 }, { hr: 160 }], B: [{ hr: 170 }] } }), { lift: "B", avg: 170 });
+eq("thinned to one per 5 s", H.thin([[0, 100], [1000, 110], [6000, 120]]), [[0, 105], [5000, 120]]);
+
+// Google's zones for a day: the latest record on or before it, minimums in zone order.
+globalThis.fetch = async (url) => {
+  asked.push(new URL(url).searchParams.get("filter"));
+  const zone = (type, min, max) => ({ heartRateZoneType: type, minBeatsPerMinute: String(min), maxBeatsPerMinute: String(max) });
+  return new Response(JSON.stringify({ dataPoints: [
+    { dailyHeartRateZones: { date: { year: 2026, month: 10, day: 21 }, heartRateZones: [zone("PEAK", 175, 220), zone("LIGHT", 78, 116), zone("VIGOROUS", 143, 174), zone("MODERATE", 117, 142)] } },
+    { dailyHeartRateZones: { date: { year: 2026, month: 10, day: 23 }, heartRateZones: [zone("LIGHT", 1, 2), zone("MODERATE", 3, 4), zone("VIGOROUS", 5, 6), zone("PEAK", 7, 8)] } },
+  ] }), { status: 200 });
+};
+eq("zones for a day", await gh.heartZones("token", "2026-10-22"), [78, 117, 143, 175]);
+eq("zones filter", asked[asked.length - 1], 'daily_heart_rate_zones.date >= "2026-10-08" AND daily_heart_rate_zones.date < "2026-10-23"');
+globalThis.fetch = async () => new Response(JSON.stringify({ dataPoints: [] }), { status: 200 });
+eq("no zones", await gh.heartZones("token", "2026-10-22"), null);
 
 // Which workouts to ask about.
 const N = T0 + 30 * 3600_000;
@@ -209,8 +233,9 @@ const list = [
   w8("new", 30), w8("justnow", 1), w8("done", 60, { complete: true, at: N - 50 * 60_000 }),
   w8("partial-recent", 60, { complete: false, at: N - 5 * 60_000 }), w8("partial-due", 60, { complete: false, at: N - 20 * 60_000 }),
   w8("none-old", 3 * 24 * 60, { none: true, at: N - 24 * 3600_000 }), w8("ancient", 40 * 24 * 60),
-];
-eq("wanting", H.wanting(list, N).map((s) => s.id), ["new", "partial-due"]);
+  w8("v1", 2 * 24 * 60, { complete: true, at: N - 47 * 3600_000 }),
+].map((s) => (s.hr && s.id !== "v1" ? { ...s, hr: { ...s.hr, v: 2 } } : s));
+eq("wanting (a summary from before the zones update is asked again)", H.wanting(list, N).map((s) => s.id), ["new", "partial-due", "v1"]);
 
 if (failed) { console.error(`\n${failed} failed`); process.exit(1); }
 console.log("google health: all passed");

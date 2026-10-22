@@ -5,7 +5,9 @@ import Coach from "../components/Coach.jsx";
 import { InfoButton } from "../components/ui.jsx";
 import SetupCard from "../components/SetupCard.jsx";
 import { coachFor } from "../data/coaches.js";
-import { ZONES } from "../lib/heart.js";
+import { ZONES, zoneOf, hardestLift, cachedCurve, timedSets } from "../lib/heart.js";
+import { heartCurve } from "../lib/googleHealth.js";
+import HeartChart from "../components/HeartChart.jsx";
 import { useTheme } from "../lib/theme.js";
 import { fmtSet, cardioTotals, priorSessions, allTimeBest, bestSet, bestE1rm, e1rm, fmtW, num, compact, shortDate, plural, sessionVolume, sessionSetCount, byDateDesc, nextDayAfter } from "../lib/util.js";
 
@@ -173,41 +175,82 @@ function Delta({ pct }) {
   return <span className={"trend" + (pct < 0 ? " flat" : "")}>{pct > 0 ? "▲" : "▼"} {Math.abs(pct).toFixed(0)}%</span>;
 }
 
-/** The workout's heart rate from the lifter's watch: average, peak, hard minutes, zones, and each lift's set peaks. */
+/**
+ * The workout's heart rate from the lifter's watch: the headline numbers, the chart (readings from this
+ * phone, or fetched for it), time in each zone, which lift pushed hardest, and each lift's set peaks
+ * and how far heart rate came down before the next set.
+ */
 function Heart({ session }) {
   const h = session.hr;
-  const total = h.zones ? h.zones.reduce((a, m) => a + m, 0) : 0;
-  const lifts = Object.entries(session.sets).filter(([, v]) => v.some((x) => x.hr));
+  const [readings, setReadings] = useState(() => cachedCurve(session.id));
+  const [failed, setFailed] = useState(false);
+  // Fetch again when the summary changes (more of the watch's readings arrived).
+  useEffect(() => {
+    let live = true;
+    setFailed(false);
+    // This phone's copy, unless the summary is complete and the copy stops short (made from an earlier read).
+    const have = cachedCurve(session.id);
+    if (have?.length && (!h.complete || have[have.length - 1][0] >= session.finishedAt - 3 * 60_000)) { setReadings(have); return; }
+    heartCurve(session).then((r) => { if (live) { setReadings(r); setFailed(!r); } }).catch(() => { if (live) setFailed(true); });
+    return () => { live = false; };
+  }, [session.id, h.at]); // eslint-disable-line react-hooks/exhaustive-deps
+  const total = h.zones ? ZONES.reduce((a, z) => a + h.zones[z.id], 0) : 0;
+  // In the order they were done, numbered like the chart's bands.
+  const order = [...new Set(timedSets(session).map((x) => x.lift))];
+  const lifts = Object.entries(session.sets).filter(([, v]) => v.some((x) => x.hr))
+    .sort(([a], [b]) => (order.indexOf(a) + 1 || 99) - (order.indexOf(b) + 1 || 99));
+  const top = hardestLift(session);
   return (
     <section className="section">
       <h2 className="lbl">Heart rate</h2>
       <div className="stats">
         <div className="stat"><b>{h.avg}</b><span>avg bpm</span></div>
-        <div className="stat"><b>{h.max}</b><span>peak bpm</span>{h.maxHr && <span className="trend flat">{Math.round((h.max / h.maxHr) * 100)}% of max</span>}</div>
+        <div className="stat"><b>{h.max}</b><span>peak bpm</span>{h.bounds && <span className="trend flat">{ZONES[zoneOf(h.max, h.bounds)]?.label || "Below light"}</span>}</div>
         {h.hard != null
-          ? <div className="stat"><b>{num(h.hard)}</b><span>min at 80%+</span></div>
+          ? <div className="stat"><b>{num(h.hard)}</b><span>min vigorous or peak</span></div>
           : <div className="stat"><b>{h.low}</b><span>lowest bpm</span></div>}
       </div>
+      {readings?.length ? <HeartChart session={session} readings={readings} />
+        : <p className="small muted hr-chart-note">{failed ? "Couldn't load the heart rate chart. It'll be here next time you're online." : "Loading the heart rate chart…"}</p>}
+
       {total > 0 && (
-        <div className="hr-zones-wrap">
-          <div className="hr-zones" role="img" aria-label={`Time in zones: ${h.zones.map((m, i) => `${Math.round(ZONES[i] * 100)}%+ ${num(m)} min`).join(", ")}`}>
-            {h.zones.map((m, i) => m > 0 && <span key={i} className={`z${i + 1}`} style={{ flexGrow: m }} />)}
-          </div>
-          <div className="hr-zone-key"><span>Easy</span><span>Zones by % of your est. max {h.maxHr}</span><span>Max</span></div>
+        <div className="card-list hr-time">
+          {[...ZONES].reverse().map((z) => {
+            const i = ZONES.indexOf(z), m = h.zones[z.id];
+            return (
+              <div key={z.id} className="hr-time-row">
+                <span className="hr-time-name"><i className={`z${i + 1}`} aria-hidden="true" />{z.label}<span className="muted"> {h.bounds[i]}{i < 3 ? `–${h.bounds[i + 1] - 1}` : "+"} bpm</span></span>
+                <span className="hr-time-v">{num(m)} min</span>
+                <span className="hr-meter" aria-hidden="true"><span className={`z${i + 1}`} style={{ width: `${(m / total) * 100}%` }} /></span>
+              </div>
+            );
+          })}
         </div>
       )}
-      {!h.maxHr && <p className="small muted">Add your age in Nutrition setup to see time in each heart rate zone.</p>}
+      {top && <p className="note-box">{top.lift} pushed you hardest: its sets peaked at {top.avg} bpm on average.</p>}
       {lifts.length > 0 && (
         <div className="card-list">
-          {lifts.map(([n, v]) => (
-            <div key={n} className="rec plain">
-              <span className="rec-text"><span className="n">{n}</span><span className="m">Set peaks {v.map((x) => x.hr ?? "–").join(" · ")} bpm</span></span>
-              <span className="trend flat">top {Math.max(...v.map((x) => x.hr || 0))}</span>
-            </div>
-          ))}
+          {lifts.map(([n, v]) => {
+            const rests = v.map((x) => x.hrRest).filter(Boolean);
+            return (
+              <div key={n} className="rec plain">
+                <span className="rec-text">
+                  <span className="n">{order.includes(n) && <span className="hr-lift-n" aria-hidden="true">{order.indexOf(n) + 1}</span>}{n}</span>
+                  <span className="m">Set peaks {v.map((x) => x.hr ?? "–").join(" · ")} bpm</span>
+                  {rests.length > 0 && <span className="m">Came down to {rests.join(" · ")} between sets</span>}
+                </span>
+                <span className="trend flat">top {Math.max(...v.map((x) => x.hr || 0))}</span>
+              </div>
+            );
+          })}
         </div>
       )}
-      {!h.complete && <p className="small muted">Your watch is still syncing; this fills in as it does.</p>}
+      <p className="small muted">
+        {h.source === "google" ? "Zones are Google Health's, personal to your fitness and age."
+          : h.source === "age" ? "Zones are estimated from your age until Google Health has yours."
+          : "Add your age in Nutrition setup to see time in each zone."}
+        {!h.complete && " Your watch is still syncing; this fills in as it does."}
+      </p>
     </section>
   );
 }

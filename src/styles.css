@@ -490,12 +490,42 @@ html[data-typing] :is(.dock, .alert-ask) { opacity: 0; visibility: hidden; trans
 .rec .m { font-size: 12.5px; color: var(--mute); font-weight: 500; margin-top: 2px; }
 .rec .v { font-weight: 800; font-size: 18px; text-align: right; white-space: nowrap; }
 .rec.plain { grid-template-columns: 1fr auto; }
-/* Heart rate (Summary): time in zones as one bar, darker for harder. Ink, not a plate color: zones aren't a day. */
-.hr-zones-wrap { margin: 10px 4px 12px; }
-.hr-zones { display: flex; height: 12px; border-radius: 6px; overflow: hidden; background: var(--surface-2); }
-.hr-zones span { display: block; flex-basis: 0; background: var(--ink); }
-.hr-zones .z1 { opacity: 0.18; } .hr-zones .z2 { opacity: 0.34; } .hr-zones .z3 { opacity: 0.52; } .hr-zones .z4 { opacity: 0.74; } .hr-zones .z5 { opacity: 1; }
-.hr-zone-key { display: flex; justify-content: space-between; gap: 8px; margin-top: 6px; font-size: 12px; color: var(--mute); }
+/* Heart rate (Summary). Zones are one ink ramp, darker for harder (checked: one hue, steps light to
+   dark, the lightest clear of the card): a scale, not a plate color, which belong to the days. */
+:root { --hr-z1: #a09fa2; --hr-z2: #77767a; --hr-z3: #49484e; --hr-z4: #1c1a22; }
+:root[data-theme="dark"] { --hr-z1: #7a7772; --hr-z2: #a3a09a; --hr-z3: #cbc8c2; --hr-z4: #f3f0ea; }
+.hr-chart { position: relative; margin: 12px 0 4px; user-select: none; -webkit-user-select: none; }
+.hr-chart svg { display: block; touch-action: pan-y; outline: none; overflow: visible; }
+.hr-chart svg:focus-visible { outline: 2px solid var(--ink); outline-offset: 4px; border-radius: 8px; }
+.hr-band { fill: var(--surface-2); }
+.hr-band-label { font-size: 11px; font-weight: 700; fill: var(--mute); font-variant-numeric: tabular-nums; }
+.hr-threshold { stroke: var(--rule-2); stroke-width: 1; }
+.hr-axis { font-size: 11px; fill: var(--mute); font-variant-numeric: tabular-nums; }
+.hr-line { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.hr-line.z1, .hr-dot.z1 { stroke: var(--hr-z1); } .hr-line.z2, .hr-dot.z2 { stroke: var(--hr-z2); }
+.hr-line.z3, .hr-dot.z3 { stroke: var(--hr-z3); } .hr-line.z4, .hr-dot.z4 { stroke: var(--hr-z4); }
+.hr-dot { fill: var(--surface); stroke-width: 3; }
+.hr-set { fill: var(--ink); stroke: var(--bg); stroke-width: 2; }
+.hr-cross { stroke: var(--mute); stroke-width: 1; }
+.hr-tip { position: absolute; top: -8px; transform: translateY(-100%); display: flex; flex-direction: column; gap: 1px; padding: 8px 10px;
+  background: var(--surface); border: 1px solid var(--rule); border-radius: 12px; box-shadow: 0 6px 20px rgba(0,0,0,.12); font-size: 12px; color: var(--mute);
+  white-space: nowrap; pointer-events: none; z-index: 2; }
+.hr-tip b { font-size: 16px; color: var(--ink); }
+.hr-legend { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 6px; font-size: 12px; color: var(--mute); }
+.hr-legend i { display: inline-block; width: 14px; height: 2px; border-radius: 1px; margin-right: 6px; vertical-align: middle; }
+.hr-legend i.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ink); }
+.hr-legend i.band { width: 10px; height: 10px; border-radius: 3px; background: var(--surface-2); border: 1px solid var(--rule-2); }
+.hr-lift-n { display: inline-grid; place-items: center; min-width: 18px; height: 18px; margin-right: 8px; border-radius: 6px; background: var(--surface-2);
+  font-size: 11px; font-weight: 700; color: var(--mute); font-variant-numeric: tabular-nums; vertical-align: 2px; }
+.hr-legend .z1, .hr-time .z1 { background: var(--hr-z1); } .hr-legend .z2, .hr-time .z2 { background: var(--hr-z2); }
+.hr-legend .z3, .hr-time .z3 { background: var(--hr-z3); } .hr-legend .z4, .hr-time .z4 { background: var(--hr-z4); }
+.hr-chart-note { margin: 12px 0; }
+.hr-time { margin: 12px 0; gap: 2px; }
+.hr-time-row { display: grid; grid-template-columns: 1fr auto; gap: 6px 12px; padding: 8px 10px; }
+.hr-time-name { font-weight: 600; } .hr-time-name i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 8px; }
+.hr-time-v { font-variant-numeric: tabular-nums; font-weight: 600; }
+.hr-meter { grid-column: 1 / -1; height: 4px; border-radius: 2px; background: var(--surface-2); overflow: hidden; }
+.hr-meter span { display: block; height: 100%; border-radius: 2px; }
 .hr-wait { margin: 12px 0 0; }
 .set-hr { color: var(--mute); font-size: 0.85em; }
 .summary-done { gap: 12px; min-height: 60px; }

@@ -36,7 +36,7 @@ import { reviewState, reviewPrefs, fingerprint, latestReview } from "./lib/weekR
 import { cachedReview, loadReview, requestReview, syncSchedule } from "./lib/reviews.js";
 import { phoneState, ensureSubscribed } from "./lib/push.js";
 import { useGoogleHealthSync, useHeartRate } from "./lib/googleHealth.js";
-import { summarize, withHeart, maxHrFor } from "./lib/heart.js";
+import { summarize, withHeart, maxHrFor, estimatedBounds } from "./lib/heart.js";
 
 const TAB_VIEWS = ["today", "nutrition", "progress", "settings", "lift"];
 
@@ -185,7 +185,9 @@ export default function App() {
   const maxHr = maxHrFor(prefs.nutrition?.age);
   useHeartRate({ on: ready && !!prefs.googleHealth?.on && prefs.googleHealth.heart !== false, sessions, onGone: ghGone,
     onAllowed: () => setPrefs((p) => (p.googleHealth ? { ...p, googleHealth: { ...p.googleHealth, heart: false } } : p)),
-    onReadings: (id, readings) => setSessions((prev) => prev.map((s) => (s.id === id ? withHeart(s, summarize(readings, s, maxHr)) : s))) });
+    // Google's own zones for the lifter when it has them, else estimated from their age.
+    onReadings: (id, readings, zones) => setSessions((prev) => prev.map((s) => (s.id === id
+      ? withHeart(s, summarize(readings, s, { bounds: zones || estimatedBounds(maxHr), source: zones ? "google" : maxHr ? "age" : null, maxHr })) : s))) });
   // Opening this week's review stops the glow; the button stays for the rest of the day.
   const opening = route.name === "review" && review?.glow && route.id === reviewWeek;
   useEffect(() => {

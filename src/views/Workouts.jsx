@@ -132,7 +132,7 @@ function HistCard({ s, program, prs }) {
           <div className="hist-meta">
             {program[s.day].name} · {plural(sessionSetCount(s), "set")}{sessionVolume(s) > 0 && ` · ${compact(sessionVolume(s))} lb lifted`}{s.bw != null && ` · ${s.bw} lb bodyweight`}
           </div>
-          {s.hr && !s.hr.none && <div className="hist-meta">Heart rate avg {s.hr.avg} · peak {s.hr.max} bpm{s.hr.hard != null && ` · ${num(s.hr.hard)} min at 80%+`}</div>}
+          {s.hr && !s.hr.none && <div className="hist-meta">Heart rate avg {s.hr.avg} · peak {s.hr.max} bpm{s.hr.hard != null && ` · ${num(s.hr.hard)} min vigorous+`}</div>}
         </div>
         {n > 0 && <span className="stamp">PR{n > 1 ? ` ×${n}` : ""}</span>}
         <a className="icon-btn" data-help="edit" href={href("session", s.day, s.id)} aria-label={`Edit ${program[s.day].name} session on ${longDate(s.date)}`}><Pencil size={17} /></a>

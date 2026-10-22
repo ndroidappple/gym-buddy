@@ -73,7 +73,7 @@ export const REVIEW_TOOLS = {
   }),
 };
 
-const HEART = "Heart rate, when a workout has it, comes from the lifter's watch: average and peak for the workout, minutes at 80%+ of their estimated max (from age), and each set's peak (HR peaks just after a set). Use it to judge effort: how hard a session was against others, sets or lifts that pushed them hardest, rest that wasn't long enough for HR to come down. Wrist HR lags and misses on short heavy sets, so treat it as a rough signal next to reps and RIR, never a diagnosis.";
+const HEART = "Heart rate, when a workout has it, comes from the lifter's watch: average and peak, minutes in each zone (light, moderate, vigorous, peak: Google Health's own zones for them, or estimated from age), and for each set its peak (HR tops out just after a set) and how far it came down before the next set ('came down to'). Use it to judge effort: how hard a session was against others, which lifts pushed them hardest, rest that ended before heart rate came down. Wrist HR lags and misses on short heavy sets, so treat it as a rough signal next to reps and RIR, never a diagnosis.";
 
 /** The head coach's system prompt for reviewing a program the lifter brought with them. */
 export function reviewInstructions(context = "", coach = "tank") {
