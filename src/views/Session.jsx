@@ -190,9 +190,14 @@ export default function Session({ day, existing, draft, sessions, program, weigh
     const id = requestAnimationFrame(() => {
       const el = document.querySelector("section.ex");
       if (!el) return;
-      const { top, bottom } = el.getBoundingClientRect();
+      // Where the card sits once its opening animation settles: offsets ignore the transform it starts
+      // with (lower and smaller), which would otherwise leave it tucked under the header.
+      let y = 0;
+      for (let n = el; n; n = n.offsetParent) y += n.offsetTop;
+      const head = document.querySelector(".sticky")?.offsetHeight ?? 0;
+      const top = y - scrollY;
       // Only move the page when the card starts under the header or runs well past the fold.
-      if (top < 90 || bottom > innerHeight * 0.95) el.scrollIntoView({ behavior: reducedMotion ? "auto" : "smooth", block: "start" });
+      if (top < head || top + el.offsetHeight > innerHeight * 0.95) scrollTo({ top: y - head - 10, behavior: reducedMotion ? "auto" : "smooth" });
     });
     return () => cancelAnimationFrame(id);
   }, [focus]); // eslint-disable-line react-hooks/exhaustive-deps

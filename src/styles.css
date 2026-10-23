@@ -398,7 +398,7 @@ button.chip { min-height: 38px; padding: 0 14px; border: 2px solid var(--rule); 
 .meta-chip { display: flex; align-items: center; gap: 8px; min-height: 54px; padding: 0 16px; font-size: 14px; color: var(--mute); width: 100%; text-align: left; font-weight: 500; }
 .meta-chip b { color: var(--ink); font-weight: 800; }
 
-.ex { padding: 14px; display: flex; flex-direction: column; gap: 10px; border-radius: 28px; animation: ex-open var(--glide-ms) var(--glide), fade 160ms ease-out; scroll-margin-top: calc(var(--safe-t) + 104px); }
+.ex { padding: 14px; display: flex; flex-direction: column; gap: 10px; border-radius: 28px; animation: ex-open var(--glide-ms) var(--glide), fade 160ms ease-out; }
 @keyframes ex-open { from { transform: translateY(16px) scale(.97); } }
 .ex-collapsed.just-closed { animation: ex-close var(--glide-ms) var(--glide); }
 @keyframes ex-close { from { transform: scale(1.04); opacity: .35; } }
