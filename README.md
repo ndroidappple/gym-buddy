@@ -221,8 +221,10 @@ things:
   Watches sync on their own schedule, so a workout is asked again every 15 minutes until its readings
   reach the end, for up to a day. The Summary shows the numbers and `components/HeartChart.jsx`: the
   line colored by zone (steps of the workout day's color, deeper and bolder for harder),
-  threshold lines, a numbered band per lift, a dot on each set's peak, and a touch/keyboard readout
-  of the moment (bpm, zone, lift and set). Workouts lists it, and the coaches get it in each workout
+  each zone's threshold named in the plot with a faint tint above it, a dot on each set's peak, a
+  lift strip under the plot on the same timeline (a numbered segment per lift, a tick per set, named in
+  a key below), and a readout row above the plot that touch, drag or the arrow keys fill with that
+  moment's bpm, zone, time, and lift and set. Each layer has its own space, so nothing covers another. Workouts lists it, and the coaches get it in each workout
   line (`workoutLine` in `src/lib/coachChat.js`, read per `HEART` in `api/coach.js`). The Summary and
   Workouts show heart rate only while Google Health is connected (`prefs.googleHealth.on`). When it
   isn't (disconnected on any phone, or access taken away in the Google account), the app takes heart

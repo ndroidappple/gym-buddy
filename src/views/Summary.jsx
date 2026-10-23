@@ -8,7 +8,7 @@ import SetupCard from "../components/SetupCard.jsx";
 import { coachFor } from "../data/coaches.js";
 import { ZONES, zoneOf, hardestLift, cachedCurve, timedSets } from "../lib/heart.js";
 import { heartCurve } from "../lib/googleHealth.js";
-import HeartChart from "../components/HeartChart.jsx";
+import HeartChart, { zoneRange } from "../components/HeartChart.jsx";
 import ErrorBoundary from "../components/ErrorBoundary.jsx";
 import { useTheme } from "../lib/theme.js";
 import { fmtSet, cardioTotals, priorSessions, allTimeBest, bestSet, bestE1rm, e1rm, fmtW, num, compact, shortDate, longDate, plural, sessionVolume, sessionSetCount, byDateDesc, nextDayAfter } from "../lib/util.js";
@@ -240,7 +240,7 @@ function Heart({ session }) {
             const i = ZONES.indexOf(z), m = h.zones[z.id];
             return (
               <div key={z.id} className="hr-time-row">
-                <span className="hr-time-name"><i className={`z${i + 1}`} aria-hidden="true" />{z.label}<span className="muted"> {h.bounds[i]}{i < 3 ? `–${h.bounds[i + 1] - 1}` : "+"} bpm</span></span>
+                <span className="hr-time-name"><i className={`z${i + 1}`} aria-hidden="true" />{z.label}<span className="muted"> {zoneRange(h.bounds, i)} bpm</span></span>
                 <span className="hr-time-v">{num(m)} min</span>
                 <span className="hr-meter" aria-hidden="true"><span className={`z${i + 1}`} style={{ width: `${(m / total) * 100}%` }} /></span>
               </div>
