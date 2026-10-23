@@ -127,13 +127,13 @@ function HistCard({ s, program, prs, heart }) {
   return (
     <article className="hist" data-help="workout" data-day={s.day}>
       <div className="hist-head">
-        <div style={{ flex: 1 }}>
-          <h2 className="hist-date">{longDate(s.date)}</h2>
+        <a className="hist-open" href={href("summary", s.id, "view")} aria-label={`Open ${program[s.day].name} workout on ${longDate(s.date)}${heart && s.hr && !s.hr.none ? ", with heart rate" : ""}`}>
+          <h2 className="hist-date">{longDate(s.date)}<ChevronRight size={18} strokeWidth={2.6} aria-hidden="true" className="hist-chev" /></h2>
           <div className="hist-meta">
             {program[s.day].name} · {plural(sessionSetCount(s), "set")}{sessionVolume(s) > 0 && ` · ${compact(sessionVolume(s))} lb lifted`}{s.bw != null && ` · ${s.bw} lb bodyweight`}
           </div>
           {heart && s.hr && !s.hr.none && <div className="hist-meta">Heart rate avg {s.hr.avg} · peak {s.hr.max} bpm{s.hr.hard != null && ` · ${num(s.hr.hard)} min vigorous+`}</div>}
-        </div>
+        </a>
         {n > 0 && <span className="stamp">PR{n > 1 ? ` ×${n}` : ""}</span>}
         <a className="icon-btn" data-help="edit" href={href("session", s.day, s.id)} aria-label={`Edit ${program[s.day].name} session on ${longDate(s.date)}`}><Pencil size={17} /></a>
       </div>

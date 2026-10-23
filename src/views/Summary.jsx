@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { ChevronLeft } from "lucide-react";
 import { isCardio } from "../data/program.js";
 import { href } from "../lib/router.js";
 import Coach from "../components/Coach.jsx";
@@ -10,9 +11,13 @@ import { heartCurve } from "../lib/googleHealth.js";
 import HeartChart from "../components/HeartChart.jsx";
 import ErrorBoundary from "../components/ErrorBoundary.jsx";
 import { useTheme } from "../lib/theme.js";
-import { fmtSet, cardioTotals, priorSessions, allTimeBest, bestSet, bestE1rm, e1rm, fmtW, num, compact, shortDate, plural, sessionVolume, sessionSetCount, byDateDesc, nextDayAfter } from "../lib/util.js";
+import { fmtSet, cardioTotals, priorSessions, allTimeBest, bestSet, bestE1rm, e1rm, fmtW, num, compact, shortDate, longDate, plural, sessionVolume, sessionSetCount, byDateDesc, nextDayAfter } from "../lib/util.js";
 
-export default function Summary({ session, sessions, program, prefs, go, onUpdate }) {
+/**
+ * A workout's summary. Straight after finishing it ("Session logged", Done goes on to Today), or, with
+ * `past`, opened from Progress → Workouts: a back button, the date as the title, and back to the list.
+ */
+export default function Summary({ session, sessions, program, prefs, go, back, onUpdate, past = false }) {
   const [note, setNote] = useState(session.note || "");
   const p = program[session.day];
 
@@ -47,24 +52,31 @@ export default function Summary({ session, sessions, program, prefs, go, onUpdat
   const next = program[nextDay];
   const saveNote = () => { if ((session.note || "") !== note.trim()) onUpdate({ ...session, note: note.trim() || null }); };
   const done = () => { saveNote(); go("#/today", { replace: true }); };
+  const leave = () => { saveNote(); back(href("progress", "workouts")); };
+  // Heart rate still to come: never asked yet, or nothing from the watch so far within a day of finishing.
+  // A workout with no times (imported) or one the watch never covered says nothing.
+  const ghHeart = prefs.googleHealth?.on && prefs.googleHealth.heart !== false;
+  const heartDue = ghHeart && session.startedAt && session.finishedAt
+    && (!session.hr || (session.hr.none && Date.now() - session.finishedAt < 24 * 3600_000));
 
   return (
     <main className="screen summary" data-day={session.day}>
       <div className="body" style={{ paddingTop: "calc(24px + var(--safe-t))" }}>
         <header className="summary-head">
           <div className="summary-meta">
+            {past && <button className="icon-btn boxed" onClick={leave} aria-label="Back to workouts"><ChevronLeft size={20} /></button>}
             <span className="chip"><span className="dot" aria-hidden="true" />{p.name} · {shortDate(session.date)}</span>
             <span className="spacer" />
             {mins && <span className="mono small muted">{mins} min</span>}
             <InfoButton screen="summary" />
           </div>
           <div className="summary-hero">
-            <Headline />
+            <Headline text={past ? longDate(session.date) : null} />
             <Coach id={coachFor(Object.keys(session.sets)[0] || "")} mood={r.records.length ? "pr" : "proud"} size={84} />
           </div>
         </header>
         {/* First workout logged and the plan still generic: the moment to point at the coaches. */}
-        {sessions.length === 1 && <SetupCard prefs={prefs} glow lead="First workout done. Now shape your plan." />}
+        {!past && sessions.length === 1 && <SetupCard prefs={prefs} glow lead="First workout done. Now shape your plan." />}
 
         <div className="stats">
           <div className="stat"><b>{compact(r.vol)}</b><span>lb volume</span>{volPct != null && <Delta pct={volPct} />}</div>
@@ -76,7 +88,7 @@ export default function Summary({ session, sessions, program, prefs, go, onUpdat
             come back on reconnecting), but the chart's readings can't be fetched then. */}
         {!prefs.googleHealth?.on ? null : session.hr && !session.hr.none
           ? <ErrorBoundary quiet="heart rate"><Heart session={session} /></ErrorBoundary>
-          : prefs.googleHealth.heart !== false && (
+          : heartDue && (
             <p className="note-box hr-wait">Heart rate from your watch shows up here once it syncs to Google Health, usually within the hour.</p>
           )}
 
@@ -112,9 +124,13 @@ export default function Summary({ session, sessions, program, prefs, go, onUpdat
             placeholder="How did it feel? Anything to change next time?" />
         </label>
 
-        <button className="btn btn-ink summary-done" onClick={done}>
-          Done <span className="next"><span className="dot" data-day={nextDay} aria-hidden="true" />{next.name} is next</span>
-        </button>
+        {past
+          ? <button className="btn btn-ink summary-done" onClick={leave}>Back to workouts</button>
+          : (
+            <button className="btn btn-ink summary-done" onClick={done}>
+              Done <span className="next"><span className="dot" data-day={nextDay} aria-hidden="true" />{next.name} is next</span>
+            </button>
+          )}
       </div>
     </main>
   );
@@ -148,9 +164,11 @@ function useInk() {
   return ink;
 }
 
-function Headline() {
+/** "Session logged" in metal straight after a workout; a past workout's date (`text`) stays plain. */
+function Headline({ text }) {
   const metal = useMetal();
   const ink = useInk();
+  if (text) return <h1 className="summary-title past">{text}</h1>;
   return (
     <h1 className="summary-title">
       {metal
