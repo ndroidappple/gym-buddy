@@ -29,6 +29,7 @@ import { headContext } from "./lib/coachChat.js";
 import { headCoach } from "./data/coaches.js";
 import { coachFoodContext, totals } from "./lib/nutrition.js";
 import NamePrompt from "./components/NamePrompt.jsx";
+import ErrorBoundary from "./components/ErrorBoundary.jsx";
 import Welcome from "./components/Welcome.jsx";
 import WeekReview from "./components/WeekReview.jsx";
 import WeekReviewIntro from "./components/WeekReviewIntro.jsx";
@@ -195,8 +196,16 @@ export default function App() {
   useHeartRate({ on: ready && !!prefs.googleHealth?.on && prefs.googleHealth.heart !== false, sessions, onGone: ghGone,
     onAllowed: () => setPrefs((p) => (p.googleHealth ? { ...p, googleHealth: { ...p.googleHealth, heart: false } } : p)),
     // Google's own zones for the lifter when it has them, else estimated from their age.
-    onReadings: (id, readings, zones) => setSessions((prev) => prev.map((s) => (s.id === id
-      ? withHeart(s, summarize(readings, s, { bounds: zones || estimatedBounds(maxHr), source: zones ? "google" : maxHr ? "age" : null, maxHr })) : s))) });
+    // Never allowed to break the app: a workout it can't work out stays as it was (and is tried again).
+    onReadings: (id, readings, zones) => setSessions((prev) => prev.map((s) => {
+      if (s.id !== id) return s;
+      try {
+        return withHeart(s, summarize(readings, s, { bounds: zones || estimatedBounds(maxHr), source: zones ? "google" : maxHr ? "age" : null, maxHr }));
+      } catch (e) {
+        console.error("heart rate not worked out for", id, e);
+        return s;
+      }
+    })) });
   // Opening this week's review stops the glow; the button stays for the rest of the day.
   const opening = route.name === "review" && review?.glow && route.id === reviewWeek;
   useEffect(() => {
@@ -383,7 +392,7 @@ export default function App() {
   const activeTab = route.name === "lift" ? "progress" : route.name;
   return (
     <div className="app">
-      {view}
+      <ErrorBoundary resetKey={location.hash}>{view}</ErrorBoundary>
       {showTabs && <TabBar active={activeTab} onSelect={selectTab} nutrition={nutritionOn} />}
       <SyncNote show={sync === "offline" || food.status === "offline"} raised={showTabs} />
       <NamePrompt onName={setName} onSettled={onNameSettled} />

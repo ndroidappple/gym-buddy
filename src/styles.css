@@ -547,6 +547,9 @@ html[data-typing] :is(.dock, .alert-ask) { opacity: 0; visibility: hidden; trans
 .hr-meter { grid-column: 1 / -1; height: 4px; border-radius: 2px; background: var(--surface-2); overflow: hidden; }
 .hr-meter span { display: block; height: 100%; border-radius: 2px; }
 .hr-wait { margin: 12px 0 0; }
+/* ErrorBoundary: what shows instead of a blank screen. */
+.crash { display: flex; flex-direction: column; gap: 14px; padding-top: calc(32px + var(--safe-t, 0px)); }
+.crash-detail { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; word-break: break-word; user-select: text; -webkit-user-select: text; }
 .set-hr { color: var(--mute); font-size: 0.85em; }
 .summary-done { gap: 12px; min-height: 60px; }
 .summary-done .next { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 600; opacity: 0.75; }

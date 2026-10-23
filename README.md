@@ -259,6 +259,15 @@ publish the consent screen ("In production") or refresh tokens expire after 7 da
 test:health` checks the planning, the sealed token, the request order, reading heart rate and the
 intensity numbers.
 
+### When something breaks
+
+`components/ErrorBoundary.jsx` keeps a drawing error from blanking the app. One sits around each screen
+(`App.jsx`, keyed by the route, so the tab bar stays and moving to another tab clears it) and one around
+the whole app (`main.jsx`). Either shows "Something went wrong" with the error's own message, Back to
+Today and Reload: a screenshot of it says what broke. Smaller parts can have a quiet one that just
+leaves that part out (the Summary's heart rate section). Background work that changes state (heart rate
+arriving) catches its own errors and leaves the workout as it was.
+
 ## Project structure
 
 ```
