@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { ChevronLeft, MessageCircle } from "lucide-react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { ChevronLeft, ChevronRight, MessageCircle } from "lucide-react";
 import { isCardio } from "../data/program.js";
 import { href } from "../lib/router.js";
 import Coach from "../components/Coach.jsx";
@@ -11,6 +11,8 @@ import { ZONES, zoneOf, hardestLift, cachedCurve, timedSets } from "../lib/heart
 import { heartCurve } from "../lib/googleHealth.js";
 import HeartChart, { zoneRange } from "../components/HeartChart.jsx";
 import ErrorBoundary from "../components/ErrorBoundary.jsx";
+import Walkthrough, { WalkNotes } from "../components/Walkthrough.jsx";
+import { freshWalk, showsHeart } from "../lib/walkthrough.js";
 import { useTheme } from "../lib/theme.js";
 import { fmtSet, cardioTotals, priorSessions, allTimeBest, bestSet, bestE1rm, e1rm, fmtW, num, compact, shortDate, longDate, plural, sessionVolume, sessionSetCount, byDateDesc, nextDayAfter } from "../lib/util.js";
 
@@ -21,6 +23,14 @@ import { fmtSet, cardioTotals, priorSessions, allTimeBest, bestSet, bestE1rm, e1
 export default function Summary({ session, sessions, program, prefs, go, back, onUpdate, past = false, coachChat, head = "tank", name, weighins, nutrition, onProgramChange }) {
   const [note, setNote] = useState(session.note || "");
   const [asking, setAsking] = useState(false);
+  // The coach's walkthrough: running, the step on screen (the heart rate chart follows it), and the
+  // walkthrough as last written, whose points stay under each part of the recap once it's over.
+  const [walking, setWalking] = useState(false);
+  const [walkStep, setWalkStep] = useState(null);
+  const walk = freshWalk(session);
+  const heart = showsHeart(session, prefs);
+  const latest = useRef(session);
+  latest.current = session;
   const p = program[session.day];
 
   const r = useMemo(() => {
@@ -55,6 +65,9 @@ export default function Summary({ session, sessions, program, prefs, go, back, o
   const saveNote = () => { if ((session.note || "") !== note.trim()) onUpdate({ ...session, note: note.trim() || null }); };
   const done = () => { saveNote(); go("#/today", { replace: true }); };
   const leave = () => { saveNote(); back(href("progress", "workouts")); };
+  const saveWalk = (w) => onUpdate({ ...latest.current, walk: w });
+  const notesOn = walk && !walking;
+  const focusAt = walkStep?.target === "chart" && walkStep.set ? session.sets[walkStep.lift]?.[walkStep.set - 1]?.t ?? null : null;
   // Heart rate still to come: never asked yet, or nothing from the watch so far within a day of finishing.
   // A workout with no times (imported) or one the watch never covered says nothing.
   const ghHeart = prefs.googleHealth?.on && prefs.googleHealth.heart !== false;
@@ -80,19 +93,21 @@ export default function Summary({ session, sessions, program, prefs, go, back, o
         {/* First workout logged and the plan still generic: the moment to point at the coaches. */}
         {!past && sessions.length === 1 && <SetupCard prefs={prefs} glow lead="First workout done. Now shape your plan." />}
 
-        <div className="stats">
+        <div className="stats" data-walk="overview">
           <div className="stat"><b>{compact(r.vol)}</b><span>lb volume</span>{volPct != null && <Delta pct={volPct} />}</div>
           <div className="stat"><b>{r.sets}</b><span>sets</span><span className="trend flat">{plural(Object.keys(session.sets).length, "lift")}</span></div>
           <div className="stat"><b>{r.records.length}</b><span>PRs</span>{r.prevRecords != null && <span className="trend flat">{r.prevRecords} last time</span>}</div>
         </div>
+        {notesOn && <WalkNotes walk={walk} head={head} match={(t) => t === "overview"} />}
 
-        {/* Questions about this workout go to the head coach, in the same conversation as everywhere else,
-            with this workout in full on top of what they read. */}
+        {/* The head coach: a walkthrough of this workout (the bubble), or questions about it (Ask), in the
+            same conversation as everywhere else, with this workout in full on top of what they read. */}
         {coachChat?.thread && (
           <div className="ex-coach nut-ask summary-ask" style={{ "--c": COACHES[head].color }}>
             <Coach id={head} size={48} mood="idle" />
-            <button type="button" className="coach-bubble bubble-btn" onClick={() => setAsking(true)}>
-              {session.hr && !session.hr.none ? "Questions about this workout or your heart rate? Ask me." : "Questions about this workout? Ask me."}
+            <button type="button" className="coach-bubble bubble-btn" onClick={() => setWalking(true)} aria-expanded={walking}>
+              {walk ? "My notes are under each part of the recap." : `Want my take? I'll go over what went well${heart ? ", your heart rate," : ""} and what to fix.`}
+              <span className="bubble-cta">{walk ? "Walk through it again" : "Walk me through it"}<ChevronRight size={15} strokeWidth={2.8} aria-hidden="true" /></span>
             </button>
             <button className="ask-btn compact" onClick={() => setAsking(true)} aria-label={`Ask ${COACHES[head].name}, your head coach, about this workout`}><MessageCircle size={18} strokeWidth={2.6} aria-hidden="true" /><span>Ask</span></button>
           </div>
@@ -101,15 +116,15 @@ export default function Summary({ session, sessions, program, prefs, go, back, o
         {/* Only while Google Health is connected: a workout keeps its numbers after a disconnect (they
             come back on reconnecting), but the chart's readings can't be fetched then. */}
         {!prefs.googleHealth?.on ? null : session.hr && !session.hr.none
-          ? <ErrorBoundary quiet="heart rate"><Heart session={session} /></ErrorBoundary>
+          ? <ErrorBoundary quiet="heart rate"><Heart session={session} focus={focusAt} walk={notesOn ? walk : null} head={head} /></ErrorBoundary>
           : heartDue && (
             <p className="note-box hr-wait">Heart rate from your watch shows up here once it syncs to Google Health, usually within the hour.</p>
           )}
 
         {r.records.length > 0 && (
-          <Group title="Records" help="records">
+          <Group title="Records" help="records" walk={notesOn ? walk : null} head={head} lifts={r.records}>
             {r.records.map((x) => (
-              <a key={x.n} className="rec" href={href("lift", x.n)}>
+              <a key={x.n} className="rec" href={href("lift", x.n)} data-walk={`lift:${x.n}`}>
                 <PrBadge />
                 <span className="rec-text"><span className="n">{x.n}</span><span className="m">Est. max {num(x.score)} lb · ▲ {x.pct.toFixed(1)}%</span></span>
                 <span className="v">{fmtW(x.best.w)} × {x.best.r}</span>
@@ -117,20 +132,20 @@ export default function Summary({ session, sessions, program, prefs, go, back, o
             ))}
           </Group>
         )}
-        {r.up.length > 0 && <Group title="Up on last time" help="vs-last">{r.up.map((x) => <Plain key={x.n} x={x} mark={`▲ ${x.vsLast.toFixed(1)}%`} />)}</Group>}
-        {r.same.length > 0 && <Group title="Same as last time" help="vs-last">{r.same.map((x) => <Plain key={x.n} x={x} mark="same" />)}</Group>}
-        {r.down.length > 0 && <Group title="Down on last time" help="vs-last">{r.down.map((x) => <Plain key={x.n} x={x} mark={`▼ ${Math.abs(x.vsLast).toFixed(1)}%`} />)}</Group>}
+        {r.up.length > 0 && <Group title="Up on last time" help="vs-last" walk={notesOn ? walk : null} head={head} lifts={r.up}>{r.up.map((x) => <Plain key={x.n} x={x} mark={`▲ ${x.vsLast.toFixed(1)}%`} />)}</Group>}
+        {r.same.length > 0 && <Group title="Same as last time" help="vs-last" walk={notesOn ? walk : null} head={head} lifts={r.same}>{r.same.map((x) => <Plain key={x.n} x={x} mark="same" />)}</Group>}
+        {r.down.length > 0 && <Group title="Down on last time" help="vs-last" walk={notesOn ? walk : null} head={head} lifts={r.down}>{r.down.map((x) => <Plain key={x.n} x={x} mark={`▼ ${Math.abs(x.vsLast).toFixed(1)}%`} />)}</Group>}
         {r.cardio.length > 0 && (
-          <Group title="Cardio">
+          <Group title="Cardio" walk={notesOn ? walk : null} head={head} lifts={r.cardio} prefix="cardio:">
             {r.cardio.map((x) => (
-              <a key={x.n} className="rec plain" href={href("lift", x.n)}>
+              <a key={x.n} className="rec plain" href={href("lift", x.n)} data-walk={`cardio:${x.n}`}>
                 <span className="rec-text"><span className="n">{x.n}</span><span className="m">{x.sets.map(fmtSet).join(" + ")}</span></span>
                 <span className="trend flat">{num(x.t.min)} min</span>
               </a>
             ))}
           </Group>
         )}
-        {r.baseline.length > 0 && <Group title="First time logged">{r.baseline.map((x) => <Plain key={x.n} x={x} mark="baseline set" />)}</Group>}
+        {r.baseline.length > 0 && <Group title="First time logged" walk={notesOn ? walk : null} head={head} lifts={r.baseline}>{r.baseline.map((x) => <Plain key={x.n} x={x} mark="baseline set" />)}</Group>}
 
         <label className="field">
           <span className="lbl">Note</span>
@@ -146,8 +161,12 @@ export default function Summary({ session, sessions, program, prefs, go, back, o
             </button>
           )}
       </div>
+      {walking && (
+        <Walkthrough session={session} sessions={sessions} program={program} prefs={prefs} head={head} notes={coachChat?.thread?.notes} heart={heart} day={session.day}
+          onSave={saveWalk} onStep={setWalkStep} onClose={() => setWalking(false)} onAsk={() => { setWalking(false); setAsking(true); }} />
+      )}
       {asking && (
-        <CoachChat coach={head} head={head} name={name} topic="workout" workout={session} day={session.date} {...coachChat}
+        <CoachChat coach={head} head={head} name={name} topic="workout" workout={walk ? session : { ...session, walk: undefined }} day={session.date} {...coachChat}
           sessions={sessions} program={program} weighins={weighins} profile={prefs.profile} phase={prefs.phase}
           nutrition={nutrition} onProgramChange={onProgramChange} onClose={() => setAsking(false)} />
       )}
@@ -220,7 +239,7 @@ function Delta({ pct }) {
  * phone, or fetched for it), time in each zone, which lift pushed hardest, and each lift's set peaks
  * and how far heart rate came down before the next set.
  */
-function Heart({ session }) {
+function Heart({ session, focus = null, walk = null, head }) {
   const h = session.hr;
   const [readings, setReadings] = useState(() => cachedCurve(session.id));
   const [failed, setFailed] = useState(false);
@@ -243,18 +262,20 @@ function Heart({ session }) {
   return (
     <section className="section">
       <h2 className="lbl">Heart rate</h2>
-      <div className="stats">
+      <div className="stats" data-walk="heart">
         <div className="stat"><b>{h.avg}</b><span>avg bpm</span></div>
         <div className="stat"><b>{h.max}</b><span>peak bpm</span>{h.bounds && <span className="trend flat">{ZONES[zoneOf(h.max, h.bounds)]?.label || "Below light"}</span>}</div>
         {h.hard != null
           ? <div className="stat"><b>{num(h.hard)}</b><span>min vigorous or peak</span></div>
           : <div className="stat"><b>{h.low}</b><span>lowest bpm</span></div>}
       </div>
-      {readings?.length ? <HeartChart session={session} readings={readings} />
-        : <p className="small muted hr-chart-note">{failed ? "Couldn't load the heart rate chart. It'll be here next time you're online." : "Loading the heart rate chart…"}</p>}
+      <div data-walk="chart" className="walk-place">
+        {readings?.length ? <HeartChart session={session} readings={readings} focus={focus} />
+          : <p className="small muted hr-chart-note">{failed ? "Couldn't load the heart rate chart. It'll be here next time you're online." : "Loading the heart rate chart…"}</p>}
+      </div>
 
       {total > 0 && (
-        <div className="card-list hr-time">
+        <div className="card-list hr-time" data-walk="zones">
           {[...ZONES].reverse().map((z) => {
             const i = ZONES.indexOf(z), m = h.zones[z.id];
             return (
@@ -273,7 +294,7 @@ function Heart({ session }) {
           {lifts.map(([n, v]) => {
             const rests = v.map((x) => x.hrRest).filter(Boolean);
             return (
-              <div key={n} className="rec plain">
+              <div key={n} className="rec plain" data-walk={`hr:${n}`}>
                 <span className="rec-text">
                   <span className="n">{order.includes(n) && <span className="hr-lift-n" aria-hidden="true">{order.indexOf(n) + 1}</span>}{n}</span>
                   <span className="m">Set peaks {v.map((x) => x.hr ?? "–").join(" · ")} bpm</span>
@@ -285,6 +306,7 @@ function Heart({ session }) {
           })}
         </div>
       )}
+      <WalkNotes walk={walk} head={head} match={(t) => t === "heart" || t === "chart" || t === "zones" || t.startsWith("hr:")} />
       <p className="small muted">
         {h.source === "google" ? "Zones are Google Health's, personal to your fitness and age."
           : h.source === "age" ? "Zones are estimated from your age until Google Health has yours."
@@ -295,13 +317,20 @@ function Heart({ session }) {
   );
 }
 
-function Group({ title, help, children }) {
-  return <section className="section" data-help={help}><h2 className="lbl">{title}</h2><div className="card-list">{children}</div></section>;
+function Group({ title, help, children, walk = null, head, lifts = [], prefix = "lift:" }) {
+  const ids = new Set(lifts.map((x) => prefix + x.n));
+  return (
+    <section className="section" data-help={help}>
+      <h2 className="lbl">{title}</h2>
+      <div className="card-list">{children}</div>
+      <WalkNotes walk={walk} head={head} match={(t) => ids.has(t)} />
+    </section>
+  );
 }
 
 function Plain({ x, mark }) {
   return (
-    <a className="rec plain" href={href("lift", x.n)}>
+    <a className="rec plain" href={href("lift", x.n)} data-walk={`lift:${x.n}`}>
       <span className="rec-text"><span className="n">{x.n}</span><span className="m">{fmtW(x.best.w)} × {x.best.r} · Est. max {num(e1rm(x.best.w, x.best.r))} lb</span></span>
       <span className="trend flat">{mark}</span>
     </a>

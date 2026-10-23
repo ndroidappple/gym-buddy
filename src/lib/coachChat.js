@@ -61,7 +61,7 @@ function phaseLine(phase, sessions, weighins) {
   const s = phaseStatus(phase, sessions, weighins);
   return `Current phase: ${PHASE_TYPES[phase.type].label}, week ${s.week} of ${s.weeks}, ${phase.startWeight} -> ${phase.target} lb (planned ${phase.rate} lb/week, ends ${phase.end}). Status: ${statusLine(phase, s)} Advise on food for pace; keep heavy lifts heavy on a cut.`;
 }
-function goalsLine(profile) {
+export function goalsLine(profile) {
   const goals = (profile.goals || []).map((g) => GOALS.find((x) => x.id === g)?.label).filter(Boolean);
   return `Goals: ${goals.join(", ") || "not given"}. Trains about ${profile.days || "?"} days a week (flexible).` + (profile.note ? ` Lifter's note: ${profile.note}` : "");
 }
@@ -251,6 +251,8 @@ export function workoutFocus(s, sessions, program) {
     }
     lines.push(`- ${n}: ${sets.join(", ")}${vs}`);
   }
+  // The walkthrough you already gave them on this recap, so a follow-up question can pick it up.
+  if (s.walk?.steps?.length) lines.push("Your walkthrough of this workout (what they've read):", ...s.walk.steps.map((x) => `- ${x.title}: ${x.text}`));
   return lines.join("\n");
 }
 
@@ -375,14 +377,16 @@ export async function askCoach({ coach, messages, context, onText, signal, mode,
   const foodEdits = records.map((r) => r.foodEdits).filter((x) => Array.isArray(x) && x.length).flat();
   // The head coach's memory, as the whole new list (null: unchanged).
   const memory = records.filter((r) => Array.isArray(r.memory)).map((r) => r.memory).pop() || null;
-  if (!text.trim() && !proposals.length && !meal && !foodEdits.length && !memory) {
+  // A workout walkthrough (mode "walk"): its steps, checked by cleanWalk in walkthrough.js.
+  const walk = records.filter((r) => r.walk && typeof r.walk === "object").map((r) => r.walk).pop() || null;
+  if (!text.trim() && !proposals.length && !meal && !foodEdits.length && !memory && !walk) {
     const kind = status === "rate" ? "rate" : status === "error" ? "busy" : "empty";
     // capped: the model thought until it ran out of room and never answered.
     throw Object.assign(new Error(kind), { kind, capped: finish === "length" });
   }
   const replies = [...new Set(records.flatMap((r) => (Array.isArray(r.replies) ? r.replies : []))
     .filter((x) => typeof x === "string").map((x) => x.trim().slice(0, 60)).filter(Boolean))].slice(0, 3);
-  return { text, changes: proposals.flat(), replies, meal, foodEdits, memory };
+  return { text, changes: proposals.flat(), replies, meal, foodEdits, memory, walk };
 }
 
 /** What Tank reads to review a program the lifter brought in: their goals, days, and every workout. */

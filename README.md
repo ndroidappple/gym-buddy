@@ -135,6 +135,19 @@ set in order with when it was done, the rest before it and its heart rate (peak,
 to), each lift against last time and its best, and the workout's heart rate. The starters ask about it
 ("How did this workout go?", "Which lift pushed me hardest?", "Were my rests long enough?").
 
+**Walk me through it:** the same recap offers the head coach's walkthrough of the workout
+(`src/components/Walkthrough.jsx`, `src/lib/walkthrough.js`, mode `walk` in `api/coach.js`). The coach
+answers with 3 to 6 steps (overall, done well, improve, next time) through the `walk_through` tool, each
+pointing at a place on the recap: `overview`, a lift's row (`lift:<name>`), cardio, and with heart rate
+`heart`, `zones`, a lift's heart rate row (`hr:<name>`) or `chart` (with a lift and set, the chart's readout
+jumps to that set's peak). The places are listed in the context from what this recap shows
+(`walkPlaces`) and `cleanWalk` sends anything else to the overview. A card pinned to the bottom shows one
+step at a time while the recap scrolls to and outlines its place (`data-walk` attributes); nothing is
+dimmed. The walkthrough is kept on the workout (`session.walk`) and replays without asking again until
+the sets or heart rate change (`walkBasis`); its points stay under each part of the recap. Disconnecting
+Google Health deletes a walkthrough written with heart rate along with the rest. `npm run test:coach`
+checks it.
+
 ### Rest alerts (optional)
 
 A push notification when a rest timer ends, so it arrives with the phone locked (**Settings →

@@ -168,15 +168,17 @@ export const cachedCurve = (id) => readCurves()[id]?.r || null;
 
 /* ── disconnecting ── */
 
-/** Whether a workout carries anything from Google Health. */
-export const hasHeart = (s) => !!s.hr || Object.values(s.sets || {}).some((list) => list.some((x) => x.hr || x.hrRest));
+/** Whether a workout carries anything from Google Health (a walkthrough written with heart rate too). */
+export const hasHeart = (s) => !!s.hr || !!s.walk?.heart || Object.values(s.sets || {}).some((list) => list.some((x) => x.hr || x.hrRest));
 /**
- * The workout without what came from Google Health: its summary and each set's peak and recovery.
- * When each set was done stays (that's the lifter's own log), so reconnecting can work it all out again.
+ * The workout without what came from Google Health: its summary, each set's peak and recovery, and a
+ * coach's walkthrough written with them (it quotes the numbers). When each set was done stays (that's
+ * the lifter's own log), so reconnecting can work it all out again.
  */
 export function withoutHeart(s) {
   if (!hasHeart(s)) return s;
-  const { hr, ...rest } = s;
+  const { hr, walk, ...rest } = s;
+  if (walk && !walk.heart) rest.walk = walk;
   return { ...rest, sets: Object.fromEntries(Object.entries(s.sets).map(([lift, list]) => [lift, list.map(({ hr: _p, hrRest: _r, ...set }) => set)])) };
 }
 /** Forgets every workout's readings kept on this phone. */

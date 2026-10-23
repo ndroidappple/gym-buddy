@@ -23,7 +23,8 @@ const clock = (ms) => new Date(ms).toLocaleTimeString(undefined, { hour: "numeri
 /** A zone's range in bpm: "under 117", "117–142", "175+". */
 export const zoneRange = (bounds, i) => (i === 0 ? `under ${bounds[1]}` : i === 3 ? `${bounds[3]}+` : `${bounds[i]}–${bounds[i + 1] - 1}`);
 
-export default function HeartChart({ session, readings }) {
+/** `focus`: a set's time (ms) for the coach's walkthrough to point at; the readout jumps to its peak. */
+export default function HeartChart({ session, readings, focus = null }) {
   const wrap = useRef(null);
   const [w, setW] = useState(0);
   const [at, setAt] = useState(null); // index of the reading being read, or null
@@ -92,6 +93,15 @@ export default function HeartChart({ session, readings }) {
     const h = bottom + (lifts.length ? STRIP_GAP + STRIP_H : 0) + AXIS_H;
     return { x, y, runs, zones, lifts, marks, ticks, t0, t1, x0, x1, iw, top, bottom, stripY, h };
   }, [w, pts, bounds, sets, start, end]);
+
+  // The walkthrough pointing at a set: read its peak (the highest reading around it), or the nearest one.
+  useEffect(() => {
+    if (focus == null || !pts.length) { setAt(null); return; }
+    let best = -1;
+    pts.forEach(([t, b], i) => { if (t >= focus - BEFORE_MS && t <= focus + AFTER_MS && (best < 0 || b > pts[best][1])) best = i; });
+    if (best < 0) best = pts.reduce((k, [t], i) => (Math.abs(t - focus) < Math.abs(pts[k][0] - focus) ? i : k), 0);
+    setAt(best);
+  }, [focus, pts]);
 
   // The moment being read: the reading nearest the pointer.
   const pick = (clientX) => {
