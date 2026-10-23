@@ -5,7 +5,7 @@ import { href } from "../lib/router.js";
 import Coach from "../components/Coach.jsx";
 import { InfoButton } from "../components/ui.jsx";
 import SetupCard from "../components/SetupCard.jsx";
-import { coachFor, COACHES } from "../data/coaches.js";
+import { COACHES } from "../data/coaches.js";
 import CoachChat from "../components/CoachChat.jsx";
 import { ZONES, zoneOf, hardestLift, cachedCurve, timedSets } from "../lib/heart.js";
 import { heartCurve } from "../lib/googleHealth.js";
@@ -121,8 +121,20 @@ export default function Summary({ session, sessions, program, prefs, go, back, o
           </div>
           <div className="summary-hero">
             <Headline text={past ? longDate(session.date) : null} />
-            <Coach id={coachFor(Object.keys(session.sets)[0] || "")} mood={r.records.length ? "pr" : "proud"} size={84} />
+            <Coach id={head} mood={r.records.length ? "pr" : "proud"} size={84} />
           </div>
+          {/* The head coach up top speaks for the recap: a walkthrough of this workout (the bubble), or
+              questions about it (Ask), in the same conversation as everywhere else, with this workout in
+              full on top of what they read. */}
+          {coachChat?.thread && (
+            <div className="summary-ask" style={{ "--c": COACHES[head].color }}>
+              <button type="button" className="coach-bubble says-up bubble-btn" onClick={() => setWalking(true)} aria-expanded={walking}>
+                {walk ? "My notes are under each part of the recap." : `Want my take? I'll go over what went well${heart ? ", your heart rate," : ""} and what to fix.`}
+                <span className="bubble-cta">{walk ? "Walk through it again" : "Walk me through it"}<ChevronRight size={15} strokeWidth={2.8} aria-hidden="true" /></span>
+              </button>
+              <button className="ask-btn compact" onClick={() => setAsking(true)} aria-label={`Ask ${COACHES[head].name}, your head coach, about this workout`}><MessageCircle size={18} strokeWidth={2.6} aria-hidden="true" /><span>Ask</span></button>
+            </div>
+          )}
         </header>
         {/* First workout logged and the plan still generic: the moment to point at the coaches. */}
         {!past && sessions.length === 1 && <SetupCard prefs={prefs} glow lead="First workout done. Now shape your plan." />}
@@ -133,19 +145,6 @@ export default function Summary({ session, sessions, program, prefs, go, back, o
           <div className="stat"><b>{r.records.length}</b><span>PRs</span>{r.prevRecords != null && <span className="trend flat">{r.prevRecords} last time</span>}</div>
         </div>
         {notesOn && <WalkNotes walk={walk} head={head} plan={plan} match={(t) => t === "overview"} />}
-
-        {/* The head coach: a walkthrough of this workout (the bubble), or questions about it (Ask), in the
-            same conversation as everywhere else, with this workout in full on top of what they read. */}
-        {coachChat?.thread && (
-          <div className="ex-coach nut-ask summary-ask" style={{ "--c": COACHES[head].color }}>
-            <Coach id={head} size={48} mood="idle" />
-            <button type="button" className="coach-bubble bubble-btn" onClick={() => setWalking(true)} aria-expanded={walking}>
-              {walk ? "My notes are under each part of the recap." : `Want my take? I'll go over what went well${heart ? ", your heart rate," : ""} and what to fix.`}
-              <span className="bubble-cta">{walk ? "Walk through it again" : "Walk me through it"}<ChevronRight size={15} strokeWidth={2.8} aria-hidden="true" /></span>
-            </button>
-            <button className="ask-btn compact" onClick={() => setAsking(true)} aria-label={`Ask ${COACHES[head].name}, your head coach, about this workout`}><MessageCircle size={18} strokeWidth={2.6} aria-hidden="true" /><span>Ask</span></button>
-          </div>
-        )}
 
         {night && <NightBefore r={night} />}
         {notesOn && night && <WalkNotes walk={walk} head={head} plan={plan} match={(t) => t === "sleep"} />}

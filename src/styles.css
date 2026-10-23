@@ -14,9 +14,12 @@
   --ink-lip: #000000;
   --scrim: rgba(28, 26, 34, 0.45);
   --glass: rgba(255, 255, 255, 0.86);
-  --dock: #1C1A22;          /* tab bar and rest timer */
-  --on-dock: #FFFFFF;
-  --dock-mute: #A29DA8;
+  --dock: #FFFFFF;          /* tab bar and rest timer: a card like the rest of the page */
+  --on-dock: #1C1A22;
+  --dock-mute: #66616C;
+  --dock-rule: #E4DED4;
+  --dock-pill: #1C1A22;     /* the current tab, and the rest timer's main button */
+  --on-dock-pill: #FFFFFF;
 
   --push: #FF5E57;  --on-push: #FFFFFF;  --push-ink: #B42D26;  --push-lip: #D9433D;
   --pull: #4C8DFF;  --on-pull: #FFFFFF;  --pull-ink: #2563D9;  --pull-lip: #2F6FE0;
@@ -64,6 +67,9 @@
   --dock: #26242D;
   --on-dock: #F3F0EA;
   --dock-mute: #8C8794;
+  --dock-rule: transparent;
+  --dock-pill: #121117;
+  --on-dock-pill: #F3F0EA;
 
   --push-ink: #FF8A84; --pull-ink: #86B2FF; --legs-ink: #FFC53D; --shoulders-ink: #4FD69A; --custom-ink: #B6A9FF;
   --push-lip: #B8342F; --pull-lip: #2757C2; --legs-lip: #B8861A; --shoulders-lip: #178050;
@@ -157,7 +163,10 @@ html[data-nav="back"]::view-transition-new(root) { animation: vt-fade-in var(--e
 ::view-transition-new(tabbar):only-child { animation: vt-rise var(--glide-ms) var(--glide) both; }
 @keyframes vt-drop { to { transform: translateY(calc(100% + 24px)); } }
 @keyframes vt-rise { from { transform: translateY(calc(100% + 24px)); } }
-.screen.has-tabs { padding-bottom: calc(108px + var(--safe-b)); }
+.screen.has-tabs { padding-bottom: calc(132px + var(--safe-b)); }
+/* The page fades out behind the floating tab bar, so content never meets it at a hard edge. */
+.screen.has-tabs::after { content: ""; position: fixed; left: 0; right: 0; bottom: 0; height: calc(140px + var(--safe-b)); z-index: 19; pointer-events: none;
+  background: linear-gradient(to top, var(--bg) calc(40px + var(--safe-b)), color-mix(in srgb, var(--bg) 0%, transparent)); }
 .body { padding: 0 16px 32px; display: flex; flex-direction: column; gap: 20px; flex: 1; }
 
 /* ═══════════════ TYPE ═══════════════ */
@@ -188,12 +197,12 @@ html[data-nav="back"]::view-transition-new(root) { animation: vt-fade-in var(--e
 .top-title[data-day]::before { content: ""; width: 12px; height: 12px; border-radius: 50%; background: var(--day); flex-shrink: 0; }
 .spacer { flex: 1; }
 
-.tabbar { position: fixed; bottom: calc(14px + var(--safe-b)); left: 16px; right: 16px; max-width: 528px; margin: 0 auto; z-index: 20; touch-action: none; -webkit-user-select: none; user-select: none; display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; padding: 7px; border-radius: 34px; background: var(--dock); box-shadow: 0 6px 0 var(--lip); }
+.tabbar { position: fixed; bottom: calc(14px + var(--safe-b)); left: 16px; right: 16px; max-width: 528px; margin: 0 auto; z-index: 20; touch-action: none; -webkit-user-select: none; user-select: none; display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; padding: 7px; border-radius: 34px; background: var(--dock); box-shadow: inset 0 0 0 2px var(--dock-rule), 0 6px 0 var(--lip); }
 .tab { position: relative; z-index: 1; display: flex; align-items: center; justify-content: center; gap: 7px; min-width: 0; padding: 0 12px; min-height: 54px; font-size: 13px; white-space: nowrap; font-weight: 700; color: var(--dock-mute); text-decoration: none; border-radius: 27px; -webkit-touch-callout: none; transition: color 120ms; }
-.tab[aria-current="page"] { color: var(--ink); }
+.tab[aria-current="page"] { color: var(--on-dock-pill); }
 /* The pill slides between tabs with a little overshoot; while a finger drags it tracks the finger exactly.
    The columns switch at once and each tab glides from where it was (TabBar), on the pill's spring. */
-.tab-pill { position: absolute; left: 0; top: 7px; bottom: 7px; border-radius: 27px; background: var(--bg); transition: transform var(--slide-ms) var(--slide), width var(--slide-ms) var(--slide); }
+.tab-pill { position: absolute; left: 0; top: 7px; bottom: 7px; border-radius: 27px; background: var(--dock-pill); transition: transform var(--slide-ms) var(--slide), width var(--slide-ms) var(--slide); }
 .tabbar.dragging .tab-pill { transition: none; transform-origin: center; }
 .tabbar.dragging .tab-pill { box-shadow: 0 0 0 3px color-mix(in srgb, var(--ink) 12%, transparent); }
 /* Inactive tabs stack a small label under the icon, so every tab says where it goes. */
@@ -326,6 +335,9 @@ button.chip { min-height: 38px; padding: 0 14px; border: 2px solid var(--rule); 
 /* Tail down toward the coach below (exercise card). Centred over the coach's body. */
 .coach-bubble.says-down { border-radius: 20px; }
 .coach-bubble.says-down::after { left: 18px; bottom: -13px; width: 22px; height: 14px; clip-path: path("M0 0 H22 C16 4 12 9 9 14 C7 8 4 3 0 0 Z"); }
+/* Tail up and to the right, toward the coach above (summary hero). */
+.coach-bubble.says-up { border-radius: 20px 6px 20px 20px; }
+.coach-bubble.says-up::after { left: auto; right: 0; bottom: auto; top: -15px; width: 26px; height: 16px; clip-path: path("M0 16 C10 14 20 9 26 0 C23 6 22 11 22 16 Z"); }
 
 /* ═══════════════ TODAY ═══════════════ */
 .today-top { flex-direction: column; align-items: stretch; gap: 4px; padding-top: calc(12px + var(--safe-t)); padding-bottom: 16px; }
@@ -337,7 +349,9 @@ button.chip { min-height: 38px; padding: 0 14px; border: 2px solid var(--rule); 
 .today-top .info-btn { width: 36px; height: 36px; margin-right: -6px; color: var(--faint); }
 .today-top .info-btn svg { width: 18px; height: 18px; }
 .hero-card { position: relative; overflow: hidden; display: flex; flex-direction: column; gap: 14px; padding: 20px; border-radius: var(--r-xl); background: var(--day); color: var(--on-day); box-shadow: 0 7px 0 var(--day-lip); }
-.hero-card::before, .hero-card::after { content: ""; position: absolute; border-radius: 50%; background: color-mix(in srgb, var(--on-day) 13%, transparent); pointer-events: none; }
+.hero-card::before, .hero-card::after { content: ""; position: absolute; border-radius: 50%; background: var(--hero-glow, color-mix(in srgb, var(--on-day) 13%, transparent)); pointer-events: none; }
+/* Days with dark text would get dark circles; they get the same light highlights as the rest. */
+:is([data-day="legs"], [data-day="day5"], [data-day="day6"]) .hero-card { --hero-glow: rgba(255, 255, 255, 0.26); }
 .hero-card::before { width: 170px; height: 170px; right: -40px; top: -50px; }
 .hero-card::after { width: 52px; height: 52px; right: 42px; top: 86px; }
 .hero-card > * { position: relative; }
@@ -384,7 +398,7 @@ button.chip { min-height: 38px; padding: 0 14px; border: 2px solid var(--rule); 
 .meta-chip { display: flex; align-items: center; gap: 8px; min-height: 54px; padding: 0 16px; font-size: 14px; color: var(--mute); width: 100%; text-align: left; font-weight: 500; }
 .meta-chip b { color: var(--ink); font-weight: 800; }
 
-.ex { padding: 14px; display: flex; flex-direction: column; gap: 10px; border-radius: 28px; animation: ex-open var(--glide-ms) var(--glide), fade 160ms ease-out; scroll-margin-top: calc(var(--safe-t) + 104px); }
+.ex { padding: 14px; display: flex; flex-direction: column; gap: 10px; border-radius: 28px; animation: ex-open var(--glide-ms) var(--glide), fade 160ms ease-out; }
 @keyframes ex-open { from { transform: translateY(16px) scale(.97); } }
 .ex-collapsed.just-closed { animation: ex-close var(--glide-ms) var(--glide); }
 @keyframes ex-close { from { transform: scale(1.04); opacity: .35; } }
@@ -458,7 +472,7 @@ html[data-typing] :is(.dock, .alert-ask) { opacity: 0; visibility: hidden; trans
 /* Keyboard gone but iOS still holding the viewport short (lib/keyboard.js): the bottom bars go back down to the real bottom edge. */
 :is(.tabbar, .dock, .alert-ask, .toast, .sync-note) { translate: 0 var(--kb-stuck, 0px); }
 .rest-beam { border-radius: 30px; box-shadow: 0 6px 0 var(--lip); }
-.rest { display: flex; align-items: center; gap: 10px; padding: 10px 10px 10px 12px; border-radius: 30px; background: var(--dock); color: var(--on-dock); }
+.rest { display: flex; align-items: center; gap: 10px; padding: 10px 10px 10px 12px; border-radius: 30px; background: var(--dock); color: var(--on-dock); box-shadow: inset 0 0 0 2px var(--dock-rule); }
 .rest-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .rest-line { font-size: 12.5px; font-weight: 600; color: var(--dock-mute); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .rest .clock { font-weight: 800; font-size: 30px; line-height: 1; letter-spacing: -0.02em; }
@@ -466,8 +480,8 @@ html[data-typing] :is(.dock, .alert-ask) { opacity: 0; visibility: hidden; trans
 .ring-trk { fill: none; stroke: color-mix(in srgb, var(--on-dock) 18%, transparent); stroke-width: 6; }
 .ring-val { fill: none; stroke: var(--on-dock); stroke-width: 6; stroke-linecap: round; transition: stroke-dashoffset 250ms linear; }
 .rest .rb { height: var(--tap); padding: 0 12px; border-radius: 16px; font-weight: 800; font-size: 14px; background: color-mix(in srgb, var(--on-dock) 12%, transparent); color: var(--on-dock); }
-.rest .rb.primary { background: var(--bg); color: var(--ink); }
-.rest.over { background: var(--day); color: var(--on-day); }
+.rest .rb.primary { background: var(--dock-pill); color: var(--on-dock-pill); }
+.rest.over { background: var(--day); color: var(--on-day); box-shadow: none; }
 .rest.over .rest-line { color: inherit; opacity: 0.85; }
 .rest.over .rb.primary { background: var(--on-day); color: var(--day-lip); }
 
@@ -1169,7 +1183,10 @@ button.coach-card:active { transform: translateY(3px); box-shadow: 0 2px 0 var(-
 .ex-tag.later { background: color-mix(in srgb, var(--day) 18%, var(--surface-2)); color: var(--day-ink); }
 .late-note { display: block; font-size: 12px; font-weight: 600; color: var(--mute); margin-left: 18px; }
 .nut-ask { margin-top: 2px; }
-.summary-ask { margin-top: 18px; }
+/* Summary: the head coach in the hero speaks the bubble under them; Ask sits low so the tail can reach up. */
+.summary-ask { display: flex; align-items: flex-end; gap: 10px; }
+.summary-ask .coach-bubble { flex: 1; font-size: 14px; padding: 10px 13px; }
+.summary-ask .ask-btn.compact { align-self: flex-end; }
 /* Today, after a short or under-recovered night: one quiet line under the hero. */
 .night-note { display: flex; gap: 8px; align-items: flex-start; margin: 2px 4px 0; font-size: 14px; font-weight: 500; line-height: 1.4; color: var(--mute); }
 .night-note svg { flex: none; margin-top: 2px; }
