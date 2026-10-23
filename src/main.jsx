@@ -4,6 +4,7 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App.jsx";
 import AuthGate from "./Auth.jsx";
+import ErrorBoundary from "./components/ErrorBoundary.jsx";
 import { applySavedTheme } from "./lib/theme.js";
 import { applySavedIcon } from "./lib/icons.js";
 import { applySavedView } from "./lib/view.js";
@@ -28,7 +29,9 @@ document.addEventListener("touchmove", (e) => { if (e.touches.length > 1) e.prev
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
     <AuthGate>
-      <App />
+      <ErrorBoundary>
+        <App />
+      </ErrorBoundary>
     </AuthGate>
   </React.StrictMode>
 );

@@ -8,6 +8,7 @@ import { coachFor } from "../data/coaches.js";
 import { ZONES, zoneOf, hardestLift, cachedCurve, timedSets } from "../lib/heart.js";
 import { heartCurve } from "../lib/googleHealth.js";
 import HeartChart from "../components/HeartChart.jsx";
+import ErrorBoundary from "../components/ErrorBoundary.jsx";
 import { useTheme } from "../lib/theme.js";
 import { fmtSet, cardioTotals, priorSessions, allTimeBest, bestSet, bestE1rm, e1rm, fmtW, num, compact, shortDate, plural, sessionVolume, sessionSetCount, byDateDesc, nextDayAfter } from "../lib/util.js";
 
@@ -74,7 +75,7 @@ export default function Summary({ session, sessions, program, prefs, go, onUpdat
         {/* Only while Google Health is connected: a workout keeps its numbers after a disconnect (they
             come back on reconnecting), but the chart's readings can't be fetched then. */}
         {!prefs.googleHealth?.on ? null : session.hr && !session.hr.none
-          ? <Heart session={session} />
+          ? <ErrorBoundary quiet="heart rate"><Heart session={session} /></ErrorBoundary>
           : prefs.googleHealth.heart !== false && (
             <p className="note-box hr-wait">Heart rate from your watch shows up here once it syncs to Google Health, usually within the hour.</p>
           )}
