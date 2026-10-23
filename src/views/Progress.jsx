@@ -270,13 +270,16 @@ function ChartPager({ pages, onEdit }) {
   );
 }
 
-/* One lift's est. max, session by session, in its day's color. Details opens its full chart. */
+/* One lift's est. max, session by session, in its day's color. A tap anywhere on the card opens its
+   full chart (Details says so, and is the way in by keyboard); a hold on the line reads it instead. */
 const LIFT_POINTS = 12;
 function LiftCard({ lift }) {
   const { n, day, best, top, pct } = lift;
+  // The chart swallows the click that ends a hold, and a swipe to the next card never clicks.
+  const open = (e) => { if (!e.target.closest("a, button")) location.hash = href("lift", n); };
   if (lift.series.length < 2) {
     return (
-      <section className="bw-card lift-card" data-day={day || undefined}>
+      <section className="bw-card lift-card" data-day={day || undefined} onClick={open}>
         <div className="top-row">
           <div className="lift-card-head">
             <span className="lbl">{n}</span>
@@ -297,7 +300,7 @@ function LiftCard({ lift }) {
   const change = pct == null ? "Baseline" : Math.abs(pct) < 1 ? `— ${Math.abs(pct).toFixed(1)}%` : `${pct > 0 ? "▲" : "▼"} ${Math.abs(pct).toFixed(1)}%`;
   const headline = top ? `best set ${fmtW(top.w)} × ${top.r}` : `best est. max ${num(best)} pounds`;
   return (
-    <section className="bw-card lift-card" data-day={day || undefined} aria-label={`${n}: ${headline}. Trend ${change}.`}>
+    <section className="bw-card lift-card" data-day={day || undefined} aria-label={`${n}: ${headline}. Trend ${change}.`} onClick={open}>
       <div className="top-row">
         <div className="lift-card-head">
           <span className="lbl">{n}</span>

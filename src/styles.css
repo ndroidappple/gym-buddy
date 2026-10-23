@@ -591,7 +591,7 @@ html[data-typing] :is(.dock, .alert-ask) { opacity: 0; visibility: hidden; trans
 /* ═══════════════ PROGRESS / LIFT ═══════════════ */
 .bw-card { --card-bg: var(--accent); --lip: var(--accent-lip); display: flex; flex-direction: column; gap: 10px; padding: 16px; border-radius: var(--r-xl); background: var(--card-bg); color: #FFFFFF; box-shadow: 0 7px 0 var(--lip); text-decoration: none; }
 /* A lift's page in the top card wears its day's plate color (bodyweight's purple when it's off program). */
-.lift-card { --card-bg: var(--day, var(--accent)); --lip: var(--day-lip, var(--accent-lip)); color: var(--on-day, #FFFFFF); }
+.lift-card { --card-bg: var(--day, var(--accent)); --lip: var(--day-lip, var(--accent-lip)); color: var(--on-day, #FFFFFF); cursor: pointer; }
 .lift-card-head { display: flex; flex-direction: column; flex: 1; min-width: 0; }
 .lift-card-head .lbl { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .bw-card .top-row { display: flex; align-items: flex-start; gap: 10px; }
