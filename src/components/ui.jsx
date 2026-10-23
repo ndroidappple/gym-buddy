@@ -137,7 +137,7 @@ function useDragToClose(sheetRef, wrapRef, close) {
       const at = sheet.style.transform;
       sheet.style.transform = "";
       if (scrim) scrim.style.opacity = "";
-      if (at && !reducedMotion()) sheet.animate([{ transform: at }, { transform: "translateY(0)" }], { duration: MS.surface, easing: EASE.surface });
+      if (at && !reducedMotion()) sheet.animate([{ transform: at }, { transform: "translateY(0)" }], { duration: MS.glide, easing: EASE.glide });
     };
     const start = (e) => {
       g = null;
