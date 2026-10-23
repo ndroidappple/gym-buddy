@@ -12,7 +12,7 @@ export function parse(hash) {
   const [name = "today", a, b] = parts;
   switch (name) {
     case "session": return { name, day: a, id: b };
-    case "summary": return { name, id: a };
+    case "summary": return { name, id: a, past: b === "view" }; // #/summary/<id>/view: opened from Workouts, not just finished
     case "review": return { name, id: a }; // a week in review, by the date it ends
     case "lift": return { name, lift: a };
     case "coaches": return { name, coach: a, mode: b };

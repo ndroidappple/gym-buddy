@@ -359,7 +359,7 @@ export default function App() {
     }
     case "summary": {
       const s = sessions.find((x) => x.id === route.id);
-      view = s ? <Summary {...common} session={s} onUpdate={upsertSession} /> : <Today {...common} />;
+      view = s ? <Summary key={s.id} {...common} session={s} past={route.past} onUpdate={upsertSession} /> : <Today {...common} />;
       break;
     }
     case "progress": view = <Progress key={route.open || "p"} {...common} open={route.open} />; break;
