@@ -326,6 +326,9 @@ button.chip { min-height: 38px; padding: 0 14px; border: 2px solid var(--rule); 
 /* Tail down toward the coach below (exercise card). Centred over the coach's body. */
 .coach-bubble.says-down { border-radius: 20px; }
 .coach-bubble.says-down::after { left: 18px; bottom: -13px; width: 22px; height: 14px; clip-path: path("M0 0 H22 C16 4 12 9 9 14 C7 8 4 3 0 0 Z"); }
+/* Tail up and to the right, toward the coach above (summary hero). */
+.coach-bubble.says-up { border-radius: 20px 6px 20px 20px; }
+.coach-bubble.says-up::after { left: auto; right: 0; bottom: auto; top: -15px; width: 26px; height: 16px; clip-path: path("M0 16 C10 14 20 9 26 0 C23 6 22 11 22 16 Z"); }
 
 /* ═══════════════ TODAY ═══════════════ */
 .today-top { flex-direction: column; align-items: stretch; gap: 4px; padding-top: calc(12px + var(--safe-t)); padding-bottom: 16px; }
@@ -1169,7 +1172,10 @@ button.coach-card:active { transform: translateY(3px); box-shadow: 0 2px 0 var(-
 .ex-tag.later { background: color-mix(in srgb, var(--day) 18%, var(--surface-2)); color: var(--day-ink); }
 .late-note { display: block; font-size: 12px; font-weight: 600; color: var(--mute); margin-left: 18px; }
 .nut-ask { margin-top: 2px; }
-.summary-ask { margin-top: 18px; }
+/* Summary: the head coach in the hero speaks the bubble under them; Ask sits low so the tail can reach up. */
+.summary-ask { display: flex; align-items: flex-end; gap: 10px; }
+.summary-ask .coach-bubble { flex: 1; font-size: 14px; padding: 10px 13px; }
+.summary-ask .ask-btn.compact { align-self: flex-end; }
 /* Today, after a short or under-recovered night: one quiet line under the hero. */
 .night-note { display: flex; gap: 8px; align-items: flex-start; margin: 2px 4px 0; font-size: 14px; font-weight: 500; line-height: 1.4; color: var(--mute); }
 .night-note svg { flex: none; margin-top: 2px; }
