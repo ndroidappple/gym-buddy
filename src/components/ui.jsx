@@ -23,7 +23,8 @@ function rememberKb(h) {
   try { const m = JSON.parse(sessionStorage.getItem(KB_KEY) || "{}"); m[orientation()] = Math.round(h); sessionStorage.setItem(KB_KEY, JSON.stringify(m)); } catch {}
 }
 function useVisibleViewport(wrap) {
-  useEffect(() => {
+  // Before the first paint, so the sheet opens at the right height instead of easing into it while it slides up.
+  useLayoutEffect(() => {
     const vv = window.visualViewport;
     const el = wrap.current;
     if (!vv || !el) return;
