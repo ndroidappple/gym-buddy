@@ -5,7 +5,7 @@ import { describeProgram, applyChanges } from "./programChange.js";
 import { GOALS } from "./setup.js";
 import { cleanMeal, todayFood, totals, addDays } from "./nutrition.js";
 import { PHASE_TYPES, phaseStatus, statusLine } from "./phase.js";
-import { fmtSet, liftSeries, trend, num, fmtW, bestSet, bodyweightSeries, byDateAsc, byDateDesc, daysBetween, today, nextDayAfter, readyToIncrease, compact, lifting, volume, longTrend, iso } from "./util.js";
+import { fmtSet, liftSeries, trend, num, fmtW, bestSet, bodyweightSeries, byDateAsc, byDateDesc, daysBetween, today, nextDayAfter, readyToIncrease, compact, lifting, volume, longTrend, iso, longDate, mmss, bestE1rm, priorSessions, isCardioSet } from "./util.js";
 import { heartLine } from "./heart.js";
 
 const signed = (x, unit = "%") => `${x >= 0 ? "+" : ""}${x.toFixed(1)}${unit}`;
@@ -208,6 +208,52 @@ function olderHistory({ sessions, weighins, n, entries, foodDays }, detail = DET
  * every lift's trend, bodyweight, today's food numbered for edits, the program, and the coach's
  * own notes from earlier chats. `n` is prefs.nutrition (null when food tracking is off).
  */
+/**
+ * One workout in full, for the head coach when the chat is opened from its recap: every set in the
+ * order it was done, with when, the rest before it, and its heart rate (peak, and how far it came down
+ * after), each lift against the last time it was done and its best ever, and the workout's heart rate.
+ * Goes first in the context, so "this workout" is never ambiguous.
+ */
+export function workoutFocus(s, sessions, program) {
+  const clock = (ms) => new Date(ms).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+  const mins = s.startedAt && s.finishedAt ? Math.round((s.finishedAt - s.startedAt) / 60000) : null;
+  const lines = [
+    "The lifter opened this chat from the recap of one workout. Their questions are about this workout unless they say otherwise; use the rest of the data below to compare it with earlier ones.",
+    `This workout: ${program[s.day]?.name || s.day} on ${longDate(s.date)} (${s.date})${s.startedAt && s.finishedAt ? `, ${clock(s.startedAt)} to ${clock(s.finishedAt)}` : ""}${mins ? `, ${mins} min` : ""}.${s.bw != null ? ` Bodyweight ${num(s.bw)} lb.` : ""}${s.note ? ` Their note: "${s.note}"` : ""}`,
+  ];
+  const hr = heartLine(s);
+  if (hr) lines.push(`Heart rate (from their watch): ${hr}.`);
+  // Rest before each set: the time since the set before it, whatever the lift (only sets that know when they were done).
+  const timed = Object.entries(s.sets).flatMap(([n, v]) => v.map((x, i) => ({ n, i, t: x.t }))).filter((x) => x.t).sort((a, b) => a.t - b.t);
+  const restBefore = new Map(timed.map((x, k) => [`${x.n}#${x.i}`, k ? Math.round((x.t - timed[k - 1].t) / 1000) : null]));
+  const prior = priorSessions(sessions, s).sort(byDateDesc);
+  const order = s.order?.length ? s.order.map((o) => o.n).filter((n) => s.sets[n]) : [];
+  const lifts = [...new Set([...order, ...[...timed].map((x) => x.n), ...Object.keys(s.sets)])];
+  lines.push(`Lifts in the order done${timed.length ? " (each set: weight x reps, when it was marked done, rest before it, peak heart rate and what it came down to before the next set)" : ""}:`);
+  for (const n of lifts) {
+    const v = s.sets[n];
+    if (!v?.length) continue;
+    const sets = v.map((x, i) => {
+      const bits = [];
+      if (x.rir != null) bits.push(`RIR ${num(x.rir)}`);
+      if (x.t) bits.push(clock(x.t));
+      const rest = restBefore.get(`${n}#${i}`);
+      if (rest != null) bits.push(`rest ${mmss(rest)}`);
+      if (x.hr) bits.push(`HR ${x.hr}${x.hrRest ? `, down to ${x.hrRest}` : ""}`);
+      return `${fmtSet(x)}${bits.length ? ` (${bits.join(", ")})` : ""}`;
+    });
+    let vs = "";
+    if (!isCardioSet(v[0])) {
+      const last = prior.find((p) => lifting(p.sets[n]).length);
+      const now = bestE1rm(v), was = last ? bestE1rm(last.sets[n]) : 0;
+      const ever = Math.max(0, ...prior.map((p) => bestE1rm(p.sets[n] || [])));
+      vs = last ? `; last time ${last.date}: ${last.sets[n].map(fmtSet).join(", ")} (best e1RM ${Math.round(was)} -> ${Math.round(now)} now${ever ? `, best ever before ${Math.round(ever)}` : ""})` : "; first time logged";
+    }
+    lines.push(`- ${n}: ${sets.join(", ")}${vs}`);
+  }
+  return lines.join("\n");
+}
+
 export const HEAD_BUDGET = 30000; // characters, about 8,000 tokens; api/coach.js accepts up to 48,000
 export function headContext(args) {
   for (let level = 0; ; level++) {
