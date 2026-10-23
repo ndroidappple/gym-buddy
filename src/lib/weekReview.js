@@ -3,6 +3,7 @@ import { COACHES, COACH_ORDER, coachFor, headCoach } from "../data/coaches.js";
 import { GOALS as TRAIN_GOALS } from "./setup.js";
 import { GOALS as FOOD_GOALS, MEALS, addDays, totals, isAlcoholic } from "./nutrition.js";
 import { PHASE_TYPES, phaseStatus } from "./phase.js";
+import { weekSleep, sleepPattern, hm } from "./recovery.js";
 import { lifting, volume, bestE1rm, bestSet, cardioTotals, liftSeries, trend, bodyweightSeries, readyToIncrease, byDateAsc, fmtW, num, plural, iso, longTrend } from "./util.js";
 
 /* The week in review. Everything here is plain functions over the account data, shared by the app
@@ -137,7 +138,7 @@ function slope(points) {
  * `food` is the food log (entries) when nutrition tracking is on, covering at least 8 weeks back;
  * `tz` is the lifter's time zone (the server runs in UTC).
  */
-export function buildWeekFacts({ sessions = [], program, weighins = [], prefs = {}, food = null, weekEnd, tz }) {
+export function buildWeekFacts({ sessions = [], program, weighins = [], prefs = {}, food = null, weekEnd, tz, recovery = null }) {
   const w = weekWindow(weekEnd);
   const back = (k) => weekWindow(addDays(weekEnd, -7 * k));
   const dates = Array.from({ length: 7 }, (_, i) => addDays(w.start, i));
@@ -307,13 +308,18 @@ export function buildWeekFacts({ sessions = [], program, weighins = [], prefs = 
     };
   }
 
+  /* ── Sleep (Google Health, while connected): the week against the 4 before, and how lifting goes
+     after their short nights vs the rest (lib/recovery.js). ── */
+  const sleepWeek = prefs.googleHealth?.on && recovery ? weekSleep(recovery, w.start, w.end) : null;
+  const sleep = sleepWeek && { ...sleepWeek, pattern: sleepPattern(sorted, recovery) };
+
   const goals = {
     training: (prefs.profile?.goals || []).map((g) => TRAIN_GOALS.find((x) => x.id === g)?.label).filter(Boolean),
     days: target, note: prefs.profile?.note ? String(prefs.profile.note).slice(0, 200) : null,
   };
   const facts = {
     // The head coach leads the review and speaks for training days, food and the scale.
-    v: 1, weekEnd, start: w.start, dates, history, goals, training, nutrition, body, weeks, head: headCoach(prefs),
+    v: 1, weekEnd, start: w.start, dates, history, goals, training, nutrition, body, sleep, weeks, head: headCoach(prefs),
     notes: cur.sessions.filter((s) => s.note).map((s) => ({ date: s.date, note: String(s.note).slice(0, 200) })),
     fingerprint: fingerprint({ sessions: sorted, weighins: weighs, food: foodUpTo }, weekEnd),
   };
@@ -430,6 +436,7 @@ export function cleanStory(input, facts, fallback) {
     training: note(s.training, head),
     nutrition: facts.nutrition ? note(s.nutrition, head) : null,
     body: facts.body ? note(s.body, head) : null,
+    sleep: facts.sleep ? note(s.sleep, head) : null,
     high: note(s.high, head, 70, 280), low: note(s.low, head, 70, 280),
     trends: list(s.trends, (x) => note(x, head, 70, 280), 3),
     insights: list(s.insights, (x) => { const n = note(x, head, 80, 360); return n && { ...n, evidence: str(x.evidence, 180) }; }, 4),
@@ -438,6 +445,7 @@ export function cleanStory(input, facts, fallback) {
   for (const k of ["headline", "summary", "training", "high", "low"]) if (!story[k]) story[k] = fallback[k];
   if (facts.nutrition && !story.nutrition) story.nutrition = fallback.nutrition;
   if (facts.body && !story.body) story.body = fallback.body;
+  if (facts.sleep && !story.sleep) story.sleep = fallback.sleep;
   if (!story.focus.length) story.focus = fallback.focus;
   if (!story.trends.length) story.trends = fallback.trends;
   return story;
@@ -488,6 +496,16 @@ export function fallbackStory(f) {
     ].filter(Boolean).join(" ") || "Weigh in once a week and this card starts tracking the trend.",
     coach: head,
   };
+  const sl = f.sleep;
+  const sleep = sl && {
+    title: `${hm(sl.avgAsleep)} a night`,
+    body: [
+      sl.usualAsleep ? `${sl.avgAsleep >= sl.usualAsleep ? "Up" : "Down"} from your usual ${hm(sl.usualAsleep)}.` : "",
+      sl.short ? `${plural(sl.short, "short night")} for you.` : "No short nights.",
+      sl.pattern ? (sl.pattern.diff > 0 ? `Your lifts run ${num(sl.pattern.diff)}% stronger after your normal nights than after short ones.` : "Short nights haven't dented your lifts so far.") : "",
+    ].filter(Boolean).join(" "),
+    coach: head,
+  };
   const high = f.highs[0] ? { title: "High point", body: f.highs[0].text, coach: f.highs[0].coach } : { title: "High point", body: t.count ? "You showed up. Consistency is what moves the numbers." : "Every week logged makes the next review sharper.", coach: head };
   const low = f.lows[0] ? { title: "Low point", body: f.lows[0].text, coach: f.lows[0].coach } : { title: "Low point", body: "Nothing went backwards this week.", coach: head };
   const trends = [];
@@ -500,5 +518,5 @@ export function fallbackStory(f) {
     n && n.logged && n.proteinHit < 5 ? { action: `Reach ${n.targets.protein} g protein on 5+ days`, why: `This week: ${n.proteinHit} days.`, coach: head } : null,
   ].filter(Boolean).slice(0, 3);
   if (!focus.length) focus.push({ action: "Keep the same rhythm", why: "Repeat this week and add a rep where you can.", coach: head });
-  return { headline, summary, training, nutrition, body: body_, high, low, trends, insights: [], focus };
+  return { headline, summary, training, nutrition, body: body_, sleep, high, low, trends, insights: [], focus };
 }

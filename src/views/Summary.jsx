@@ -14,6 +14,7 @@ import ErrorBoundary from "../components/ErrorBoundary.jsx";
 import Walkthrough, { WalkNotes } from "../components/Walkthrough.jsx";
 import { freshWalk, showsHeart, changeDiff, undoDiff } from "../lib/walkthrough.js";
 import { applyChanges } from "../lib/programChange.js";
+import { readiness, hm } from "../lib/recovery.js";
 import { useTheme } from "../lib/theme.js";
 import { fmtSet, cardioTotals, priorSessions, allTimeBest, bestSet, bestE1rm, e1rm, fmtW, num, compact, shortDate, longDate, plural, sessionVolume, sessionSetCount, byDateDesc, nextDayAfter } from "../lib/util.js";
 
@@ -21,7 +22,7 @@ import { fmtSet, cardioTotals, priorSessions, allTimeBest, bestSet, bestE1rm, e1
  * A workout's summary. Straight after finishing it ("Session logged", Done goes on to Today), or, with
  * `past`, opened from Progress → Workouts: a back button, the date as the title, and back to the list.
  */
-export default function Summary({ session, sessions, program, prefs, go, back, onUpdate, past = false, coachChat, head = "tank", name, weighins, nutrition, onProgramChange }) {
+export default function Summary({ session, sessions, program, prefs, go, back, onUpdate, past = false, coachChat, head = "tank", name, weighins, nutrition, onProgramChange, recovery }) {
   const [note, setNote] = useState(session.note || "");
   const [asking, setAsking] = useState(false);
   // The coach's walkthrough: running, the step on screen (the heart rate chart follows it), and the
@@ -30,6 +31,8 @@ export default function Summary({ session, sessions, program, prefs, go, back, o
   const [walkStep, setWalkStep] = useState(null);
   const walk = freshWalk(session);
   const heart = showsHeart(session, prefs);
+  // The night before, from Google Health: how it compares with the lifter's usual (lib/recovery.js).
+  const night = prefs.googleHealth?.on ? readiness(recovery, session.date) : null;
   const latest = useRef(session);
   latest.current = session;
   const p = program[session.day];
@@ -144,6 +147,9 @@ export default function Summary({ session, sessions, program, prefs, go, back, o
           </div>
         )}
 
+        {night && <NightBefore r={night} />}
+        {notesOn && night && <WalkNotes walk={walk} head={head} plan={plan} match={(t) => t === "sleep"} />}
+
         {/* Only while Google Health is connected: a workout keeps its numbers after a disconnect (they
             come back on reconnecting), but the chart's readings can't be fetched then. */}
         {!prefs.googleHealth?.on ? null : session.hr && !session.hr.none
@@ -194,6 +200,7 @@ export default function Summary({ session, sessions, program, prefs, go, back, o
       </div>
       {walking && (
         <Walkthrough session={session} sessions={sessions} program={program} prefs={prefs} head={head} notes={coachChat?.thread?.notes} heart={heart} day={session.day}
+          recovery={recovery} sleep={!!night}
           plan={plan} onSave={saveWalk} onStep={setWalkStep} onClose={() => setWalking(false)} onAsk={() => { setWalking(false); setAsking(true); }} />
       )}
       {asking && (
@@ -344,6 +351,30 @@ function Heart({ session, focus = null, walk = null, head, plan }) {
           : "Add your age in Nutrition setup to see time in each zone."}
         {!h.complete && " Your watch is still syncing; this fills in as it does."}
       </p>
+    </section>
+  );
+}
+
+/**
+ * The night before the workout, from the lifter's watch: time asleep, resting heart rate and HRV,
+ * each against their usual (the 4 weeks before), and the stages when the watch tracked them. A short
+ * or under-recovered night says so; an ordinary one just shows the numbers.
+ */
+function NightBefore({ r }) {
+  const { entry: e, usual: u } = r;
+  const s = e.sleep;
+  const vs = (was, fmt = (x) => x) => (was ? <span className="trend flat">usually {fmt(was)}</span> : null);
+  const stages = s && [s.deep != null && `${hm(s.deep)} deep`, s.rem != null && `${hm(s.rem)} REM`, s.awake != null && `awake ${hm(s.awake)}`].filter(Boolean);
+  return (
+    <section className="section" data-walk="sleep">
+      <h2 className="lbl">Night before</h2>
+      <div className="stats">
+        {s && <div className="stat"><b>{hm(s.asleep)}</b><span>asleep</span>{vs(u.asleep, hm)}</div>}
+        {e.rhr != null && <div className="stat"><b>{Math.round(e.rhr)}</b><span>resting bpm</span>{vs(u.rhr)}</div>}
+        {e.hrv != null && <div className="stat"><b>{Math.round(e.hrv)}</b><span>HRV ms</span>{vs(u.hrv)}</div>}
+      </div>
+      {stages?.length > 0 && <p className="small muted">{stages.join(" · ")}</p>}
+      {r.low && <p className="note-box">{r.short && r.strained ? "A short night, and your body was still recovering." : r.short ? "A short night for you." : "Resting heart rate up and HRV down together: your body was still recovering."} Expect a dip, and don't read it as a stall.</p>}
     </section>
   );
 }

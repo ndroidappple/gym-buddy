@@ -1,4 +1,4 @@
-import { ghReady, readState, exchangeCode, canUse, grantedKinds, canReadHeart, sealToken, revoke, links, redirectUri, LINK_SECRET } from "./_googleHealth.js";
+import { ghReady, readState, exchangeCode, canUse, grantedKinds, canReadHeart, canReadSleep, sealToken, revoke, links, redirectUri, LINK_SECRET } from "./_googleHealth.js";
 
 /* Where Google sends the lifter after they allow (or don't allow) GymBuddy into Google Health:
    GET /api/google-health-callback?code=…&state=… (this exact address is the OAuth client's
@@ -30,7 +30,7 @@ export async function GET(request) {
     return page("Couldn't connect", `Google didn't accept the sign-in. ${AGAIN}`, 502);
   }
   if (!tokens.refresh_token) return page("Couldn't connect", `Google didn't give GymBuddy lasting access. ${AGAIN}`, 502);
-  if (!grantedKinds(tokens.scope).length && !canReadHeart(tokens.scope)) {
+  if (!grantedKinds(tokens.scope).length && !canReadHeart(tokens.scope) && !canReadSleep(tokens.scope)) {
     await revoke(tokens.refresh_token);
     return page("Nothing allowed", `GymBuddy needs at least one of heart rate, weight or food. ${AGAIN} Leave the boxes ticked on Google's page.`);
   }

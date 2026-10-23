@@ -75,7 +75,7 @@ function stepDown(w, wanted, step) {
  * Advice before the first set: last time's work sets, the goal for today, and warm-ups for the first
  * heavy lift of the day. Returns { w, r, line } or null for a first-ever lift.
  */
-export function openingAdvice({ ex, history, firstLift, daysSince = null, fatigue = null }) {
+export function openingAdvice({ ex, history, firstLift, daysSince = null, fatigue = null, easy = null }) {
   if (!history[0]?.length) return null;
   // Compare like with like: the most recent of the last 6 sessions done at a similar point (within
   // 3 sets of fatigue), when that isn't simply the latest one.
@@ -98,6 +98,11 @@ export function openingAdvice({ ex, history, firstLift, daysSince = null, fatigu
     const r = Math.max(ex.reps[0], Math.min(ex.reps[1], work[0].r));
     const weeks = Math.round(daysSince / 7);
     return { w, r, line: `Last time ${listSets(work)}, ${weeks} weeks ago. ${long ? `Ease back in: ${fmtW(w)} × ${r}, leave 2 reps in the tank.` : `Rebuild first: match ${fmtW(w)} × ${r} today, PRs next week.`}` };
+  }
+  // A short or under-recovered night (`easy` says which): match last time's best, PRs on a better day.
+  if (easy) {
+    const best = work.reduce((b, x) => (!b || e1rm(x.w, x.r) > e1rm(b.w, b.r) ? x : b), null);
+    if (best) return { w: best.w, r: best.r, line: `Last time ${listSets(work)}. ${easy} Match ${fmtW(best.w)} × ${best.r} today and save the PR for a better night.` };
   }
   const bump = readyToIncrease(ex, work);
   const goal = bump ? { w: bump.to, r: ex.reps[0] } : nextGoal(ex, work);

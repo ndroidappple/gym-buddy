@@ -24,8 +24,9 @@ export const KINDS = {
 export const showsHeart = (session, prefs) => !!(prefs?.googleHealth?.on && session.hr && !session.hr.none);
 
 /** The parts of this workout's recap a step can point at: [{ id, about }], in screen order. */
-export function walkPlaces(session, { heart = false } = {}) {
+export function walkPlaces(session, { heart = false, sleep = false } = {}) {
   const places = [{ id: "overview", about: "Totals at the top: volume, sets and PRs" }];
+  if (sleep) places.push({ id: "sleep", about: "The night before: time asleep, resting heart rate and HRV against their usual" });
   const lifts = Object.keys(session.sets || {}).filter((n) => session.sets[n]?.length);
   const h = session.hr;
   if (heart && h && !h.none) {
@@ -148,9 +149,9 @@ export const freshWalk = (session) => {
 };
 
 /** What the coach reads: the workout in full, the plan for that day, earlier heart rate, the places. */
-export function walkContext({ session, sessions, program, profile, notes, places }) {
+export function walkContext({ session, sessions, program, profile, notes, places, recovery = null }) {
   const { walk: _w, ...s } = session;
-  const lines = workoutFocus(s, sessions, program).split("\n").slice(1); // not the chat's opening line
+  const lines = workoutFocus(s, sessions, program, recovery).split("\n").slice(1); // not the chat's opening line
   const plan = program[s.day];
   if (plan?.exercises?.length) {
     lines.push(`Plan for ${plan.name} (day key ${s.day}; sets x rep range, rest between sets): ${plan.exercises.map((e) => `${e.n} ${e.sets}x${e.reps[0]}-${e.reps[1]}${isCardio(e.n) ? " min" : ""}, ${e.rest}s${e.next ? `, already set to start at ${e.next.w} lb next time` : ""}`).join("; ")}.`);
@@ -169,9 +170,9 @@ export function walkContext({ session, sessions, program, profile, notes, places
  * Asks the head coach for the walkthrough. Resolves to the walk to keep on the workout:
  * { v, basis, coach, at, heart, steps }. Throws like askCoach (kind "empty" when nothing usable came back).
  */
-export async function requestWalk({ coach = "tank", session, sessions, program, profile, notes, heart, signal }) {
-  const places = walkPlaces(session, { heart });
-  const context = walkContext({ session, sessions, program, profile, notes, places });
+export async function requestWalk({ coach = "tank", session, sessions, program, profile, notes, heart, recovery = null, sleep = false, signal }) {
+  const places = walkPlaces(session, { heart, sleep });
+  const context = walkContext({ session, sessions, program, profile, notes, places, recovery: sleep ? recovery : null });
   const ask = () => askCoach({
     coach, mode: "walk", signal, onText: () => {},
     messages: [{ role: "user", content: "Walk me through this workout: what went well and what to improve." }],
@@ -181,5 +182,6 @@ export async function requestWalk({ coach = "tank", session, sessions, program, 
   let steps = cleanWalk(r.walk, places, session, program);
   if (!steps) { r = await ask(); steps = cleanWalk(r.walk, places, session, program); }
   if (!steps) throw Object.assign(new Error("empty"), { kind: "empty" });
-  return { v: WALK_VERSION, basis: walkBasis(session), coach, at: Date.now(), heart: !!heart, steps };
+  // `heart`: written with anything from Google Health (heart rate or sleep), so disconnecting deletes it.
+  return { v: WALK_VERSION, basis: walkBasis(session), coach, at: Date.now(), heart: !!heart || !!sleep, steps };
 }

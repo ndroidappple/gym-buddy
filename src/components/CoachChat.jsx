@@ -64,7 +64,7 @@ function dayLabel(at) {
  * - A crew coach mid-workout: `exercise` is the lift the chat was opened from; the chat isn't kept.
  *   `notes` (the head coach's memory) and `head` go along so the crew knows what the head coach knows.
  */
-export default function CoachChat({ coach, name, exercise, starter, sessions, program, weighins, profile, phase, nutrition, notes, head, live, topic, foodLog, thread, buildHead, day, workout, onProgramChange, onClose }) {
+export default function CoachChat({ coach, name, exercise, starter, sessions, program, weighins, profile, phase, nutrition, notes, head, live, topic, foodLog, thread, buildHead, day, workout, recovery, onProgramChange, onClose }) {
   const food = topic === "nutrition";
   const hi = () => hello(name, food ? "food" : workout ? "workout" : null);
   const headChat = !!thread;
@@ -230,8 +230,8 @@ export default function CoachChat({ coach, name, exercise, starter, sessions, pr
     const put = (patch) => setMessages((ms) => { const c2 = [...ms]; c2[c2.length - 1] = { ...c2[c2.length - 1], ...patch }; return c2; });
     const ask = () => askCoach({
       coach, head, messages: history, signal: abort.current.signal, mode: headChat ? "head" : undefined,
-      context: headChat ? [workout && workoutFocus(workout, sessions, program), buildHead(day)].filter(Boolean).join("\n\n")
-        : [live, buildContext({ coach, sessions, program, weighins, profile, phase, nutrition, notes })].filter(Boolean).join("\n"),
+      context: headChat ? [workout && workoutFocus(workout, sessions, program, recovery), buildHead(day)].filter(Boolean).join("\n\n")
+        : [live, buildContext({ coach, sessions, program, weighins, profile, phase, nutrition, notes, recovery })].filter(Boolean).join("\n"),
       onText: (t) => { setStatus("streaming"); put({ content: t }); },
     });
     try {

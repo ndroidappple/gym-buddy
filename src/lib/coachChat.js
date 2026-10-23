@@ -7,6 +7,7 @@ import { cleanMeal, todayFood, totals, addDays } from "./nutrition.js";
 import { PHASE_TYPES, phaseStatus, statusLine } from "./phase.js";
 import { fmtSet, liftSeries, trend, num, fmtW, bestSet, bodyweightSeries, byDateAsc, byDateDesc, daysBetween, today, nextDayAfter, readyToIncrease, compact, lifting, volume, longTrend, iso, longDate, mmss, bestE1rm, priorSessions, isCardioSet } from "./util.js";
 import { heartLine } from "./heart.js";
+import { nightLine, recoveryLines } from "./recovery.js";
 
 const signed = (x, unit = "%") => `${x >= 0 ? "+" : ""}${x.toFixed(1)}${unit}`;
 
@@ -69,9 +70,12 @@ const notesLines = (notes, whose) => (notes?.length ? [`${whose} (kept between c
 
 /** A compact, plain-text picture of the lifter for a crew coach: their lifts, recent bests, trends, bodyweight.
     `notes` are the head coach's memory of the lifter, so the crew knows about a bad knee too. */
-export function buildContext({ coach, sessions, program, weighins, profile, phase, nutrition, notes }) {
+export function buildContext({ coach, sessions, program, weighins, profile, phase, nutrition, notes, recovery }) {
   // Most needed first, so if the server ever cuts the end (api/coach.js), what goes is the least needed.
   const lines = [...notesLines(notes, "Head coach's notes on the lifter")];
+  // Last night, from their watch: a short or under-recovered night changes what to aim for today.
+  const night = recovery && nightLine(recovery, today());
+  if (night) lines.push(`Last night (from their watch, against their own usual): ${night}`);
   // A bulk or cut in progress, with the pace read from the weigh-in trend.
   if (phase) lines.push(phaseLine(phase, sessions, weighins));
   // What the lifter told the head coach at setup.
@@ -214,7 +218,7 @@ function olderHistory({ sessions, weighins, n, entries, foodDays }, detail = DET
  * after), each lift against the last time it was done and its best ever, and the workout's heart rate.
  * Goes first in the context, so "this workout" is never ambiguous.
  */
-export function workoutFocus(s, sessions, program) {
+export function workoutFocus(s, sessions, program, recovery = null) {
   const clock = (ms) => new Date(ms).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
   const mins = s.startedAt && s.finishedAt ? Math.round((s.finishedAt - s.startedAt) / 60000) : null;
   const lines = [
@@ -223,6 +227,8 @@ export function workoutFocus(s, sessions, program) {
   ];
   const hr = heartLine(s);
   if (hr) lines.push(`Heart rate (from their watch): ${hr}.`);
+  const night = recovery && nightLine(recovery, s.date);
+  if (night) lines.push(`The night before (from their watch, against their own usual): ${night}`);
   // Rest before each set: the time since the set before it, whatever the lift (only sets that know when they were done).
   const timed = Object.entries(s.sets).flatMap(([n, v]) => v.map((x, i) => ({ n, i, t: x.t }))).filter((x) => x.t).sort((a, b) => a.t - b.t);
   const restBefore = new Map(timed.map((x, k) => [`${x.n}#${x.i}`, k ? Math.round((x.t - timed[k - 1].t) / 1000) : null]));
@@ -264,7 +270,7 @@ export function headContext(args) {
   }
 }
 
-function headLines({ sessions, program, weighins, profile, phase, n, entries = [], foodDays = {}, notes, day }, detail) {
+function headLines({ sessions, program, weighins, profile, phase, n, entries = [], foodDays = {}, notes, day, recovery }, detail) {
   const t = today();
   const ago = (d) => daysBetween(d, t);
   const lines = notes?.length ? notesLines(notes, "Your notes on the lifter") : ["Your notes on the lifter: none yet."];
@@ -272,6 +278,9 @@ function headLines({ sessions, program, weighins, profile, phase, n, entries = [
   if (first) lines.push(`Training history: ${sessions.length} workouts since ${first.date}. The last ${HEAD_DAYS} days are in full; older weeks and months are summarized at the end. Lift trends cover the whole history.`);
   if (profile?.doneAt) lines.push(goalsLine(profile));
   if (phase) lines.push(phaseLine(phase, sessions, weighins));
+  // Sleep and recovery from their watch, each morning against their own usual (lib/recovery.js).
+  const nights = recovery ? recoveryLines(recovery, t, 14) : [];
+  if (nights.length) lines.push("Sleep and recovery, last 14 mornings (from their watch; a night is the one that ended that morning):", ...nights);
 
   // Training, week by week and workout by workout.
   const recent = sessions.filter((s) => ago(s.date) >= 0 && ago(s.date) < HEAD_DAYS).sort(byDateAsc);

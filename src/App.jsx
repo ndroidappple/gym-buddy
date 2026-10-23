@@ -36,7 +36,8 @@ import WeekReviewIntro from "./components/WeekReviewIntro.jsx";
 import { reviewState, reviewPrefs, fingerprint, latestReview } from "./lib/weekReview.js";
 import { cachedReview, loadReview, requestReview, syncSchedule } from "./lib/reviews.js";
 import { phoneState, ensureSubscribed } from "./lib/push.js";
-import { useGoogleHealthSync, useHeartRate } from "./lib/googleHealth.js";
+import { useGoogleHealthSync, useHeartRate, useRecovery } from "./lib/googleHealth.js";
+import { mergeRecovery } from "./lib/recovery.js";
 import { summarize, withHeart, maxHrFor, estimatedBounds, hasHeart, withoutHeart, clearCurves } from "./lib/heart.js";
 
 const TAB_VIEWS = ["today", "nutrition", "progress", "settings", "lift"];
@@ -48,6 +49,8 @@ const fromData = (data) => ({
   drafts: data?.drafts || {},
   weighins: data?.weighins || [],
   prefs: { ...DEFAULT_PREFS, ...data?.prefs },
+  // Sleep and recovery from Google Health, a summary per morning (lib/recovery.js).
+  recovery: data?.recovery || {},
 });
 
 export default function App() {
@@ -59,6 +62,7 @@ export default function App() {
   const [drafts, setDrafts] = useState({});
   const [weighins, setWeighins] = useState([]);
   const [prefs, setPrefs] = useState(DEFAULT_PREFS);
+  const [recovery, setRecovery] = useState({});
   const [name, setName] = useState(null); // first name from the account, once known
   const [nameSettled, setNameSettled] = useState(false); // the name prompt is done, so the welcome can show
   const onNameSettled = useCallback(() => setNameSettled(true), []);
@@ -81,6 +85,7 @@ export default function App() {
       setDrafts(s.drafts);
       setWeighins(s.weighins);
       setPrefs(s.prefs);
+      setRecovery(s.recovery);
       // In the same shape as app state, so a merge only sees real edits (not filled-in defaults).
       saver.current.start({ ...base, data: base.data && fromData(base.data) });
       if (offline) setSync("offline");
@@ -100,13 +105,14 @@ export default function App() {
     setDrafts((cur) => merge3(was.drafts, cur, next.drafts));
     setWeighins((cur) => merge3(was.weighins, cur, next.weighins));
     setPrefs((cur) => merge3(was.prefs, cur, next.prefs));
+    setRecovery((cur) => merge3(was.recovery, cur, next.recovery));
   };
   const saver = useRef(null);
   if (!saver.current) saver.current = createSaver(setSync, onRemote, fromData);
 
   useEffect(() => {
-    if (ready) saver.current.save({ sessions, program, drafts, weighins, prefs });
-  }, [sessions, program, drafts, weighins, prefs, ready]);
+    if (ready) saver.current.save({ sessions, program, drafts, weighins, prefs, recovery });
+  }, [sessions, program, drafts, weighins, prefs, recovery, ready]);
 
   /* The icon choice follows the account, so a fresh Safari sign-in offers the same icon to Add to Home Screen. */
   useEffect(() => { if (ready) applyIcon(prefs.icon); }, [ready, prefs.icon]);
@@ -191,6 +197,13 @@ export default function App() {
   // older copy of the account), not only at the moment of disconnecting.
   const stale = ready && !ghOn && sessions.some(hasHeart);
   useEffect(() => { if (stale) setSessions((prev) => prev.map(withoutHeart)); }, [stale, sessions]);
+  // Sleep and recovery go too.
+  const staleSleep = ready && !ghOn && Object.keys(recovery).length > 0;
+  useEffect(() => { if (staleSleep) setRecovery({}); }, [staleSleep]);
+  // Each morning's sleep, resting heart rate and HRV, for the coaches and Today's quiet note.
+  useRecovery({ on: ready && ghOn && prefs.googleHealth.recovery !== false, sleep: !!prefs.googleHealth?.sleep, since: prefs.googleHealth?.since, recovery, onGone: ghGone,
+    onAllowed: () => setPrefs((p) => (p.googleHealth ? { ...p, googleHealth: { ...p.googleHealth, recovery: false } } : p)),
+    onNights: (r, to) => setRecovery((cur) => mergeRecovery(cur, r, to)) });
   // Heart rate from their watch: each recent workout's intensity, worked out against their age's max.
   const maxHr = maxHrFor(prefs.nutrition?.age);
   useHeartRate({ on: ready && !!prefs.googleHealth?.on && prefs.googleHealth.heart !== false, sessions, onGone: ghGone,
@@ -330,10 +343,10 @@ export default function App() {
   const head = headCoach(prefs);
   // `day`: the date open on the Nutrition tab when the chat was opened there (today otherwise).
   const buildHead = (day) => headContext({ sessions, program, weighins, profile: prefs.profile, phase: prefs.phase,
-    n: nutritionOn ? prefs.nutrition : null, entries: nutritionOn ? food.entries : [], foodDays: nutritionOn ? food.history : {}, notes: thread.notes, day });
-  const coachChat = { thread, buildHead, foodLog: nutritionOn ? food : null };
+    n: nutritionOn ? prefs.nutrition : null, entries: nutritionOn ? food.entries : [], foodDays: nutritionOn ? food.history : {}, notes: thread.notes, day, recovery });
+  const coachChat = { thread, buildHead, foodLog: nutritionOn ? food : null, recovery };
   const common = { sessions, program, drafts, weighins, prefs, setPref, name, go, back, notify, onWeighin: logWeighin, onProgramChange: applyCoachProgram, nutrition, foodToday,
-    head, coachNotes: thread.notes };
+    head, coachNotes: thread.notes, recovery };
   let view;
   switch (route.name) {
     case "session": {

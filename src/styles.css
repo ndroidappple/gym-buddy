@@ -1170,6 +1170,9 @@ button.coach-card:active { transform: translateY(3px); box-shadow: 0 2px 0 var(-
 .late-note { display: block; font-size: 12px; font-weight: 600; color: var(--mute); margin-left: 18px; }
 .nut-ask { margin-top: 2px; }
 .summary-ask { margin-top: 18px; }
+/* Today, after a short or under-recovered night: one quiet line under the hero. */
+.night-note { display: flex; gap: 8px; align-items: flex-start; margin: 2px 4px 0; font-size: 14px; font-weight: 500; line-height: 1.4; color: var(--mute); }
+.night-note svg { flex: none; margin-top: 2px; }
 .bubble-cta { display: flex; align-items: center; gap: 2px; margin-top: 6px; font-weight: 800; color: var(--ink); }
 
 /* The coach's walkthrough of a workout (Walkthrough.jsx): a card pinned to the bottom, one point at a

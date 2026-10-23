@@ -29,7 +29,7 @@ export function placeFor(target) {
  * `plan` (from the recap) offers a step's change: { program, apply(i), undo(i), applied: Set of steps
  * applied on this visit (they can be undone), stale(step) }. Without it, no change is offered.
  */
-export default function Walkthrough({ session, sessions, program, prefs, head = "tank", notes, heart, day, plan, onSave, onStep, onAsk, onClose }) {
+export default function Walkthrough({ session, sessions, program, prefs, head = "tank", notes, heart, recovery, sleep = false, day, plan, onSave, onStep, onAsk, onClose }) {
   const theme = useTheme();
   const [walk, setWalk] = useState(() => freshWalk(session));
   const [status, setStatus] = useState(walk ? "ready" : "writing"); // writing | ready | error
@@ -46,7 +46,7 @@ export default function Walkthrough({ session, sessions, program, prefs, head = 
     asking.current?.abort();
     const ctl = (asking.current = new AbortController());
     setStatus("writing"); setError(null);
-    requestWalk({ coach: head, session, sessions, program, profile: prefs.profile, notes, heart, signal: ctl.signal })
+    requestWalk({ coach: head, session, sessions, program, profile: prefs.profile, notes, heart, recovery, sleep, signal: ctl.signal })
       .then((w) => { if (!alive.current || ctl.signal.aborted) return; setWalk(w); setIdx(0); setStatus("ready"); onSave(w); })
       .catch((e) => { if (alive.current && !ctl.signal.aborted) { setError(e.kind || "busy"); setStatus("error"); } });
   };
@@ -108,7 +108,7 @@ export default function Walkthrough({ session, sessions, program, prefs, head = 
 
   const coach = COACHES[head] || COACHES.tank;
   const Icon = step ? KIND_ICONS[step.kind] : null;
-  const lines = heart ? WAIT_HEART : WAIT;
+  const lines = sleep ? [...(heart ? WAIT_HEART : WAIT).slice(0, 2), "Checking how you slept…", ...(heart ? WAIT_HEART : WAIT).slice(2)] : heart ? WAIT_HEART : WAIT;
   return createPortal((
     <section ref={card} className="walk-card" data-day={day} style={{ "--c": coach.color }} role="region" aria-label={`${coach.name}'s walkthrough of this workout`}>
       <div className="walk-top">

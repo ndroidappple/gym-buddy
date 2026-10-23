@@ -156,6 +156,31 @@ lifter taps it, and Undo takes back just that change (`changeDiff`/`undoDiff`). 
 a program change too (`action: "weight"` in `applyChanges`): it sits on the lift as `next` until a workout
 logs it, and fills every set, the lift's badge and the coach's opening line in that workout.
 
+### Sleep and recovery (Google Health)
+
+With Google Health connected, GymBuddy reads each night's sleep (its own permission, `sleep.readonly`) and
+each day's resting heart rate and HRV (the heart rate permission already covers them): `action: "recovery"`
+in `api/google-health.js` (`sleepNights`, `dailyValues` in `api/_googleHealth.js`), asked by
+`useRecovery` in `src/lib/googleHealth.js` the first time for the 30 days before connecting and since, then
+the last few days every couple of hours. The account keeps a summary per morning (`recovery`, the last 120
+days; `src/lib/recovery.js`), and every judgment is against the lifter's own usual (the median of the 4
+weeks before): a **short** night is under 5 hours or an hour and 15% under their usual; **strained** is
+resting heart rate 5+ above usual with HRV 20% below, together.
+
+- **Explaining a workout:** the recap shows the night before (time asleep, resting heart rate, HRV, each
+  against their usual, and the stages), the walkthrough can point at it (`sleep` place), and the coaches read
+  it: the workout write-up, the head coach's last 14 mornings, last night for the coaches in the gym.
+- **Adjusting the day:** after a short or strained night, Today shows one quiet line, and the workout aims to
+  match last time's best instead of beating it (no weight bump, no +1 rep; the badge reads Match). A weight
+  the lifter took from a walkthrough still wins.
+- **Patterns:** the weekly review has a Sleep card (the week against their usual, short nights, resting heart
+  rate and HRV) and `sleepPattern`: how their lifts compare with their recent level after short nights vs the
+  rest, once there are 3 workouts of each.
+
+Connected before sleep was added: Settings → Google Health → Add sleep goes back through Google's page
+(keeping the original connect date). Disconnecting deletes every sleep summary. `npm run test:health`
+checks it.
+
 ### Rest alerts (optional)
 
 A push notification when a rest timer ends, so it arrives with the phone locked (**Settings →

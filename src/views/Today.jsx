@@ -1,6 +1,7 @@
 import React, { useMemo, useRef, useState } from "react";
 import { InfoButton, Sheet } from "../components/ui.jsx";
-import { Scale, ArrowLeftRight, Check, X } from "lucide-react";
+import { Scale, ArrowLeftRight, Check, X, Moon } from "lucide-react";
+import { readiness, lowLine } from "../lib/recovery.js";
 import { DAYS, CUSTOM, activeDays } from "../data/program.js";
 import { href } from "../lib/router.js";
 import { COACHES, coachesFor } from "../data/coaches.js";
@@ -12,7 +13,7 @@ import { ReviewChip } from "../components/WeekReviewIntro.jsx";
 import { collapse } from "../lib/motion.js";
 import { byDateDesc, bestSet, fmtW, num, shortDate, weekDates, today, nextDayAfter, bodyweightSeries, daysBetween, plural, readyToIncrease, nextGoal, fmtGoal } from "../lib/util.js";
 
-export default function Today({ name, sessions, program, drafts, weighins, prefs, onWeighin, foodToday, review, head }) {
+export default function Today({ name, sessions, program, drafts, weighins, prefs, onWeighin, foodToday, review, head, recovery }) {
   const sorted = useMemo(() => [...sessions].sort(byDateDesc), [sessions]);
   const draftDay = [...activeDays(program), CUSTOM].find((d) => drafts[d]);
   const t = today();
@@ -27,6 +28,8 @@ export default function Today({ name, sessions, program, drafts, weighins, prefs
   const p = program[day];
   const draft = drafts[day];
   const lastOfDay = sorted.find((s) => s.day === day);
+  // Last night was short or under-recovered for this lifter (Google Health): said once, before training today.
+  const nightNote = prefs.googleHealth?.on && !sessions.some((s) => s.date === t) ? lowLine(readiness(recovery, t)) : null;
   const choose = (d) => {
     const next = d === fallback ? null : { date: t, day: d, after: sessions.length };
     setPick(next);
@@ -52,11 +55,16 @@ export default function Today({ name, sessions, program, drafts, weighins, prefs
   }, [sessions, day]);
 
   // Lifts that earned more weight lead the list; the rest show the set that beats last time's best.
+  // After a short or under-recovered night the targets are last time's best, as the workout will be.
+  const easy = !!nightNote;
   const targets = useMemo(() => p.exercises.map((ex) => {
     const prior = sorted.find((s) => s.sets[ex.n]?.length);
     const best = prior && bestSet(prior.sets[ex.n]);
-    return best ? { n: ex.n, best, next: ex.next, bump: readyToIncrease(ex, prior.sets[ex.n]), goal: nextGoal(ex, prior.sets[ex.n]) } : null;
-  }).filter(Boolean).sort((a, b) => !!(b.next || b.bump) - !!(a.next || a.bump)).slice(0, 3), [p, sorted]);
+    if (!best) return null;
+    return easy
+      ? { n: ex.n, best, next: ex.next, bump: null, goal: { w: best.w, r: best.r, sets: 1 } }
+      : { n: ex.n, best, next: ex.next, bump: readyToIncrease(ex, prior.sets[ex.n]), goal: nextGoal(ex, prior.sets[ex.n]) };
+  }).filter(Boolean).sort((a, b) => !!(b.next || b.bump) - !!(a.next || a.bump)).slice(0, 3), [p, sorted, easy]);
 
   const week = weekDates();
   const byDate = useMemo(() => {
@@ -138,6 +146,9 @@ export default function Today({ name, sessions, program, drafts, weighins, prefs
             </div>
           </Sheet>
         )}
+
+        {/* After a short or under-recovered night only: one quiet line, never a warning. */}
+        {nightNote && <p className="night-note"><Moon size={15} aria-hidden="true" /><span>{nightNote} Match last time today; save the PR for a better night.</span></p>}
 
         {/* One nudge at a time under the hero: a due weigh-in, then coach setup, then the bulk/cut line. */}
         {weigh.due ? <WeighIn {...weigh} onSave={onWeighin} />

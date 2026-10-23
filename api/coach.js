@@ -128,8 +128,10 @@ export function walkInstructions(coach, context = "") {
     voiceOf(coach),
     "Weights are in pounds. RIR means reps in reserve (0 = failure). e1RM is the estimated one-rep max.",
     HEART,
+    SLEEP,
     "How to judge it: each lift against last time and best ever (e1RM, and reps at the same weight); reps against the plan's rep range (every set at the top of the range means add weight next time: say the exact weight, the smallest jump, usually 5 lb); RIR (work sets should end about 1-3 reps short of failure; every set at 0 is too much, 4+ is too easy); reps falling off sharply across sets; rest between sets against the plan's rest (much shorter often explains falling reps; much longer stretches the workout); and heart rate as a rough effort signal, if the workout has it. A lift logged for the first time has no history: judge it against the plan.",
     "Call walk_through once with 3 to 6 steps, in this order: first one overall step (target overview): your verdict on the whole workout in one or two sentences. Then one or two good steps: what went well, with the number that shows it. Then one or two improve steps: what held it back and the likely why. Last, one next step: the single most useful thing to do next time this workout comes round, concrete (an exact weight, reps or rest).",
+    "If the data has the night before and it explains something (a dip after a short night, or a strong day after a good one), say so in the step it explains, or give it its own step on the sleep place. Never suggest a change to the plan because of one night.",
     "Targets: each step's target is an id from 'Places on the recap', the most specific one for the point: a lift's row for its weights and reps, its heart rate row for its heart rate. To point at a moment on the heart rate chart, use target chart with lift and set, and it jumps to that set's peak. Only use places that are listed.",
     "Changes: when an improve or next step recommends something the app can set up for next time (a lift's rest, sets or rep range; the weight to start a lift at; swapping, adding or removing a lift on this workout's day), attach it to that step as change, with the day key and lift names exactly as under Plan. The app shows it as a small Apply button; the lifter decides. Attach only what your text recommends, at most one per step and three in all, and none when nothing needs changing. Don't change what the plan already says. Write the text as advice, never as a sales pitch for the button, and don't mention the button.",
     "Writing: titles 2 to 5 words. Each step's text under 45 words, plain text, no markdown, speaking to the lifter as 'you'. Quote real numbers from the data. One point per step; don't repeat a point. Only say what the data shows: if there's no heart rate, don't mention it. If the lifter data gives a first name, use it at most once.",
@@ -139,6 +141,8 @@ export function walkInstructions(coach, context = "") {
     context && `Lifter data:\n${context}`,
   ].filter(Boolean).join("\n");
 }
+
+const SLEEP = "Sleep and recovery, when the data has it, come from the lifter's watch: time asleep, stages, resting heart rate and HRV, each against their own usual (the 4 weeks before), never a textbook 8 hours. Use them to explain results (a short night or resting heart rate up with HRV down explains a dip; it isn't a stall) and to set expectations for today (match last time rather than chase a PR). One bad night never changes the plan or the weights. Bring sleep up only when it explains something or the lifter asks; wrist sleep stages are rough, so lean on time asleep and the heart numbers. No sleep lectures.";
 
 /** The head coach's system prompt for reviewing a program the lifter brought with them. */
 export function reviewInstructions(context = "", coach = "tank") {
@@ -360,6 +364,7 @@ export function headInstructions(coach, context = "") {
     voiceOf(coach),
     "This is an ongoing conversation that picks up where you left off; earlier messages may be days old. Weights are in pounds. RIR means reps in reserve. e1RM is the estimated one-rep max.",
     HEART,
+    SLEEP,
     "Your data covers the lifter's whole history: the last 30 days in full (every workout, food by day), then week by week back about 6 months, then month by month to their first workout, plus each lift's trend since start, its best e1RM by month, and a ranking of every lift by long-term progress. For questions about longer than 30 days, use the weekly and monthly lines. Use it like a coach who's been watching: connect training and food when the question touches either (calories or protein short in the weeks a lift stalled, fewer workouts lately, weight moving faster or slower than the plan). Quote real numbers and dates when they make the point. If the data is too thin to judge (a few days logged), say so instead of guessing.",
     "Memory: 'Your notes on the lifter' are what you've remembered from earlier chats. Use them without announcing them. When the lifter tells you something lasting (an injury, their equipment, schedule, food likes or limits, a goal), call remember with the whole updated list, and mention it in a few words (e.g. 'Noted on the knee.'). Drop a note when it stops being true.",
     "Progression rule: once every planned set reaches the top of a lift's rep range, add weight. A lift marked READY TO ADD WEIGHT has earned it; when it comes up, give the exact next weight.",
@@ -395,6 +400,7 @@ export function coachInstructions(coach, context = "", head = "tank") {
     voiceOf(coach),
     "Weights are in pounds. RIR means reps in reserve. e1RM is the estimated one-rep max.",
     HEART,
+    SLEEP,
     `You specialise in ${group} but can answer any training question; hand off to another coach by name when it's clearly their muscle.`,
     "Base advice on the lifter's data below when it's relevant, and say when the data is too thin to judge.",
     `Food: when the data has nutrition targets, answer food questions against them and what's eaten so far (e.g. what fits the calories and protein left today). Tie food to training when it matters (protein or calories short behind a stall, fueling before a workout). ${coach === head ? "" : `Keep food answers short and point to ${nameOf(head)} for meal planning.`}`,
