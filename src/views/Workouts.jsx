@@ -47,7 +47,7 @@ export default function Workouts({ sessions, program, calendar, heart = false })
       </div>
 
       {calendar
-        ? <MonthCalendar sessions={shown} program={program} prs={prs} />
+        ? <MonthCalendar sessions={shown} program={program} prs={prs} heart={heart} />
         : (
           <>
             {shown.length === 0 && <p className="muted">No {filter ? program[filter].name : ""} sessions logged yet.</p>}
@@ -61,7 +61,7 @@ export default function Workouts({ sessions, program, calendar, heart = false })
 
 /* A month grid (Sunday first, like Today's week) with a dot per workout in that day's colour.
    Tapping a day shows its workouts below, as the same cards the list uses. */
-function MonthCalendar({ sessions, program, prs }) {
+function MonthCalendar({ sessions, program, prs, heart }) {
   const byDate = useMemo(() => {
     const m = {};
     sessions.forEach((s) => { (m[s.date] ||= []).push(s); });
