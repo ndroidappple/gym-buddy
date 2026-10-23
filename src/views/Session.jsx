@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useLayoutEffect, useMemo, useRef, useCallback } from "react";
 import { ChevronLeft, Check, Plus, Minus, Trash2, Bell, BellOff } from "lucide-react";
 import { BorderBeam } from "border-beam";
-import { fmtSet, uid, e1rm, fmtW, today, shortDate, mmss, byDateDesc, priorSessions, allTimeBest, bestSet, vibrate, readyToIncrease, nextGoal, fmtGoal, weightStep, bodyweightSeries, daysBetween, setChange } from "../lib/util.js";
+import { fmtSet, uid, e1rm, fmtW, today, shortDate, mmss, byDateDesc, priorSessions, allTimeBest, bestSet, vibrate, readyToIncrease, nextGoal, fmtGoal, weightStep, bodyweightSeries, daysBetween, setChange, lifting } from "../lib/util.js";
+import { readiness, lowLine } from "../lib/recovery.js";
 import { primeAudio, chime } from "../lib/sound.js";
 import { restAlertState, scheduleRestAlert, cancelRestAlert, enableRestAlerts, declineRestAlerts, warmRestAlerts } from "../lib/restAlerts.js";
 import { Sheet, ConfirmSheet, ExercisePicker } from "../components/ui.jsx";
@@ -23,7 +24,7 @@ const hasVal = (v) => v !== "" && v != null;
 // A draft untouched this long is a new workout when lifting picks back up (a set tapped days ago isn't when it started).
 const RESUME_GAP = 12 * 3600e3;
 
-export default function Session({ day, existing, draft, sessions, program, weighins, prefs, back, notify, onSaveDraft, onDiscardDraft, onFinish, onUpdate, onDelete, onProgramChange, nutrition, head, coachNotes }) {
+export default function Session({ day, existing, draft, sessions, program, weighins, prefs, back, notify, onSaveDraft, onDiscardDraft, onFinish, onUpdate, onDelete, onProgramChange, nutrition, head, coachNotes, recovery }) {
   const dayProgram = program[day];
   const [extras, setExtras] = useState(() => draft?.extras || []);
   const [skipped, setSkipped] = useState(() => draft?.skipped || []);
@@ -34,6 +35,10 @@ export default function Session({ day, existing, draft, sessions, program, weigh
   const [order, setOrder] = useState(() => draft?.order || existing?.order || []);
   const [busy, setBusy] = useState(null); // the lift whose machine is taken, while its sheet is open
   const [date, setDate] = useState(existing?.date || draft?.date || today());
+  // A short or under-recovered night (Google Health, lib/recovery.js): today's numbers match last time
+  // instead of chasing a PR. Only for a workout being done now, and never over the lifter's own picks.
+  const night = !existing && prefs.googleHealth?.on ? readiness(recovery, date) : null;
+  const easy = night?.low ? lowLine(night) : null;
   const [bw, setBw] = useState(existing?.bw != null ? String(existing.bw) : draft?.bw ?? "");
   const [note, setNote] = useState(existing?.note || draft?.note || "");
   const [startedAt, setStartedAt] = useState(existing?.startedAt || draft?.startedAt || null);
@@ -108,19 +113,21 @@ export default function Session({ day, existing, draft, sessions, program, weigh
     }
     if (prev) return prev.map((s) => ({ w: String(s.w), r: String(s.r), rir: s.rir != null ? String(s.rir) : "", done: true, saved: true, t: s.t, hr: s.hr, hrRest: s.hrRest }));
     const ref = lastFor(ex.n)?.sets[ex.n] || [];
+    // A weight the lifter took from their coach's walkthrough: every set starts there, reps start fresh.
+    if (ex.next?.w) return Array.from({ length: Math.max(1, ex.sets) }, () => ({ w: String(ex.next.w), r: "", rir: "", done: false, asked: { w: ex.next.w, r: ex.reps[0] } }));
     // Earned a weight increase last time: every set starts at the new weight, reps start fresh.
-    const bump = readyToIncrease(ex, ref);
+    const bump = easy ? null : readyToIncrease(ex, ref);
     if (bump) return Array.from({ length: ex.sets }, () => ({ w: String(bump.to), r: "", rir: "", done: false, asked: { w: bump.to, r: ex.reps[0] } }));
     const count = Math.max(ex.sets, ref.length);
     const lastW = ref.length ? String(ref[ref.length - 1].w) : "";
     // Last time's numbers, with the goal (see nextGoal) filled into its set: logging as-is makes progress.
-    const goal = nextGoal(ex, ref);
+    const goal = easy ? null : nextGoal(ex, ref);
     return Array.from({ length: count }, (_, i) => {
       const w = goal && i === goal.idx ? String(goal.w) : ref[i] ? String(ref[i].w) : lastW;
       const r = goal && i === goal.idx ? String(goal.r) : ref[i] ? String(ref[i].r) : "";
       return { w, r, rir: "", done: false, asked: w !== "" && r !== "" ? { w: +w, r: +r } : null };
     });
-  }, [existing, lastFor]);
+  }, [existing, lastFor, easy]);
 
   const [grid, setGrid] = useState(() => {
     const g = {};
@@ -160,7 +167,7 @@ export default function Session({ day, existing, draft, sessions, program, weigh
     const last = lastFor(ex.n);
     // A cardio warm-up doesn't count: the first lift after it still gets its warm-up sets.
     const firstLift = !Object.entries(grid).some(([n, rs]) => n !== ex.n && !isCardio(n) && rs.some((r) => r.done));
-    return openingAdvice({ ex, history: historyFor(ex.n), firstLift, daysSince: last ? daysBetween(last.date, date) : null, fatigue: fatigueFor(ex.n) });
+    return openingAdvice({ ex, history: historyFor(ex.n), firstLift, daysSince: last ? daysBetween(last.date, date) : null, fatigue: fatigueFor(ex.n), easy });
   };
   // When a lift opens, its first set takes the coach's opening numbers (which count today's fatigue),
   // unless the lifter already typed their own.
@@ -468,8 +475,8 @@ export default function Session({ day, existing, draft, sessions, program, weigh
           const rows = grid[ex.n] || [];
           const last = lastFor(ex.n);
           const target = bestSet(last?.sets[ex.n]);
-          const bump = readyToIncrease(ex, last?.sets[ex.n]);
-          const goal = bump || isCardio(ex.n) ? null : nextGoal(ex, last?.sets[ex.n]);
+          const bump = easy ? null : readyToIncrease(ex, last?.sets[ex.n]);
+          const goal = bump || isCardio(ex.n) ? null : easy ? matchGoal(last?.sets[ex.n]) : nextGoal(ex, last?.sets[ex.n]);
           const call = advice[ex.n];
           if (focus === ex.n) {
             // Before the first set: last time, today's goal, and warm-ups if it's the first lift of the day.
@@ -554,7 +561,7 @@ export default function Session({ day, existing, draft, sessions, program, weigh
           onDoNow={(n) => busyDoNow(busy, n)} onSwap={(sw) => busySwap(busy, sw)} onLater={() => busyLater(busy)} onClose={() => setBusy(null)} />
       )}
       {chat && <CoachChat key={`${chat.coach}|${chat.exercise}`} coach={chat.coach} exercise={chat.exercise} sessions={sessions} program={program} weighins={weighins} profile={prefs.profile} phase={prefs.phase} nutrition={nutrition}
-        head={head} notes={coachNotes} live={liveContext(exercises, grid, advice, chat.exercise)} onProgramChange={onProgramChange} onClose={() => setChat(null)} />}
+        head={head} notes={coachNotes} recovery={recovery} live={liveContext(exercises, grid, advice, chat.exercise)} onProgramChange={onProgramChange} onClose={() => setChat(null)} />}
       {sheet === "delete" && (
         <ConfirmSheet title="Delete session?" body={`${dayProgram.name} on ${shortDate(existing.date)} and all its sets will be removed.`}
           confirm="Delete" onClose={() => setSheet(null)} onConfirm={() => { onDelete(existing); back("#/progress/workouts"); }} />
@@ -581,6 +588,13 @@ function liveContext(exercises, grid, advice, current) {
   return [...head, ...(lines.length ? [`In today's workout so far:`, ...lines] : [])].join("\n");
 }
 
+/** Last time's best set, to match after a short night: { w, r, idx, sets: 1, match: true }. */
+function matchGoal(sets) {
+  const l = lifting(sets || []);
+  const b = bestSet(l);
+  return b ? { w: b.w, r: b.r, idx: l.indexOf(b), sets: 1, match: true } : null;
+}
+
 /** The small tag after a lift's name: a swap, a lift put off for a busy machine, or an add-on for today. */
 const Tag = ({ ex, later }) => (ex.swappedFor ? <span className="ex-tag" title={`Instead of ${ex.swappedFor} today`}>swap</span>
   : later ? <span className="ex-tag later">come back</span>
@@ -598,8 +612,9 @@ function Collapsed({ ex, rows, goal, bump, call, later, swappedTo, skipped, just
   else if (cardio) sub = done.length ? done.map((r) => fmtSet({ min: +r.min, mi: hasVal(r.mi) ? +r.mi : null })).join(" + ") : specLine(ex);
   else if (complete) sub = `${done.length} sets · top set ${fmtW(best.w)} × ${best.r}`;
   else if (call?.w != null && done.length) sub = `${done.length}/${rows.length} sets · next ${fmtW(call.w)} × ${call.r}`;
+  else if (ex.next?.w && !done.length) sub = `${rows.length} sets · start at ${fmtW(ex.next.w)} lb`;
   else if (bump) sub = `${done.length}/${rows.length} sets · go up to ${fmtW(bump.to)} lb`;
-  else if (goal) sub = `${done.length}/${rows.length} sets · try ${fmtGoal(goal)}`;
+  else if (goal) sub = `${done.length}/${rows.length} sets · ${goal.match ? "match" : "try"} ${fmtGoal(goal)}`;
   else sub = `${done.length}/${rows.length} sets`;
   return (
     <button className={"ex-collapsed" + (skipped ? " skipped" : complete ? "" : " pending") + (justClosed ? " just-closed" : "")} onClick={onOpen}>
@@ -666,8 +681,9 @@ function ExerciseCard({ ex, showRir, rows, target, goal, targetDate, onHint, bum
           ? lastEntry && <span className="target" title={`Last time, ${shortDate(targetDate)}`}>Last · {fmtSet(lastEntry)}</span>
           : started && call?.w != null ? <span className={"target" + (call.kind === "up" ? " up" : "")}>Next · {fmtW(call.w)} × {call.r}</span>
           : started && call?.kind === "done" ? null
+          : ex.next?.w ? <span className="target" title="From your coach's walkthrough">Start · {fmtW(ex.next.w)} lb</span>
           : bump ? <span className="target up" title={`All ${bump.sets} sets hit ${bump.reps} on ${shortDate(targetDate)}`}>Go up · {fmtW(bump.to)} lb</span>
-          : goal && <span className="target" title={`Best set on ${shortDate(targetDate)}: ${fmtW(target.w)} × ${target.r}`}>Try {fmtGoal(goal)}</span>}
+          : goal && <span className="target" title={`Best set on ${shortDate(targetDate)}: ${fmtW(target.w)} × ${target.r}`}>{goal.match ? "Match" : "Try"} {fmtGoal(goal)}</span>}
       </div>
       {!(cardio ? lastEntry : target) && <p className="target-none">First time logging this one. Today sets the baseline.</p>}
       {showCue && <p className="ex-cue"><b>Cue</b> {ex.cue}</p>}

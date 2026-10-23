@@ -273,7 +273,7 @@ export default function Settings({ program, sessions, prefs, setPref, go, notify
       {sheet === "reviews" && <PastReviewsSheet onClose={() => setSheet(null)} />}
       {sheet === "google-health" && <GoogleHealthSheet gh={gh} onDisconnect={() => setSheet("google-health-off")} onClose={() => setSheet(null)} />}
       {sheet === "google-health-off" && (
-        <ConfirmSheet title="Disconnect Google Health?" body="GymBuddy stops reading heart rate and sending weight and food. Heart rate comes off your workouts in GymBuddy; what's already in Google Health stays there."
+        <ConfirmSheet title="Disconnect Google Health?" body="GymBuddy stops reading heart rate and sleep and sending weight and food. Heart rate comes off your workouts and sleep comes out of GymBuddy; what's already in Google Health stays there."
           confirm="Disconnect" onClose={() => setSheet(null)} onConfirm={gh.disconnect} />
       )}
     </main>
@@ -436,8 +436,8 @@ function useGoogleHealth({ prefs, setPref, notify }) {
     try {
       const s = await googleHealthStatus();
       setStatus(s);
-      if (s.connected && (!on || prefs.googleHealth.heart !== !!s.allowed?.heart)) {
-        setPref("googleHealth", { on: true, since: s.since, heart: !!s.allowed?.heart });
+      if (s.connected && (!on || prefs.googleHealth.heart !== !!s.allowed?.heart || prefs.googleHealth.sleep !== !!s.allowed?.sleep)) {
+        setPref("googleHealth", { on: true, since: s.since, heart: !!s.allowed?.heart, sleep: !!s.allowed?.sleep });
         if (!on && connecting()) notify?.("Google Health connected");
       }
       if (!s.connected && on) setPref("googleHealth", null);
@@ -464,7 +464,7 @@ function useGoogleHealth({ prefs, setPref, notify }) {
     on, status, busy,
     since,
     lastLabel,
-    sub: !on ? "Heart rate in, for how hard you worked. Weight and food out."
+    sub: !on ? "Heart rate and sleep in, for how hard you worked and how recovered you are. Weight and food out."
       : status?.error ? "Some items didn't go through. They'll be tried again."
       : `On since ${since ? shortDate(since) : "today"}${lastLabel ? ` · last synced ${lastLabel}` : ""}`,
     connect: () => run(connectGoogleHealth),
@@ -488,15 +488,18 @@ function useGoogleHealth({ prefs, setPref, notify }) {
 function GoogleHealthSheet({ gh, onDisconnect, onClose }) {
   const allowed = gh.status?.allowed;
   const missing = allowed ? [["heart", "heart rate"], ["weight", "weight"], ["food", "food"]].filter(([k]) => !allowed[k]).map(([, l]) => l) : [];
+  // Connected before GymBuddy read sleep: one tap back through Google's page adds it.
+  const noSleep = allowed && !allowed.sleep;
   if (!gh.on) {
     return (
-      <Sheet title="Google Health" sub="Bring your watch's heart rate into your workouts, and keep your weight and food in Google Health." onClose={onClose} labelledBy="google-health-title">
+      <Sheet title="Google Health" sub="Bring your watch's heart rate and sleep into GymBuddy, and keep your weight and food in Google Health." onClose={onClose} labelledBy="google-health-title">
         <div className="list">
           <div className="list-row"><HeartPulse size={18} aria-hidden="true" /><span className="name">Heart rate, read<span className="sub">Only during your workouts in the last 30 days and from now on, to show how hard each workout and set was. Your coaches see the summary.</span></span></div>
+          <div className="list-row"><Moon size={18} aria-hidden="true" /><span className="name">Sleep and recovery, read<span className="sub">Each night's sleep, resting heart rate and HRV, from 30 days before you connect, so your coaches can tell a bad night from a stall.</span></span></div>
           <div className="list-row"><Scale size={18} aria-hidden="true" /><span className="name">Bodyweight, sent<span className="sub">Your weigh-ins, from the day you connect.</span></span></div>
           <div className="list-row"><Utensils size={18} aria-hidden="true" /><span className="name">Food, sent<span className="sub">Each entry's calories, protein, carbs and fat, from the day you connect.</span></span></div>
         </div>
-        <p className="note-box">GymBuddy doesn't send workouts: record them in Google Health from your watch as you do now. It reads nothing else there. Open the Google Health app and sign in before you connect. <a href="/privacy.html" target="_blank" rel="noopener">Privacy policy</a></p>
+        <p className="note-box">GymBuddy doesn't send workouts: record them in Google Health from your watch as you do now. It reads nothing else there, and doesn't send sleep anywhere but your coaches. Open the Google Health app and sign in before you connect. <a href="/privacy.html" target="_blank" rel="noopener">Privacy policy</a></p>
         <button type="button" className="btn btn-ink" disabled={gh.busy} onClick={gh.connect}>{gh.busy ? "Opening Google…" : "Connect Google Health"}</button>
         <p className="small muted">Google's page opens over GymBuddy. Once it says connected, close it and come back here.</p>
       </Sheet>
@@ -507,6 +510,14 @@ function GoogleHealthSheet({ gh, onDisconnect, onClose }) {
       <div className="list">
         {allowed?.heart !== false && (
           <div className="list-row"><HeartPulse size={18} aria-hidden="true" /><span className="name">Heart rate<span className="sub">Each workout's heart rate shows on it once your watch has synced to Google Health, usually within the hour.</span></span></div>
+        )}
+        {noSleep ? (
+          <button type="button" className="list-row" disabled={gh.busy} onClick={gh.connect}>
+            <Moon size={18} aria-hidden="true" />
+            <span className="name">{gh.busy ? "Opening Google…" : "Add sleep"}<span className="sub">Each night's sleep, so your coaches can tell a bad night from a stall. Google asks you to allow it.</span></span>
+          </button>
+        ) : allowed?.sleep && (
+          <div className="list-row"><Moon size={18} aria-hidden="true" /><span className="name">Sleep and recovery<span className="sub">Each night's sleep, resting heart rate and HRV. GymBuddy only speaks up when a night is off for you.</span></span></div>
         )}
         <div className="list-row"><Check size={18} aria-hidden="true" /><span className="name">{gh.lastLabel ? `Weight and food last sent ${gh.lastLabel}` : "No weight or food sent yet"}<span className="sub">New weigh-ins and food go a few seconds after they're saved. Edits and deletes follow.</span></span></div>
         {missing.length > 0 && (
@@ -521,7 +532,7 @@ function GoogleHealthSheet({ gh, onDisconnect, onClose }) {
         </button>
         <button type="button" className="list-row" disabled={gh.busy} onClick={onDisconnect}>
           <Unlink size={18} aria-hidden="true" />
-          <span className="name">Disconnect<span className="sub">Heart rate comes off your workouts. What's in Google Health stays there.</span></span>
+          <span className="name">Disconnect<span className="sub">Heart rate comes off your workouts and sleep comes out of GymBuddy. What's in Google Health stays there.</span></span>
         </button>
       </div>
     </Sheet>

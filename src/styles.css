@@ -135,11 +135,11 @@ html:not([data-nav]) .screen > .body > :nth-child(6):not(.ex) { animation-delay:
    surface spring. Taps go straight through to the new screen while it settles. */
 ::view-transition { pointer-events: none; }
 ::view-transition-old(root) { animation: vt-fade-out 120ms ease-out both; }
-::view-transition-new(root) { animation: vt-fade-in var(--enter-ms) var(--enter) 40ms both, vt-settle var(--surface-ms) var(--surface) both; }
+::view-transition-new(root) { animation: vt-fade-in var(--enter-ms) var(--enter) 40ms both, vt-settle var(--glide-ms) var(--glide) both; }
 html[data-nav="forward"]::view-transition-old(root) { animation: vt-fade-out 120ms ease-out both, vt-to-left var(--exit-ms) var(--exit) both; }
-html[data-nav="forward"]::view-transition-new(root) { animation: vt-fade-in var(--enter-ms) var(--enter) 40ms both, vt-from-right var(--surface-ms) var(--surface) both; }
+html[data-nav="forward"]::view-transition-new(root) { animation: vt-fade-in var(--enter-ms) var(--enter) 40ms both, vt-from-right var(--glide-ms) var(--glide) both; }
 html[data-nav="back"]::view-transition-old(root) { animation: vt-fade-out 120ms ease-out both, vt-to-right var(--exit-ms) var(--exit) both; }
-html[data-nav="back"]::view-transition-new(root) { animation: vt-fade-in var(--enter-ms) var(--enter) 40ms both, vt-from-left var(--surface-ms) var(--surface) both; }
+html[data-nav="back"]::view-transition-new(root) { animation: vt-fade-in var(--enter-ms) var(--enter) 40ms both, vt-from-left var(--glide-ms) var(--glide) both; }
 @keyframes vt-fade-out { to { opacity: 0; } }
 @keyframes vt-fade-in { from { opacity: 0; } }
 @keyframes vt-settle { from { transform: translateY(14px); } }
@@ -154,7 +154,7 @@ html[data-nav="back"]::view-transition-new(root) { animation: vt-fade-in var(--e
 ::view-transition-old(tabbar) { animation: none; opacity: 0; }
 ::view-transition-new(tabbar) { animation: none; }
 ::view-transition-old(tabbar):only-child { opacity: 1; animation: vt-drop var(--exit-ms) var(--exit) both; }
-::view-transition-new(tabbar):only-child { animation: vt-rise var(--surface-ms) var(--surface) both; }
+::view-transition-new(tabbar):only-child { animation: vt-rise var(--glide-ms) var(--glide) both; }
 @keyframes vt-drop { to { transform: translateY(calc(100% + 24px)); } }
 @keyframes vt-rise { from { transform: translateY(calc(100% + 24px)); } }
 .screen.has-tabs { padding-bottom: calc(108px + var(--safe-b)); }
@@ -384,9 +384,9 @@ button.chip { min-height: 38px; padding: 0 14px; border: 2px solid var(--rule); 
 .meta-chip { display: flex; align-items: center; gap: 8px; min-height: 54px; padding: 0 16px; font-size: 14px; color: var(--mute); width: 100%; text-align: left; font-weight: 500; }
 .meta-chip b { color: var(--ink); font-weight: 800; }
 
-.ex { padding: 14px; display: flex; flex-direction: column; gap: 10px; border-radius: 28px; animation: ex-open var(--surface-ms) var(--surface), fade 160ms ease-out; scroll-margin-top: calc(var(--safe-t) + 104px); }
+.ex { padding: 14px; display: flex; flex-direction: column; gap: 10px; border-radius: 28px; animation: ex-open var(--glide-ms) var(--glide), fade 160ms ease-out; scroll-margin-top: calc(var(--safe-t) + 104px); }
 @keyframes ex-open { from { transform: translateY(16px) scale(.97); } }
-.ex-collapsed.just-closed { animation: ex-close var(--surface-ms) var(--surface); }
+.ex-collapsed.just-closed { animation: ex-close var(--glide-ms) var(--glide); }
 @keyframes ex-close { from { transform: scale(1.04); opacity: .35; } }
 .ex-coach { display: flex; align-items: flex-end; gap: 10px; }
 .ex-coach > .coach { flex: none; margin: 0 -2px -4px 0; }
@@ -449,7 +449,7 @@ button.chip { min-height: 38px; padding: 0 14px; border: 2px solid var(--rule); 
 
 /* The bottom dock (rest timer, or Finish once every set is in): slides up from the bottom edge when
    it arrives and back down when it goes. The rest timer's beam sits inside. */
-.dock { position: fixed; left: 12px; right: 12px; bottom: calc(14px + var(--safe-b)); max-width: 536px; margin: 0 auto; z-index: 30; animation: dock-in var(--surface-ms) var(--surface); }
+.dock { position: fixed; left: 12px; right: 12px; bottom: calc(14px + var(--safe-b)); max-width: 536px; margin: 0 auto; z-index: 30; animation: dock-in var(--glide-ms) var(--glide); }
 .dock.late { animation-delay: 120ms; animation-fill-mode: both; }
 .dock.leaving, .alert-ask.leaving { animation: dock-out var(--exit-ms) var(--exit) forwards; pointer-events: none; }
 /* Typing (lib/keyboard.js): the rest timer and Finish step aside instead of riding up on the keyboard over the field. */
@@ -700,7 +700,7 @@ html[data-typing] :is(.dock, .alert-ask) { opacity: 0; visibility: hidden; trans
    started on focus so the two move together; see useVisibleViewport); the sheet sizes from the wrap
    in %, so everything inside moves as one. Its top follows iOS's scroll of the page as it happens. */
 .sheet-wrap { --kb-ease: cubic-bezier(.38, .7, .125, 1); --kb-ms: 300ms; position: fixed; left: 0; right: 0; top: var(--vv-top, 0px); height: var(--vv-h, 100dvh); z-index: 50; display: flex; align-items: flex-end; justify-content: center; transition: height var(--kb-ms) var(--kb-ease); }
-.sheet { position: relative; width: 100%; max-width: 560px; background: var(--bg); border-radius: 28px 28px 0 0; max-height: min(90dvh, calc(100% - var(--safe-t) - 8px)); display: flex; flex-direction: column; padding-bottom: var(--safe-b); transition: padding-bottom var(--kb-ms) var(--kb-ease); animation: sheet-in var(--surface-ms) var(--surface); }
+.sheet { position: relative; width: 100%; max-width: 560px; background: var(--bg); border-radius: 28px 28px 0 0; max-height: min(90dvh, calc(100% - var(--safe-t) - 8px)); display: flex; flex-direction: column; padding-bottom: var(--safe-b); transition: padding-bottom var(--kb-ms) var(--kb-ease); animation: sheet-in var(--glide-ms) var(--glide); }
 /* The scrim is its own layer so a drag can fade it with the sheet's travel. */
 .sheet-scrim { position: absolute; inset: 0; background: var(--scrim); animation: fade var(--enter-ms) var(--enter); }
 .sheet.dragging { will-change: transform; }
@@ -1170,18 +1170,20 @@ button.coach-card:active { transform: translateY(3px); box-shadow: 0 2px 0 var(-
 .late-note { display: block; font-size: 12px; font-weight: 600; color: var(--mute); margin-left: 18px; }
 .nut-ask { margin-top: 2px; }
 .summary-ask { margin-top: 18px; }
+/* Today, after a short or under-recovered night: one quiet line under the hero. */
+.night-note { display: flex; gap: 8px; align-items: flex-start; margin: 2px 4px 0; font-size: 14px; font-weight: 500; line-height: 1.4; color: var(--mute); }
+.night-note svg { flex: none; margin-top: 2px; }
 .bubble-cta { display: flex; align-items: center; gap: 2px; margin-top: 6px; font-weight: 800; color: var(--ink); }
 
 /* The coach's walkthrough of a workout (Walkthrough.jsx): a card pinned to the bottom, one point at a
-   time, and the part of the recap it's about outlined in the day's color. Nothing dimmed or blocked.
-   Colors are mixed from --bg, not --surface: the motion springs reuse --surface as an easing on :root. */
+   time, and the part of the recap it's about outlined in the day's color. Nothing dimmed or blocked. */
 html.walking .summary .body { padding-bottom: calc(var(--walk-h, 220px) + 40px); }
 .walk-on { outline: 3px solid var(--day, var(--ink)); outline-offset: 4px; border-radius: 22px; animation: walk-ring 900ms var(--enter) both; }
 /* Rows sit inside a clipped list: the outline goes inside them. */
 .rec.walk-on { outline-offset: -3px; border-radius: var(--r); }
 .card-list.walk-on { outline-offset: 2px; }
 @keyframes walk-ring { from { outline-color: transparent; outline-offset: 12px; } }
-.walk-card { position: fixed; z-index: 40; left: 12px; right: 12px; bottom: calc(12px + var(--safe-b)); max-width: 536px; margin: 0 auto; display: flex; flex-direction: column; gap: 8px; padding: 12px 14px 14px; border-radius: 28px; background: var(--bg); border: 2px solid var(--rule); box-shadow: 0 6px 0 var(--lip), 0 16px 40px rgba(0, 0, 0, 0.16); max-height: min(52dvh, 420px); overflow-y: auto; animation: rise var(--enter-ms) var(--enter); }
+.walk-card { position: fixed; z-index: 40; left: 12px; right: 12px; bottom: calc(12px + var(--safe-b)); max-width: 536px; margin: 0 auto; display: flex; flex-direction: column; gap: 8px; padding: 12px 14px 14px; border-radius: 28px; background: var(--surface); border: 2px solid var(--rule); box-shadow: 0 6px 0 var(--lip), 0 16px 40px rgba(0, 0, 0, 0.16); max-height: min(52dvh, 420px); overflow-y: auto; animation: rise var(--enter-ms) var(--enter); }
 .walk-top { display: flex; align-items: center; gap: 8px; }
 .walk-top > .coach { flex: none; margin: -4px 0 -4px -2px; }
 .walk-who { flex: 1; min-width: 0; font-weight: 800; font-size: 15px; }
@@ -1189,7 +1191,7 @@ html.walking .summary .body { padding-bottom: calc(var(--walk-h, 220px) + 40px);
 .walk-body { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; animation: fade 180ms ease-out; }
 .walk-wait { flex-direction: row; align-items: center; gap: 10px; min-height: 56px; font-weight: 600; color: var(--mute); }
 .walk-kind { display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; border-radius: 999px; font-size: 11.5px; font-weight: 800; letter-spacing: 0.01em; background: var(--surface-2); color: var(--ink); white-space: nowrap; }
-.walk-kind.k-overall, .walk-kind.k-good { background: color-mix(in srgb, var(--day, var(--accent)) 18%, var(--bg)); color: var(--day-ink, var(--ink)); }
+.walk-kind.k-overall, .walk-kind.k-good { background: color-mix(in srgb, var(--day, var(--accent)) 18%, var(--surface)); color: var(--day-ink, var(--ink)); }
 .walk-kind.k-next { background: var(--ink); color: var(--bg); }
 .walk-title { font-weight: 800; font-size: 19px; line-height: 1.2; letter-spacing: -0.01em; margin-top: 4px; }
 .walk-text { font-size: 15px; line-height: 1.42; font-weight: 500; }
@@ -1203,13 +1205,24 @@ html.walking .summary .body { padding-bottom: calc(var(--walk-h, 220px) + 40px);
 .walk-ask { min-height: 44px; }
 /* What the walkthrough said about a part of the recap, under it once it's over: a line, tap for more. */
 .walk-notes { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
-.walk-note { border-radius: 18px; background: color-mix(in srgb, var(--c) 14%, var(--bg)); }
+.walk-note { border-radius: 18px; background: color-mix(in srgb, var(--c) 14%, var(--surface)); }
 .walk-note summary { display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 6px 12px; cursor: pointer; list-style: none; }
 .walk-note summary::-webkit-details-marker { display: none; }
 .walk-note-title { flex: 1; min-width: 0; font-weight: 700; font-size: 14px; }
 .walk-note-chev { flex: none; color: var(--mute); transition: transform 160ms; }
 .walk-note[open] .walk-note-chev { transform: rotate(90deg); }
 .walk-note p { padding: 0 12px 12px; font-size: 14px; line-height: 1.42; }
+/* A step's change to the plan: what it would change and a small Apply, quiet next to the coach's words. */
+.walk-change { display: flex; align-items: center; gap: 8px; width: 100%; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--rule); color: var(--mute); font-size: 13px; font-weight: 600; line-height: 1.3; }
+.walk-change > svg { flex: none; }
+.walk-change-what { flex: 1; min-width: 0; }
+.walk-change-what b { color: var(--ink); font-weight: 700; }
+.walk-change-btn { flex: none; min-height: 36px; padding: 0 12px; border-radius: 999px; border: 1.5px solid var(--rule); background: none; color: var(--ink); font-size: 13px; font-weight: 700; }
+.walk-change-btn:active { transform: scale(0.96); }
+.walk-change-btn.quiet { border-color: transparent; text-decoration: underline; text-underline-offset: 2px; padding: 0 6px; }
+.walk-change.done { color: var(--ink); }
+.walk-change.done > svg { color: var(--day-ink, var(--ink)); }
+.walk-note .walk-change { margin: -4px 12px 12px; width: auto; }
 @media (prefers-reduced-motion: reduce) { .walk-on, .walk-card, .walk-body { animation: none; } }
 
 /* Rest alerts: the bell in the rest dock (set / couldn't be set), and the one-time "turn on?" card above it. */
@@ -1284,7 +1297,7 @@ html.walking .summary .body { padding-bottom: calc(var(--walk-h, 220px) + 40px);
 
 /* The cards: full screen, the speaking coach's colour washing in from the top. */
 .review { position: fixed; inset: 0; z-index: 55; display: flex; flex-direction: column; background: var(--bg); color: var(--ink);
-  padding-top: var(--safe-t); padding-bottom: var(--safe-b); overscroll-behavior: contain; animation: rv-in var(--surface-ms) var(--surface) both; }
+  padding-top: var(--safe-t); padding-bottom: var(--safe-b); overscroll-behavior: contain; animation: rv-in var(--glide-ms) var(--glide) both; }
 @keyframes rv-in { from { opacity: 0; transform: scale(.98); } }
 .review-glow { position: absolute; inset: 0 0 auto; height: 60%; pointer-events: none;
   background: radial-gradient(120% 75% at 50% -12%, color-mix(in srgb, var(--c) 30%, transparent), transparent 72%); }

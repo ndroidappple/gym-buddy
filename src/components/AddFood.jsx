@@ -23,6 +23,11 @@ const asFood = (x) => ({ name: x.name, brand: x.brand || null, source: x.source,
 /** A barcode match on this phone (see foodForBarcode) as a food. */
 const scannedFood = ({ kind, item }) => (kind === "saved" ? asFood({ ...item, source: "custom" }) : asFood(item));
 
+/* On a phone the sheet opens without focusing search: the keyboard rising while the sheet slides up
+   reads as two motions fighting, and it covers what's tapped most (your foods, Add with the coach,
+   Scan). Tapping the search box brings the keyboard. With a real keyboard, search is ready at once. */
+const touchScreen = () => typeof matchMedia === "function" && matchMedia("(pointer: coarse)").matches;
+
 /** `head`: the head coach, who itemizes a described meal. */
 export default function AddFood({ food, head = "tank", meal: meal0, date, onClose, notify }) {
   const who = COACHES[head].name;
@@ -42,7 +47,7 @@ export default function AddFood({ food, head = "tank", meal: meal0, date, onClos
 
   return (
     <Sheet title={title} sub={view.step === "find" ? `Pick one of your foods, search, or describe it to ${who}.` : view.step === "tank" ? `Say what you ate. ${who} works out the macros.` : null}
-      onClose={onClose} labelledBy="add-food-title" className={"sheet-tall" + (view.step === "tank" ? " sheet-chat" : "")}>
+      onClose={onClose} labelledBy="add-food-title" className={"sheet-tall" + (view.step === "tank" ? " sheet-chat" : "")} focusField={!touchScreen()}>
       {view.step !== "find" && (
         <button type="button" className="btn-quiet food-back" onClick={() => setView({ step: "find" })}><ChevronLeft size={16} aria-hidden="true" /> Back</button>
       )}
@@ -121,7 +126,7 @@ function Find({ food, head, meal, onPick, onTank, onScan, onManual }) {
       <label className="food-search">
         <Search size={18} aria-hidden="true" />
         <span className="sr-only">Search foods</span>
-        <input type="search" autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search foods, e.g. greek yogurt" enterKeyHint="search" />
+        <input type="search" autoFocus={!touchScreen()} value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search foods, e.g. greek yogurt" enterKeyHint="search" />
         <button type="button" className="icon-btn food-scan" onClick={onScan} aria-label="Scan a barcode"><ScanBarcode size={20} /></button>
       </label>
       {!query && (

@@ -93,7 +93,8 @@ ok("nothing from before connecting", !future.send.some((s) => s.item === "bw:202
 ok("nothing dated tomorrow", !future.send.some((s) => s.item === "f:tomorrow"));
 
 // Scopes: weight and food written, heart rate read; workouts never asked for.
-eq("scopes asked for", gh.SCOPES.map((x) => x.split(".").slice(-2).join(".")), ["health_metrics_and_measurements.writeonly", "nutrition.writeonly", "health_metrics_and_measurements.readonly"]);
+eq("scopes asked for", gh.SCOPES.map((x) => x.split(".").slice(-2).join(".")), ["health_metrics_and_measurements.writeonly", "nutrition.writeonly", "health_metrics_and_measurements.readonly", "sleep.readonly"]);
+ok("sleep is its own permission", gh.canReadSleep(gh.SLEEP_SCOPE) && !gh.canReadSleep(gh.HEART_SCOPE) && !gh.canReadHeart(gh.SLEEP_SCOPE));
 eq("granted kinds", gh.grantedKinds(gh.SCOPES.join(" ")), ["bw", "f"]);
 ok("heart rate allowed", gh.canReadHeart(gh.SCOPES.join(" ")) && !gh.canReadHeart(gh.SCOPES.slice(0, 2).join(" ")));
 
@@ -243,6 +244,71 @@ const list = [
   w8("v1", 2 * 24 * 60, { complete: true, at: N - 47 * 3600_000 }),
 ].map((s) => (s.hr && s.id !== "v1" ? { ...s, hr: { ...s.hr, v: 2 } } : s));
 eq("wanting (a summary from before the zones update is asked again)", H.wanting(list, N).map((s) => s.id), ["new", "partial-due", "v1"]);
+
+/* ── sleep and recovery ── */
+const R = await import("../src/lib/recovery.js");
+const sleepPoint = (end, { asleep = 420, nap = false, main = true, stages = true } = {}) => ({ sleep: {
+  interval: { startTime: new Date(Date.parse(end) - 8 * 3600_000).toISOString(), endTime: end, civilEndTime: { date: { year: +end.slice(0, 4), month: +end.slice(5, 7), day: +end.slice(8, 10) } } },
+  type: stages ? "STAGES" : "CLASSIC", metadata: { nap, mainSleep: main },
+  summary: { minutesAsleep: String(asleep), minutesInSleepPeriod: String(asleep + 30), minutesAwake: "30", stagesSummary: [{ type: "DEEP", minutes: "70" }, { type: "REM", minutes: "95" }, { type: "LIGHT", minutes: String(asleep - 165) }] },
+} });
+eq("a night as kept", gh.nightOf(sleepPoint("2026-10-22T13:00:00Z")), { date: "2026-10-22", start: at("2026-10-22T05:00:00Z"), end: at("2026-10-22T13:00:00Z"), asleep: 420, inBed: 450, awake: 30, deep: 70, rem: 95, light: 255, main: true });
+eq("no stages on a classic night", gh.nightOf(sleepPoint("2026-10-22T13:00:00Z", { stages: false })).deep, undefined);
+eq("nothing asleep isn't a night", gh.nightOf(sleepPoint("2026-10-22T13:00:00Z", { asleep: 0 })), null);
+let urls = [];
+globalThis.fetch = async (url) => {
+  urls.push(decodeURIComponent(String(url).replace(/\+/g, " ")));
+  if (String(url).includes("/sleep/")) return new Response(JSON.stringify({ dataPoints: [sleepPoint("2026-10-22T13:00:00Z"), sleepPoint("2026-10-22T21:00:00Z", { asleep: 40, nap: true, main: false })] }), { status: 200 });
+  if (String(url).includes("daily-resting")) return new Response(JSON.stringify({ dataPoints: [{ dailyRestingHeartRate: { date: { year: 2026, month: 10, day: 22 }, beatsPerMinute: "56" } }] }), { status: 200 });
+  return new Response(JSON.stringify({ dataPoints: [{ dailyHeartRateVariability: { date: { year: 2026, month: 10, day: 22 }, averageHeartRateVariabilityMilliseconds: 47.25 } }] }), { status: 200 });
+};
+const sn = await gh.sleepNights("token", "2026-10-20", "2026-10-22");
+eq("sleep: both sessions, by civil end date", [sn.ok, sn.nights.length, sn.nights[1].nap], [true, 2, true]);
+ok("sleep filter on the civil end date, through the end day", urls[0].includes('sleep.interval.civil_end_time >= "2026-10-20" AND sleep.interval.civil_end_time < "2026-10-23"'), urls[0]);
+eq("resting heart rate by day", await gh.dailyValues("token", "daily-resting-heart-rate", "2026-10-20", "2026-10-22"), { "2026-10-22": 56 });
+eq("HRV by day", await gh.dailyValues("token", "daily-heart-rate-variability", "2026-10-20", "2026-10-22"), { "2026-10-22": 47.3 });
+urls = [];
+globalThis.fetch = async (url) => { urls.push(decodeURIComponent(String(url).replace(/\+/g, " "))); return urls.length === 1 ? new Response("{}", { status: 400 }) : new Response(JSON.stringify({ dataPoints: [] }), { status: 200 }); };
+await gh.dailyValues("token", "daily-heart-rate-variability", "2026-10-20", "2026-10-22");
+ok("daily filter tried both spellings", urls[0].includes("daily_heart_rate_variability.date") && urls[1].includes("dailyHeartRateVariability.date"), urls.join(" | "));
+
+// Kept per morning: the main night (not a nap), resting heart rate and HRV; old mornings drop off.
+let rec = R.mergeRecovery({ "2026-05-01": { rhr: 60 } }, { nights: sn.nights, rhr: { "2026-10-22": 56 }, hrv: { "2026-10-22": 47.3 } }, "2026-10-22");
+eq("a morning kept", rec["2026-10-22"], { sleep: { start: at("2026-10-22T05:00:00Z"), end: at("2026-10-22T13:00:00Z"), asleep: 420, inBed: 450, awake: 30, deep: 70, rem: 95, light: 255 }, rhr: 56, hrv: 47.3 });
+ok("older than 120 days dropped", !rec["2026-05-01"]);
+rec = R.mergeRecovery(rec, { rhr: { "2026-10-22": 57 } }, "2026-10-22");
+eq("a later fetch without sleep keeps the night", [rec["2026-10-22"].sleep.asleep, rec["2026-10-22"].rhr], [420, 57]);
+
+// Judged against their own usual.
+const month = {};
+for (let i = 1; i <= 20; i++) { const d = new Date(Date.parse("2026-10-22T12:00:00Z") - i * 86400_000).toISOString().slice(0, 10); month[d] = { sleep: { asleep: 440 + (i % 3) * 10 }, rhr: 55, hrv: 50 }; }
+eq("usual", R.usual(month, "2026-10-22"), { asleep: 450, rhr: 55, hrv: 50 });
+const on = (e) => R.readiness({ ...month, "2026-10-22": e }, "2026-10-22");
+eq("an ordinary night", [on({ sleep: { asleep: 430 }, rhr: 56, hrv: 48 }).low, R.lowLine(on({ sleep: { asleep: 430 } }))], [false, null]);
+eq("short for them", [on({ sleep: { asleep: 360 } }).short, R.lowLine(on({ sleep: { asleep: 360 } }))], [true, "Short night (6h00, usually 7h30)."]);
+eq("under 5 hours is short whatever the usual", R.readiness({ "2026-10-22": { sleep: { asleep: 290 } } }, "2026-10-22").short, true);
+eq("resting heart rate up alone isn't low", on({ sleep: { asleep: 450 }, rhr: 62, hrv: 49 }).low, false);
+eq("resting heart rate up and HRV down together is", [on({ sleep: { asleep: 450 }, rhr: 61, hrv: 38 }).strained, on({ sleep: { asleep: 450 }, rhr: 61, hrv: 38 }).low], [true, true]);
+ok("no usual until 5 nights", R.usual({ "2026-10-20": { sleep: { asleep: 400 } } }, "2026-10-22").asleep === null);
+eq("nothing that morning", R.readiness(month, "2026-10-23"), null);
+ok("coach line", R.nightLine({ ...month, "2026-10-22": { sleep: { asleep: 360, deep: 50, rem: 80, awake: 25 }, rhr: 57, hrv: 46 } }, "2026-10-22")
+  === "slept 6h00 (their usual 7h30), 50 min deep, 1h20 REM, awake 25 min; resting heart rate 57 (usual 55); HRV 46 ms (usual 50). A short night for them.");
+eq("head coach lines: mornings with data only, newest first", R.recoveryLines(month, "2026-10-22", 3).map((l) => l.slice(2, 12)), ["2026-10-21", "2026-10-20"]);
+
+// The week, and lifting after short nights vs the rest.
+const wk = R.weekSleep({ ...month, "2026-10-19": { sleep: { asleep: 300 } } }, "2026-10-16", "2026-10-22");
+eq("week sleep", [wk.nights, wk.short, wk.usualAsleep != null], [6, 1, true]);
+eq("no nights, no week", R.weekSleep({}, "2026-10-16", "2026-10-22"), null);
+const ses = [], recP = {};
+for (let i = 0; i < 16; i++) {
+  const d = new Date(Date.parse("2026-09-01T12:00:00Z") + i * 2 * 86400_000).toISOString().slice(0, 10);
+  const short = i >= 4 && i % 3 === 0;
+  recP[d] = { sleep: { asleep: short ? 280 : 450 } };
+  ses.push({ id: `p${i}`, date: d, sets: { Bench: [{ w: short ? 95 : 100 + i, r: 8 }] } });
+}
+const pat = R.sleepPattern(ses, recP);
+ok("pattern: lifts lower after short nights", pat && pat.short.n >= 3 && pat.rest.n >= 3 && pat.diff > 0, JSON.stringify(pat));
+eq("pattern needs 3 of each", R.sleepPattern(ses.slice(0, 6), recP), null);
 
 if (failed) { console.error(`\n${failed} failed`); process.exit(1); }
 console.log("google health: all passed");

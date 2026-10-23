@@ -3,9 +3,9 @@ import { supabase } from "../supabase-client.js";
 import { wanting, cacheCurve, cachedCurve } from "./heart.js";
 
 /* Google Health on the phone side. The server (api/google-health.js) holds the connection, sends
-   weight and food, and reads heart rate; this asks it to. prefs.googleHealth ({ on, since, heart })
-   remembers on the account that it's connected (and whether heart rate was allowed), so every phone
-   signed in knows. */
+   weight and food, and reads heart rate, sleep and recovery; this asks it to. prefs.googleHealth
+   ({ on, since, heart, sleep }) remembers on the account that it's connected (and whether heart rate
+   and sleep were allowed), so every phone signed in knows. */
 
 const tz = () => Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
 
@@ -130,6 +130,50 @@ export function useHeartRate({ on, sessions, onReadings, onAllowed, onGone }) {
     return () => { stop = true; clearTimeout(t); clearInterval(id); document.removeEventListener("visibilitychange", onVis); };
   }, [on]);
 }
+
+/**
+ * Sleep, resting heart rate and HRV from Google Health, a summary per morning kept on the account
+ * (src/lib/recovery.js). The first time, the 30 days before connecting and since (up to 45 days);
+ * after that the last 3 days again (a night's numbers settle once the watch syncs), at most every
+ * 2 hours and when the app comes back to the front. `onNights(result, to)` gets what came back;
+ * `onAllowed(false)` runs when neither sleep nor resting heart rate is allowed.
+ */
+export function useRecovery({ on, sleep, since, recovery, onNights, onAllowed, onGone }) {
+  const latest = useRef({ since, recovery, onNights, onAllowed, onGone });
+  latest.current = { since, recovery, onNights, onAllowed, onGone };
+  const busy = useRef(false);
+  const last = useRef(0);
+  useEffect(() => {
+    if (!on) return;
+    let stop = false;
+    const run = async () => {
+      if (busy.current || stop || document.visibilityState !== "visible" || Date.now() - last.current < 2 * 3600_000) return;
+      busy.current = true;
+      try {
+        const to = localDate(new Date());
+        // Sleep allowed: pick up from the last night with sleep (resting heart rate alone doesn't count).
+        const known = Object.entries(latest.current.recovery || {}).filter(([, e]) => !sleep || e.sleep).map(([d]) => d).sort();
+        const start = latest.current.since ? addDaysIso(latest.current.since, -30) : addDaysIso(to, -30);
+        const want = known.length ? addDaysIso(known[known.length - 1], -2) : start;
+        const floor = addDaysIso(to, -44); // the server takes up to 45 days at a time
+        const from = want < floor ? floor : want > to ? to : want;
+        const r = await ask("recovery", { from, to });
+        last.current = Date.now();
+        if (!r.connected) { latest.current.onGone?.(); return; }
+        if (!r.allowed?.sleep && !r.allowed?.vitals) { latest.current.onAllowed?.(false); return; }
+        if (!stop) latest.current.onNights(r, to);
+      } catch {} finally { busy.current = false; }
+    };
+    const t = setTimeout(run, 4000);
+    const onVis = () => { if (document.visibilityState === "visible") run(); };
+    document.addEventListener("visibilitychange", onVis);
+    return () => { stop = true; clearTimeout(t); document.removeEventListener("visibilitychange", onVis); };
+  }, [on, sleep]);
+  // Sleep just allowed (connected again): ask now, not in 2 hours. The whole range, not only the last days.
+  useEffect(() => { last.current = 0; }, [sleep]);
+}
+const localDate = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+const addDaysIso = (date, n) => { const d = new Date(`${date}T12:00:00`); d.setDate(d.getDate() + n); return localDate(d); };
 
 /**
  * A workout's heart rate readings for the chart: from this phone if it has them, otherwise asked for

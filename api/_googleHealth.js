@@ -31,8 +31,9 @@ export const KINDS = {
   bw: { type: "weight", scope: `${SCOPE}health_metrics_and_measurements.writeonly`, prefix: "gbb" },
   f: { type: "nutrition-log", scope: `${SCOPE}nutrition.writeonly`, prefix: "gbf" },
 };
-export const HEART_SCOPE = `${SCOPE}health_metrics_and_measurements.readonly`;
-export const SCOPES = [...Object.values(KINDS).map((k) => k.scope), HEART_SCOPE];
+export const HEART_SCOPE = `${SCOPE}health_metrics_and_measurements.readonly`; // also resting heart rate and HRV
+export const SLEEP_SCOPE = `${SCOPE}sleep.readonly`;
+export const SCOPES = [...Object.values(KINDS).map((k) => k.scope), HEART_SCOPE, SLEEP_SCOPE];
 
 export const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
 export const SUPABASE_KEY = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
@@ -129,6 +130,8 @@ export const revoke = (token) => fetch(`https://oauth2.googleapis.com/revoke?tok
 export const grantedKinds = (scopes) => Object.entries(KINDS).filter(([, k]) => String(scopes || "").split(" ").includes(k.scope)).map(([kind]) => kind);
 /** Whether a granted scope list allows reading heart rate. */
 export const canReadHeart = (scopes) => String(scopes || "").split(" ").includes(HEART_SCOPE);
+/** Whether a granted scope list allows reading sleep. */
+export const canReadSleep = (scopes) => String(scopes || "").split(" ").includes(SLEEP_SCOPE);
 
 async function get(access, path, params) {
   const res = await fetch(`${API}/${path}?${new URLSearchParams(params)}`, { headers: { authorization: `Bearer ${access}` }, signal: AbortSignal.timeout(15_000) });
@@ -140,13 +143,13 @@ async function get(access, path, params) {
  * Whether GymBuddy can use the Google account in Google Health (Google asks for the app to be
  * opened once first). The identity call needs a read scope GymBuddy doesn't ask for, so this lists
  * one data point it's allowed to: its own weight or food (which works with write-only), or else
- * heart rate. Resolves { ok, status, message }.
+ * heart rate, or sleep. Resolves { ok, status, message }.
  */
 export async function canUse(access, scopes) {
   const kind = grantedKinds(scopes)[0];
   return kind
     ? get(access, `${KINDS[kind].type}/dataPoints`, { pageSize: "1", dataSourceFamily: "users/me/dataSourceFamilies/self-sources" })
-    : get(access, "heart-rate/dataPoints", { pageSize: "1" });
+    : get(access, canReadHeart(scopes) ? "heart-rate/dataPoints" : "sleep/dataPoints", { pageSize: "1" });
 }
 
 /**
@@ -194,6 +197,74 @@ export async function heartZones(access, date) {
   const zones = latest?.dailyHeartRateZones?.heartRateZones || [];
   const bounds = ZONE_ORDER.map((type) => Number(zones.find((z) => z.heartRateZoneType === type)?.minBeatsPerMinute));
   return bounds.every((b, i) => b > 0 && (i === 0 || b > bounds[i - 1])) ? bounds : null;
+}
+
+/* ── sleep and recovery ── */
+
+const ymd = (d) => (d?.year ? `${d.year}-${String(d.month).padStart(2, "0")}-${String(d.day).padStart(2, "0")}` : "");
+const int = (x) => (Number.isFinite(Number(x)) ? Math.round(Number(x)) : null);
+
+/**
+ * One sleep session as GymBuddy keeps it: the date it ended (the lifter's own calendar), when, and
+ * minutes asleep, in bed and awake, and in each stage when the watch tracked stages.
+ */
+export function nightOf(p) {
+  const s = p?.sleep;
+  if (!s?.interval) return null;
+  const start = Date.parse(s.interval.startTime), end = Date.parse(s.interval.endTime);
+  const date = ymd(s.interval.civilEndTime?.date);
+  if (!start || !end || end <= start || !date) return null;
+  const sum = s.summary || {};
+  const stage = (t) => int((sum.stagesSummary || []).find((x) => x.type === t)?.minutes);
+  const inBed = int(sum.minutesInSleepPeriod) ?? Math.round((end - start) / 60000);
+  const asleep = int(sum.minutesAsleep) ?? (inBed != null && int(sum.minutesAwake) != null ? inBed - int(sum.minutesAwake) : null);
+  if (!(asleep > 0)) return null;
+  const night = { date, start, end, asleep, inBed, awake: int(sum.minutesAwake) };
+  if (s.type === "STAGES") Object.assign(night, { deep: stage("DEEP"), rem: stage("REM"), light: stage("LIGHT") });
+  if (s.metadata?.nap) night.nap = true;
+  if (s.metadata?.mainSleep) night.main = true;
+  return night;
+}
+
+/**
+ * Sleep sessions that ended on dates from..to (YYYY-MM-DD, the lifter's calendar), newest first.
+ * Resolves { ok, nights } or { ok: false, status, message }.
+ */
+export async function sleepNights(access, from, to) {
+  const f = "sleep.interval.civil_end_time";
+  const params = { pageSize: "25", filter: `${f} >= "${from}" AND ${f} < "${nextDay(to)}"` };
+  const nights = [];
+  for (let page = 0; page < 4; page++) {
+    const r = await get(access, "sleep/dataPoints", params);
+    if (!r.ok) return r;
+    for (const p of r.body.dataPoints || []) { const n = nightOf(p); if (n) nights.push(n); }
+    if (!r.body.nextPageToken) break;
+    params.pageToken = r.body.nextPageToken;
+  }
+  return { ok: true, nights };
+}
+
+/**
+ * A daily value by date for from..to: resting heart rate ("daily-resting-heart-rate", bpm) or heart
+ * rate variability ("daily-heart-rate-variability", ms). Resolves { date: number } (empty when none).
+ */
+export async function dailyValues(access, type, from, to) {
+  const field = type === "daily-resting-heart-rate" ? "dailyRestingHeartRate" : "dailyHeartRateVariability";
+  const value = (p) => (field === "dailyRestingHeartRate" ? Number(p[field]?.beatsPerMinute) : Number(p[field]?.averageHeartRateVariabilityMilliseconds));
+  // The docs show the filter both ways (daily_heart_rate_zones.date, dailyHeartRateVariability.date).
+  const snake = type.replace(/-/g, "_");
+  let r;
+  for (const key of [snake, field]) {
+    r = await get(access, `${type}/dataPoints`, { pageSize: "100", filter: `${key}.date >= "${from}" AND ${key}.date < "${nextDay(to)}"` });
+    if (r.ok || r.status !== 400) break;
+  }
+  if (!r.ok) return {};
+  const out = {};
+  for (const p of r.body.dataPoints || []) {
+    const d = ymd(p[field]?.date), v = value(p);
+    if (d && v > 0) out[d] = Math.round(v * 10) / 10;
+  }
+  return out;
 }
 
 /* ── time ── */

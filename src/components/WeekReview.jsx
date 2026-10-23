@@ -9,6 +9,7 @@ import { useTheme } from "../lib/theme.js";
 import { reducedMotion } from "../lib/motion.js";
 import { cachedReview, loadReview, requestReview } from "../lib/reviews.js";
 import { rangeLabel, MAX_GENERATIONS, WEEKDAYS } from "../lib/weekReview.js";
+import { hm } from "../lib/recovery.js";
 import { num, fmtW, shortDate } from "../lib/util.js";
 
 /* The week in review, as full-screen story cards. Tap the right of the screen (or swipe left) for
@@ -190,6 +191,7 @@ function deck(review) {
     { id: "training", label: "Training", coach: s.training?.coach || h, Body: Training },
     f.nutrition && s.nutrition && { id: "nutrition", label: "Nutrition", coach: s.nutrition.coach, Body: Nutrition },
     f.body && s.body && { id: "body", label: "Bodyweight", coach: s.body.coach, Body: Body },
+    f.sleep && s.sleep && { id: "sleep", label: "Sleep", coach: s.sleep.coach, Body: Sleep },
     { id: "highlow", label: "High and low", coach: s.high?.coach || h, Body: HighLow },
     s.trends?.length > 0 && f.history >= 2 && { id: "trends", label: "Trends", coach: s.trends[0].coach, Body: Trends },
     s.insights?.length > 0 && { id: "insights", label: "Coach's notes", coach: s.insights[0].coach, Body: Insights },
@@ -374,6 +376,30 @@ function Body({ review }) {
           {b.rate4 != null ? `, moving ${signed(b.rate4, " lb")}/week` : ""}</p>
       )}
       <Says note={s.body} />
+    </div>
+  );
+}
+
+/** The week's sleep from the lifter's watch: average a night against their usual, short nights,
+    resting heart rate and HRV, and (once there's enough) how their lifts go after short nights. */
+function Sleep({ review }) {
+  const { facts: f, story: s } = review;
+  const sl = f.sleep;
+  const p = sl.pattern;
+  return (
+    <div className="rv-body">
+      <p className="rv-kicker">Sleep</p>
+      <p className="rv-big">{hm(sl.avgAsleep)}<small> a night{sl.usualAsleep ? ` · usually ${hm(sl.usualAsleep)}` : ""}</small></p>
+      <div className="rv-stats">
+        <Stat label="nights tracked" value={sl.nights} />
+        <Stat label="short nights" value={sl.short} />
+        {sl.avgRhr != null && <Stat label="resting bpm" value={sl.avgRhr} sub={sl.usualRhr ? `usually ${sl.usualRhr}` : null} />}
+        {sl.avgHrv != null && <Stat label="HRV ms" value={sl.avgHrv} sub={sl.usualHrv ? `usually ${sl.usualHrv}` : null} />}
+      </div>
+      {p && (
+        <p className="rv-phase">After short nights your lifts ran {p.short.pct >= 0 ? "+" : "−"}{num(Math.abs(p.short.pct))}% against your recent level ({p.short.n} workouts); after the rest, {p.rest.pct >= 0 ? "+" : "−"}{num(Math.abs(p.rest.pct))}% ({p.rest.n}).</p>
+      )}
+      <Says note={s.sleep} />
     </div>
   );
 }

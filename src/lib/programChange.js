@@ -1,7 +1,8 @@
 import { LIBRARY, isCardio, allDays, activeDays } from "../data/program.js";
 import { CUES } from "../data/cues.js";
 
-/* Program changes a coach proposes in chat (lifts, sets/reps/rest, and workout names). Nothing here touches saved data: applyChanges returns
+/* Program changes a coach proposes in chat or a workout walkthrough (lifts, sets/reps/rest, the weight
+   to start a lift at next time, and workout names). Nothing here touches saved data: applyChanges returns
    the would-be program plus plain-English lines for the confirm card, and errors for anything that
    doesn't match the lifter's actual program (so a confused model can't make a silent edit). */
 
@@ -84,6 +85,15 @@ export function applyChanges(program, changes) {
       if (xs.some((e, j) => j !== i && same(e.n, ex.n))) { errors.push(`${ex.n} is already on ${day.name}.`); continue; }
       put(xs.map((e, j) => (j === i ? ex : e)));
       lines.push(`Swap ${old.n} for ${ex.n} on ${day.name}: ${spec(ex)}`);
+    } else if (c.action === "weight") {
+      // The weight to start a lift at next time (from a coach's walkthrough). Kept on the lift as `next`
+      // until a workout logs it; the session fills every set with it.
+      const old = xs[i];
+      const w = Number.isFinite(+c.weight) && +c.weight > 0 && +c.weight <= 2000 ? Math.round(+c.weight * 2) / 2 : null;
+      if (isCardio(old.n) || w == null) { errors.push(`What weight for ${old.n}?`); continue; }
+      if (old.next?.w === w) { errors.push(`${old.n} already starts at ${w} lb next time.`); continue; }
+      put(xs.map((e, j) => (j === i ? { ...e, next: { w } } : e)));
+      lines.push(`${old.n} on ${day.name}: start at ${w} lb next time`);
     } else if (c.action === "update") {
       const old = xs[i];
       const ex = withSpec(old, c);
@@ -100,6 +110,6 @@ export function applyChanges(program, changes) {
 /** One line per day, for the coach's context: day key, name, and each lift's plan. */
 export function describeProgram(program) {
   return activeDays(program).map((k) => [k, program[k]]).map(([k, d]) =>
-    `${k} (${d.name}): ${d.exercises.map((e) => `${e.n} ${e.sets}x${e.reps[0]}-${e.reps[1]}${isCardio(e.n) ? "min" : ""} ${e.rest}s`).join("; ")}`,
+    `${k} (${d.name}): ${d.exercises.map((e) => `${e.n} ${e.sets}x${e.reps[0]}-${e.reps[1]}${isCardio(e.n) ? "min" : ""} ${e.rest}s${e.next ? ` (start at ${e.next.w} lb next time)` : ""}`).join("; ")}`,
   ).join("\n");
 }

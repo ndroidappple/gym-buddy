@@ -1,7 +1,8 @@
 /* Checks the coach's walkthrough of a workout (src/lib/walkthrough.js, the walk mode in api/coach.js):
    the places a step can point at, what's kept of the coach's steps (unknown places, chart moments for
    sets with no time, too many steps), when a kept walkthrough goes stale, what the coach reads, the
-   reply stream carrying the steps, and disconnecting Google Health taking a heart rate walkthrough too.
+   reply stream carrying the steps, disconnecting Google Health taking a heart rate walkthrough too, and
+   the changes a step can offer (checked against the plan, labelled, applied and undone one by one).
    Run: npm run test:coach   (exits 1 on any failure) */
 import { createServer } from "vite";
 
@@ -15,6 +16,7 @@ const vite = await createServer({ server: { middlewareMode: true }, appType: "cu
 const W = await vite.ssrLoadModule("/src/lib/walkthrough.js");
 const H = await vite.ssrLoadModule("/src/lib/heart.js");
 const { PROGRAM } = await vite.ssrLoadModule("/src/data/program.js");
+const { applyChanges, describeProgram } = await vite.ssrLoadModule("/src/lib/programChange.js");
 await vite.close();
 const api = await import("../api/coach.js");
 
@@ -102,6 +104,59 @@ ok("disconnect drops a heart rate walkthrough", !gone.walk && !gone.hr);
 const plain = { ...workout, hr: undefined, sets: { "Machine Pec Dec": [{ w: 120, r: 12 }] }, walk: { ...walk, heart: false } };
 ok("a walkthrough without heart rate isn't heart data", !H.hasHeart(plain) && H.withoutHeart(plain) === plain);
 ok("a heart walkthrough alone counts as heart data", H.hasHeart({ id: "x", sets: {}, walk }));
+
+// Changes a step can offer.
+const P = PROGRAM;
+const cc = (change) => W.cleanChange(change, P, workout);
+eq("rest change kept, on this workout's day, with the plan's lift name", cc({ action: "update", day: "legs", exercise: "flat db press", rest_seconds: 120, junk: 1 }),
+  { action: "update", day: "push", exercise: "Flat DB Press", rest_seconds: 120 });
+eq("weight for next time kept", cc({ action: "weight", day: "push", exercise: "Flat DB Press", weight: 75 }), { action: "weight", day: "push", exercise: "Flat DB Press", weight: 75 });
+eq("a change that changes nothing is dropped", cc({ action: "update", day: "push", exercise: "Flat DB Press", rest_seconds: 90 }), null);
+eq("a lift not on the day is dropped", cc({ action: "update", day: "push", exercise: "Back Squat", rest_seconds: 120 }), null);
+eq("rename isn't offered", cc({ action: "rename", day: "push", new_name: "Chest" }), null);
+eq("no weight for cardio or nonsense", [cc({ action: "weight", exercise: "Flat DB Press", weight: -5 }), cc({ action: "weight", exercise: "Flat DB Press" })], [null, null]);
+eq("custom workouts have no plan to change", W.cleanChange({ action: "update", exercise: "Flat DB Press", rest_seconds: 120 }, P, { ...workout, day: "custom" }), null);
+const withChanges = W.cleanWalk({ steps: [
+  { kind: "overall", target: "overview", title: "a", text: "a" },
+  { kind: "improve", target: "lift:Flat DB Press", title: "b", text: "b", change: { action: "update", exercise: "Flat DB Press", rest_seconds: 120 } },
+  { kind: "improve", target: "overview", title: "c", text: "c", change: { action: "update", exercise: "Machine Pec Dec", sets: 4 } },
+  { kind: "next", target: "overview", title: "d", text: "d", change: { action: "weight", exercise: "Flat DB Press", weight: 75 } },
+  { kind: "next", target: "overview", title: "e", text: "e", change: { action: "update", exercise: "Machine Pec Dec", rest_seconds: 60 } },
+  { kind: "next", target: "overview", title: "f", text: "f", change: { action: "update", exercise: "Nope", rest_seconds: 60 } },
+] }, places, workout, P);
+eq("at most three changes, bad ones dropped", withChanges.map((x) => x.change?.action || null), [null, "update", "update", "weight", null, null]);
+ok("cleanWalk without a program offers no changes", W.cleanWalk({ steps: [{ kind: "next", target: "overview", title: "x", text: "x", change: { action: "weight", exercise: "Flat DB Press", weight: 75 } }] }, places, workout).every((x) => !x.change));
+
+eq("labels", [
+  W.changeLabel(P, { action: "update", day: "push", exercise: "Flat DB Press", rest_seconds: 120 }),
+  W.changeLabel(P, { action: "update", day: "push", exercise: "Flat DB Press", sets: 4, rep_min: 6, rep_max: 10 }),
+  W.changeLabel(P, { action: "weight", day: "push", exercise: "Flat DB Press", weight: 72.5 }),
+  W.changeLabel(P, { action: "replace", day: "push", exercise: "Flat DB Press", new_exercise: "Incline DB Press" }),
+], ["Rest 90s → 2 min", "3 → 4 sets, Reps 8–12 → 6–10", "Start at 72.5 lb next time", "Swap for Incline DB Press"]);
+
+// The weight for next time lives on the lift until a workout logs it, and the coaches see it.
+const weighted = applyChanges(P, [{ action: "weight", day: "push", exercise: "Flat DB Press", weight: 75 }]);
+eq("weight change sets next", weighted.program.push.exercises.find((e) => e.n === "Flat DB Press").next, { w: 75 });
+ok("the same weight again is already done", applyChanges(weighted.program, [{ action: "weight", day: "push", exercise: "Flat DB Press", weight: 75 }]).errors.length === 1);
+ok("coaches read the next-time weight", describeProgram(weighted.program).includes("Flat DB Press 3x8-12 90s (start at 75 lb next time)"));
+
+// Undo takes back one change, even after another.
+const a = applyChanges(P, [{ action: "update", day: "push", exercise: "Flat DB Press", rest_seconds: 120 }]).program;
+const dA = W.changeDiff(P.push, a.push);
+const b = applyChanges(a, [{ action: "replace", day: "push", exercise: "Machine Pec Dec", new_exercise: "Cable Fly (Low to High)" }]);
+const ab = b.program;
+const dB = W.changeDiff(a.push, ab.push);
+const undoneA = W.undoDiff(ab, "push", dA);
+eq("undo the first: its rest goes back", undoneA.push.exercises.find((e) => e.n === "Flat DB Press").rest, 90);
+ok("undo the first: the later swap stays", !undoneA.push.exercises.some((e) => e.n === "Machine Pec Dec"), JSON.stringify(undoneA.push.exercises.map((e) => e.n)));
+const undoneB = W.undoDiff(undoneA, "push", dB);
+eq("undo both: back to the plan", JSON.stringify(undoneB.push), JSON.stringify(P.push));
+
+// The tool schema carries the change.
+const stepSchema = api.WALK_TOOL.walk_through.inputSchema.jsonSchema.properties.steps.items;
+eq("tool: a step's change", stepSchema.properties.change.properties.action.enum, ["update", "weight", "replace", "add", "remove"]);
+ok("prompt: changes are the lifter's call", api.walkInstructions("tank", "").includes("the lifter decides"));
+ok("context: the day key for changes", ctx.includes("(day key push;"));
 
 if (failed) { console.error(`\n${failed} walkthrough check(s) failed`); process.exit(1); }
 console.log("walkthrough: all checks passed");

@@ -30,7 +30,8 @@ const SPRINGS = {
   enter: { f: 3.6, z: 1, fallback: "cubic-bezier(.16, 1, .3, 1)" },       // content arriving
   pop: { f: 3, z: 0.7, fallback: "cubic-bezier(.2, 1.5, .4, 1)" },        // small things landing: checks, chips, bubbles
   slide: { f: 3.4, z: 0.78, fallback: "cubic-bezier(.3, 1.3, .5, 1)" },   // controls moving across: the tab pill, switches, swiped rows
-  surface: { f: 1.9, z: 0.9, fallback: "cubic-bezier(.2, 1, .3, 1)" },    // whole surfaces: screens, sheets, docks
+  // Not "surface": --surface is the card color in styles.css, and these go on :root as --<name>.
+  glide: { f: 1.9, z: 0.9, fallback: "cubic-bezier(.2, 1, .3, 1)" },      // whole surfaces: screens, sheets, docks
 };
 
 /** Closed-form step response of a damped spring released at 0 and settling on 1, t in seconds. */
