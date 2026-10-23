@@ -6,7 +6,7 @@ import { Sheet } from "./ui.jsx";
 import Coach from "./Coach.jsx";
 import { COACHES, coachFor } from "../data/coaches.js";
 import { activeDays } from "../data/program.js";
-import { askCoach, buildContext } from "../lib/coachChat.js";
+import { askCoach, buildContext, workoutFocus } from "../lib/coachChat.js";
 import { applyChanges } from "../lib/programChange.js";
 import { previewFoodEdits, applyFoodEdits } from "../lib/foodEdit.js";
 import { useReducedMotion } from "../lib/motion.js";
@@ -59,11 +59,14 @@ function dayLabel(at) {
  *   program changes and, with `foodLog` (useFood()), edits to the food log, applied only from the card.
  *   `topic="nutrition"` (from the Nutrition tab) changes the starters, and `day` is the date open there:
  *   the coach reads that day's log and edits go to it.
+ *   `workout` (a session, from its recap) puts that workout in full at the top of what the coach reads
+ *   (every set, rest and heart rate: workoutFocus), and the starters ask about it.
  * - A crew coach mid-workout: `exercise` is the lift the chat was opened from; the chat isn't kept.
  *   `notes` (the head coach's memory) and `head` go along so the crew knows what the head coach knows.
  */
-export default function CoachChat({ coach, name, exercise, starter, sessions, program, weighins, profile, phase, nutrition, notes, head, live, topic, foodLog, thread, buildHead, day, onProgramChange, onClose }) {
+export default function CoachChat({ coach, name, exercise, starter, sessions, program, weighins, profile, phase, nutrition, notes, head, live, topic, foodLog, thread, buildHead, day, workout, onProgramChange, onClose }) {
   const food = topic === "nutrition";
+  const hi = () => hello(name, food ? "food" : workout ? "workout" : null);
   const headChat = !!thread;
   const c = COACHES[coach];
   // {id?, role, content, coach?, at?, trouble?, replies?, changes?, ops? (food log edits), what?, preview?: {lines, errors},
@@ -146,6 +149,16 @@ export default function CoachChat({ coach, name, exercise, starter, sessions, pr
 
   const suggestions = useMemo(() => {
     if (food) return FOOD_STARTERS;
+    if (workout) {
+      const timed = Object.values(workout.sets).some((v) => v.some((x) => x.t));
+      const hr = workout.hr && !workout.hr.none;
+      return [
+        "How did this workout go?",
+        hr ? "Which lift pushed me hardest?" : "Where did I improve on last time?",
+        timed ? "Were my rests long enough?" : "Where can I add weight next time?",
+        "What should I change next time?",
+      ];
+    }
     if (headChat) return [
       "How's my training going?",
       nutrition ? "Am I eating enough for my goal?" : "What should I eat around workouts?",
@@ -160,10 +173,10 @@ export default function CoachChat({ coach, name, exercise, starter, sessions, pr
       // Opened mid-workout (from a lift) the day's focus matters; otherwise, the program does.
       exercise || !onProgramChange ? "What should I focus on today?" : `Adjust my program's ${c.group.toLowerCase()} work`,
     ];
-  }, [program, coach, c.group, exercise, onProgramChange, food, headChat, nutrition]);
+  }, [program, coach, c.group, exercise, onProgramChange, food, headChat, nutrition, workout]);
 
   // The coach says hi to start a chat (not a crew chat opened from a lift).
-  const [greeting, setGreeting] = useState(() => (exercise ? null : hello(name, food)));
+  const [greeting, setGreeting] = useState(() => (exercise ? null : hi()));
   const greetingShown = !!greeting && messages.length === 0;
 
   /* A fresh chat, or one from the past list (sending in it carries it on). */
@@ -171,7 +184,7 @@ export default function CoachChat({ coach, name, exercise, starter, sessions, pr
     if (busy) return;
     setChatId(thread.newChat());
     setMessages([]);
-    setGreeting(hello(name, food));
+    setGreeting(hi());
     setPast(false);
     setDraft("");
   };
@@ -217,7 +230,8 @@ export default function CoachChat({ coach, name, exercise, starter, sessions, pr
     const put = (patch) => setMessages((ms) => { const c2 = [...ms]; c2[c2.length - 1] = { ...c2[c2.length - 1], ...patch }; return c2; });
     const ask = () => askCoach({
       coach, head, messages: history, signal: abort.current.signal, mode: headChat ? "head" : undefined,
-      context: headChat ? buildHead(day) : [live, buildContext({ coach, sessions, program, weighins, profile, phase, nutrition, notes })].filter(Boolean).join("\n"),
+      context: headChat ? [workout && workoutFocus(workout, sessions, program), buildHead(day)].filter(Boolean).join("\n\n")
+        : [live, buildContext({ coach, sessions, program, weighins, profile, phase, nutrition, notes })].filter(Boolean).join("\n"),
       onText: (t) => { setStatus("streaming"); put({ content: t }); },
     });
     try {
@@ -409,14 +423,20 @@ const FOOD_HELLOS = [
   (n) => `Hungry${n}? Ask me anything about food.`,
   (n) => `What are we eating${n}?`,
 ];
+const WORKOUT_HELLOS = [
+  (n) => `Ask me anything about this workout${n}.`,
+  (n) => `Good work${n}. What do you want to know about this one?`,
+  (n) => `Let's look at this workout${n}. What's on your mind?`,
+];
 const PART_OF_DAY = (h) => (h < 5 ? null : h < 12 ? "Morning" : h < 17 ? null : "Evening");
-function hello(name, food = false) {
+/** The coach's hello: `kind` "food" (Nutrition), "workout" (a recap) or none. */
+function hello(name, kind = null) {
   const n = name ? `, ${name}` : "";
-  const pool = food ? FOOD_HELLOS : HELLOS;
+  const pool = kind === "food" ? FOOD_HELLOS : kind === "workout" ? WORKOUT_HELLOS : HELLOS;
   const line = pool[Math.floor(Math.random() * pool.length)](n);
   // Now and then, the time of day leads instead: "Morning, Nick. How can I help?"
   const part = PART_OF_DAY(new Date().getHours());
-  return !food && part && Math.random() < 0.3 ? `${part}${n}. How can I help?` : line;
+  return !kind && part && Math.random() < 0.3 ? `${part}${n}. How can I help?` : line;
 }
 
 const PROPOSAL = {

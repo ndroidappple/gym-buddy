@@ -128,6 +128,13 @@ phone-first outbox (`src/lib/coachThread.js`):
   them before every answer. The crew sees them too. **Settings → What … remembers** lists them, deletes
   any, and clears the chat history.
 
+**Ask about a workout:** a workout's recap (the Summary, straight after finishing or opened from
+Progress → Workouts) has an Ask button that opens the same head coach conversation with `workout` set.
+`workoutFocus()` in `src/lib/coachChat.js` puts that workout in full ahead of the usual context: every
+set in order with when it was done, the rest before it and its heart rate (peak, and what it came down
+to), each lift against last time and its best, and the workout's heart rate. The starters ask about it
+("How did this workout go?", "Which lift pushed me hardest?", "Were my rests long enough?").
+
 ### Rest alerts (optional)
 
 A push notification when a rest timer ends, so it arrives with the phone locked (**Settings →

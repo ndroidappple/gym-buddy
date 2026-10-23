@@ -1,11 +1,12 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, MessageCircle } from "lucide-react";
 import { isCardio } from "../data/program.js";
 import { href } from "../lib/router.js";
 import Coach from "../components/Coach.jsx";
 import { InfoButton } from "../components/ui.jsx";
 import SetupCard from "../components/SetupCard.jsx";
-import { coachFor } from "../data/coaches.js";
+import { coachFor, COACHES } from "../data/coaches.js";
+import CoachChat from "../components/CoachChat.jsx";
 import { ZONES, zoneOf, hardestLift, cachedCurve, timedSets } from "../lib/heart.js";
 import { heartCurve } from "../lib/googleHealth.js";
 import HeartChart, { zoneRange } from "../components/HeartChart.jsx";
@@ -17,8 +18,9 @@ import { fmtSet, cardioTotals, priorSessions, allTimeBest, bestSet, bestE1rm, e1
  * A workout's summary. Straight after finishing it ("Session logged", Done goes on to Today), or, with
  * `past`, opened from Progress → Workouts: a back button, the date as the title, and back to the list.
  */
-export default function Summary({ session, sessions, program, prefs, go, back, onUpdate, past = false }) {
+export default function Summary({ session, sessions, program, prefs, go, back, onUpdate, past = false, coachChat, head = "tank", name, weighins, nutrition, onProgramChange }) {
   const [note, setNote] = useState(session.note || "");
+  const [asking, setAsking] = useState(false);
   const p = program[session.day];
 
   const r = useMemo(() => {
@@ -84,6 +86,18 @@ export default function Summary({ session, sessions, program, prefs, go, back, o
           <div className="stat"><b>{r.records.length}</b><span>PRs</span>{r.prevRecords != null && <span className="trend flat">{r.prevRecords} last time</span>}</div>
         </div>
 
+        {/* Questions about this workout go to the head coach, in the same conversation as everywhere else,
+            with this workout in full on top of what they read. */}
+        {coachChat?.thread && (
+          <div className="ex-coach nut-ask summary-ask" style={{ "--c": COACHES[head].color }}>
+            <Coach id={head} size={48} mood="idle" />
+            <button type="button" className="coach-bubble bubble-btn" onClick={() => setAsking(true)}>
+              {session.hr && !session.hr.none ? "Questions about this workout or your heart rate? Ask me." : "Questions about this workout? Ask me."}
+            </button>
+            <button className="ask-btn compact" onClick={() => setAsking(true)} aria-label={`Ask ${COACHES[head].name}, your head coach, about this workout`}><MessageCircle size={18} strokeWidth={2.6} aria-hidden="true" /><span>Ask</span></button>
+          </div>
+        )}
+
         {/* Only while Google Health is connected: a workout keeps its numbers after a disconnect (they
             come back on reconnecting), but the chart's readings can't be fetched then. */}
         {!prefs.googleHealth?.on ? null : session.hr && !session.hr.none
@@ -132,6 +146,11 @@ export default function Summary({ session, sessions, program, prefs, go, back, o
             </button>
           )}
       </div>
+      {asking && (
+        <CoachChat coach={head} head={head} name={name} topic="workout" workout={session} day={session.date} {...coachChat}
+          sessions={sessions} program={program} weighins={weighins} profile={prefs.profile} phase={prefs.phase}
+          nutrition={nutrition} onProgramChange={onProgramChange} onClose={() => setAsking(false)} />
+      )}
     </main>
   );
 }

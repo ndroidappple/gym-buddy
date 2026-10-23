@@ -1169,6 +1169,7 @@ button.coach-card:active { transform: translateY(3px); box-shadow: 0 2px 0 var(-
 .ex-tag.later { background: color-mix(in srgb, var(--day) 18%, var(--surface-2)); color: var(--day-ink); }
 .late-note { display: block; font-size: 12px; font-weight: 600; color: var(--mute); margin-left: 18px; }
 .nut-ask { margin-top: 2px; }
+.summary-ask { margin-top: 18px; }
 
 /* Rest alerts: the bell in the rest dock (set / couldn't be set), and the one-time "turn on?" card above it. */
 .rest-bell { display: inline-block; vertical-align: -1px; margin-right: 5px; }
