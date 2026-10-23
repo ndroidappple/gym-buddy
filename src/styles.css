@@ -513,29 +513,48 @@ html[data-typing] :is(.dock, .alert-ask) { opacity: 0; visibility: hidden; trans
 :root[data-theme="dark"] [data-day="day5"] { --hr-z1: #9b4801; --hr-z2: #d46502; --hr-z3: #fe904b; --hr-z4: #ffcfb5; }
 :root[data-theme="dark"] [data-day="day6"] { --hr-z1: #06707d; --hr-z2: #0c9aab; --hr-z3: #2cc6da; --hr-z4: #81eeff; }
 :root[data-theme="dark"] [data-day="day7"] { --hr-z1: #ae1270; --hr-z2: #dc4896; --hr-z3: #ff80bd; --hr-z4: #fecae0; }
-.hr-chart { position: relative; margin: 12px 0 4px; user-select: none; -webkit-user-select: none; }
-.hr-chart svg { display: block; touch-action: pan-y; outline: none; overflow: visible; }
-.hr-chart svg:focus-visible { outline: 2px solid var(--ink); outline-offset: 4px; border-radius: 8px; }
-.hr-band { fill: var(--surface-2); }
-.hr-band-label { font-size: 11px; font-weight: 700; fill: var(--mute); font-variant-numeric: tabular-nums; }
+.hr-chart { margin: 12px 0 4px; user-select: none; -webkit-user-select: none; }
+.hr-chart-title { margin: 0 0 6px; font-size: 12.5px; font-weight: 600; color: var(--mute); }
+/* The readout row: always the same height, above the plot, so reading a moment never moves or covers anything. */
+.hr-readout { display: flex; flex-direction: column; justify-content: center; gap: 2px; min-height: 52px; padding: 8px 12px; margin-bottom: 8px;
+  border-radius: 14px; background: var(--surface); border: 1px solid var(--rule); }
+.hr-readout-main { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 14px; color: var(--mute); font-weight: 600; }
+.hr-readout-main b { font-size: 20px; color: var(--ink); font-weight: 800; font-variant-numeric: tabular-nums; }
+.hr-readout-sub { font-size: 12.5px; color: var(--mute); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hr-zone-chip { display: inline-flex; align-items: center; gap: 6px; padding: 2px 8px; border-radius: 999px; background: var(--surface-2); color: var(--ink); font-size: 12px; font-weight: 700; }
+.hr-zone-chip i { width: 8px; height: 8px; border-radius: 50%; }
+.hr-zone-chip .z1 { background: var(--hr-z1); } .hr-zone-chip .z2 { background: var(--hr-z2); } .hr-zone-chip .z3 { background: var(--hr-z3); } .hr-zone-chip .z4 { background: var(--hr-z4); }
+.hr-plot { position: relative; }
+.hr-plot svg { display: block; touch-action: pan-y; outline: none; overflow: visible; }
+.hr-plot svg:focus-visible { outline: 2px solid var(--ink); outline-offset: 4px; border-radius: 8px; }
+/* Zones in the plot: a faint wash above each threshold (they stack, so harder reads a touch stronger). */
+.hr-zone-tint { fill: var(--hr-z2); opacity: 0.045; }
+.hr-zone-tint.z3 { fill: var(--hr-z3); } .hr-zone-tint.z4 { fill: var(--hr-z4); }
 .hr-threshold { stroke: var(--rule-2); stroke-width: 1; }
+.hr-baseline { stroke: var(--rule); stroke-width: 1; }
+.hr-zone-name { font-size: 10.5px; font-weight: 700; fill: var(--mute); paint-order: stroke; stroke: var(--bg); stroke-width: 4px; stroke-linejoin: round; letter-spacing: 0.02em; }
 .hr-axis { font-size: 11px; fill: var(--mute); font-variant-numeric: tabular-nums; }
 .hr-line { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
 .hr-line.z1 { stroke-width: 1.5px; } .hr-line.z3 { stroke-width: 2.5px; } .hr-line.z4 { stroke-width: 3px; }
 .hr-line.z1, .hr-dot.z1 { stroke: var(--hr-z1); } .hr-line.z2, .hr-dot.z2 { stroke: var(--hr-z2); }
 .hr-line.z3, .hr-dot.z3 { stroke: var(--hr-z3); } .hr-line.z4, .hr-dot.z4 { stroke: var(--hr-z4); }
-.hr-dot { fill: var(--surface); stroke-width: 3; }
-.hr-set { fill: var(--ink); stroke: var(--bg); stroke-width: 2; }
+.hr-dot { fill: var(--bg); stroke-width: 3; }
+.hr-set { fill: var(--ink); stroke: var(--bg); stroke-width: 1.5; }
 .hr-cross { stroke: var(--mute); stroke-width: 1; }
-.hr-tip { position: absolute; top: -8px; transform: translateY(-100%); display: flex; flex-direction: column; gap: 1px; padding: 8px 10px;
-  background: var(--surface); border: 1px solid var(--rule); border-radius: 12px; box-shadow: 0 6px 20px rgba(0,0,0,.12); font-size: 12px; color: var(--mute);
-  white-space: nowrap; pointer-events: none; z-index: 2; }
-.hr-tip b { font-size: 16px; color: var(--ink); }
-.hr-legend { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 6px; font-size: 12px; color: var(--mute); }
+/* The lift strip under the plot, and its key. */
+.hr-lift rect { fill: var(--surface-2); }
+.hr-lift text { font-size: 11px; font-weight: 800; fill: var(--mute); font-variant-numeric: tabular-nums; }
+.hr-lift-tick { stroke: var(--faint); stroke-width: 1.5; stroke-linecap: round; }
+.hr-lift.on rect { fill: var(--hr-z2); opacity: 0.35; }
+.hr-lift.on text { fill: var(--ink); }
+.hr-lift-key { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12.5px; color: var(--mute); }
+.hr-lift-key li { display: inline-flex; align-items: center; }
+.hr-lift-key li.on { color: var(--ink); font-weight: 600; }
+.hr-lift-key .hr-lift-n { margin-right: 6px; }
+.hr-legend { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--rule); font-size: 12px; color: var(--mute); }
 .hr-legend i { display: inline-block; width: 14px; height: 2px; border-radius: 2px; margin-right: 6px; vertical-align: middle; }
 .hr-legend i.z1 { height: 1.5px; } .hr-legend i.z3 { height: 2.5px; } .hr-legend i.z4 { height: 3px; }
 .hr-legend i.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ink); }
-.hr-legend i.band { width: 10px; height: 10px; border-radius: 3px; background: var(--surface-2); border: 1px solid var(--rule-2); }
 .hr-lift-n { display: inline-grid; place-items: center; min-width: 18px; height: 18px; margin-right: 8px; border-radius: 6px; background: var(--surface-2);
   font-size: 11px; font-weight: 700; color: var(--mute); font-variant-numeric: tabular-nums; vertical-align: 2px; }
 .hr-legend .z1, .hr-time .z1 { background: var(--hr-z1); } .hr-legend .z2, .hr-time .z2 { background: var(--hr-z2); }
