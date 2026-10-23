@@ -1,14 +1,16 @@
 import { isCardio } from "../data/program.js";
 import { askCoach, workoutFocus, goalsLine } from "./coachChat.js";
 import { heartLine } from "./heart.js";
-import { priorSessions, byDateDesc } from "./util.js";
+import { priorSessions, byDateDesc, fmtW } from "./util.js";
+import { applyChanges } from "./programChange.js";
 
 /* The coach's walkthrough of one workout, on its recap: a few steps (overall, done well, improve,
    next time), each pointing at a part of the recap the app scrolls to and outlines. The coach picks
    from the places this workout's recap actually shows (walkPlaces), and anything else is dropped,
-   so a step never points at something that isn't there. The result is kept on the workout
-   (session.walk) so replaying it is instant and free; it's stale once the workout's sets or heart
-   rate change. */
+   so a step never points at something that isn't there. A step that recommends a change to the plan
+   (rest, sets, reps, a lift's weight for next time, a swap) carries it, checked against the program,
+   and the card offers it as a quiet Apply. The result is kept on the workout (session.walk) so
+   replaying it is instant and free; it's stale once the workout's sets or heart rate change. */
 
 export const WALK_VERSION = 1;
 export const KINDS = {
@@ -42,11 +44,69 @@ export function walkPlaces(session, { heart = false } = {}) {
 
 const str = (x, max) => (typeof x === "string" ? x.replace(/\s+/g, " ").trim().slice(0, max) : "");
 
+const CHANGE_KEYS = ["action", "day", "exercise", "weight", "new_exercise", "sets", "rep_min", "rep_max", "rest_seconds"];
+/** A step's change, if it's one the app can make to this workout's day of `program`; else null. */
+export function cleanChange(change, program, session) {
+  if (!change || typeof change !== "object" || !["update", "weight", "replace", "add", "remove"].includes(change.action)) return null;
+  const c = Object.fromEntries(CHANGE_KEYS.filter((k) => change[k] != null && change[k] !== "").map((k) => [k, change[k]]));
+  c.day = session.day; // only ever this workout's day
+  const r = program?.[session.day] && applyChanges(program, [c]);
+  if (!r?.lines.length) return null;
+  // The lift's name exactly as in the plan ("shoulder press" → "Seated DB Shoulder Press").
+  if (c.action !== "add") {
+    const d = changeDiff(program[c.day], r.program[c.day]);
+    const n = d.changed[0]?.n || d.removed[0]?.e.n;
+    if (n) c.exercise = n;
+  }
+  return c;
+}
+
+const rest = (sec) => (sec % 60 ? `${sec}s` : `${sec / 60} min`);
+/** A change in a few words for the Apply row: "Rest 90s → 2 min", "Start at 35 lb next time". */
+export function changeLabel(program, c) {
+  const ex = program?.[c.day]?.exercises?.find((e) => e.n.toLowerCase() === String(c.exercise || "").toLowerCase());
+  if (c.action === "weight") return `Start at ${fmtW(c.weight)} lb next time`;
+  if (c.action === "replace") return `Swap for ${c.new_exercise}`;
+  if (c.action === "add") return `Add ${c.exercise} to ${program[c.day].name}`;
+  if (c.action === "remove") return `Take off ${program[c.day].name}`;
+  if (!ex) return applyChanges(program, [c]).lines[0] || "";
+  const bits = [];
+  if (c.rest_seconds != null && c.rest_seconds !== ex.rest) bits.push(`Rest ${rest(ex.rest)} → ${rest(c.rest_seconds)}`);
+  if (c.sets != null && c.sets !== ex.sets) bits.push(`${ex.sets} → ${c.sets} sets`);
+  const lo = c.rep_min ?? ex.reps[0], hi = c.rep_max ?? ex.reps[1];
+  if (lo !== ex.reps[0] || hi !== ex.reps[1]) bits.push(`Reps ${ex.reps[0]}–${ex.reps[1]} → ${Math.min(lo, hi)}–${Math.max(lo, hi)}`);
+  return bits.join(", ") || applyChanges(program, [c]).lines[0] || "";
+}
+/**
+ * What applying a change did to one day's lifts, enough to take just that back later even after
+ * other changes: lifts it added, lifts it took off (and where), and lifts as they were before.
+ */
+export function changeDiff(before, after) {
+  const b = new Set(before.exercises.map((e) => e.n)), a = new Set(after.exercises.map((e) => e.n));
+  return {
+    added: after.exercises.filter((e) => !b.has(e.n)).map((e) => e.n),
+    removed: before.exercises.map((e, i) => ({ e, i })).filter(({ e }) => !a.has(e.n)),
+    changed: before.exercises.filter((e) => a.has(e.n) && JSON.stringify(e) !== JSON.stringify(after.exercises.find((x) => x.n === e.n))),
+  };
+}
+/** `program` with one change (its changeDiff) taken back on `day`, leaving everything else as it is now. */
+export function undoDiff(program, day, d) {
+  const cur = program[day];
+  if (!cur) return program;
+  let xs = cur.exercises.filter((e) => !d.added.includes(e.n)).map((e) => d.changed.find((x) => x.n === e.n) || e);
+  for (const { e, i } of d.removed) if (!xs.some((x) => x.n === e.n)) xs = [...xs.slice(0, i), e, ...xs.slice(i)];
+  return { ...program, [day]: { ...cur, exercises: xs } };
+}
+
+/** The lift a change is about, for the Apply row's first words. */
+export const changeLift = (c) => (c.action === "add" ? null : String(c.exercise || ""));
+
 /**
  * What the coach sent, made safe to show: known kinds, targets from `places` (else the overview), a
- * chart moment only for a set that knows when it was done, at most 6 steps. Null when nothing's left.
+ * chart moment only for a set that knows when it was done, a change only if it applies to this day's
+ * plan (at most 3), at most 6 steps. Null when nothing's left.
  */
-export function cleanWalk(input, places, session) {
+export function cleanWalk(input, places, session, program = null) {
   const ids = new Set(places.map((p) => p.id));
   const raw = Array.isArray(input?.steps) ? input.steps : [];
   const steps = raw.flatMap((s) => {
@@ -63,8 +123,12 @@ export function cleanWalk(input, places, session) {
       const n = Number(s.set);
       if (session.sets?.[lift]?.[n - 1]?.t) Object.assign(step, { lift, set: n });
     }
+    const change = cleanChange(s.change, program, session);
+    if (change) step.change = change;
     return [step];
   }).slice(0, 6);
+  let changes = 0;
+  for (const st of steps) if (st.change && ++changes > 3) delete st.change;
   return steps.length ? steps : null;
 }
 
@@ -89,7 +153,7 @@ export function walkContext({ session, sessions, program, profile, notes, places
   const lines = workoutFocus(s, sessions, program).split("\n").slice(1); // not the chat's opening line
   const plan = program[s.day];
   if (plan?.exercises?.length) {
-    lines.push(`Plan for ${plan.name} (sets x rep range, rest between sets): ${plan.exercises.map((e) => `${e.n} ${e.sets}x${e.reps[0]}-${e.reps[1]}${isCardio(e.n) ? " min" : ""}, ${e.rest}s`).join("; ")}.`);
+    lines.push(`Plan for ${plan.name} (day key ${s.day}; sets x rep range, rest between sets): ${plan.exercises.map((e) => `${e.n} ${e.sets}x${e.reps[0]}-${e.reps[1]}${isCardio(e.n) ? " min" : ""}, ${e.rest}s${e.next ? `, already set to start at ${e.next.w} lb next time` : ""}`).join("; ")}.`);
   }
   if (profile?.doneAt) lines.push(goalsLine(profile));
   if (notes?.length) lines.push("Your notes on the lifter:", ...notes.map((n) => `- ${n}`));
@@ -114,8 +178,8 @@ export async function requestWalk({ coach = "tank", session, sessions, program, 
     context,
   });
   let r = await ask().catch((e) => (e.kind === "empty" && !e.capped ? ask() : Promise.reject(e)));
-  let steps = cleanWalk(r.walk, places, session);
-  if (!steps) { r = await ask(); steps = cleanWalk(r.walk, places, session); }
+  let steps = cleanWalk(r.walk, places, session, program);
+  if (!steps) { r = await ask(); steps = cleanWalk(r.walk, places, session, program); }
   if (!steps) throw Object.assign(new Error("empty"), { kind: "empty" });
   return { v: WALK_VERSION, basis: walkBasis(session), coach, at: Date.now(), heart: !!heart, steps };
 }

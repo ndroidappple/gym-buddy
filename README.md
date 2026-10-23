@@ -148,6 +148,14 @@ the sets or heart rate change (`walkBasis`); its points stay under each part of 
 Google Health deletes a walkthrough written with heart rate along with the rest. `npm run test:coach`
 checks it.
 
+A step that recommends a change the app can make (a lift's rest, sets or reps; the weight to start it at
+next time; swapping, adding or removing a lift on that day) carries it as `change`. `cleanChange` keeps
+it only if it applies to that workout's day of the plan (at most three per walkthrough), and the step
+shows it under the coach's words as one quiet line with an Apply button: nothing changes unless the
+lifter taps it, and Undo takes back just that change (`changeDiff`/`undoDiff`). A weight for next time is
+a program change too (`action: "weight"` in `applyChanges`): it sits on the lift as `next` until a workout
+logs it, and fills every set, the lift's badge and the coach's opening line in that workout.
+
 ### Rest alerts (optional)
 
 A push notification when a rest timer ends, so it arrives with the phone locked (**Settings →

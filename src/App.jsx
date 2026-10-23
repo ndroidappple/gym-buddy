@@ -247,6 +247,10 @@ export default function App() {
 
   const finishSession = useCallback((s) => {
     upsertSession(s);
+    // A weight for next time (from a walkthrough) is used up once the lift is logged.
+    setProgram((p) => (p[s.day]?.exercises?.some((e) => e.next && s.sets[e.n]?.length)
+      ? { ...p, [s.day]: { ...p[s.day], exercises: p[s.day].exercises.map(({ next, ...e }) => (next && !s.sets[e.n]?.length ? { ...e, next } : e)) } }
+      : p));
     setDrafts((d) => { const c = { ...d }; delete c[s.day]; return c; });
     go(href("summary", s.id), { replace: true });
   }, [upsertSession, go]);

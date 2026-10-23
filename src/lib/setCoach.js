@@ -1,5 +1,6 @@
 import { e1rm, fmtW, weightStep, isIsolation, nextGoal, readyToIncrease, lifting } from "./util.js";
 import { freshness, freshMax, loadNote, DEFAULT_K } from "./fatigue.js";
+import { isCardio } from "../data/program.js";
 
 /* The in-workout coach: after every logged set, what the next set should be and why.
    Runs on the phone (instant, works on gym wifi), from rules a good hypertrophy coach uses:
@@ -86,6 +87,10 @@ export function openingAdvice({ ex, history, firstLift, daysSince = null, fatigu
   const last = history[idx];
   const work = workSets(last);
   const step = weightStep(ex.n);
+  // A weight the lifter took from their coach's walkthrough: that's today's call.
+  if (ex.next?.w && !isCardio(ex.n)) {
+    return { w: ex.next.w, r: ex.reps[0], line: `Last time ${listSets(work)}. From your walkthrough: ${fmtW(ex.next.w)} lb today. Aim for ${ex.reps[0]}+ on every set.` };
+  }
   // Back after a layoff: 3+ weeks means match last time (no PR hunting); 6+ weeks means start ~10% lighter.
   if (daysSince != null && daysSince >= 21 && work[0]) {
     const long = daysSince >= 42;

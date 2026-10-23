@@ -12,7 +12,8 @@ import { heartCurve } from "../lib/googleHealth.js";
 import HeartChart, { zoneRange } from "../components/HeartChart.jsx";
 import ErrorBoundary from "../components/ErrorBoundary.jsx";
 import Walkthrough, { WalkNotes } from "../components/Walkthrough.jsx";
-import { freshWalk, showsHeart } from "../lib/walkthrough.js";
+import { freshWalk, showsHeart, changeDiff, undoDiff } from "../lib/walkthrough.js";
+import { applyChanges } from "../lib/programChange.js";
 import { useTheme } from "../lib/theme.js";
 import { fmtSet, cardioTotals, priorSessions, allTimeBest, bestSet, bestE1rm, e1rm, fmtW, num, compact, shortDate, longDate, plural, sessionVolume, sessionSetCount, byDateDesc, nextDayAfter } from "../lib/util.js";
 
@@ -67,6 +68,36 @@ export default function Summary({ session, sessions, program, prefs, go, back, o
   const leave = () => { saveNote(); back(href("progress", "workouts")); };
   const saveWalk = (w) => onUpdate({ ...latest.current, walk: w });
   const notesOn = walk && !walking;
+  // A step's suggested change to the plan, applied only when the lifter taps Apply. Undo works for what
+  // was applied on this visit and takes back just that change (changeDiff), whatever else changed since.
+  const [appliedNow, setAppliedNow] = useState(() => new Map()); // step index -> changeDiff
+  useEffect(() => { setAppliedNow(new Map()); }, [walk?.at]);
+  const markApplied = (i, on) => {
+    const w = latest.current.walk;
+    if (w?.steps?.[i]) onUpdate({ ...latest.current, walk: { ...w, steps: w.steps.map((x, j) => (j === i ? { ...x, applied: on ? Date.now() : undefined } : x)) } });
+  };
+  const plan = walk && onProgramChange ? {
+    program,
+    applied: new Set(appliedNow.keys()),
+    apply: (i) => {
+      const c = walk.steps[i]?.change;
+      const r = c && applyChanges(program, [c]);
+      if (!r?.lines.length) return;
+      onProgramChange(r.program);
+      setAppliedNow((m) => new Map(m).set(i, changeDiff(program[c.day], r.program[c.day])));
+      markApplied(i, true);
+    },
+    undo: (i) => {
+      const d = appliedNow.get(i), c = walk.steps[i]?.change;
+      if (!d || !c) return;
+      onProgramChange(undoDiff(program, c.day, d));
+      setAppliedNow((m) => { const n = new Map(m); n.delete(i); return n; });
+      markApplied(i, false);
+    },
+    // A weight for next time is spent once a later workout logs that lift.
+    stale: (st) => st.change?.action === "weight" && sessions.some((x) => x.id !== session.id && x.sets[st.change.exercise]?.length
+      && (x.date > session.date || (x.date === session.date && (x.finishedAt || 0) > (session.finishedAt || 0)))),
+  } : null;
   const focusAt = walkStep?.target === "chart" && walkStep.set ? session.sets[walkStep.lift]?.[walkStep.set - 1]?.t ?? null : null;
   // Heart rate still to come: never asked yet, or nothing from the watch so far within a day of finishing.
   // A workout with no times (imported) or one the watch never covered says nothing.
@@ -98,7 +129,7 @@ export default function Summary({ session, sessions, program, prefs, go, back, o
           <div className="stat"><b>{r.sets}</b><span>sets</span><span className="trend flat">{plural(Object.keys(session.sets).length, "lift")}</span></div>
           <div className="stat"><b>{r.records.length}</b><span>PRs</span>{r.prevRecords != null && <span className="trend flat">{r.prevRecords} last time</span>}</div>
         </div>
-        {notesOn && <WalkNotes walk={walk} head={head} match={(t) => t === "overview"} />}
+        {notesOn && <WalkNotes walk={walk} head={head} plan={plan} match={(t) => t === "overview"} />}
 
         {/* The head coach: a walkthrough of this workout (the bubble), or questions about it (Ask), in the
             same conversation as everywhere else, with this workout in full on top of what they read. */}
@@ -116,13 +147,13 @@ export default function Summary({ session, sessions, program, prefs, go, back, o
         {/* Only while Google Health is connected: a workout keeps its numbers after a disconnect (they
             come back on reconnecting), but the chart's readings can't be fetched then. */}
         {!prefs.googleHealth?.on ? null : session.hr && !session.hr.none
-          ? <ErrorBoundary quiet="heart rate"><Heart session={session} focus={focusAt} walk={notesOn ? walk : null} head={head} /></ErrorBoundary>
+          ? <ErrorBoundary quiet="heart rate"><Heart session={session} focus={focusAt} walk={notesOn ? walk : null} head={head} plan={plan} /></ErrorBoundary>
           : heartDue && (
             <p className="note-box hr-wait">Heart rate from your watch shows up here once it syncs to Google Health, usually within the hour.</p>
           )}
 
         {r.records.length > 0 && (
-          <Group title="Records" help="records" walk={notesOn ? walk : null} head={head} lifts={r.records}>
+          <Group title="Records" help="records" walk={notesOn ? walk : null} head={head} plan={plan} lifts={r.records}>
             {r.records.map((x) => (
               <a key={x.n} className="rec" href={href("lift", x.n)} data-walk={`lift:${x.n}`}>
                 <PrBadge />
@@ -132,11 +163,11 @@ export default function Summary({ session, sessions, program, prefs, go, back, o
             ))}
           </Group>
         )}
-        {r.up.length > 0 && <Group title="Up on last time" help="vs-last" walk={notesOn ? walk : null} head={head} lifts={r.up}>{r.up.map((x) => <Plain key={x.n} x={x} mark={`▲ ${x.vsLast.toFixed(1)}%`} />)}</Group>}
-        {r.same.length > 0 && <Group title="Same as last time" help="vs-last" walk={notesOn ? walk : null} head={head} lifts={r.same}>{r.same.map((x) => <Plain key={x.n} x={x} mark="same" />)}</Group>}
-        {r.down.length > 0 && <Group title="Down on last time" help="vs-last" walk={notesOn ? walk : null} head={head} lifts={r.down}>{r.down.map((x) => <Plain key={x.n} x={x} mark={`▼ ${Math.abs(x.vsLast).toFixed(1)}%`} />)}</Group>}
+        {r.up.length > 0 && <Group title="Up on last time" help="vs-last" walk={notesOn ? walk : null} head={head} plan={plan} lifts={r.up}>{r.up.map((x) => <Plain key={x.n} x={x} mark={`▲ ${x.vsLast.toFixed(1)}%`} />)}</Group>}
+        {r.same.length > 0 && <Group title="Same as last time" help="vs-last" walk={notesOn ? walk : null} head={head} plan={plan} lifts={r.same}>{r.same.map((x) => <Plain key={x.n} x={x} mark="same" />)}</Group>}
+        {r.down.length > 0 && <Group title="Down on last time" help="vs-last" walk={notesOn ? walk : null} head={head} plan={plan} lifts={r.down}>{r.down.map((x) => <Plain key={x.n} x={x} mark={`▼ ${Math.abs(x.vsLast).toFixed(1)}%`} />)}</Group>}
         {r.cardio.length > 0 && (
-          <Group title="Cardio" walk={notesOn ? walk : null} head={head} lifts={r.cardio} prefix="cardio:">
+          <Group title="Cardio" walk={notesOn ? walk : null} head={head} plan={plan} lifts={r.cardio} prefix="cardio:">
             {r.cardio.map((x) => (
               <a key={x.n} className="rec plain" href={href("lift", x.n)} data-walk={`cardio:${x.n}`}>
                 <span className="rec-text"><span className="n">{x.n}</span><span className="m">{x.sets.map(fmtSet).join(" + ")}</span></span>
@@ -145,7 +176,7 @@ export default function Summary({ session, sessions, program, prefs, go, back, o
             ))}
           </Group>
         )}
-        {r.baseline.length > 0 && <Group title="First time logged" walk={notesOn ? walk : null} head={head} lifts={r.baseline}>{r.baseline.map((x) => <Plain key={x.n} x={x} mark="baseline set" />)}</Group>}
+        {r.baseline.length > 0 && <Group title="First time logged" walk={notesOn ? walk : null} head={head} plan={plan} lifts={r.baseline}>{r.baseline.map((x) => <Plain key={x.n} x={x} mark="baseline set" />)}</Group>}
 
         <label className="field">
           <span className="lbl">Note</span>
@@ -163,7 +194,7 @@ export default function Summary({ session, sessions, program, prefs, go, back, o
       </div>
       {walking && (
         <Walkthrough session={session} sessions={sessions} program={program} prefs={prefs} head={head} notes={coachChat?.thread?.notes} heart={heart} day={session.day}
-          onSave={saveWalk} onStep={setWalkStep} onClose={() => setWalking(false)} onAsk={() => { setWalking(false); setAsking(true); }} />
+          plan={plan} onSave={saveWalk} onStep={setWalkStep} onClose={() => setWalking(false)} onAsk={() => { setWalking(false); setAsking(true); }} />
       )}
       {asking && (
         <CoachChat coach={head} head={head} name={name} topic="workout" workout={walk ? session : { ...session, walk: undefined }} day={session.date} {...coachChat}
@@ -239,7 +270,7 @@ function Delta({ pct }) {
  * phone, or fetched for it), time in each zone, which lift pushed hardest, and each lift's set peaks
  * and how far heart rate came down before the next set.
  */
-function Heart({ session, focus = null, walk = null, head }) {
+function Heart({ session, focus = null, walk = null, head, plan }) {
   const h = session.hr;
   const [readings, setReadings] = useState(() => cachedCurve(session.id));
   const [failed, setFailed] = useState(false);
@@ -306,7 +337,7 @@ function Heart({ session, focus = null, walk = null, head }) {
           })}
         </div>
       )}
-      <WalkNotes walk={walk} head={head} match={(t) => t === "heart" || t === "chart" || t === "zones" || t.startsWith("hr:")} />
+      <WalkNotes walk={walk} head={head} plan={plan} match={(t) => t === "heart" || t === "chart" || t === "zones" || t.startsWith("hr:")} />
       <p className="small muted">
         {h.source === "google" ? "Zones are Google Health's, personal to your fitness and age."
           : h.source === "age" ? "Zones are estimated from your age until Google Health has yours."
@@ -317,13 +348,13 @@ function Heart({ session, focus = null, walk = null, head }) {
   );
 }
 
-function Group({ title, help, children, walk = null, head, lifts = [], prefix = "lift:" }) {
+function Group({ title, help, children, walk = null, head, plan, lifts = [], prefix = "lift:" }) {
   const ids = new Set(lifts.map((x) => prefix + x.n));
   return (
     <section className="section" data-help={help}>
       <h2 className="lbl">{title}</h2>
       <div className="card-list">{children}</div>
-      <WalkNotes walk={walk} head={head} match={(t) => ids.has(t)} />
+      <WalkNotes walk={walk} head={head} plan={plan} match={(t) => ids.has(t)} />
     </section>
   );
 }

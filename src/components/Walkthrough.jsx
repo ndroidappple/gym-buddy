@@ -1,12 +1,13 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { X, ChevronLeft, ChevronRight, MessageCircle, Trophy, ThumbsUp, Wrench, ArrowRight } from "lucide-react";
+import { X, ChevronLeft, ChevronRight, MessageCircle, Trophy, ThumbsUp, Wrench, ArrowRight, SlidersHorizontal, Check } from "lucide-react";
 import { ThinkingOrb } from "thinking-orbs";
 import Coach from "./Coach.jsx";
 import { COACHES } from "../data/coaches.js";
 import { useTheme } from "../lib/theme.js";
 import { reducedMotion } from "../lib/motion.js";
-import { KINDS, freshWalk, requestWalk } from "../lib/walkthrough.js";
+import { KINDS, freshWalk, requestWalk, changeLabel, changeLift } from "../lib/walkthrough.js";
+import { applyChanges } from "../lib/programChange.js";
 
 /* The coach's walkthrough of a workout, on its recap. The coach sits in a card pinned to the bottom of
    the screen with one point at a time; each step scrolls the recap to the part it's about and outlines
@@ -24,7 +25,11 @@ export function placeFor(target) {
   return q(target) || (/^(chart|zones|hr:)/.test(target) && q("heart")) || q("overview");
 }
 
-export default function Walkthrough({ session, sessions, program, prefs, head = "tank", notes, heart, day, onSave, onStep, onAsk, onClose }) {
+/**
+ * `plan` (from the recap) offers a step's change: { program, apply(i), undo(i), applied: Set of steps
+ * applied on this visit (they can be undone), stale(step) }. Without it, no change is offered.
+ */
+export default function Walkthrough({ session, sessions, program, prefs, head = "tank", notes, heart, day, plan, onSave, onStep, onAsk, onClose }) {
   const theme = useTheme();
   const [walk, setWalk] = useState(() => freshWalk(session));
   const [status, setStatus] = useState(walk ? "ready" : "writing"); // writing | ready | error
@@ -55,7 +60,8 @@ export default function Walkthrough({ session, sessions, program, prefs, head = 
     return () => clearInterval(id);
   }, [status]);
 
-  const steps = walk?.steps || [];
+  // The kept copy once saved, so a step applied from the card shows it.
+  const steps = (freshWalk(session) || walk)?.steps || [];
   const step = status === "ready" ? steps[idx] : null;
   const last = idx === steps.length - 1;
 
@@ -71,6 +77,7 @@ export default function Walkthrough({ session, sessions, program, prefs, head = 
   }, []);
 
   // The step's place: outlined, and scrolled to the middle of the screen above the card.
+  const stepKey = step ? `${idx}|${step.target}|${step.lift}|${step.set}` : "";
   useEffect(() => {
     onStep?.(step || null);
     if (!step) return;
@@ -85,7 +92,7 @@ export default function Walkthrough({ session, sessions, program, prefs, head = 
       window.scrollTo({ top: Math.max(0, y), behavior: reducedMotion() ? "auto" : "smooth" });
     });
     return () => { cancelAnimationFrame(frame); el.classList.remove("walk-on"); };
-  }, [step]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [stepKey]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => () => onStep?.(null), []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { if (status === "ready") next.current?.focus({ preventScroll: true }); }, [status]);
@@ -135,6 +142,7 @@ export default function Walkthrough({ session, sessions, program, prefs, head = 
             <span className={`walk-kind k-${step.kind}`}><Icon size={13} strokeWidth={2.8} aria-hidden="true" />{KINDS[step.kind]}</span>
             <p className="walk-title">{step.title}</p>
             <p className="walk-text">{step.text}</p>
+            <ApplyChange step={step} i={idx} plan={plan} />
           </div>
           <div className="walk-nav">
             <button type="button" className="icon-btn boxed" onClick={() => setIdx((i) => i - 1)} disabled={idx === 0} aria-label="Previous point"><ChevronLeft size={20} /></button>
@@ -155,13 +163,13 @@ export default function Walkthrough({ session, sessions, program, prefs, head = 
 }
 
 /** The walkthrough's points about one part of the recap, kept under it once the walkthrough's over. */
-export function WalkNotes({ walk, match, head = "tank" }) {
-  const steps = walk?.steps?.filter((s) => match(s.target)) || [];
+export function WalkNotes({ walk, match, head = "tank", plan }) {
+  const steps = walk?.steps?.map((s, i) => [s, i]).filter(([s]) => match(s.target)) || [];
   if (!steps.length) return null;
   const coach = COACHES[head] || COACHES.tank;
   return (
     <div className="walk-notes" style={{ "--c": coach.color }}>
-      {steps.map((s, i) => {
+      {steps.map(([s, i]) => {
         const Icon = KIND_ICONS[s.kind];
         return (
           <details key={i} className="walk-note">
@@ -171,9 +179,44 @@ export function WalkNotes({ walk, match, head = "tank" }) {
               <ChevronRight className="walk-note-chev" size={16} aria-hidden="true" />
             </summary>
             <p>{s.text} <span className="muted">— {coach.name}</span></p>
+            <ApplyChange step={s} i={i} plan={plan} />
           </details>
         );
       })}
+    </div>
+  );
+}
+
+/**
+ * A step's suggested change to the plan, offered quietly under what the coach said: what it would
+ * change and a small Apply. Applied on this visit: a check and Undo. Already in the plan (applied
+ * before): a muted check. Nothing when it no longer applies (the plan moved on, or a weight for next
+ * time that a later workout has used).
+ */
+export function ApplyChange({ step, i, plan }) {
+  const c = step.change;
+  if (!c || !plan?.program) return null;
+  const lift = changeLift(c);
+  const label = changeLabel(plan.program, c);
+  const what = <span className="walk-change-what">{lift && <b>{lift}</b>}{lift && " · "}{label}</span>;
+  if (plan.applied.has(i)) {
+    return (
+      <div className="walk-change done" aria-live="polite">
+        <Check size={15} strokeWidth={2.8} aria-hidden="true" />
+        <span className="walk-change-what">Added to your plan</span>
+        <button type="button" className="walk-change-btn quiet" onClick={() => plan.undo(i)}>Undo</button>
+      </div>
+    );
+  }
+  if (plan.stale(step)) return null;
+  if (!applyChanges(plan.program, [c]).lines.length) {
+    return step.applied ? <div className="walk-change done"><Check size={15} strokeWidth={2.8} aria-hidden="true" /><span className="walk-change-what">In your plan</span></div> : null;
+  }
+  return (
+    <div className="walk-change">
+      <SlidersHorizontal size={15} strokeWidth={2.4} aria-hidden="true" />
+      {what}
+      <button type="button" className="walk-change-btn" onClick={() => plan.apply(i)} aria-label={`Apply to your plan: ${lift ? `${lift}, ` : ""}${label}`}>Apply</button>
     </div>
   );
 }

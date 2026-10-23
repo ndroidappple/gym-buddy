@@ -1209,6 +1209,17 @@ html.walking .summary .body { padding-bottom: calc(var(--walk-h, 220px) + 40px);
 .walk-note-chev { flex: none; color: var(--mute); transition: transform 160ms; }
 .walk-note[open] .walk-note-chev { transform: rotate(90deg); }
 .walk-note p { padding: 0 12px 12px; font-size: 14px; line-height: 1.42; }
+/* A step's change to the plan: what it would change and a small Apply, quiet next to the coach's words. */
+.walk-change { display: flex; align-items: center; gap: 8px; width: 100%; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--rule); color: var(--mute); font-size: 13px; font-weight: 600; line-height: 1.3; }
+.walk-change > svg { flex: none; }
+.walk-change-what { flex: 1; min-width: 0; }
+.walk-change-what b { color: var(--ink); font-weight: 700; }
+.walk-change-btn { flex: none; min-height: 36px; padding: 0 12px; border-radius: 999px; border: 1.5px solid var(--rule); background: none; color: var(--ink); font-size: 13px; font-weight: 700; }
+.walk-change-btn:active { transform: scale(0.96); }
+.walk-change-btn.quiet { border-color: transparent; text-decoration: underline; text-underline-offset: 2px; padding: 0 6px; }
+.walk-change.done { color: var(--ink); }
+.walk-change.done > svg { color: var(--day-ink, var(--ink)); }
+.walk-note .walk-change { margin: -4px 12px 12px; width: auto; }
 @media (prefers-reduced-motion: reduce) { .walk-on, .walk-card, .walk-body { animation: none; } }
 
 /* Rest alerts: the bell in the rest dock (set / couldn't be set), and the one-time "turn on?" card above it. */

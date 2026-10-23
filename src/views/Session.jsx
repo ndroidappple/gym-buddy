@@ -108,6 +108,8 @@ export default function Session({ day, existing, draft, sessions, program, weigh
     }
     if (prev) return prev.map((s) => ({ w: String(s.w), r: String(s.r), rir: s.rir != null ? String(s.rir) : "", done: true, saved: true, t: s.t, hr: s.hr, hrRest: s.hrRest }));
     const ref = lastFor(ex.n)?.sets[ex.n] || [];
+    // A weight the lifter took from their coach's walkthrough: every set starts there, reps start fresh.
+    if (ex.next?.w) return Array.from({ length: Math.max(1, ex.sets) }, () => ({ w: String(ex.next.w), r: "", rir: "", done: false, asked: { w: ex.next.w, r: ex.reps[0] } }));
     // Earned a weight increase last time: every set starts at the new weight, reps start fresh.
     const bump = readyToIncrease(ex, ref);
     if (bump) return Array.from({ length: ex.sets }, () => ({ w: String(bump.to), r: "", rir: "", done: false, asked: { w: bump.to, r: ex.reps[0] } }));
@@ -598,6 +600,7 @@ function Collapsed({ ex, rows, goal, bump, call, later, swappedTo, skipped, just
   else if (cardio) sub = done.length ? done.map((r) => fmtSet({ min: +r.min, mi: hasVal(r.mi) ? +r.mi : null })).join(" + ") : specLine(ex);
   else if (complete) sub = `${done.length} sets · top set ${fmtW(best.w)} × ${best.r}`;
   else if (call?.w != null && done.length) sub = `${done.length}/${rows.length} sets · next ${fmtW(call.w)} × ${call.r}`;
+  else if (ex.next?.w && !done.length) sub = `${rows.length} sets · start at ${fmtW(ex.next.w)} lb`;
   else if (bump) sub = `${done.length}/${rows.length} sets · go up to ${fmtW(bump.to)} lb`;
   else if (goal) sub = `${done.length}/${rows.length} sets · try ${fmtGoal(goal)}`;
   else sub = `${done.length}/${rows.length} sets`;
@@ -666,6 +669,7 @@ function ExerciseCard({ ex, showRir, rows, target, goal, targetDate, onHint, bum
           ? lastEntry && <span className="target" title={`Last time, ${shortDate(targetDate)}`}>Last · {fmtSet(lastEntry)}</span>
           : started && call?.w != null ? <span className={"target" + (call.kind === "up" ? " up" : "")}>Next · {fmtW(call.w)} × {call.r}</span>
           : started && call?.kind === "done" ? null
+          : ex.next?.w ? <span className="target" title="From your coach's walkthrough">Start · {fmtW(ex.next.w)} lb</span>
           : bump ? <span className="target up" title={`All ${bump.sets} sets hit ${bump.reps} on ${shortDate(targetDate)}`}>Go up · {fmtW(bump.to)} lb</span>
           : goal && <span className="target" title={`Best set on ${shortDate(targetDate)}: ${fmtW(target.w)} × ${target.r}`}>Try {fmtGoal(goal)}</span>}
       </div>

@@ -55,8 +55,8 @@ export default function Today({ name, sessions, program, drafts, weighins, prefs
   const targets = useMemo(() => p.exercises.map((ex) => {
     const prior = sorted.find((s) => s.sets[ex.n]?.length);
     const best = prior && bestSet(prior.sets[ex.n]);
-    return best ? { n: ex.n, best, bump: readyToIncrease(ex, prior.sets[ex.n]), goal: nextGoal(ex, prior.sets[ex.n]) } : null;
-  }).filter(Boolean).sort((a, b) => !!b.bump - !!a.bump).slice(0, 3), [p, sorted]);
+    return best ? { n: ex.n, best, next: ex.next, bump: readyToIncrease(ex, prior.sets[ex.n]), goal: nextGoal(ex, prior.sets[ex.n]) } : null;
+  }).filter(Boolean).sort((a, b) => !!(b.next || b.bump) - !!(a.next || a.bump)).slice(0, 3), [p, sorted]);
 
   const week = weekDates();
   const byDate = useMemo(() => {
@@ -152,7 +152,10 @@ export default function Today({ name, sessions, program, drafts, weighins, prefs
               {targets.map((x) => (
                 <a key={x.n} className="card-row" href={href("lift", x.n)}>
                   <span className="name">{x.n}</span>
-                  {x.bump
+                  {/* A weight taken from the coach's walkthrough comes first. */}
+                  {x.next
+                    ? <span className={x.next.w > x.best.w ? "v up" : "v"} aria-label={`Start at ${fmtW(x.next.w)} pounds`}>{x.next.w > x.best.w ? "↑ " : x.next.w < x.best.w ? "↓ " : ""}{fmtW(x.next.w)} lb</span>
+                    : x.bump
                     ? <span className="v up" aria-label={`Go up to ${fmtW(x.bump.to)} pounds`}>↑ {fmtW(x.bump.to)} lb</span>
                     : <span className="v">{fmtGoal(x.goal)}</span>}
                 </a>
