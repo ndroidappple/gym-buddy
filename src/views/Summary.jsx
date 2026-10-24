@@ -12,7 +12,7 @@ import { heartCurve } from "../lib/googleHealth.js";
 import HeartChart, { zoneRange } from "../components/HeartChart.jsx";
 import ErrorBoundary from "../components/ErrorBoundary.jsx";
 import Walkthrough, { WalkNotes } from "../components/Walkthrough.jsx";
-import { freshWalk, showsHeart, changeDiff, undoDiff } from "../lib/walkthrough.js";
+import { freshWalk, showsHeart, changeDiff, undoDiff, recapLine } from "../lib/walkthrough.js";
 import { applyChanges } from "../lib/programChange.js";
 import { readiness, nightReads, hm } from "../lib/recovery.js";
 import { useTheme } from "../lib/theme.js";
@@ -64,6 +64,8 @@ export default function Summary({ session, sessions, program, prefs, go, back, o
 
   const mins = session.startedAt && session.finishedAt ? Math.max(1, Math.round((session.finishedAt - session.startedAt) / 60000)) : null;
   const volPct = r.lastVol ? ((r.vol - r.lastVol) / r.lastVol) * 100 : null;
+  // The head coach's take in the bubble, there as soon as the recap opens; the walkthrough goes deeper.
+  const recap = recapLine({ name: p.name, records: r.records, up: r.up, same: r.same, down: r.down, baseline: r.baseline, volPct, low: !!night?.low });
   const nextDay = nextDayAfter(sessions, program);
   const next = program[nextDay];
   const saveNote = () => { if ((session.note || "") !== note.trim()) onUpdate({ ...session, note: note.trim() || null }); };
@@ -133,7 +135,7 @@ export default function Summary({ session, sessions, program, prefs, go, back, o
             <div className="summary-ask" style={{ "--c": COACHES[head].color }}>
               <Coach id={head} mood={r.records.length ? "pr" : "proud"} size={64} />
               <button type="button" className="coach-bubble bubble-btn" onClick={() => setWalking(true)} aria-expanded={walking}>
-                {walk ? "My notes are under each part of the recap." : `Want my take? I'll go over what went well${heart ? ", your heart rate," : ""} and what to fix.`}
+                {recap || (walk ? "My notes are under each part of the recap." : `Want my take? I'll go over what went well${heart ? ", your heart rate," : ""} and what to fix.`)}
                 <span className="bubble-cta">{walk ? "Walk through it again" : "Walk me through it"}<ChevronRight size={15} strokeWidth={2.8} aria-hidden="true" /></span>
               </button>
               <button className="ask-btn compact" onClick={() => setAsking(true)} aria-label={`Ask ${COACHES[head].name}, your head coach, about this workout`}><MessageCircle size={18} strokeWidth={2.6} aria-hidden="true" /><span>Ask</span></button>

@@ -158,5 +158,21 @@ eq("tool: a step's change", stepSchema.properties.change.properties.action.enum,
 ok("prompt: changes are the lifter's call", api.walkInstructions("tank", "").includes("the lifter decides"));
 ok("context: the day key for changes", ctx.includes("(day key push;"));
 
+// The recap's bubble: the workout in a sentence or two, short enough for the bubble.
+const L = (o) => W.recapLine({ name: "Upper A", ...o });
+eq("recap: a PR and much more volume", L({ records: [{ n: "Incline Barbell / Smith Press", pct: 3 }], up: [{ n: "Lat Pulldown (Wide Grip)" }], volPct: 47 }),
+  "A PR on Incline Barbell. Volume up 47% on last time.");
+eq("recap: every lift down a little", L({ down: [{ n: "Hip Thrust", vsLast: -2.9 }, { n: "Leg Curl", vsLast: -2.5 }], volPct: -3 }),
+  "Every lift dipped a few percent: an off day, not a stall.");
+eq("recap: down after a rough night", L({ down: [{ n: "Hip Thrust", vsLast: -8 }], same: [{ n: "Leg Curl" }], low: true }),
+  "1 of 2 lifts dipped after a rough night. Expect that.");
+eq("recap: mostly up", L({ up: [{ n: "A" }, { n: "B" }], same: [{ n: "C" }] }), "2 of 3 lifts up on last time.");
+eq("recap: several PRs, led by the biggest", L({ records: [{ n: "Leg Curl", pct: 2 }, { n: "Hip Thrust (Barbell)", pct: 6 }] }), "2 PRs, led by Hip Thrust.");
+eq("recap: a first time", L({ baseline: [{ n: "A" }, { n: "B" }] }), "First Upper A logged: baselines for 2 lifts to beat next time.");
+eq("recap: level", L({ same: [{ n: "A" }, { n: "B" }] }), "Matched last time across the board.");
+eq("recap: cardio only says nothing", L({}), null);
+const longest = [L({ records: [{ n: "Seated Cable Row (Close Grip)", pct: 3 }], low: true, volPct: -25 }), L({ down: [{ n: "A", vsLast: -2 }, { n: "B", vsLast: -2 }, { n: "C", vsLast: 1 }], up: [{ n: "D" }], volPct: -12 })];
+ok("recap: fits the bubble (about three lines)", longest.every((t) => t.length <= 100), longest.map((t) => `${t.length}: ${t}`).join("\n    "));
+
 if (failed) { console.error(`\n${failed} walkthrough check(s) failed`); process.exit(1); }
 console.log("walkthrough: all checks passed");
