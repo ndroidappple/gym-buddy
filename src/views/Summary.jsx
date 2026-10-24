@@ -125,10 +125,7 @@ export default function Summary({ session, sessions, program, prefs, go, back, o
             <Headline text={past ? longDate(session.date) : null} />
             <InfoButton screen="summary" />
           </div>
-          <div className="summary-sub">
-            <span className="chip"><span className="dot" aria-hidden="true" />{p.name}</span>
-            {mins && <span>{mins} min</span>}
-          </div>
+          <p className="summary-sub"><span className="dot" aria-hidden="true" />{p.name}{mins ? ` · ${mins} min` : ""}</p>
           {/* The head coach speaks for the recap: a walkthrough of this workout (the bubble), or questions
               about it (Ask), in the same conversation as everywhere else, with this workout in full on top
               of what they read. */}
@@ -148,9 +145,9 @@ export default function Summary({ session, sessions, program, prefs, go, back, o
 
         <div className="stats" data-walk="overview">
           <div className="stat"><b>{compact(r.vol)}</b><span>lb volume</span>{volPct != null && <VolRead pct={volPct} />}</div>
-          <div className="stat"><b>{r.sets}</b><span>sets</span><span className="trend flat">{plural(Object.keys(session.sets).length, "lift")}</span></div>
+          <div className="stat"><b>{r.sets}</b><span>sets</span><span className="stat-note">{plural(Object.keys(session.sets).length, "lift")}</span></div>
           <div className="stat"><b>{r.records.length}</b><span>PRs</span>
-            {r.records.length > 0 ? <Read tone="good">New best</Read> : r.prevRecords != null && <span className="trend flat">{r.prevRecords} last time</span>}</div>
+            {r.records.length > 0 ? <Read tone="good">New best</Read> : r.prevRecords != null && <span className="stat-note">{r.prevRecords} last time</span>}</div>
         </div>
         {notesOn && <WalkNotes walk={walk} head={head} plan={plan} match={(t) => t === "overview"} />}
 
@@ -176,9 +173,9 @@ export default function Summary({ session, sessions, program, prefs, go, back, o
             ))}
           </Group>
         )}
-        {r.up.length > 0 && <Group title="Up on last time" help="vs-last" walk={notesOn ? walk : null} head={head} plan={plan} lifts={r.up}>{r.up.map((x) => <Plain key={x.n} x={x} mark={`▲ ${x.vsLast.toFixed(1)}%`} />)}</Group>}
-        {r.same.length > 0 && <Group title="Same as last time" help="vs-last" walk={notesOn ? walk : null} head={head} plan={plan} lifts={r.same}>{r.same.map((x) => <Plain key={x.n} x={x} mark="same" />)}</Group>}
-        {r.down.length > 0 && <Group title="Down on last time" help="vs-last" walk={notesOn ? walk : null} head={head} plan={plan} lifts={r.down}>{r.down.map((x) => <Plain key={x.n} x={x} mark={`▼ ${Math.abs(x.vsLast).toFixed(1)}%`} />)}</Group>}
+        {r.up.length > 0 && <Group title="Up on last time" help="vs-last" walk={notesOn ? walk : null} head={head} plan={plan} lifts={r.up}>{r.up.map((x) => <Plain key={x.n} x={x} mark={`+${x.vsLast.toFixed(1)}%`} />)}</Group>}
+        {r.same.length > 0 && <Group title="Same as last time" help="vs-last" walk={notesOn ? walk : null} head={head} plan={plan} lifts={r.same}>{r.same.map((x) => <Plain key={x.n} x={x} />)}</Group>}
+        {r.down.length > 0 && <Group title="Down on last time" help="vs-last" walk={notesOn ? walk : null} head={head} plan={plan} lifts={r.down}>{r.down.map((x) => <Plain key={x.n} x={x} mark={`−${Math.abs(x.vsLast).toFixed(1)}%`} />)}</Group>}
         {r.cardio.length > 0 && (
           <Group title="Cardio" walk={notesOn ? walk : null} head={head} plan={plan} lifts={r.cardio} prefix="cardio:">
             {r.cardio.map((x) => (
@@ -189,7 +186,7 @@ export default function Summary({ session, sessions, program, prefs, go, back, o
             ))}
           </Group>
         )}
-        {r.baseline.length > 0 && <Group title="First time logged" walk={notesOn ? walk : null} head={head} plan={plan} lifts={r.baseline}>{r.baseline.map((x) => <Plain key={x.n} x={x} mark="baseline set" />)}</Group>}
+        {r.baseline.length > 0 && <Group title="First time logged" walk={notesOn ? walk : null} head={head} plan={plan} lifts={r.baseline}>{r.baseline.map((x) => <Plain key={x.n} x={x} />)}</Group>}
 
         <label className="field">
           <span className="lbl">Note</span>
@@ -274,18 +271,20 @@ function countRecords(sessions, s) {
   }).length;
 }
 
-/* A tile's verdict at a glance: good (better than usual), even (their normal) or watch (worse than
-   usual), with a mark that says it without the color. */
-const READ_MARK = { good: "✓", even: "●", watch: "!" };
+/* Tiles flag only what's unusual for the lifter: a pill when a number is better (good) or worse
+   (watch) than their usual, with a mark that says it without the color. Anything normal, and any
+   plain context, is one quiet line (.stat-note), so a pill always means something. */
+const READ_MARK = { good: "✓", watch: "!" };
 function Read({ tone, children }) {
   return <span className={`trend read ${tone}`}><span aria-hidden="true">{READ_MARK[tone]}</span>{children}</span>;
 }
 
-/** Volume against the last time this workout was done: within 5% is the same workout. */
+/** Volume against the last time this workout was done: 5%+ up is better, 10%+ down worse, the rest normal. */
 function VolRead({ pct }) {
-  const p = Math.abs(pct).toFixed(0);
-  if (Math.abs(pct) < 5) return <Read tone="even">{Math.abs(pct) < 0.5 ? "Same" : `${pct > 0 ? "+" : "−"}${p}%`}</Read>;
-  return <Read tone={pct > 0 ? "good" : pct <= -10 ? "watch" : "even"}>{pct > 0 ? "+" : "−"}{p}%</Read>;
+  const p = `${pct > 0 ? "+" : "−"}${Math.abs(pct).toFixed(0)}%`;
+  if (pct >= 5) return <Read tone="good">{p}</Read>;
+  if (pct <= -10) return <Read tone="watch">{p}</Read>;
+  return <span className="stat-note">{Math.abs(pct) < 0.5 ? "same as last" : `${p} vs last`}</span>;
 }
 
 /**
@@ -317,9 +316,9 @@ function Heart({ session, usualAvg = null, focus = null, walk = null, head, plan
     <section className="section">
       <h2 className="lbl">Heart rate</h2>
       <div className="stats" data-walk="heart">
-        {/* Effort, not a verdict: a harder or easier workout than usual is neither good nor bad. */}
-        <div className="stat"><b>{h.avg}</b><span>avg bpm</span>{usualAvg && <span className="trend flat">{h.avg >= usualAvg + 5 ? "Harder" : h.avg <= usualAvg - 5 ? "Easier" : "Typical"}</span>}{usualAvg && <span className="stat-usual">usually {usualAvg}</span>}</div>
-        <div className="stat"><b>{h.max}</b><span>peak bpm</span>{h.bounds && <span className="trend flat">{ZONES[zoneOf(h.max, h.bounds)]?.label || "Below light"}</span>}</div>
+        {/* Effort, not a verdict: a harder or easier workout than usual is neither good nor bad, so no pill. */}
+        <div className="stat"><b>{h.avg}</b><span>avg bpm</span>{usualAvg && <span className="stat-note">usually {usualAvg}</span>}</div>
+        <div className="stat"><b>{h.max}</b><span>peak bpm</span>{h.bounds && <span className="stat-note">{ZONES[zoneOf(h.max, h.bounds)]?.label || "Below light"}</span>}</div>
         {h.hard != null
           ? <div className="stat"><b>{num(h.hard)}</b><span>min vigorous or peak</span></div>
           : <div className="stat"><b>{h.low}</b><span>lowest bpm</span></div>}
@@ -377,24 +376,28 @@ function Heart({ session, usualAvg = null, focus = null, walk = null, head, plan
  * each against their usual (the 4 weeks before), and the stages when the watch tracked them. A short
  * or under-recovered night says so; an ordinary one just shows the numbers.
  */
-/* The night before, each number read against the lifter's own usual (lib/recovery.js): a verdict on
-   each tile with the usual under it, and the night in a sentence. */
+/* The night before, each number read against the lifter's own usual (lib/recovery.js). A normal night
+   says so once, beside the heading; anything better or worse gets its pill and the night a sentence. */
 function NightBefore({ r }) {
   const { entry: e, usual: u } = r;
   const s = e.sleep;
   const reads = nightReads(r);
+  const calm = [reads.asleep, reads.rhr, reads.hrv].every((x) => !x || x.tone === "even") && [reads.asleep, reads.rhr, reads.hrv].some(Boolean);
   const tile = (value, label, read, was) => (
     <div className="stat">
       <b>{value}</b><span>{label}</span>
-      {read && <Read tone={read.tone}>{read.word}</Read>}
-      {was != null && <span className="stat-usual">usually {was}</span>}
+      {read && read.tone !== "even" && <Read tone={read.tone}>{read.word}</Read>}
+      {was != null && <span className="stat-note">usually {was}</span>}
     </div>
   );
   const stages = s && [s.deep != null && `${hm(s.deep)} deep`, s.rem != null && `${hm(s.rem)} REM`, s.awake != null && `awake ${hm(s.awake)}`].filter(Boolean);
   return (
     <section className="section" data-walk="sleep">
-      <h2 className="lbl">Night before</h2>
-      {reads.line && !r.low && <p className="night-line">{reads.line}</p>}
+      <div className="section-head">
+        <h2 className="lbl">Night before</h2>
+        {calm && <span className="lbl section-aside">Normal for you</span>}
+      </div>
+      {reads.line && !r.low && !calm && <p className="night-line">{reads.line}</p>}
       <div className="stats">
         {s && tile(hm(s.asleep), "asleep", reads.asleep, u.asleep && hm(u.asleep))}
         {e.rhr != null && tile(Math.round(e.rhr), "resting bpm", reads.rhr, u.rhr)}
@@ -417,11 +420,13 @@ function Group({ title, help, children, walk = null, head, plan, lifts = [], pre
   );
 }
 
+/** A lift in one of the "on last time" groups. The heading already says up, same or down, so the
+    change is plain text, and a same or first-time lift needs none. */
 function Plain({ x, mark }) {
   return (
     <a className="rec plain" href={href("lift", x.n)} data-walk={`lift:${x.n}`}>
       <span className="rec-text"><span className="n">{x.n}</span><span className="m">{fmtW(x.best.w)} × {x.best.r} · Est. max {num(e1rm(x.best.w, x.best.r))} lb</span></span>
-      <span className="trend flat">{mark}</span>
+      {mark && <span className="rec-mark">{mark}</span>}
     </a>
   );
 }
