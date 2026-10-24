@@ -13,7 +13,8 @@
     "test:food": "node scripts/test-food-picker.mjs && node scripts/test-food-edit.mjs && node scripts/test-web-food.mjs",
     "test:range": "node scripts/test-rep-range.mjs",
     "test:review": "node scripts/test-week-review.mjs && node scripts/test-review-agent.mjs",
-    "test:health": "node scripts/test-google-health.mjs"
+    "test:health": "node scripts/test-google-health.mjs",
+    "test:nutrition": "node scripts/test-nutrition-trends.mjs"
   },
   "dependencies": {
     "@ai-sdk/google": "^4.0.80",

@@ -1507,3 +1507,31 @@ html.walking .summary .body { padding-bottom: calc(var(--walk-h, 220px) + 40px);
 .account-row .name { overflow-wrap: anywhere; }
 .alert-banner { background: color-mix(in srgb, var(--accent) 14%, var(--surface)); border: 2px solid color-mix(in srgb, var(--accent) 45%, var(--rule)); }
 .alert-banner svg:first-child { color: var(--accent); }
+
+/* ═══════════════ PROGRESS → NUTRITION ═══════════════ */
+.segctl.small button { min-height: 34px; font-size: 13px; }
+.nt-note { margin: -2px 4px 0; font-size: 13px; font-weight: 600; color: var(--faint); line-height: 1.4; }
+.nt-line { margin: 0 4px; font-size: 14px; font-weight: 500; line-height: 1.45; color: var(--mute); }
+.nt-chart { padding: 12px 12px 10px; }
+.nt-chart svg { display: block; width: 100%; height: auto; overflow: visible; }
+.nt-chart .ends { display: flex; margin-top: 6px; font-size: 12px; font-weight: 700; color: var(--faint); }
+.nt-bar { fill: color-mix(in srgb, var(--ink) 55%, var(--surface)); }
+.nt-bar.watch { fill: var(--watch); }
+.nt-bar.faint { fill: color-mix(in srgb, var(--ink) 18%, var(--surface)); }
+.nt-bar.on { fill: var(--ink); }
+.nt-bar.watch.on { fill: color-mix(in srgb, var(--watch) 80%, var(--ink)); }
+.nt-goal { stroke: var(--ink); stroke-width: 2; stroke-dasharray: 5 4; }
+.nt-band { fill: color-mix(in srgb, var(--ink) 7%, transparent); }
+.nt-base { stroke: var(--rule-2); stroke-width: 1.5; }
+.nt-key { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: -2px 4px 0; font-size: 12.5px; font-weight: 600; color: var(--faint); }
+.nt-key > span { display: inline-flex; align-items: center; gap: 6px; }
+.nt-key i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+.nt-key i.watch { background: var(--watch); }
+.nt-key i.faint { background: color-mix(in srgb, var(--ink) 18%, var(--surface)); }
+.nt-row { display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 8px 10px; }
+.nt-row-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.nt-row-main b { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.nt-row-main span { font-size: 13px; font-weight: 500; color: var(--mute); }
+.nt-row-v { display: flex; flex-direction: column; align-items: flex-end; font-weight: 800; font-size: 16px; white-space: nowrap; }
+.nt-row-v small { font-size: 12px; font-weight: 700; color: var(--faint); }
+.nt-row-v small.watch { color: var(--watch); }

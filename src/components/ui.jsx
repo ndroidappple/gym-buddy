@@ -749,6 +749,13 @@ export function SyncNote({ show, raised }) {
 }
 
 /** A screen with nothing to show yet: a coach, what will appear here, and the way to get it. */
+/* A number's verdict against the lifter's own usual or target: good (better) or watch (worse), with a
+   mark that says it without the color. Normal gets no pill: a pill always means something. */
+const READ_MARK = { good: "✓", watch: "!" };
+export function Read({ tone, children }) {
+  return <span className={`trend read ${tone}`}><span aria-hidden="true">{READ_MARK[tone]}</span>{children}</span>;
+}
+
 export function EmptyState({ coach = "tank", title, children, action, href }) {
   return (
     <section className="card empty">

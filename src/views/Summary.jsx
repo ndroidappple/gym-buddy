@@ -3,7 +3,7 @@ import { ChevronLeft, ChevronRight, MessageCircle } from "lucide-react";
 import { isCardio } from "../data/program.js";
 import { href } from "../lib/router.js";
 import Coach from "../components/Coach.jsx";
-import { InfoButton } from "../components/ui.jsx";
+import { InfoButton, Read } from "../components/ui.jsx";
 import SetupCard from "../components/SetupCard.jsx";
 import { COACHES } from "../data/coaches.js";
 import CoachChat from "../components/CoachChat.jsx";
@@ -273,13 +273,8 @@ function countRecords(sessions, s) {
   }).length;
 }
 
-/* Tiles flag only what's unusual for the lifter: a pill when a number is better (good) or worse
-   (watch) than their usual, with a mark that says it without the color. Anything normal, and any
-   plain context, is one quiet line (.stat-note), so a pill always means something. */
-const READ_MARK = { good: "✓", watch: "!" };
-function Read({ tone, children }) {
-  return <span className={`trend read ${tone}`}><span aria-hidden="true">{READ_MARK[tone]}</span>{children}</span>;
-}
+/* Tiles flag only what's unusual for the lifter (Read, in ui.jsx): a pill when a number is better or
+   worse than their usual. Anything normal, and any plain context, is one quiet line (.stat-note). */
 
 /** Volume against the last time this workout was done: 5%+ up is better, 10%+ down worse, the rest normal. */
 function VolRead({ pct }) {
