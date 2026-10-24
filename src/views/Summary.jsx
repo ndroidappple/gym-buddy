@@ -14,9 +14,9 @@ import ErrorBoundary from "../components/ErrorBoundary.jsx";
 import Walkthrough, { WalkNotes } from "../components/Walkthrough.jsx";
 import { freshWalk, showsHeart, changeDiff, undoDiff } from "../lib/walkthrough.js";
 import { applyChanges } from "../lib/programChange.js";
-import { readiness, hm } from "../lib/recovery.js";
+import { readiness, nightReads, hm } from "../lib/recovery.js";
 import { useTheme } from "../lib/theme.js";
-import { fmtSet, cardioTotals, priorSessions, allTimeBest, bestSet, bestE1rm, e1rm, fmtW, num, compact, shortDate, longDate, plural, sessionVolume, sessionSetCount, byDateDesc, nextDayAfter } from "../lib/util.js";
+import { fmtSet, cardioTotals, priorSessions, allTimeBest, bestSet, bestE1rm, e1rm, fmtW, num, compact, longDate, plural, sessionVolume, sessionSetCount, byDateDesc, nextDayAfter } from "../lib/util.js";
 
 /**
  * A workout's summary. Straight after finishing it ("Session logged", Done goes on to Today), or, with
@@ -105,30 +105,37 @@ export default function Summary({ session, sessions, program, prefs, go, back, o
   // Heart rate still to come: never asked yet, or nothing from the watch so far within a day of finishing.
   // A workout with no times (imported) or one the watch never covered says nothing.
   const ghHeart = prefs.googleHealth?.on && prefs.googleHealth.heart !== false;
+  // This workout's usual average heart rate: the median of its last five with heart rate (two at least).
+  const usualAvg = useMemo(() => {
+    const avgs = priorSessions(sessions, session).filter((x) => x.day === session.day && x.hr?.avg && !x.hr.none)
+      .sort(byDateDesc).slice(0, 5).map((x) => x.hr.avg).sort((a, b) => a - b);
+    return avgs.length >= 2 ? Math.round(avgs.length % 2 ? avgs[avgs.length >> 1] : (avgs[avgs.length / 2 - 1] + avgs[avgs.length / 2]) / 2) : null;
+  }, [sessions, session]);
   const heartDue = ghHeart && session.startedAt && session.finishedAt
     && (!session.hr || (session.hr.none && Date.now() - session.finishedAt < 24 * 3600_000));
 
   return (
     <main className="screen summary" data-day={session.day}>
       <div className="body" style={{ paddingTop: "calc(24px + var(--safe-t))" }}>
+        {/* The date (or "Session logged") is the title, the workout and its length under it, then the head
+            coach beside their bubble. Nothing above the title but the back button. */}
         <header className="summary-head">
           <div className="summary-meta">
             {past && <button className="icon-btn boxed" onClick={leave} aria-label="Back to workouts"><ChevronLeft size={20} /></button>}
-            <span className="chip"><span className="dot" aria-hidden="true" />{p.name} · {shortDate(session.date)}</span>
-            <span className="spacer" />
-            {mins && <span className="mono small muted">{mins} min</span>}
+            <Headline text={past ? longDate(session.date) : null} />
             <InfoButton screen="summary" />
           </div>
-          <div className="summary-hero">
-            <Headline text={past ? longDate(session.date) : null} />
-            <Coach id={head} mood={r.records.length ? "pr" : "proud"} size={84} />
+          <div className="summary-sub">
+            <span className="chip"><span className="dot" aria-hidden="true" />{p.name}</span>
+            {mins && <span>{mins} min</span>}
           </div>
-          {/* The head coach up top speaks for the recap: a walkthrough of this workout (the bubble), or
-              questions about it (Ask), in the same conversation as everywhere else, with this workout in
-              full on top of what they read. */}
+          {/* The head coach speaks for the recap: a walkthrough of this workout (the bubble), or questions
+              about it (Ask), in the same conversation as everywhere else, with this workout in full on top
+              of what they read. */}
           {coachChat?.thread && (
             <div className="summary-ask" style={{ "--c": COACHES[head].color }}>
-              <button type="button" className="coach-bubble says-up bubble-btn" onClick={() => setWalking(true)} aria-expanded={walking}>
+              <Coach id={head} mood={r.records.length ? "pr" : "proud"} size={64} />
+              <button type="button" className="coach-bubble bubble-btn" onClick={() => setWalking(true)} aria-expanded={walking}>
                 {walk ? "My notes are under each part of the recap." : `Want my take? I'll go over what went well${heart ? ", your heart rate," : ""} and what to fix.`}
                 <span className="bubble-cta">{walk ? "Walk through it again" : "Walk me through it"}<ChevronRight size={15} strokeWidth={2.8} aria-hidden="true" /></span>
               </button>
@@ -140,9 +147,10 @@ export default function Summary({ session, sessions, program, prefs, go, back, o
         {!past && sessions.length === 1 && <SetupCard prefs={prefs} glow lead="First workout done. Now shape your plan." />}
 
         <div className="stats" data-walk="overview">
-          <div className="stat"><b>{compact(r.vol)}</b><span>lb volume</span>{volPct != null && <Delta pct={volPct} />}</div>
+          <div className="stat"><b>{compact(r.vol)}</b><span>lb volume</span>{volPct != null && <VolRead pct={volPct} />}</div>
           <div className="stat"><b>{r.sets}</b><span>sets</span><span className="trend flat">{plural(Object.keys(session.sets).length, "lift")}</span></div>
-          <div className="stat"><b>{r.records.length}</b><span>PRs</span>{r.prevRecords != null && <span className="trend flat">{r.prevRecords} last time</span>}</div>
+          <div className="stat"><b>{r.records.length}</b><span>PRs</span>
+            {r.records.length > 0 ? <Read tone="good">New best</Read> : r.prevRecords != null && <span className="trend flat">{r.prevRecords} last time</span>}</div>
         </div>
         {notesOn && <WalkNotes walk={walk} head={head} plan={plan} match={(t) => t === "overview"} />}
 
@@ -152,7 +160,7 @@ export default function Summary({ session, sessions, program, prefs, go, back, o
         {/* Only while Google Health is connected: a workout keeps its numbers after a disconnect (they
             come back on reconnecting), but the chart's readings can't be fetched then. */}
         {!prefs.googleHealth?.on ? null : session.hr && !session.hr.none
-          ? <ErrorBoundary quiet="heart rate"><Heart session={session} focus={focusAt} walk={notesOn ? walk : null} head={head} plan={plan} /></ErrorBoundary>
+          ? <ErrorBoundary quiet="heart rate"><Heart session={session} usualAvg={usualAvg} focus={focusAt} walk={notesOn ? walk : null} head={head} plan={plan} /></ErrorBoundary>
           : heartDue && (
             <p className="note-box hr-wait">Heart rate from your watch shows up here once it syncs to Google Health, usually within the hour.</p>
           )}
@@ -247,7 +255,7 @@ function Headline({ text }) {
   return (
     <h1 className="summary-title">
       {metal
-        ? <metal.MetalText font={'800 44px/1 Lexend, "Helvetica Neue", sans-serif'} color={ink} theme="dark" strength={0.9}>Session logged</metal.MetalText>
+        ? <metal.MetalText font={'800 28px/1.1 Lexend, "Helvetica Neue", sans-serif'} color={ink} theme="dark" strength={0.9}>Session logged</metal.MetalText>
         : "Session logged"}
     </h1>
   );
@@ -266,9 +274,18 @@ function countRecords(sessions, s) {
   }).length;
 }
 
-function Delta({ pct }) {
-  if (Math.abs(pct) < 0.5) return <span className="trend flat">— even</span>;
-  return <span className={"trend" + (pct < 0 ? " flat" : "")}>{pct > 0 ? "▲" : "▼"} {Math.abs(pct).toFixed(0)}%</span>;
+/* A tile's verdict at a glance: good (better than usual), even (their normal) or watch (worse than
+   usual), with a mark that says it without the color. */
+const READ_MARK = { good: "✓", even: "●", watch: "!" };
+function Read({ tone, children }) {
+  return <span className={`trend read ${tone}`}><span aria-hidden="true">{READ_MARK[tone]}</span>{children}</span>;
+}
+
+/** Volume against the last time this workout was done: within 5% is the same workout. */
+function VolRead({ pct }) {
+  const p = Math.abs(pct).toFixed(0);
+  if (Math.abs(pct) < 5) return <Read tone="even">{Math.abs(pct) < 0.5 ? "Same" : `${pct > 0 ? "+" : "−"}${p}%`}</Read>;
+  return <Read tone={pct > 0 ? "good" : pct <= -10 ? "watch" : "even"}>{pct > 0 ? "+" : "−"}{p}%</Read>;
 }
 
 /**
@@ -276,7 +293,7 @@ function Delta({ pct }) {
  * phone, or fetched for it), time in each zone, which lift pushed hardest, and each lift's set peaks
  * and how far heart rate came down before the next set.
  */
-function Heart({ session, focus = null, walk = null, head, plan }) {
+function Heart({ session, usualAvg = null, focus = null, walk = null, head, plan }) {
   const h = session.hr;
   const [readings, setReadings] = useState(() => cachedCurve(session.id));
   const [failed, setFailed] = useState(false);
@@ -300,7 +317,8 @@ function Heart({ session, focus = null, walk = null, head, plan }) {
     <section className="section">
       <h2 className="lbl">Heart rate</h2>
       <div className="stats" data-walk="heart">
-        <div className="stat"><b>{h.avg}</b><span>avg bpm</span></div>
+        {/* Effort, not a verdict: a harder or easier workout than usual is neither good nor bad. */}
+        <div className="stat"><b>{h.avg}</b><span>avg bpm</span>{usualAvg && <span className="trend flat">{h.avg >= usualAvg + 5 ? "Harder" : h.avg <= usualAvg - 5 ? "Easier" : "Typical"}</span>}{usualAvg && <span className="stat-usual">usually {usualAvg}</span>}</div>
         <div className="stat"><b>{h.max}</b><span>peak bpm</span>{h.bounds && <span className="trend flat">{ZONES[zoneOf(h.max, h.bounds)]?.label || "Below light"}</span>}</div>
         {h.hard != null
           ? <div className="stat"><b>{num(h.hard)}</b><span>min vigorous or peak</span></div>
@@ -359,21 +377,31 @@ function Heart({ session, focus = null, walk = null, head, plan }) {
  * each against their usual (the 4 weeks before), and the stages when the watch tracked them. A short
  * or under-recovered night says so; an ordinary one just shows the numbers.
  */
+/* The night before, each number read against the lifter's own usual (lib/recovery.js): a verdict on
+   each tile with the usual under it, and the night in a sentence. */
 function NightBefore({ r }) {
   const { entry: e, usual: u } = r;
   const s = e.sleep;
-  const vs = (was, fmt = (x) => x) => (was ? <span className="trend flat">usually {fmt(was)}</span> : null);
+  const reads = nightReads(r);
+  const tile = (value, label, read, was) => (
+    <div className="stat">
+      <b>{value}</b><span>{label}</span>
+      {read && <Read tone={read.tone}>{read.word}</Read>}
+      {was != null && <span className="stat-usual">usually {was}</span>}
+    </div>
+  );
   const stages = s && [s.deep != null && `${hm(s.deep)} deep`, s.rem != null && `${hm(s.rem)} REM`, s.awake != null && `awake ${hm(s.awake)}`].filter(Boolean);
   return (
     <section className="section" data-walk="sleep">
       <h2 className="lbl">Night before</h2>
+      {reads.line && !r.low && <p className="night-line">{reads.line}</p>}
       <div className="stats">
-        {s && <div className="stat"><b>{hm(s.asleep)}</b><span>asleep</span>{vs(u.asleep, hm)}</div>}
-        {e.rhr != null && <div className="stat"><b>{Math.round(e.rhr)}</b><span>resting bpm</span>{vs(u.rhr)}</div>}
-        {e.hrv != null && <div className="stat"><b>{Math.round(e.hrv)}</b><span>HRV ms</span>{vs(u.hrv)}</div>}
+        {s && tile(hm(s.asleep), "asleep", reads.asleep, u.asleep && hm(u.asleep))}
+        {e.rhr != null && tile(Math.round(e.rhr), "resting bpm", reads.rhr, u.rhr)}
+        {e.hrv != null && tile(Math.round(e.hrv), "HRV ms", reads.hrv, u.hrv)}
       </div>
       {stages?.length > 0 && <p className="small muted">{stages.join(" · ")}</p>}
-      {r.low && <p className="note-box">{r.short && r.strained ? "A short night, and your body was still recovering." : r.short ? "A short night for you." : "Resting heart rate up and HRV down together: your body was still recovering."} Expect a dip, and don't read it as a stall.</p>}
+      {r.low && <p className="note-box">{reads.line} Expect a dip, and don't read it as a stall.</p>}
     </section>
   );
 }

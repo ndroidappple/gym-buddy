@@ -23,6 +23,7 @@ export const HELP = {
   summary: {
     title: "Workout summary",
     steps: [
+      { name: "Your usual", Icon: CalendarCheck, text: "Each number is judged against your own usual: ✓ better, ● normal, ! worse. For sleep, resting heart rate and HRV, your usual is your typical night over the last 4 weeks." },
       { name: "Records", Icon: Trophy, spot: "records", text: "Lifts where you beat your best [Est. max]." },
       { name: "Est. max", Icon: Gauge, text: "The most you could likely lift once, worked out from your best set." },
       { name: "Last time", Icon: TrendingUp, spot: "vs-last", text: "Each lift's best set, [Up], [Same] or [Down] on last time." },

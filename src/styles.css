@@ -33,6 +33,8 @@
   --stamp: #8A6400;
   --stamp-bg: #FFF1C2;
   --danger: #D63A31;
+  --good: #15744A;     /* a recap number better than the lifter's usual */
+  --watch: #B4530A;    /* ... or worse than it */
   --pr: #FFB23E;       /* PR gold: rims, glows, highlights */
   --pr-ink: #9A5B00;   /* PR text on light surfaces */
   --accent: #7B61FF;  --accent-lip: #5A42D6;  /* bodyweight: not a day, so not a plate color */
@@ -78,6 +80,8 @@
   --stamp: #FFC53D;
   --stamp-bg: #3A3016;
   --danger: #FF6B5E;
+  --good: #4FD69A;
+  --watch: #FFA66B;
   --pr-ink: #FFB23E;
   --accent-lip: #4A34B8;
 
@@ -335,9 +339,6 @@ button.chip { min-height: 38px; padding: 0 14px; border: 2px solid var(--rule); 
 /* Tail down toward the coach below (exercise card). Centred over the coach's body. */
 .coach-bubble.says-down { border-radius: 20px; }
 .coach-bubble.says-down::after { left: 18px; bottom: -13px; width: 22px; height: 14px; clip-path: path("M0 0 H22 C16 4 12 9 9 14 C7 8 4 3 0 0 Z"); }
-/* Tail up and to the right, toward the coach above (summary hero). */
-.coach-bubble.says-up { border-radius: 20px 6px 20px 20px; }
-.coach-bubble.says-up::after { left: auto; right: 0; bottom: auto; top: -15px; width: 26px; height: 16px; clip-path: path("M0 16 C10 14 20 9 26 0 C23 6 22 11 22 16 Z"); }
 
 /* ═══════════════ TODAY ═══════════════ */
 .today-top { flex-direction: column; align-items: stretch; gap: 4px; padding-top: calc(12px + var(--safe-t)); padding-bottom: 16px; }
@@ -490,9 +491,9 @@ html[data-typing] :is(.dock, .alert-ask) { opacity: 0; visibility: hidden; trans
 .summary .body { position: relative; }
 .summary-head { display: flex; flex-direction: column; gap: 14px; }
 .summary-meta { display: flex; align-items: center; gap: 8px; }
-.summary-hero { display: flex; align-items: flex-end; gap: 12px; }
-.summary-title { flex: 1; font-weight: 800; font-size: 44px; line-height: 1; letter-spacing: -0.03em; min-height: 44px; }
-.summary-title.past { font-size: 34px; }
+.summary-title, .summary-title.past { flex: 1; min-width: 0; font-weight: 800; font-size: 28px; line-height: 1.1; letter-spacing: -0.02em; }
+.summary-sub { display: flex; align-items: center; gap: 10px; margin-top: -4px; font-size: 14px; font-weight: 600; color: var(--mute); }
+.summary-sub > span + span::before { content: "·"; margin-right: 10px; }
 .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .stat { padding: 12px; display: flex; flex-direction: column; gap: 4px; min-width: 0; border-radius: 22px; }
 .stat b { font-weight: 800; font-size: 28px; line-height: 1; letter-spacing: -0.02em; }
@@ -1183,10 +1184,19 @@ button.coach-card:active { transform: translateY(3px); box-shadow: 0 2px 0 var(-
 .ex-tag.later { background: color-mix(in srgb, var(--day) 18%, var(--surface-2)); color: var(--day-ink); }
 .late-note { display: block; font-size: 12px; font-weight: 600; color: var(--mute); margin-left: 18px; }
 .nut-ask { margin-top: 2px; }
-/* Summary: the head coach in the hero speaks the bubble under them; Ask sits low so the tail can reach up. */
+/* Summary: the head coach beside their bubble, Ask at the end. */
 .summary-ask { display: flex; align-items: flex-end; gap: 10px; }
+.summary-ask > .coach { flex: none; margin: 0 -4px -4px -6px; }
 .summary-ask .coach-bubble { flex: 1; font-size: 14px; padding: 10px 13px; }
-.summary-ask .ask-btn.compact { align-self: flex-end; }
+/* A tile's read: better than usual, normal, or worse, against the lifter's own usual. The mark says it
+   too, so it never rests on color alone. These are the only good/bad colors in the app: plates name days. */
+.trend.read { gap: 4px; }
+.trend.read > span { font-size: 0.8em; }
+.trend.read.good { color: var(--good); background: color-mix(in srgb, var(--good) 15%, var(--surface)); }
+.trend.read.watch { color: var(--watch); background: color-mix(in srgb, var(--watch) 15%, var(--surface)); }
+.trend.read.even { color: var(--mute); }
+.stat-usual { font-size: 11.5px !important; font-weight: 600; color: var(--faint) !important; line-height: 1.25; }
+.night-line { margin: -4px 4px 2px; font-size: 14.5px; font-weight: 600; line-height: 1.4; }
 /* Today, after a short or under-recovered night: one quiet line under the hero. */
 .night-note { display: flex; gap: 8px; align-items: flex-start; margin: 2px 4px 0; font-size: 14px; font-weight: 500; line-height: 1.4; color: var(--mute); }
 .night-note svg { flex: none; margin-top: 2px; }

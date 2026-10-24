@@ -291,6 +291,15 @@ eq("resting heart rate up alone isn't low", on({ sleep: { asleep: 450 }, rhr: 62
 eq("resting heart rate up and HRV down together is", [on({ sleep: { asleep: 450 }, rhr: 61, hrv: 38 }).strained, on({ sleep: { asleep: 450 }, rhr: 61, hrv: 38 }).low], [true, true]);
 ok("no usual until 5 nights", R.usual({ "2026-10-20": { sleep: { asleep: 400 } } }, "2026-10-22").asleep === null);
 eq("nothing that morning", R.readiness(month, "2026-10-23"), null);
+// Each number read at a glance: better, normal or off for them.
+const reads = (e) => R.nightReads(on(e));
+eq("an ordinary night reads normal", [reads({ sleep: { asleep: 440 }, rhr: 56, hrv: 51 }).rhr.tone, reads({ sleep: { asleep: 440 }, rhr: 56, hrv: 51 }).hrv.word, reads({ sleep: { asleep: 440 }, rhr: 56, hrv: 51 }).line],
+  ["even", "Normal", "A normal night for you: everything near your usual."]);
+eq("lower resting heart rate and higher HRV read better", [reads({ rhr: 51, hrv: 60 }).rhr.word, reads({ rhr: 51, hrv: 60 }).hrv.tone, reads({ rhr: 51, hrv: 60 }).line],
+  ["Better", "good", "Recovered well: resting heart rate and HRV better than usual."]);
+eq("one number off is flagged, not a low night", [reads({ rhr: 61, hrv: 49 }).rhr.word, reads({ rhr: 61, hrv: 49 }).line], ["High", "Mostly normal, but your resting heart rate was high."]);
+eq("a low night says so", [reads({ sleep: { asleep: 360 } }).asleep.word, reads({ sleep: { asleep: 360 } }).line], ["Short", "A short night for you."]);
+eq("no usual, no read", R.nightReads(R.readiness({ "2026-10-22": { rhr: 60 } }, "2026-10-22")).rhr, null);
 ok("coach line", R.nightLine({ ...month, "2026-10-22": { sleep: { asleep: 360, deep: 50, rem: 80, awake: 25 }, rhr: 57, hrv: 46 } }, "2026-10-22")
   === "slept 6h00 (their usual 7h30), 50 min deep, 1h20 REM, awake 25 min; resting heart rate 57 (usual 55); HRV 46 ms (usual 50). A short night for them.");
 eq("head coach lines: mornings with data only, newest first", R.recoveryLines(month, "2026-10-22", 3).map((l) => l.slice(2, 12)), ["2026-10-21", "2026-10-20"]);
