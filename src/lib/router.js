@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useRef, startTransition } from "react";
 import { flushSync } from "react-dom";
 import { reducedMotion } from "./motion.js";
 
@@ -36,7 +36,9 @@ const pos = () => history.state?.ironlogIdx ?? 0;
 let counter = 0;
 
 /* Screen changes play as a view transition (styles.css, "Route transitions"), marked on <html data-nav>:
-   "forward" when drilling in, "back" when coming out, "tab" between the tabs (they settle in place).
+   "forward" when drilling in, "back" when coming out. Switching tabs swaps the screen without one, like a
+   native tab bar, and renders it as interruptible work: tap tabs in quick succession and each new tap
+   drops the half-drawn screen for the latest, while the tab bar's pill (drawn first) never waits on it.
    None when the screen underneath stays put (a sheet or the week in review opening over it: those
    animate themselves), with reduced motion, or when the browser already animated a swipe back. */
 const isTab = (r) => TABS.includes(r.name);
@@ -59,8 +61,9 @@ export function useRoute() {
   const show = useCallback((next, dir, uaAnimated = false) => {
     const nav = navKind(shown.current, next, dir);
     shown.current = next;
+    if (nav) document.documentElement.dataset.nav = nav; // also stops the first screen's cascade replaying
+    if (nav === "tab") { startTransition(() => setRoute(next)); return; }
     if (!nav || uaAnimated || !document.startViewTransition || reducedMotion()) { setRoute(next); return; }
-    document.documentElement.dataset.nav = nav;
     document.startViewTransition(() => flushSync(() => setRoute(next)));
   }, []);
 

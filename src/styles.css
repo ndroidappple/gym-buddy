@@ -136,7 +136,7 @@ html:not([data-nav]) .screen > .body > :nth-child(6):not(.ex) { animation-delay:
 
 /* ═══════════════ ROUTE TRANSITIONS ═══════════════
    lib/router.js runs each screen change as a view transition and marks which way it goes on
-   <html data-nav>: forward (drilling in), back (coming out) or tab. The old screen gets out of the
+   <html data-nav>: forward (drilling in) or back (coming out); tabs swap without one. The old screen gets out of the
    way fast, so the two are never half-faded over each other, and the new one glides in on the slower
    surface spring. Taps go straight through to the new screen while it settles. */
 ::view-transition { pointer-events: none; }

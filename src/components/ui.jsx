@@ -386,7 +386,7 @@ const ALL_TABS = [
    once and each tab glides from where it was with a transform, so nothing re-lays out mid-move.
    Tab geometry is computed from the bar's width, not measured, so the pill always knows where to land. */
 const TAB_PAD = 7, TAB_GAP = 4, ACTIVE_FR = 2; // keep in sync with .tabbar padding and gap
-const HOLD_MS = 120, DRAG_SLOP = 8; // hold time / finger travel (px) before the pill follows the finger
+const HOLD_MS = 120, DRAG_SLOP = 8, HELD_SLOP = 3; // hold time / finger travel (px, without and with a hold) before the pill follows the finger
 function tabGeometry(TABS, navW, idx) {
   const unit = (navW - 2 * TAB_PAD - TAB_GAP * (TABS.length - 1)) / (TABS.length - 1 + ACTIVE_FR);
   let left = TAB_PAD;
@@ -424,25 +424,34 @@ export function TabBar({ active, onSelect, nutrition = false }) {
     const i = geo ? geo.findIndex((t) => px < t.left + t.width + TAB_GAP / 2) : 0;
     return TABS[i < 0 ? TABS.length - 1 : i].key;
   };
-  const pick = (key) => { if (key !== shown) { setPicked({ key, from: live ? picked.from : active, via: live ? [...picked.via, key] : [key] }); onSelect(key); vibrate(6); } };
+  // The pill commits on its own first, so it moves even while the new screen is still rendering.
+  const pick = (key) => {
+    if (key === shown) return;
+    flushSync(() => setPicked({ key, from: live ? picked.from : active, via: live ? [...picked.via, key] : [key] }));
+    onSelect(key);
+    vibrate(6);
+  };
 
-  // A tap snaps the pill to the tab under the finger. Free dragging starts only after a short
-  // hold, or once the finger clearly travels, so a slightly wobbly tap never drags the pill.
-  const press = useRef(null); // { startX, x, timer } while a finger is down
+  // A tap snaps the pill to the tab under the finger. Free dragging starts once the finger clearly
+  // travels, or travels at all after a short hold, so a slightly wobbly tap never drags the pill.
+  // A hold alone changes nothing on screen: a long tap on the current tab leaves it be.
+  const press = useRef(null); // { startX, x, timer, held, dragging } while a finger is down
   const relX = (clientX) => clientX - nav.current.getBoundingClientRect().left;
   const startDrag = () => { const p = press.current; if (!p) return; clearTimeout(p.timer); p.dragging = true; setDrag(relX(p.x)); vibrate(4); };
   const down = (e) => {
     if (e.button > 0) return;
     nav.current.setPointerCapture(e.pointerId);
     if (press.current) clearTimeout(press.current.timer);
-    press.current = { id: e.pointerId, startX: e.clientX, x: e.clientX, dragging: false, timer: setTimeout(startDrag, HOLD_MS) };
+    const p = { id: e.pointerId, startX: e.clientX, x: e.clientX, held: false, dragging: false };
+    p.timer = setTimeout(() => { p.held = true; }, HOLD_MS);
+    press.current = p;
     pick(keyAt(e.clientX));
   };
   const move = (e) => {
     const p = press.current;
     if (!p || e.pointerId !== p.id) return; // ignore other fingers and a hovering mouse
     p.x = e.clientX;
-    if (!p.dragging) { if (Math.abs(e.clientX - p.startX) < DRAG_SLOP) return; startDrag(); }
+    if (!p.dragging) { if (Math.abs(e.clientX - p.startX) < (p.held ? HELD_SLOP : DRAG_SLOP)) return; startDrag(); }
     setDrag(relX(e.clientX));
     pick(keyAt(e.clientX));
   };
