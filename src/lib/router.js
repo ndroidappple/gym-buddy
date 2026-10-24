@@ -36,7 +36,8 @@ const pos = () => history.state?.ironlogIdx ?? 0;
 let counter = 0;
 
 /* Screen changes play as a view transition (styles.css, "Route transitions"), marked on <html data-nav>:
-   "forward" when drilling in, "back" when coming out, "tab" between the tabs (they settle in place).
+   "forward" when drilling in, "back" when coming out. Switching tabs swaps the screen at once, like a
+   native tab bar: no snapshot to wait on, so the new screen shows in the frame the pill starts moving.
    None when the screen underneath stays put (a sheet or the week in review opening over it: those
    animate themselves), with reduced motion, or when the browser already animated a swipe back. */
 const isTab = (r) => TABS.includes(r.name);
@@ -59,8 +60,8 @@ export function useRoute() {
   const show = useCallback((next, dir, uaAnimated = false) => {
     const nav = navKind(shown.current, next, dir);
     shown.current = next;
-    if (!nav || uaAnimated || !document.startViewTransition || reducedMotion()) { setRoute(next); return; }
-    document.documentElement.dataset.nav = nav;
+    if (nav) document.documentElement.dataset.nav = nav; // also stops the first screen's cascade replaying
+    if (!nav || nav === "tab" || uaAnimated || !document.startViewTransition || reducedMotion()) { setRoute(next); return; }
     document.startViewTransition(() => flushSync(() => setRoute(next)));
   }, []);
 
