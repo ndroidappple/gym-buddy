@@ -29,7 +29,8 @@ export const EXIT_EASE = "cubic-bezier(.4, 0, 1, 1)";
 const SPRINGS = {
   enter: { f: 3.6, z: 1, fallback: "cubic-bezier(.16, 1, .3, 1)" },       // content arriving
   pop: { f: 3, z: 0.7, fallback: "cubic-bezier(.2, 1.5, .4, 1)" },        // small things landing: checks, chips, bubbles
-  slide: { f: 3.4, z: 0.78, fallback: "cubic-bezier(.3, 1.3, .5, 1)" },   // controls moving across: the tab pill, switches, swiped rows
+  slide: { f: 3.4, z: 0.78, fallback: "cubic-bezier(.3, 1.3, .5, 1)" },   // controls moving across: switches, swiped rows
+  snap: { f: 5.5, z: 0.82, fallback: "cubic-bezier(.25, 1.2, .5, 1)" },   // the tab pill and tabs: keeps up with a finger
   // Not "surface": --surface is the card color in styles.css, and these go on :root as --<name>.
   glide: { f: 1.9, z: 0.9, fallback: "cubic-bezier(.2, 1, .3, 1)" },      // whole surfaces: screens, sheets, docks
 };

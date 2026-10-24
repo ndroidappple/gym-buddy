@@ -386,7 +386,7 @@ const ALL_TABS = [
    once and each tab glides from where it was with a transform, so nothing re-lays out mid-move.
    Tab geometry is computed from the bar's width, not measured, so the pill always knows where to land. */
 const TAB_PAD = 7, TAB_GAP = 4, ACTIVE_FR = 2; // keep in sync with .tabbar padding and gap
-const HOLD_MS = 200, DRAG_SLOP = 12; // hold time / finger travel (px) before the pill follows the finger
+const HOLD_MS = 120, DRAG_SLOP = 8; // hold time / finger travel (px) before the pill follows the finger
 function tabGeometry(TABS, navW, idx) {
   const unit = (navW - 2 * TAB_PAD - TAB_GAP * (TABS.length - 1)) / (TABS.length - 1 + ACTIVE_FR);
   let left = TAB_PAD;
@@ -403,7 +403,13 @@ export function TabBar({ active, onSelect, nutrition = false }) {
   const nav = useRef(null);
   const [navW, setNavW] = useState(0);
   const [drag, setDrag] = useState(null); // pill centre x while a finger is down
-  const idx = Math.max(0, TABS.findIndex((t) => t.key === active));
+  // The tab just picked, shown at once: the route (and the new screen) catch up a frame or more later.
+  // Dragging across tabs picks each one on the way, so the route may land on those first.
+  const [picked, setPicked] = useState(null); // { key, from: active tab before picking, via: tabs picked since }
+  const live = !!picked && (picked.from === active || picked.via.includes(active));
+  const shown = live ? picked.key : active;
+  useEffect(() => { if (picked && (!live || active === picked.key)) setPicked(null); }, [active]); // eslint-disable-line react-hooks/exhaustive-deps
+  const idx = Math.max(0, TABS.findIndex((t) => t.key === shown));
   const geo = navW ? tabGeometry(TABS, navW, idx) : null;
 
   useLayoutEffect(() => {
@@ -418,7 +424,7 @@ export function TabBar({ active, onSelect, nutrition = false }) {
     const i = geo ? geo.findIndex((t) => px < t.left + t.width + TAB_GAP / 2) : 0;
     return TABS[i < 0 ? TABS.length - 1 : i].key;
   };
-  const pick = (key) => { if (key !== active) { onSelect(key); vibrate(6); } };
+  const pick = (key) => { if (key !== shown) { setPicked({ key, from: live ? picked.from : active, via: live ? [...picked.via, key] : [key] }); onSelect(key); vibrate(6); } };
 
   // A tap snaps the pill to the tab under the finger. Free dragging starts only after a short
   // hold, or once the finger clearly travels, so a slightly wobbly tap never drags the pill.
@@ -465,7 +471,7 @@ export function TabBar({ active, onSelect, nutrition = false }) {
       moving?.cancel();
       const dx = before.xs[i] + now - xs[i];
       if (Math.abs(dx) < 0.5) return;
-      el.animate([{ transform: `translateX(${dx}px)` }, { transform: "none" }], { id: "tab-glide", duration: MS.slide, easing: EASE.slide });
+      el.animate([{ transform: `translateX(${dx}px)` }, { transform: "none" }], { id: "tab-glide", duration: MS.snap, easing: EASE.snap });
     });
   }, [idx, navW, TABS.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -479,7 +485,7 @@ export function TabBar({ active, onSelect, nutrition = false }) {
       onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up} onLostPointerCapture={up}>
       {g && <span className="tab-pill" aria-hidden="true" style={{ width: w, transform: `translateX(${x}px)` }} />}
       {TABS.map(({ key, label, Icon }, i) => (
-        <a key={key} ref={(el) => { tabEls.current[i] = el; }} className="tab" href={`#/${key}`} aria-current={active === key ? "page" : undefined}
+        <a key={key} ref={(el) => { tabEls.current[i] = el; }} className="tab" href={`#/${key}`} aria-current={shown === key ? "page" : undefined}
           // Pointer input already switched on press; this handles keyboard activation only.
           onClick={(e) => { e.preventDefault(); if (e.detail === 0) pick(key); }}>
           <Icon size={21} strokeWidth={2.4} aria-hidden="true" />

@@ -198,11 +198,11 @@ html[data-nav="back"]::view-transition-new(root) { animation: vt-fade-in var(--e
 .spacer { flex: 1; }
 
 .tabbar { position: fixed; bottom: calc(14px + var(--safe-b)); left: 16px; right: 16px; max-width: 528px; margin: 0 auto; z-index: 20; touch-action: none; -webkit-user-select: none; user-select: none; display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; padding: 7px; border-radius: 34px; background: var(--dock); box-shadow: inset 0 0 0 2px var(--dock-rule), 0 6px 0 var(--lip); }
-.tab { position: relative; z-index: 1; display: flex; align-items: center; justify-content: center; gap: 7px; min-width: 0; padding: 0 12px; min-height: 54px; font-size: 13px; white-space: nowrap; font-weight: 700; color: var(--dock-mute); text-decoration: none; border-radius: 27px; -webkit-touch-callout: none; transition: color 120ms; }
+.tab { position: relative; z-index: 1; display: flex; align-items: center; justify-content: center; gap: 7px; min-width: 0; padding: 0 12px; min-height: 54px; font-size: 13px; white-space: nowrap; font-weight: 700; color: var(--dock-mute); text-decoration: none; border-radius: 27px; -webkit-touch-callout: none; transition: color 80ms; }
 .tab[aria-current="page"] { color: var(--on-dock-pill); }
 /* The pill slides between tabs with a little overshoot; while a finger drags it tracks the finger exactly.
    The columns switch at once and each tab glides from where it was (TabBar), on the pill's spring. */
-.tab-pill { position: absolute; left: 0; top: 7px; bottom: 7px; border-radius: 27px; background: var(--dock-pill); transition: transform var(--slide-ms) var(--slide), width var(--slide-ms) var(--slide); }
+.tab-pill { position: absolute; left: 0; top: 7px; bottom: 7px; border-radius: 27px; background: var(--dock-pill); transition: transform var(--snap-ms) var(--snap), width var(--snap-ms) var(--snap); }
 .tabbar.dragging .tab-pill { transition: none; transform-origin: center; }
 .tabbar.dragging .tab-pill { box-shadow: 0 0 0 3px color-mix(in srgb, var(--ink) 12%, transparent); }
 /* Inactive tabs stack a small label under the icon, so every tab says where it goes. */
@@ -591,7 +591,7 @@ html[data-typing] :is(.dock, .alert-ask) { opacity: 0; visibility: hidden; trans
 /* ═══════════════ PROGRESS / LIFT ═══════════════ */
 .bw-card { --card-bg: var(--accent); --lip: var(--accent-lip); display: flex; flex-direction: column; gap: 10px; padding: 16px; border-radius: var(--r-xl); background: var(--card-bg); color: #FFFFFF; box-shadow: 0 7px 0 var(--lip); text-decoration: none; }
 /* A lift's page in the top card wears its day's plate color (bodyweight's purple when it's off program). */
-.lift-card { --card-bg: var(--day, var(--accent)); --lip: var(--day-lip, var(--accent-lip)); color: var(--on-day, #FFFFFF); }
+.lift-card { --card-bg: var(--day, var(--accent)); --lip: var(--day-lip, var(--accent-lip)); color: var(--on-day, #FFFFFF); cursor: pointer; }
 .lift-card-head { display: flex; flex-direction: column; flex: 1; min-width: 0; }
 .lift-card-head .lbl { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .bw-card .top-row { display: flex; align-items: flex-start; gap: 10px; }
