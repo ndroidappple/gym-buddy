@@ -424,7 +424,13 @@ export function TabBar({ active, onSelect, nutrition = false }) {
     const i = geo ? geo.findIndex((t) => px < t.left + t.width + TAB_GAP / 2) : 0;
     return TABS[i < 0 ? TABS.length - 1 : i].key;
   };
-  const pick = (key) => { if (key !== shown) { setPicked({ key, from: live ? picked.from : active, via: live ? [...picked.via, key] : [key] }); onSelect(key); vibrate(6); } };
+  // The pill commits on its own first, so it moves even while the new screen is still rendering.
+  const pick = (key) => {
+    if (key === shown) return;
+    flushSync(() => setPicked({ key, from: live ? picked.from : active, via: live ? [...picked.via, key] : [key] }));
+    onSelect(key);
+    vibrate(6);
+  };
 
   // A tap snaps the pill to the tab under the finger. Free dragging starts only after a short
   // hold, or once the finger clearly travels, so a slightly wobbly tap never drags the pill.
