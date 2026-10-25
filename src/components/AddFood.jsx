@@ -1,17 +1,19 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Search, Plus, PenLine, Pencil, ChevronLeft, Trash2, Check, ScanBarcode } from "lucide-react";
+import { Search, Plus, PenLine, Pencil, ChevronLeft, ChevronRight, Trash2, Check, ScanBarcode } from "lucide-react";
 import Coach from "./Coach.jsx";
 import { COACHES } from "../data/coaches.js";
 import TankMeal from "./TankMeal.jsx";
 import ScanFood from "./ScanFood.jsx";
 import { Sheet } from "./ui.jsx";
 import { MEALS, unitsFor, nutritionFor, defaultPortion } from "../lib/nutrition.js";
-import { yourFoods, pickYourFood, matchesQuery, whenLabel } from "../lib/yourFoods.js";
+import { yourFoods, pickYourFood, whenLabel } from "../lib/yourFoods.js";
+import { readQuery, matchScore, portionFor } from "../lib/foodQuery.js";
 import { searchFoods, SEARCH_TROUBLE } from "../lib/foodSearch.js";
 
-/* Adding food: describe it to Tank (he itemizes it into one food), your foods (one tap, then Add,
-   ranked by what you have and when), search, scan a barcode, or enter it by hand. Every path shows exactly what
-   will be logged before Add. `food` is the useFood() store; `meal` and `date` are where it goes. */
+/* Adding food: one box for everything. It searches your foods (one tap, then Add, ranked by what you
+   have and when) and the food databases, and when what's typed reads as a meal in words, the head coach
+   steps up to itemize it into one food. Or scan a barcode, or enter it by hand. Every path shows exactly
+   what will be logged before Add. `food` is the useFood() store; `meal` and `date` are where it goes. */
 
 const fmt = (n) => Math.round(n).toLocaleString();
 const g = (n) => `${Math.round(n)} g`;
@@ -24,8 +26,8 @@ const asFood = (x) => ({ name: x.name, brand: x.brand || null, source: x.source,
 const scannedFood = ({ kind, item }) => (kind === "saved" ? asFood({ ...item, source: "custom" }) : asFood(item));
 
 /* On a phone the sheet opens without focusing search: the keyboard rising while the sheet slides up
-   reads as two motions fighting, and it covers what's tapped most (your foods, Add with the coach,
-   Scan). Tapping the search box brings the keyboard. With a real keyboard, search is ready at once. */
+   reads as two motions fighting, and it covers what's tapped most (your foods, Scan). Tapping the
+   search box brings the keyboard. With a real keyboard, search is ready at once. */
 const touchScreen = () => typeof matchMedia === "function" && matchMedia("(pointer: coarse)").matches;
 
 /** `head`: the head coach, who itemizes a described meal. */
@@ -46,15 +48,15 @@ export default function AddFood({ food, head = "tank", meal: meal0, date, onClos
     : view.step === "portion" ? "How much?" : `Add to ${mealLabel}`;
 
   return (
-    <Sheet title={title} sub={view.step === "find" ? `Pick one of your foods, search, or describe it to ${who}.` : view.step === "tank" ? `Say what you ate. ${who} works out the macros.` : null}
+    <Sheet title={title} sub={view.step === "find" ? `Search your foods, or describe what you ate and ${who} works it out.` : view.step === "tank" ? `Say what you ate. ${who} works out the macros.` : null}
       onClose={onClose} labelledBy="add-food-title" className={"sheet-tall" + (view.step === "tank" ? " sheet-chat" : "")} focusField={!touchScreen()}>
       {view.step !== "find" && (
         <button type="button" className="btn-quiet food-back" onClick={() => setView({ step: "find" })}><ChevronLeft size={16} aria-hidden="true" /> Back</button>
       )}
-      {view.step === "find" && <Find food={food} head={head} meal={meal} onPick={(f, prior) => setView({ step: "portion", food: f, prior })} onTank={() => setView({ step: "tank" })} onScan={() => setView({ step: "scan" })} onManual={() => setView({ step: "manual" })} />}
+      {view.step === "find" && <Find food={food} head={head} meal={meal} onPick={(f, prior) => setView({ step: "portion", food: f, prior })} onTank={(text) => setView({ step: "tank", text })} onScan={() => setView({ step: "scan" })} onManual={() => setView({ step: "manual" })} />}
       {view.step === "scan" && <ScanFood food={food} toFood={scannedFood} onFound={(f) => setView({ step: "portion", food: f })} onManual={(barcode) => setView({ step: "manual", barcode })} />}
       {view.step === "tank" && (
-        <TankMeal coach={head} meal={meal} onMeal={setMeal} action={`Add to ${mealLabel}`} onManual={() => setView({ step: "manual" })}
+        <TankMeal coach={head} first={view.text} meal={meal} onMeal={setMeal} action={`Add to ${mealLabel}`} onManual={() => setView({ step: "manual" })}
           onSave={({ meal: m, save }) => {
             // One food for the whole meal; its items ride along in the basis so the breakdown is kept.
             const basis = { perServing: m.total, servingLabel: "meal", items: m.items };
@@ -95,62 +97,98 @@ function Find({ food, head, meal, onPick, onTank, onScan, onManual }) {
   const [q, setQ] = useState("");
   const [state, setState] = useState({ status: "idle", results: [] }); // idle | loading | done | error
   const [all, setAll] = useState(false); // every one of your foods, not just the top
+  const [lookUp, setLookUp] = useState(false); // search the databases for a description after all
   const abort = useRef(null);
-  const query = q.trim().toLowerCase();
+  const input = useRef(null);
   const ranked = useMemo(() => yourFoods(food.entries, food.foods, { meal }), [food.entries, food.foods, meal]);
-  const mine = useMemo(() => (query ? ranked.filter((x) => matchesQuery(x, query)) : ranked), [ranked, query]);
-  useEffect(() => setAll(false), [query]);
+  // What's typed: a search, an amount and a food, or a meal in words for the coach (lib/foodQuery.js).
+  // A name of one of their own foods is a search for it, however list-like it reads.
+  const known = useMemo(() => q.trim() && ranked.some((x) => matchScore(x, q) >= 2), [ranked, q]);
+  const read = useMemo(() => readQuery(q, { known }), [q, known]);
+  const describing = read.kind === "describe";
+  const term = read.kind === "amount" ? read.food : read.kind === "empty" ? "" : read.food;
+  // Their own foods first, best match first, then most used.
+  const mine = useMemo(() => {
+    if (!term) return ranked;
+    return ranked.map((x) => ({ x, m: matchScore(x, term) })).filter((r) => r.m > 0).sort((a, b) => b.m - a.m).map((r) => r.x);
+  }, [ranked, term]);
+  useEffect(() => { setAll(false); setLookUp(false); }, [term]);
 
-  // Search as they type, after a short pause; a newer search cancels the one in flight.
+  // The food databases, as they type, after a short pause; a newer search cancels the one in flight.
+  // A description doesn't go to them (its words would only find pieces of it) unless asked.
+  const dbTerm = describing && !lookUp ? "" : term;
   useEffect(() => {
     abort.current?.abort();
-    if (query.length < 2) { setState({ status: "idle", results: [] }); return; }
+    if (dbTerm.length < 2) { setState({ status: "idle", results: [] }); return; }
     const ctl = new AbortController();
     abort.current = ctl;
     setState((s) => ({ ...s, status: "loading" }));
     const t = setTimeout(() => {
-      searchFoods({ q: query, signal: ctl.signal })
+      searchFoods({ q: dbTerm, signal: ctl.signal })
         .then((r) => setState({ status: "done", results: r.results || [], partial: r.partial }))
         .catch((e) => { if (e.name !== "AbortError") setState({ status: "error", results: [], kind: e.kind }); });
     }, 350);
     return () => { clearTimeout(t); ctl.abort(); };
-  }, [query]);
+  }, [dbTerm]);
+  // A database food that's already one of theirs shows once, as theirs.
+  const mineKeys = useMemo(() => new Set(mine.map((x) => `${x.name}|${x.brand || ""}`.toLowerCase())), [mine]);
+  const results = state.results.filter((x) => !mineKeys.has(`${x.name}|${x.brand || ""}`.toLowerCase()));
+
+  // An amount typed with the food starts its portion there: "200g chicken breast" opens at 200 g.
+  const pickMine = (x) => {
+    const p = pickYourFood(x);
+    const at = read.kind === "amount" ? portionFor(unitsFor(p.food.basis), read.amount, read.unit) : null;
+    onPick(p.food, at ? { amount: at.unit ? at.amount : at.amount * (p.unit && p.amount ? p.amount : 1), unit: at.unit || p.unit } : { amount: p.amount, unit: p.unit });
+  };
+  const pickResult = (x) => {
+    const at = read.kind === "amount" ? portionFor(unitsFor(x.basis), read.amount, read.unit) : null;
+    onPick(x, at || undefined);
+  };
+  // Return: a description goes to the coach; an amount opens the best match; a search just closes the keyboard.
+  const submit = (e) => {
+    e.preventDefault();
+    if (describing) return onTank(read.text);
+    if (read.kind === "amount" && mine[0]) return pickMine(mine[0]);
+    if (read.kind === "amount" && results[0]) return pickResult(results[0]);
+    input.current?.blur();
+  };
 
   // "4× · usually breakfast · yesterday": why it's here, so the list's order makes sense.
   const why = (x) => [x.brand, x.count > 1 && `${x.count}×`, x.usual && `usually ${MEAL_WORD[x.usual]}`, x.lastDate ? whenLabel(x.lastDate) : "saved"].filter(Boolean).join(" · ");
-  const shown = all ? mine : mine.slice(0, query ? 5 : TOP);
+  const shown = all ? mine : mine.slice(0, term ? 5 : TOP);
   const more = mine.length - shown.length;
+  // The coach, offered with what's typed: first for a description, after the matches for a search.
+  const tankRow = (lead) => (
+    <button type="button" className={"tank-row" + (lead ? " lead" : "")} onClick={() => onTank(read.text)}>
+      <Coach id={head} size={lead ? 34 : 28} still decorative />
+      <span className="tank-row-text">
+        <b>{lead ? "Log" : `Ask ${who} about`} <q>{read.text}</q>{lead ? ` with ${who}` : ""}</b>
+        <small>{lead ? `${who} works out the macros. Return sends it.` : `${who} works out the macros from a description.`}</small>
+      </span>
+      <ChevronRight size={18} aria-hidden="true" className="muted" />
+    </button>
+  );
 
   return (
     <>
-      <label className="food-search">
-        <Search size={18} aria-hidden="true" />
-        <span className="sr-only">Search foods</span>
-        <input type="search" autoFocus={!touchScreen()} value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search foods, e.g. greek yogurt" enterKeyHint="search" />
+      <form className="food-search" role="search" onSubmit={submit}>
+        {describing ? <span className="food-search-coach" aria-hidden="true"><Coach id={head} size={22} still decorative /></span> : <Search size={18} aria-hidden="true" />}
+        <label htmlFor="food-q" className="sr-only">Search foods, or describe a meal</label>
+        <input id="food-q" ref={input} type="search" autoFocus={!touchScreen()} value={q} onChange={(e) => setQ(e.target.value)}
+          placeholder="Search or describe a meal" enterKeyHint={describing ? "send" : read.kind === "amount" ? "go" : "search"} autoComplete="off" />
         <button type="button" className="icon-btn food-scan" onClick={onScan} aria-label="Scan a barcode"><ScanBarcode size={20} /></button>
-      </label>
-      {!query && (
-        <>
-          {/* The fastest way for a mixed meal: say it, the head coach itemizes it. */}
-          <button type="button" className="tank-add" onClick={onTank}>
-            <Coach id={head} size={40} still decorative />
-            <span><b>Add with {who}</b><small className="detail">Describe your meal. {who} works out the macros.</small></span>
-          </button>
-          <div className="food-actions">
-            <button type="button" className="chip" onClick={onScan}><ScanBarcode size={15} aria-hidden="true" /> Scan barcode</button>
-            <button type="button" className="chip" onClick={onManual}><PenLine size={15} aria-hidden="true" /> Enter manually</button>
-          </div>
-        </>
-      )}
+      </form>
 
-      {(mine.length > 0 || !query) && (
+      {describing && tankRow(true)}
+
+      {(mine.length > 0 || read.kind === "empty") && (
         <section className="section food-group" aria-labelledby="your-foods-lbl">
           <h3 className="lbl" id="your-foods-lbl">Your foods</h3>
           {mine.length ? (
             <div className="list">
               {shown.map((x) => (
                 <div key={x.key} className="list-row food-row food-row-wrap">
-                  <button type="button" className="food-row-main" onClick={() => { const p = pickYourFood(x); onPick(p.food, { amount: p.amount, unit: p.unit }); }}>
+                  <button type="button" className="food-row-main" onClick={() => pickMine(x)}>
                     <span className="name">{x.name}<span className="sub detail">{why(x)}</span></span>
                     {x.kcal != null && <span className="food-kcal">{fmt(x.kcal)}<small> kcal</small></span>}
                     <Plus size={18} aria-hidden="true" className="muted" />
@@ -159,38 +197,42 @@ function Find({ food, head, meal, onPick, onTank, onScan, onManual }) {
               ))}
               {more > 0 && <button type="button" className="list-row food-more" onClick={() => setAll(true)}>Show all {mine.length}</button>}
             </div>
-          ) : <p className="small muted detail">Foods you log show up here, the ones you have most at the top.</p>}
+          ) : (
+            // Nothing logged yet: the box itself is the way in, so say what it can do.
+            <div className="food-first">
+              <Coach id={head} size={40} still decorative />
+              <p>Type what you ate, like <q>2 eggs and toast</q>, and {who} works out the macros. Or search for a food, or scan its barcode.</p>
+            </div>
+          )}
         </section>
       )}
 
-      {query.length >= 2 && (
+      {describing && !lookUp && term.length >= 2 && (
+        <button type="button" className="btn-quiet food-lookup" onClick={() => setLookUp(true)}><Search size={15} aria-hidden="true" /> Search the food database for it instead</button>
+      )}
+
+      {dbTerm.length >= 2 && (
         <section className="section food-group" aria-labelledby="food-db-lbl" aria-busy={state.status === "loading"}>
           <h3 className="lbl food-db-lbl" id="food-db-lbl">Food database<span className="detail">USDA · Open Food Facts</span></h3>
           {state.status === "loading" && <p className="small muted" aria-live="polite">Searching…</p>}
           {state.status === "error" && <p className="setup-hint" role="alert">{SEARCH_TROUBLE[state.kind] || SEARCH_TROUBLE.busy}</p>}
           {state.status === "done" && (
-            state.results.length
-              ? <div className="list">{state.results.map((x) => (
+            results.length
+              ? <div className="list">{results.map((x) => (
                 <div key={x.id} className="list-row food-row food-row-wrap">
-                  <button type="button" className="food-row-main" onClick={() => onPick(x)}>
+                  <button type="button" className="food-row-main" onClick={() => pickResult(x)}>
                     <span className="name">{x.name}<span className="sub">{[x.brand, serving(x)].filter(Boolean).join(" · ")}</span></span>
                     <Plus size={18} aria-hidden="true" className="muted" />
                   </button>
                 </div>
               ))}</div>
-              : (
-                <>
-                  <p className="small muted">Nothing found for "{q.trim()}"{state.partial ? " (one food database didn't answer, so try again in a moment)" : ""}. Try fewer words, or:</p>
-                  <div className="food-actions">
-                    <button type="button" className="chip" onClick={onTank}><Coach id={head} size={18} still decorative /> Describe it to {who}</button>
-                    <button type="button" className="chip" onClick={onManual}><PenLine size={15} aria-hidden="true" /> Enter manually</button>
-                  </div>
-                </>
-              )
+              : <p className="small muted">Nothing found for <q>{dbTerm}</q>{state.partial ? " (one food database didn't answer, so try again in a moment)" : ""}. Try fewer words, or describe it to {who}.</p>
           )}
         </section>
       )}
 
+      {read.kind !== "empty" && !describing && tankRow(false)}
+      <button type="button" className="btn-quiet food-manual" onClick={onManual}><PenLine size={15} aria-hidden="true" /> Enter manually</button>
     </>
   );
 }

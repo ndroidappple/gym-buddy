@@ -1,7 +1,9 @@
 /* Checks for adding food: one ranked "Your foods" list (src/lib/yourFoods.js), the food
    database's relevance order (api/food.js), and Tank's meals with alcohol (cleanMeal).
    Run: npm run test:food   (exits 1 on any failure) */
-import { yourFoods, pickYourFood, matchesQuery, whenLabel } from "../src/lib/yourFoods.js";
+import { yourFoods, pickYourFood, whenLabel } from "../src/lib/yourFoods.js";
+import { matchScore } from "../src/lib/foodQuery.js";
+const matchesQuery = (x, q) => matchScore(x, q) > 0;
 import { relevance, combine, forTank } from "../api/food.js";
 import { nutritionFor, cleanMeal } from "../src/lib/nutrition.js";
 

@@ -29,8 +29,8 @@ const r = (n) => Math.round(n);
 /** What the model sees of an earlier card, so a correction edits the same meal. */
 const mealNote = (m) => ` [Meal shown: ${m.name}: ${m.items.map((x) => `${x.food} ${x.amount} ${x.kcal} kcal${x.label ? ` (label: ${x.label})` : ""}`).join("; ")}.]`;
 
-/** `coach`: the head coach, who does the itemizing. */
-export default function TankMeal({ coach = "tank", meal: slot, onMeal, action, onSave, onManual }) {
+/** `coach`: the head coach, who does the itemizing. `first`: what was typed in the search box, sent at once. */
+export default function TankMeal({ coach = "tank", first = "", meal: slot, onMeal, action, onSave, onManual }) {
   const who = COACHES[coach].name;
   const [messages, setMessages] = useState([]); // { role, content, meal?, replies?, trouble?, retry? }
   const [draft, setDraft] = useState("");
@@ -82,6 +82,9 @@ export default function TankMeal({ coach = "tank", meal: slot, onMeal, action, o
     onSave({ meal: { ...card, name: name.trim() || card.name }, save });
   };
 
+  // What was typed in the search box goes straight in: no typing it twice.
+  useEffect(() => { if (first.trim()) send(first); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   const chips = !busy && last?.role === "assistant" ? (last.trouble ? (last.retry ? ["Try again"] : []) : last.replies || []) : [];
   const tap = (c) => {
     if (c === "Try again") send(last.retry, messages.slice(0, -2)); // resend without showing it twice
@@ -131,7 +134,7 @@ export default function TankMeal({ coach = "tank", meal: slot, onMeal, action, o
       </div>
       <form className="chat-input" aria-busy={busy} onSubmit={(e) => { e.preventDefault(); send(draft); }}>
         <label htmlFor="tank-meal-q" className="sr-only">Describe your meal</label>
-        <textarea id="tank-meal-q" rows={2} value={draft} maxLength={1000} autoFocus={!messages.length}
+        <textarea id="tank-meal-q" rows={2} value={draft} maxLength={1000} autoFocus={!messages.length && !first.trim()}
           placeholder={messages.length ? `Reply to ${who}…` : "e.g. ½ cup oatmeal, 1 tbsp peanut butter, half a small apple, ½ scoop protein"}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(draft); } }} />

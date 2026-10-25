@@ -1097,8 +1097,10 @@ button.coach-card:active { transform: translateY(3px); box-shadow: 0 2px 0 var(-
 .food-search input { flex: 1; min-width: 0; border: 0; background: none; font-size: 16px; color: var(--ink); height: 46px; }
 .food-search input:focus { outline: none; }
 .food-search .food-scan { margin-right: -10px; color: var(--ink); }
-.food-actions { display: flex; flex-wrap: wrap; gap: 8px; }
-.food-actions .chip { min-height: 38px; padding: 6px 14px; }
+.food-search-coach { display: grid; place-items: center; width: 22px; height: 22px; margin: 0 -2px; }
+.food-manual, .food-lookup { align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; min-height: var(--tap); padding: 0 4px; font-size: 14px; font-weight: 700; color: var(--mute); }
+.food-first { display: flex; align-items: center; gap: 12px; padding: 4px 4px 0; }
+.food-first p { margin: 0; font-size: 14.5px; font-weight: 500; line-height: 1.4; color: var(--mute); }
 .food-form { display: flex; flex-direction: column; gap: 14px; }
 /* Barcode scanner: the camera fills a wide box with a target frame; messages sit under it. */
 .scan { display: flex; flex-direction: column; gap: 12px; }
@@ -1132,10 +1134,15 @@ button.coach-card:active { transform: translateY(3px); box-shadow: 0 2px 0 var(-
 .food-line { margin-top: -4px; }
 
 /* Add with Tank */
-.tank-add { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: var(--r); text-align: left; background: color-mix(in srgb, #5BD68A 14%, var(--surface)); border: 2px solid color-mix(in srgb, #5BD68A 55%, var(--rule)); box-shadow: 0 3px 0 var(--lip); color: var(--ink); }
-.tank-add span { display: flex; flex-direction: column; gap: 2px; }
-.tank-add b { font-size: 16px; font-weight: 800; }
-.tank-add small { font-size: 13px; color: var(--mute); font-weight: 600; }
+/* The head coach in Add food's results, offered with what's typed. Leading when it reads as a meal in
+   words (tinted in their color, Return sends it), else a quiet row after the matches. */
+.tank-row { display: flex; align-items: center; gap: 12px; width: 100%; padding: 10px 12px; border-radius: var(--r); text-align: left; color: var(--ink); background: var(--surface-2); }
+.tank-row.lead { padding: 12px 14px; background: color-mix(in srgb, #5BD68A 14%, var(--surface)); border: 2px solid color-mix(in srgb, #5BD68A 55%, var(--rule)); box-shadow: 0 3px 0 var(--lip); }
+.tank-row > .coach { flex: none; }
+.tank-row-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.tank-row-text b { font-size: 15px; font-weight: 800; line-height: 1.3; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.tank-row-text q { font-weight: 700; }
+.tank-row-text small { font-size: 12.5px; color: var(--mute); font-weight: 600; }
 .check-row { display: flex; align-items: center; gap: 12px; font-weight: 700; }
 .check-row input { width: 22px; height: 22px; flex: none; accent-color: var(--ink); }
 .check-row span { display: flex; flex-direction: column; line-height: 1.25; }
@@ -1296,7 +1303,7 @@ html.walking .summary .body { padding-bottom: calc(var(--walk-h, 220px) + 40px);
 :root[data-view="focused"] .lib-row,
 :root[data-view="focused"] .food-row-main { min-height: 50px; }
 :root[data-view="focused"] .list-row.food-row-wrap { min-height: 0; }
-:root[data-view="focused"] .tank-add { padding: 10px 14px; }
+:root[data-view="focused"] .tank-row.lead { padding: 10px 14px; }
 
 /* ═══════════════ WEEK IN REVIEW ═══════════════ */
 /* Today's button: the lead coach hands it over in place of their hello (same speech-bubble corner).
@@ -1461,12 +1468,12 @@ html.walking .summary .body { padding-bottom: calc(var(--walk-h, 220px) + 40px);
    A press lands in 70 ms and lets go on the slower --pop spring, the same feel as .btn. Only
    :active, so nothing stays lit after a tap the way :hover would on a phone. (main.jsx listens for
    touches so iOS shows :active at all.) */
-:where(.lib-row, .meta-chip, .setup-card, .phase-line, .phase-empty, .tank-add, .food-row-main, .pending-row, .done-row,
+:where(.lib-row, .meta-chip, .setup-card, .phase-line, .phase-empty, .tank-row, .food-row-main, .pending-row, .done-row,
   .cal-day, .chip, .pill, .ask-btn, .rest .rb, .coach-link, .chat-input button, .icon-choice, .tab, .coach-hello,
   .btn-quiet, .proposal-undo, .phase-end, .setup-add, .hist-line, .prog-row .main, .setup-lift, .check-row) {
   transition: transform var(--pop-ms) var(--pop), box-shadow var(--pop-ms) var(--pop), background-color 160ms ease, opacity 160ms ease, color 120ms ease;
 }
-:is(.lib-row, .meta-chip, .setup-card, .phase-line, .phase-empty, .tank-add, .food-row-main, .pending-row, .done-row,
+:is(.lib-row, .meta-chip, .setup-card, .phase-line, .phase-empty, .tank-row, .food-row-main, .pending-row, .done-row,
   .cal-day, .chip, .pill, .ask-btn, .rest .rb, .coach-link, .chat-input button, .icon-choice, .tab, .coach-hello,
   .btn-quiet, .proposal-undo, .phase-end, .setup-add, .hist-line, .prog-row .main, .setup-lift, .check-row):active {
   transition-duration: 70ms; transition-timing-function: ease-out;
@@ -1474,7 +1481,7 @@ html.walking .summary .body { padding-bottom: calc(var(--walk-h, 220px) + 40px);
 
 /* Cards: sink onto the lip. */
 :is(.lib-row, .meta-chip, .setup-card, .phase-line, .phase-empty):active { transform: translateY(3px); box-shadow: 0 2px 0 var(--lip); }
-.tank-add:active { transform: scale(0.98); filter: brightness(0.94); }
+.tank-row:active { transform: scale(0.98); filter: brightness(0.94); }
 
 /* Rows: shade. Finished sets also shade while held (see hold-to-edit below). */
 :is(.food-row-main, .pending-row, .done-row):active { background-color: var(--surface-2); }
