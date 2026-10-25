@@ -3,7 +3,7 @@
 import assert from "node:assert/strict";
 import { PROGRAM, activeDays } from "../src/data/program.js";
 import { addDays } from "../src/lib/nutrition.js";
-import { buildWeekFacts, fallbackStory, cleanStory, latestReview, reviewState, rangeLabel, coversLabel, whenLabel, hourLabel, liftHistory, foodDays, foodItems, weekSnapshot, fingerprint } from "../src/lib/weekReview.js";
+import { buildWeekFacts, fallbackStory, cleanStory, wholeSentences, latestReview, reviewState, rangeLabel, coversLabel, whenLabel, hourLabel, liftHistory, foodDays, foodItems, weekSnapshot, fingerprint } from "../src/lib/weekReview.js";
 
 const WEEK_END = "2026-10-11"; // a Sunday
 
@@ -80,6 +80,17 @@ if (isMain) {
   assert.equal(s.training.coach, "tank");
   assert.equal(s.insights[0].coach, "dash");
   assert.equal(s.low, fb.low);
+
+  // Long notes end at a whole sentence, never mid-word (the review saved "…three sessions, notab").
+  const cutOff = "Legs were missed entirely this week, dropping from an average of 5 sets. You skipped several lifts across all three sessions, notab";
+  assert.equal(wholeSentences(cutOff), "Legs were missed entirely this week, dropping from an average of 5 sets.");
+  assert.equal(wholeSentences("Two good weeks. Keep going."), "Two good weeks. Keep going.");
+  assert.equal(wholeSentences("Up 5 lb on rows"), "Up 5 lb on rows"); // one sentence without a full stop stays
+  assert.ok(wholeSentences("Short one. " + "word ".repeat(80), 60).endsWith("word…")); // the only full stop is too early: whole words and …
+  const long = "You trained three days. " + "Chest got 16 sets and back got 23, the most in a month. ".repeat(12);
+  const kept = cleanStory({ training: { title: "T", body: long, coach: "tank" } }, f, fb).training.body;
+  assert.ok(kept.length <= 600 && /\.$/.test(kept), kept);
+  assert.ok(wholeSentences("word ".repeat(200), 50).endsWith("…"));
 
   // Review days and when Today offers it.
   // When it's out: the review day at the review hour, covering the 7 full days before that day.

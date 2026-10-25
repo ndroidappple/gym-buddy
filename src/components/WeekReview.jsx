@@ -8,7 +8,7 @@ import { COACHES, COACH_ORDER } from "../data/coaches.js";
 import { useTheme } from "../lib/theme.js";
 import { reducedMotion } from "../lib/motion.js";
 import { cachedReview, loadReview, requestReview } from "../lib/reviews.js";
-import { rangeLabel, MAX_GENERATIONS, WEEKDAYS } from "../lib/weekReview.js";
+import { rangeLabel, MAX_GENERATIONS, WEEKDAYS, wholeSentences } from "../lib/weekReview.js";
 import { hm } from "../lib/recovery.js";
 import { num, fmtW, shortDate } from "../lib/util.js";
 
@@ -209,7 +209,7 @@ function Says({ note, small }) {
       <div className="rv-bubble">
         <span className="rv-who">{c.name}</span>
         {note.title && <b>{note.title}</b>}
-        <p>{note.body}</p>
+        <p>{wholeSentences(note.body)}</p>
         {note.evidence && <p className="rv-evidence">{note.evidence}</p>}
       </div>
     </div>
@@ -240,7 +240,7 @@ function Cover({ review, canUpdate, updating, onUpdate }) {
     <div className="rv-body rv-cover">
       <div className="coach-stack rv-crew-small">{COACH_ORDER.slice(0, 4).map((id) => <span key={id} className="coach-chip"><Coach id={id} size={30} still badge decorative /></span>)}</div>
       <h2 className="rv-headline">{s.headline}</h2>
-      <p className="rv-lead">{s.summary}</p>
+      <p className="rv-lead">{wholeSentences(s.summary)}</p>
       <div className="rv-stats">
         <Stat label="training days" value={t.target ? `${trainedDays(t)}/${t.target}` : trainedDays(t)} sub={t.streak >= 2 ? `${t.streak} weeks on target` : null} />
         <Stat label="working sets" value={t.sets} sub={delta(t.sets, t.prevSets)} />
@@ -477,7 +477,7 @@ function Focus({ review }) {
         {s.focus.map((x, i) => (
           <li key={i} style={{ "--c": COACHES[x.coach]?.color }}>
             <span className="rv-focus-n" aria-hidden="true">{i + 1}</span>
-            <span><b>{x.action}</b>{x.why && <span>{x.why}</span>}</span>
+            <span><b>{x.action}</b>{x.why && <span>{wholeSentences(x.why)}</span>}</span>
           </li>
         ))}
       </ol>
