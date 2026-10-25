@@ -2,7 +2,7 @@
    Run: node scripts/stress-set-coach.mjs          (curated scenarios + fuzz, exits 1 on any violation)
         node scripts/stress-set-coach.mjs --verbose (also prints every curated call)
    Invariants every call must hold are checked on curated workouts and on thousands of random ones. */
-import { nextSetAdvice, openingAdvice } from "../src/lib/setCoach.js";
+import { nextSetAdvice, openingAdvice, LINE_MAX } from "../src/lib/setCoach.js";
 import { e1rm, weightStep } from "../src/lib/util.js";
 import { normalizeProgram, PROGRAM } from "../src/data/program.js";
 import { applyChanges } from "../src/lib/programChange.js";
@@ -31,7 +31,7 @@ function check(label, ex, args, out) {
   const [lo, hi] = ex.reps;
   if (!out || typeof out.line !== "string") return bad(label, "no advice", args, out);
   if (/NaN|undefined|Infinity|null|\[object/.test(out.line)) bad(label, "broken text", args, out);
-  if (out.line.length > 260) bad(label, `line too long (${out.line.length})`, args, out);
+  if (out.line.length > LINE_MAX) bad(label, `line too long (${out.line.length})`, args, out);
   if (args.left <= 0) { if (out.kind !== "done") bad(label, "no wrap-up after last set", args, out); return; }
   if (out.w == null || out.r == null) return bad(label, "no next set", args, out);
   if (!Number.isFinite(out.w) || !Number.isFinite(out.r)) bad(label, "non-numeric target", args, out);

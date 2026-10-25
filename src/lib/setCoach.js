@@ -23,6 +23,8 @@ import { isCardio, MAX_REST } from "../data/program.js";
      day" / "strong today" are judged on fresh-equivalent numbers (see lib/fatigue.js).
    Predictions use Epley: e1RM = load × (1 + reps/30). Stress-tested by scripts/stress-set-coach.mjs. */
 
+/** The longest an in-workout coach line gets, in characters: about three lines in the bubble on a phone. */
+export const LINE_MAX = 80;
 export const BODYWEIGHT = /pull-?ups?|chin-?ups?|\bdips?\b|push-?ups?|inverted row|muscle-?ups?/i;
 /** Reps you'd get at a load, given an estimated 1-rep max (Epley, inverted). */
 const repsAt = (max, load) => (load > 0 ? Math.floor(30 * (max / load - 1) + 1e-9) : 0);
@@ -159,7 +161,6 @@ export function nextSetAdvice({ ex, done, asked, left, history = [], best = 0, p
   const extra = BODYWEIGHT.test(ex.n) ? bw : 0; // bodyweight counts in the load for pull-ups and dips
   const load = w + extra;
   const lastSet = left === 1;
-  const finisher = lastSet ? " Last set: take it to 1 rep short of failure." : "";
 
   // Numbers that look like typos: check before planning anything around them.
   const prevW = done.length > 1 ? +done[done.length - 2].w : asked?.w ?? lastTime[0]?.w;
@@ -168,41 +169,49 @@ export function nextSetAdvice({ ex, done, asked, left, history = [], best = 0, p
   if (left > 0 && (typoReps || typoWeight)) {
     const keep = asked && +asked.w > 0 ? asked : { w: prevW > 0 ? prevW : w, r: lo };
     const kr = clamp(+keep.r, lo, hi);
-    return { w: +keep.w, r: kr, kind: "check", line: `${fmtW(w)} × ${r}? That looks like a typo. Hold the set to fix it; next set stays ${fmtW(+keep.w)} × ${kr}.` };
+    return { w: +keep.w, r: kr, kind: "check", line: `${fmtW(w)} × ${r}? Looks like a typo. Hold the set to fix it.` };
   }
 
-  // What was said about the set just done.
+  // What was said about the set just done. The row already shows its numbers and the change on last
+  // time, so this is the read on it: a few words.
   const vsAsk = asked && +asked.w === w && asked.r ? r - asked.r : null;
   const vsLast = same && +same.w === w ? r - same.r : null;
   let said;
+  if (r === 0) said = "No reps.";
+  else if (pr) said = "PR!";
+  else if (vsAsk != null) said = vsAsk > 0 ? `${vsAsk} past target.` : vsAsk === 0 ? "Right on target." : `${-vsAsk} short of ${asked.r}.`;
+  else if (vsLast != null) said = vsLast > 0 ? `+${vsLast} on last time.` : vsLast === 0 ? "Same as last time." : `${-vsLast} under last time.`;
+  else said = `${fmtW(w)} × ${r}.`;
+  // A late lift: say what it's worth fresh, so a lower number isn't read as going backwards (when it fits).
   const lateNote = done.length === 1 && w > 0 && r > 0 ? loadNote(fatigueLoad, ex.n, loadSets) : null;
   const freshReps = lateNote ? Math.floor(30 * (freshMax(e1rm(w, r), fatigueLoad, k) / w - 1) + 1e-9) : 0;
-  if (r === 0) said = `No reps at ${fmtW(w)}.`;
-  else if (pr && lateNote) said = `PR: ${fmtW(w)} × ${r}, ${lateNote}!`;
-  else if (pr) said = `PR: ${fmtW(w)} × ${r}!`;
-  else if (vsAsk != null && vsAsk >= 0) said = vsAsk > 0 ? `${r}, ${vsAsk} past the target.` : `${r}, right on target.`;
-  else if (vsAsk != null) said = `${r}, ${-vsAsk} short of ${asked.r}.`;
-  else if (vsLast != null) said = vsLast > 0 ? `${r}, ${vsLast} more than last time.` : vsLast === 0 ? `${r}, same as last time.` : `${r} today vs ${same.r} last time.`;
-  else said = `${fmtW(w)} × ${r}.`;
-  // A late lift: say what it's worth fresh, so a lower number isn't read as going backwards.
-  if (lateNote && !pr && freshReps > r) said += ` ${lateNote[0].toUpperCase()}${lateNote.slice(1)}, that's a fresh ~${freshReps}.`;
+  const saidLong = pr && lateNote ? `PR, ${lateNote}!`
+    : lateNote && freshReps > r ? `${said} ${lateNote[0].toUpperCase()}${lateNote.slice(1)}: a fresh ~${freshReps}.` : said;
+  /* The bubble sits right above the set being logged, so a line stays within LINE_MAX: the read and
+     the call always, then the extras in order while they fit. The numbers for the next set are on
+     the card already (the Next pill and the set itself), so the words carry the why. */
+  const say = (call, ...extras) => {
+    const core = [saidLong, said].map((x) => `${x} ${call}`).find((x) => x.length <= LINE_MAX) ?? `${said} ${call}`;
+    return extras.reduce((l, x) => (x && l.length + 1 + x.length <= LINE_MAX ? `${l} ${x}` : l), core);
+  };
+  const finisher = lastSet ? "Last set: 1 short of failure." : "";
 
   // No sets left: wrap up with what next time should be.
   if (left <= 0) {
     const sets = done.map((x) => ({ w: +x.w, r: +x.r })).filter((x) => x.r > 0);
     const earned = sets.length >= ex.sets && readyToIncrease(ex, sets);
     const goal = nextGoal(ex, workSets(sets));
-    const tail = earned ? `Every set at ${hi}: go up to ${fmtW(earned.to)} lb next time.`
-      : goal ? `Next time: ${fmtW(goal.w)} × ${goal.r}${goal.sets > 1 ? ` on ${goal.sets} sets` : " on set 1"}.` : "";
-    return { kind: "done", line: `${said} Done: ${listSets(done.map((x) => ({ w: +x.w, r: +x.r })))}. ${tail}`.trim() };
+    const tail = earned ? `Every set at ${hi}: ${fmtW(earned.to)} lb next time.`
+      : goal ? `Next time: ${fmtW(goal.w)} × ${goal.r}${goal.sets > 1 ? ` on ${goal.sets} sets` : ""}.` : "That's the lift.";
+    return { kind: "done", line: say(tail) };
   }
 
   // A failed rep: nothing to predict from, so take about 10% off.
   if (r === 0) {
-    if (w === 0) return { w: 0, r: 1, kind: "hold", line: `${said} Rest a bit longer, then get what you can and finish with slow lowering reps.` };
+    if (w === 0) return { w: 0, r: 1, kind: "hold", line: say("Rest longer, then get what you can with slow negatives.") };
     const down = stepDown(w, w * 0.9, step);
-    if (!down) return { w, r: lo, kind: "hold", line: `${said} ${fmtW(w)} is the lightest here. Rest longer, then go for ${lo} with a slower lowering.` };
-    return { w: down, r: lo, kind: "down", line: `${said} Missed rep, it happens. Take ${fmtW(down)} and get ${lo} clean.` };
+    if (!down) return { w, r: lo, kind: "hold", line: say(`${fmtW(w)} is the lightest. Rest longer, then ${lo} with slow lowering.`) };
+    return { w: down, r: lo, kind: "down", line: say(`Drop to ${fmtW(down)}, get ${lo} clean.`, "Misses happen.") };
   }
 
   // Effort estimate for this set: counts reps left in the tank when the lifter logs RIR (else assumes ~1).
@@ -219,42 +228,41 @@ export function nextSetAdvice({ ex, done, asked, left, history = [], best = 0, p
   if (w === 0) {
     if (r >= hi + 2) {
       const t = clamp(r - drop, lo, r);
-      return { w: 0, r: t, kind: "hold", line: `${said} Past your ${lo}–${hi}. Keep every rep strict and aim for ${t}; next session add a little weight.${finisher}` };
+      return { w: 0, r: t, kind: "hold", line: say(`Past your ${lo}–${hi}: strict reps, aim for ${t}.`, "Add weight next session.", finisher) };
     }
     if (r < lo) {
       const t = Math.max(1, Math.min(r, r - drop + 1));
-      return { w: 0, r: t, kind: "hold", line: `${said} Under your ${lo}–${hi}: get ${t}, then finish with slow lowering reps (3–5 s down) to reach ${lo}.${finisher}` };
+      return { w: 0, r: t, kind: "hold", line: say(`Get ${t}, then slow negatives (3–5 s down) to ${lo}.`, finisher) };
     }
     const t = clamp(r - drop + (lastSet ? 1 : 0), Math.min(lo, r), ceiling);
-    return { w: 0, r: t, kind: "hold", line: `${said} Aim for ${t} next.${finisher}` };
+    return { w: 0, r: t, kind: "hold", line: say(`Aim for ${t}.`, finisher) };
   }
 
   // Too light: past the top with reps to spare (or RIR says so). Go heavier, in plate steps.
   if (r >= hi + 2 || (rir != null && r + rir >= hi + 2)) {
     const up = stepUp(w, loadFor(max, Math.max(lo, hi - 2)) - extra, step);
     const t = clamp(repsAt(max, up + extra) - (rir == null ? 1 : 0), lo, hi);
-    return { w: up, r: t, kind: "up", line: `${said} Too light to grow from. Go ${fmtW(up)} and get ${t}.${finisher}` };
+    return { w: up, r: t, kind: "up", line: say(`Too light to grow from. Go ${fmtW(up)} for ${t}.`, finisher) };
   }
 
   // Went lighter than asked and still hit the top: the asked weight is there. Go back up.
   if (r >= hi && asked && +asked.w > w && repsAt(max, +asked.w + extra) >= lo) {
     const t = clamp(repsAt(max, +asked.w + extra) - (rir == null ? 1 : 0), lo, hi);
-    return { w: +asked.w, r: t, kind: "up", line: `${said} ${r} at ${fmtW(w)} says ${fmtW(+asked.w)} is there. Go back up and get ${t}.${finisher}` };
+    return { w: +asked.w, r: t, kind: "up", line: say(`${fmtW(+asked.w)} is there. Go back up for ${t}.`, finisher) };
   }
 
   // At the top of the range: hold; every set up here earns more weight next time.
   if (r >= hi) {
     const t = clamp(hi - (lastSet ? 0 : Math.min(drop, 1)), lo, ceiling);
-    const aim = t === hi ? `get ${hi} again` : `aim for ${hi} again (${t} is still a good set)`;
-    return { w, r: t, kind: "hold", line: `${said} Top of the range. Stay at ${fmtW(w)} and ${aim}: every set at ${hi} means more weight next time.${finisher}` };
+    return { w, r: t, kind: "hold", line: say(`Top of the range: stay at ${fmtW(w)}.`, `${hi} on every set earns more weight.`, finisher) };
   }
 
   // Well under the range, or under it at failure: too heavy for quality reps. Drop to land in range.
   if (r < lo - 1 || (r < lo && rir === 0)) {
     const down = stepDown(w, loadFor(e1rm(load, r), lo + 1) - extra, step);
-    if (!down) return { w, r: Math.max(1, Math.min(r, lo)), kind: "hold", line: `${said} ${fmtW(w)} is the lightest here. Get ${r}, rest 15 s, then finish to ${lo} (rest-pause).${finisher}` };
+    if (!down) return { w, r: Math.max(1, Math.min(r, lo)), kind: "hold", line: say(`${fmtW(w)} is the lightest. Get ${r}, rest 15 s, finish to ${lo}.`, finisher) };
     const t = clamp(repsAt(e1rm(load, r), down + extra) - 1, lo, hi);
-    return { w: down, r: t, kind: "down", line: `${said} Below your ${lo}–${hi}. Drop to ${fmtW(down)} and get ${t} clean reps.${finisher}` };
+    return { w: down, r: t, kind: "down", line: say(`Too heavy for your ${lo}–${hi}. Drop to ${fmtW(down)} for ${t}.`, finisher) };
   }
 
   // In range (or one short). Expect the usual drop; push a rep only with room to spare.
@@ -263,18 +271,19 @@ export function nextSetAdvice({ ex, done, asked, left, history = [], best = 0, p
   if (onFire && !lastSet && next && +next.w === w) t = Math.max(t, next.r + 1); // a day to beat last time
   if (lastSet) t = Math.max(t, r - drop + 1); // the last set goes closer to failure
   t = clamp(t, lo, Math.max(lo, ceiling));
-  const toFailure = rir === 0 && !lastSet ? " That one was to failure; leave a rep in the tank next set." : "";
+  const toFailure = rir === 0 && !lastSet ? "Leave a rep in the tank next set." : "";
   // Reps fell off a cliff at the same weight: usually not enough rest (never more than the lift's max).
   const prev = done[done.length - 2];
   const longest = MAX_REST[ex.n] < 180 ? `the full ${mmss(MAX_REST[ex.n])}` : "a full 2–3 min";
-  const cliff = prev && +prev.w === w && +prev.r - r >= Math.max(3, drop + 2) ? ` That's a big drop from the last set: rest ${longest} before the next one.` : "";
+  const cliff = prev && +prev.w === w && +prev.r - r >= Math.max(3, drop + 2) ? `Big drop: rest ${longest}.` : "";
+  const grind = r < lo ? `Grinding? Drop to ${fmtW(stepDown(w, w - step, step) ?? w)}.` : "";
   let why;
-  if (offDay) why = `You're about ${Math.round((1 - form) * 100)}% under your best today. Normal off day: hold ${fmtW(w)}, own every rep, don't chase numbers.`;
-  else if (r < lo) why = `One short of your range. Stay at ${fmtW(w)} and fight for ${lo}; if it's a grind, drop to ${fmtW(stepDown(w, w - step, step) ?? w)}.`;
-  else if (vsAsk != null && vsAsk < 0 && lateNote) why = `That's the earlier sets, not your strength. Stay at ${fmtW(w)} and bank ${t} solid reps.`;
-  else if (vsAsk != null && vsAsk < 0 && done.length === 1) why = `Not a PR day, and that's fine. Stay at ${fmtW(w)} and bank ${t} solid reps.`;
-  else if (vsAsk != null && vsAsk < 0) why = `Fatigue's normal. Stay at ${fmtW(w)} and get ${t}.`;
-  else if (onFire && !lastSet) why = `You're strong today. Stay at ${fmtW(w)} and push for ${t}.`;
-  else why = `Stay at ${fmtW(w)} and get ${t}.`;
-  return { w, r: r < lo ? lo : t, kind: "hold", line: `${said} ${why}${toFailure}${cliff}${finisher}` };
+  if (offDay) why = `Off day, ~${Math.round((1 - form) * 100)}% under your best. Hold ${fmtW(w)}, own every rep.`;
+  else if (r < lo) why = `Stay at ${fmtW(w)}, fight for ${lo}.`;
+  else if (vsAsk != null && vsAsk < 0 && lateNote) why = `That's the earlier sets, not you. Bank ${t}.`;
+  else if (vsAsk != null && vsAsk < 0 && done.length === 1) why = `Not a PR day, and that's fine. Bank ${t}.`;
+  else if (vsAsk != null && vsAsk < 0) why = `Fatigue's normal. Get ${t}.`;
+  else if (onFire && !lastSet) why = `Strong today. Push for ${t}.`;
+  else why = `Stay at ${fmtW(w)}, aim for ${t}.`;
+  return { w, r: r < lo ? lo : t, kind: "hold", line: say(why, cliff, grind, toFailure, finisher) };
 }
