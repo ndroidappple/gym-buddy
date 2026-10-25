@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Search, Plus, PenLine, Pencil, ChevronLeft, ChevronRight, Trash2, Check, ScanBarcode, X } from "lucide-react";
+import { Search, Plus, PenLine, Pencil, ChevronLeft, ChevronRight, Trash2, Check, ScanBarcode, ArrowUp, X } from "lucide-react";
 import Coach from "./Coach.jsx";
 import { COACHES } from "../data/coaches.js";
-import TankMeal from "./TankMeal.jsx";
+import { useMealAnswer, MealAnswer } from "./TankMeal.jsx";
 import ScanFood from "./ScanFood.jsx";
 import { Sheet } from "./ui.jsx";
 import { MEALS, unitsFor, nutritionFor, defaultPortion, totals, addDays } from "../lib/nutrition.js";
@@ -12,7 +12,7 @@ import { searchFoods, SEARCH_TROUBLE } from "../lib/foodSearch.js";
 
 /* Adding food: one box for everything. It searches your foods (one tap, then Add, ranked by what you
    have and when) and the food databases, and when what's typed reads as a meal in words, the head coach
-   steps up to itemize it into one food. Or scan a barcode, or enter it by hand. Every path shows exactly
+   answers on the same page, above the matches, with it itemized into one food. Or scan a barcode, or enter it by hand. Every path shows exactly
    what will be logged before Add. `food` is the useFood() store; `meal` and `date` are where it goes. */
 
 const fmt = (n) => Math.round(n).toLocaleString();
@@ -54,7 +54,7 @@ export default function AddFood({ food, head = "tank", meal: meal0, date, target
     return { kcal: Math.round(targets.kcal - t.kcal), protein: Math.round(targets.protein - t.protein) };
   }, [targets, food.entries, date]);
   const standing = left && [left.kcal >= 0 ? `${fmt(left.kcal)} kcal left` : `${fmt(-left.kcal)} kcal over`, left.protein > 0 ? `${fmt(left.protein)} g protein to go` : "protein done"].join(" · ");
-  const tankSave = ({ meal: m, save }) => {
+  const addMeal = ({ meal: m, save }) => {
     // One food for the whole meal; its items ride along in the basis so the breakdown is kept.
     const basis = { perServing: m.total, servingLabel: "meal", items: m.items };
     const ref = save ? food.addFood({ name: m.name, basis }) : null;
@@ -63,22 +63,17 @@ export default function AddFood({ food, head = "tank", meal: meal0, date, target
   const [editing, setEditing] = useState(null); // the saved food being renamed or deleted
   const saved = view.step === "portion" && ["custom", "ai"].includes(view.food.source) ? food.foods.find((f) => f.id === view.food.ref) || null : null;
   const picked = saved ? { ...view.food, name: saved.name } : view.food; // a rename shows (and logs) at once
-  const title = view.step === "tank" ? `Add with ${who}` : view.step === "scan" ? "Scan a barcode" : view.step === "manual" ? (view.barcode ? "Enter from the label" : "Enter manually")
+  const title = view.step === "scan" ? "Scan a barcode" : view.step === "manual" ? (view.barcode ? "Enter from the label" : "Enter manually")
     : view.step === "portion" ? "How much?" : `Add to ${mealLabel}`;
 
   return (
-    <Sheet title={title} sub={view.step === "find" || view.step === "tank" ? (standing || `Search your foods, or describe what you ate and ${who} works it out.`) : null}
-      onClose={onClose} labelledBy="add-food-title" className={"sheet-tall" + (view.step === "tank" ? " sheet-chat" : "")} focusField={!touchScreen()}>
+    <Sheet title={title} sub={view.step === "find" ? (standing || `Search your foods, or describe what you ate and ${who} works it out.`) : null}
+      onClose={onClose} labelledBy="add-food-title" className="sheet-tall" focusField={!touchScreen()}>
       {view.step !== "find" && (
         <button type="button" className="btn-quiet food-back" onClick={() => setView({ step: "find" })}><ChevronLeft size={16} aria-hidden="true" /> Back</button>
       )}
-      {view.step === "find" && <Find food={food} head={head} meal={meal} date={date} onTank={(text, known) => setView({ step: "tank", text, known })} onRepeat={addMany}
+      {view.step === "find" && <Find food={food} head={head} meal={meal} date={date} action={`Add to ${mealLabel}`} onMeal={addMeal} onRepeat={addMany}
         onPick={(f, prior) => setView({ step: "portion", food: f, prior })} onScan={() => setView({ step: "scan" })} onManual={() => setView({ step: "manual" })} />}
-      {/* Tank's chat: the meal already sent, the reply box at the bottom like any chat. */}
-      {view.step === "tank" && (
-        <TankMeal coach={head} first={view.text} known={view.known} meal={meal} onMeal={setMeal} action={`Add to ${mealLabel}`}
-          onSave={tankSave} onManual={() => setView({ step: "manual" })} />
-      )}
       {view.step === "scan" && <ScanFood food={food} toFood={scannedFood} onFound={(f) => setView({ step: "portion", food: f })} onManual={(barcode) => setView({ step: "manual", barcode })} />}
       {view.step === "portion" && (
         <>
@@ -108,13 +103,20 @@ export default function AddFood({ food, head = "tank", meal: meal0, date, target
 const TOP = 8; // your foods shown before "Show all"
 const MEAL_WORD = Object.fromEntries(MEALS.map((m) => [m.id, m.label.toLowerCase()]));
 
-/* One box for everything (see the top of this file). When what's typed reads as a meal in words, the
-   head coach's face takes the box's search icon, the meal's items show as chips as it's understood
-   (one of the lifter's own foods marked as theirs, and handed to the coach so it uses their numbers),
-   and Return opens the coach's chat with it already sent: replies go in the chat's own box, at the bottom. */
-function Find({ food, head, meal, date, onTank, onRepeat, onPick, onScan, onManual }) {
+const AUTO_MS = 900; // a described meal is asked about once typing pauses this long (Return asks at once)
+
+/* One box for everything (see the top of this file), answered like an AI overview above search results.
+   When what's typed reads as a meal in words, the head coach's face takes the box's search icon and their
+   answer builds in place under the box as soon as typing pauses: the items as understood (one of the
+   lifter's own foods ticked, and handed to the coach so it uses their numbers), then the meal and its
+   total with one-tap Add. Your foods and the databases stay below it. A correction or an answer to the
+   coach's question goes in the box at the bottom, which only shows once there's an answer to change. */
+function Find({ food, head, meal, date, action, onMeal, onRepeat, onPick, onScan, onManual }) {
   const who = COACHES[head].name;
   const [q, setQ] = useState("");
+  const [reply, setReply] = useState(""); // a follow-up to the coach, typed at the bottom
+  const [typing, setTyping] = useState(false); // the box at the top has the keyboard
+  const a = useMealAnswer({ coach: head, mealSlot: meal });
   const [state, setState] = useState({ status: "idle", results: [] }); // idle | loading | done | error
   const [all, setAll] = useState(false); // every one of your foods, not just the top
   const [lookUp, setLookUp] = useState(false); // search the databases for a description after all
@@ -182,12 +184,31 @@ function Find({ food, head, meal, date, onTank, onRepeat, onPick, onScan, onManu
     const at = read.kind === "amount" ? portionFor(unitsFor(x.basis), read.amount, read.unit) : null;
     onPick(x, at || undefined);
   };
-  const startTank = (text) => onTank(text, knownLines(mealItems(text).map((it) => ({ ...it, own: items.find((x) => x.text === it.text)?.own }))));
-  // Return: with the coach working, a reply to them; a description goes to the coach; an amount opens
-  // the best match; a search just closes the keyboard.
+  // The answer sits right under the box: back to the top to see it.
+  const toAnswer = () => input.current?.closest(".sheet-body")?.scrollTo({ top: 0, behavior: "smooth" });
+  const askCoach = (text) => {
+    a.ask(text, knownLines(mealItems(text).map((it) => ({ ...it, own: items.find((x) => x.text === it.text)?.own }))));
+    toAnswer();
+  };
+  // A described meal is asked about once typing pauses; something else typed drops the answer (a newer
+  // description asks again, and an answer already given comes back without asking).
+  useEffect(() => {
+    if (!read.text) { a.reset(); return; }
+    if (!describing) { if (a.asked && a.asked !== read.text) a.reset(); return; }
+    if (read.text === a.asked) return;
+    const t = setTimeout(() => askCoach(read.text), AUTO_MS);
+    return () => clearTimeout(t);
+  }, [read.text, describing]); // eslint-disable-line react-hooks/exhaustive-deps
+  const pending = describing && read.text !== a.asked;
+  const answered = !pending && a.status !== "idle";
+  // The box at the bottom is for changing an answer, so it waits for one (or for a follow-up's), and
+  // steps aside while the box at the top is being typed in.
+  const canFollow = answered && (a.status !== "working" || !!a.earlier) && !typing;
+  const follow = (text) => { a.follow(text); setReply(""); toAnswer(); };
+  // Return: a description is asked about now; an amount opens the best match; a search just closes the keyboard.
   const submit = (e) => {
     e.preventDefault();
-    if (describing) return startTank(read.text);
+    if (describing) { input.current?.blur(); if (pending) askCoach(read.text); return; }
     if (read.kind === "amount" && mine[0]) return pickMine(mine[0]);
     if (read.kind === "amount" && results[0]) return pickResult(results[0]);
     input.current?.blur();
@@ -203,6 +224,7 @@ function Find({ food, head, meal, date, onTank, onRepeat, onPick, onScan, onManu
       {describing ? <span className="food-search-coach" aria-hidden="true"><Coach id={head} size={22} still decorative /></span> : <Search size={18} aria-hidden="true" />}
       <label htmlFor="food-q" className="sr-only">Search foods, or describe a meal</label>
       <input id="food-q" ref={input} type="search" autoFocus={!touchScreen()} value={q} onChange={(e) => setQ(e.target.value)}
+        onFocus={() => setTyping(true)} onBlur={() => setTyping(false)}
         placeholder="Search or describe a meal"
         enterKeyHint={describing ? "send" : read.kind === "amount" ? "go" : "search"} autoComplete="off" />
       <button type="button" className="icon-btn food-scan" onClick={onScan} aria-label="Scan a barcode"><ScanBarcode size={20} /></button>
@@ -214,24 +236,10 @@ function Find({ food, head, meal, date, onTank, onRepeat, onPick, onScan, onManu
       {/* The box stays at the top while the list scrolls under it. */}
       <div className="food-box">{box}</div>
 
-      {describing && (
-        <button type="button" className="tank-row lead" onClick={() => startTank(read.text)}>
-          <Coach id={head} size={34} still decorative />
-          <span className="tank-row-text">
-            <b>Log this with {who}</b>
-            <span className="meal-chips" aria-label="Understood as">
-              {items.map((it, k) => (
-                <span key={k} className={"meal-chip" + (it.own ? " own" : "")}>
-                  {it.own && <Check size={12} strokeWidth={3} aria-hidden="true" />}
-                  {it.amount != null && <b>{fmtAmount(it.amount)}{it.unit ? ` ${it.unit}` : ""}</b>}
-                  {it.own ? it.own.name : it.food}
-                </span>
-              ))}
-            </span>
-            <small>{items.some((it) => it.own) ? `Uses your own foods where it can. ` : ""}Return sends it.</small>
-          </span>
-          <ChevronRight size={18} aria-hidden="true" className="muted" />
-        </button>
+      {/* The coach's answer, first, like an overview above the results. */}
+      {(pending || answered) && (
+        <MealAnswer a={a} pending={pending} coach={head} action={action} onAdd={onMeal} onManual={onManual} onFollow={follow}
+          items={items.map((it) => ({ amount: it.amount != null ? `${fmtAmount(it.amount)}${it.unit ? ` ${it.unit}` : ""}` : null, label: it.own ? it.own.name : it.food, own: !!it.own }))} />
       )}
 
       {(mine.length > 0 || read.kind === "empty") && (
@@ -293,14 +301,24 @@ function Find({ food, head, meal, date, onTank, onRepeat, onPick, onScan, onManu
         </section>
       )}
 
-      {read.kind !== "empty" && !describing && (
-        <button type="button" className="tank-row" onClick={() => startTank(read.text)}>
+      {read.kind !== "empty" && !describing && !answered && (
+        <button type="button" className="tank-row" onClick={() => askCoach(read.text)}>
           <Coach id={head} size={28} still decorative />
           <span className="tank-row-text"><b>Ask {who} about <q>{read.text}</q></b><small>{who} works out the macros from a description.</small></span>
           <ChevronRight size={18} aria-hidden="true" className="muted" />
         </button>
       )}
       {<button type="button" className="btn-quiet food-manual" onClick={onManual}><PenLine size={15} aria-hidden="true" /> Enter manually</button>}
+
+      {/* Once there's an answer: correct it, add to it, or answer the coach's question, here at the bottom. */}
+      {canFollow && (
+        <form className="chat-input answer-follow" onSubmit={(e) => { e.preventDefault(); if (reply.trim() && a.status !== "working") follow(reply.trim()); }} aria-busy={a.status === "working"}>
+          <label htmlFor="food-more" className="sr-only">{a.status === "asking" ? `Answer ${who}` : `Correct it or add more`}</label>
+          <input id="food-more" className="lift-reply-input" value={reply} onChange={(e) => setReply(e.target.value)} autoComplete="off" enterKeyHint="send"
+            placeholder={a.status === "asking" ? `Answer ${who}` : "Correct it or add more"} />
+          <button type="submit" aria-label="Send" disabled={!reply.trim() || a.status === "working"}><ArrowUp size={20} strokeWidth={2.8} /></button>
+        </form>
+      )}
     </>
   );
 }

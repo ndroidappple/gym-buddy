@@ -62,6 +62,8 @@ eq("no such unit", Q.portionFor([{ label: "serving", grams: null }], 1, "tbsp"),
 const items = (s) => Q.mealItems(s).map((x) => [x.food, x.amount, x.unit]);
 eq("items", items("2 eggs, toast with butter and a latte"), [["eggs", 2, null], ["toast", null, null], ["butter", null, null], ["latte", null, null]]);
 eq("items with units", items("½ cup oatmeal, 1 tbsp peanut butter + 200g greek yogurt"), [["oatmeal", 0.5, "cup"], ["peanut butter", 1, "tbsp"], ["greek yogurt", 200, "g"]]);
+eq("theirs and the meal dropped", items("2 eggs, toast and my protein latte"), [["eggs", 2, null], ["toast", null, null], ["protein latte", null, null]]);
+eq("for lunch dropped", items("a sandwich and chips for lunch"), [["sandwich", null, null], ["chips", null, null]]);
 eq("lead-ins dropped", items("I had a burrito bowl from chipotle and a coke"), [["burrito bowl from chipotle", null, null], ["coke", null, null]]);
 
 if (failed) { console.error(`\n${failed} food query check(s) failed`); process.exit(1); }

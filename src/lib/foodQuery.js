@@ -130,10 +130,12 @@ export function portionFor(units, amount, unit) {
 
 const ITEM_SPLIT = /\s*(?:,|;|\+|&|\band\b|\bwith\b|\bw\/|\bplus\b)\s*/i;
 const LEAD = /^(i\s+(had|ate|drank)|for\s+(breakfast|lunch|dinner)\s*,?|some|a\s+bit\s+of)\s+/i;
+const OWNER = /^(an?|the|my|our|my\s+usual|usual|my\s+regular)\s+/i; // "my protein latte" is their Protein Latte
+const TAIL = /\s+(for|at)\s+(breakfast|lunch|dinner|supper|a\s+snack|snack|brunch)$/i; // "chips for lunch" is chips
 
 /** The items of a described meal: [{ text, amount, unit, food }]. Amount and unit null when none was given. */
 export function mealItems(raw) {
-  return String(raw || "").split(ITEM_SPLIT).map((x) => x.trim().replace(LEAD, "").replace(/^(an?|the)\s+/i, "").trim())
+  return String(raw || "").split(ITEM_SPLIT).map((x) => x.trim().replace(LEAD, "").replace(OWNER, "").replace(TAIL, "").trim())
     .filter((x) => /[a-z]/i.test(x)).slice(0, 12).map((text) => {
       const r = readQuery(text);
       return r.kind === "amount" ? { text, amount: r.amount, unit: r.unit, food: r.food } : { text, amount: null, unit: null, food: norm(text) };

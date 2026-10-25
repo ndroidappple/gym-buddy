@@ -27,6 +27,10 @@ const h = L.readLiftQuery("rows I can do at home");
 eq("home rows", [h.pattern, h.want], ["horizontal pull", ["bodyweight", "dumbbell"]]);
 eq("no equipment means bodyweight", L.readLiftQuery("chest with no equipment").want, ["bodyweight"]);
 
+const joint = L.readLiftQuery("something for upper chest, no bench, easy on my shoulder");
+eq("a joint to spare isn't a muscle to train", [joint.kind, joint.muscles, joint.chips.map((c) => c.text)], ["describe", ["chest"], ["easy on shoulder", "no bench", "upper chest"]]);
+eq("a sore knee, legs", L.readLiftQuery("legs with a sore knee").muscles, ["quads", "hamstrings", "glutes"]);
+
 // Ranking: nothing that breaks a constraint, the best fit first.
 const upper = top("something for upper chest, no bench");
 ok("upper chest, no bench: no bench lifts", upper.every((n) => !L.needsBench(n)), upper.join(", "));

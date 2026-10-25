@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { ArrowUp, Check, Utensils, Pencil, BadgeCheck } from "lucide-react";
+import { Check, Utensils, Pencil, BadgeCheck, RotateCcw } from "lucide-react";
 import { ThinkingOrb } from "thinking-orbs";
 import Coach from "./Coach.jsx";
 import { COACHES } from "../data/coaches.js";
@@ -7,14 +7,15 @@ import { MEALS } from "../lib/nutrition.js";
 import { describeMeal } from "../lib/coachChat.js";
 import { useTheme } from "../lib/theme.js";
 
-/* Logging a meal by describing it to Tank. He asks for any amount that matters (with tap-to-answer
-   replies, always including "Make your best estimate"), looks up any named product's label, then
-   returns the meal itemized. The card
-   shows every item and the total; the lifter can name it, save it to their foods, and add it.
-   A correction typed after the card ("it was 2 tbsp") gets a whole new card. */
+/* The head coach's answer to a meal described in Add food's search box, shown on the search page
+   itself, like an AI overview above search results: it builds in place (what was understood, then the
+   coach working, then the itemized meal and its total), asks there when an amount matters (with
+   tap-to-answer replies, always "Make your best estimate"), and logs with one tap. Corrections and
+   additions are follow-ups from the box at the bottom of the sheet (`follow`), each giving a whole
+   new card. Labels: a named product's numbers come from its label; the lifter's own foods are theirs. */
 
 const TROUBLE = {
-  offline: "No connection, so I can't work it out. Enter it manually, or try again when you're back online.",
+  offline: "No connection, so I can't work it out. Pick from your foods below, or try again when you're back online.",
   auth: "Lost track of who you are. Sign in again.",
   unavailable: "Describing a meal runs on the deployed app, not this dev server.",
   rate: "Too many requests at once. Give me a minute and try again.",
@@ -30,23 +31,20 @@ const r = (n) => Math.round(n);
 const mealNote = (m) => ` [Meal shown: ${m.name}: ${m.items.map((x) => `${x.food} ${x.amount} ${x.kcal} kcal${x.label ? ` (label: ${x.label})` : ""}`).join("; ")}.]`;
 
 /**
- * `coach`: the head coach, who does the itemizing. `first`: what was typed in Add food's search box,
- * sent at once (no typing it twice). `known`: the lifter's own foods it mentions ("Name: amount =
- * numbers"), so the coach uses theirs.
+ * One described meal and its follow-ups. ask(text, known) starts over with a new description;
+ * follow(text) corrects or adds to it; reset() drops it. `known`: the lifter's own foods it mentions
+ * ("Name: amount = numbers"), so the coach uses theirs. Returns the state the card shows:
+ * { asked, status: idle | working | meal | asking | trouble, meal, question, replies, slow, ... }.
  */
-export default function TankMeal({ coach = "tank", first = "", known = [], meal: slot, onMeal, action, onSave, onManual }) {
-  const who = COACHES[coach].name;
+export function useMealAnswer({ coach = "tank", mealSlot }) {
   const [messages, setMessages] = useState([]); // { role, content, meal?, replies?, trouble?, retry? }
-  const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
-  const [name, setName] = useState("");
-  const [save, setSave] = useState(false); // logged meals show in Your foods anyway; save the ones you repeat
   const [slow, setSlow] = useState(false);
-  const listRef = useRef(null);
+  const [asked, setAsked] = useState("");
+  const known = useRef([]);
   const abort = useRef(null);
-  const theme = useTheme();
+  const seen = useRef(new Map()); // first answers by what was asked: typing back to it doesn't ask again
   useEffect(() => () => abort.current?.abort(), []);
-  useEffect(() => { listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" }); }, [messages, busy, slow]);
   useEffect(() => {
     setSlow(false);
     if (!busy) return;
@@ -54,100 +52,128 @@ export default function TankMeal({ coach = "tank", first = "", known = [], meal:
     return () => clearTimeout(t);
   }, [busy]);
 
-  const last = messages[messages.length - 1];
-  const card = [...messages].reverse().find((m) => m.meal)?.meal || null;
-  const cardIsLatest = !!last?.meal;
-
-  // `base` is the conversation to continue from (Try again drops the failed turn first).
-  const send = async (text, base = messages) => {
+  const send = async (text, base) => {
     const q = text.trim();
-    if (!q || busy) return;
+    if (!q) return;
+    abort.current?.abort();
+    const ctl = new AbortController();
+    abort.current = ctl;
     const history = [...base.filter((m) => !m.trouble).map((m) => ({ role: m.role, content: m.content + (m.meal ? mealNote(m.meal) : "") })), { role: "user", content: q }];
     setMessages([...base, { role: "user", content: q }]);
-    setDraft("");
     setBusy(true);
-    abort.current = new AbortController();
     try {
-      const res = await describeMeal({ coach, messages: history, mealSlot: MEALS.find((m) => m.id === slot)?.label, known, signal: abort.current.signal });
-      if (res.meal) setName(res.meal.name);
+      const res = await describeMeal({ coach, messages: history, mealSlot, known: known.current, signal: ctl.signal });
       // A question with no suggested answers still gets the estimate button.
       const replies = res.meal ? [] : [...new Set([...(res.replies || []), ESTIMATE])].slice(0, 4);
-      setMessages((ms) => [...ms, { role: "assistant", content: res.text || (res.meal ? `Here's your ${res.meal.name.toLowerCase()}.` : "How much of each?"), meal: res.meal, replies }]);
+      const reply = { role: "assistant", content: res.text || (res.meal ? "" : "How much of each?"), meal: res.meal, replies };
+      if (!base.length) seen.current.set(q, [{ role: "user", content: q }, reply]);
+      setMessages((ms) => [...ms, reply]);
     } catch (e) {
       if (e.name === "AbortError") return;
       setMessages((ms) => [...ms, { role: "assistant", content: TROUBLE[e.kind] || TROUBLE.busy, trouble: true, retry: ["rate", "empty", "busy", "offline"].includes(e.kind) ? q : null }]);
     } finally {
-      setBusy(false);
+      if (abort.current === ctl) setBusy(false);
     }
   };
 
-  const confirm = () => {
-    if (!card) return;
-    onSave({ meal: { ...card, name: name.trim() || card.name }, save });
+  const last = messages[messages.length - 1];
+  const meal = [...messages].reverse().find((m) => m.meal)?.meal || null;
+  const status = !asked ? "idle" : busy ? "working" : last?.trouble ? "trouble" : last?.meal ? "meal" : last?.role === "assistant" ? "asking" : "working";
+  return {
+    asked, status, slow, meal, earlier: busy ? meal : null,
+    text: last?.role === "assistant" ? last.content : "",
+    replies: status === "asking" ? last.replies || [] : [],
+    canRetry: status === "trouble" && !!last.retry,
+    ask: (text, k = []) => {
+      const q = text.trim();
+      known.current = k;
+      setAsked(q);
+      if (seen.current.has(q)) { abort.current?.abort(); setBusy(false); setMessages(seen.current.get(q)); } else send(q, []);
+    },
+    follow: (text) => send(text, messages),
+    retry: () => send(last.retry, messages.slice(0, -2)),
+    reset: () => { abort.current?.abort(); setBusy(false); setMessages([]); setAsked(""); },
   };
+}
 
-  // What was typed in the search box goes straight in: no typing it twice.
-  useEffect(() => { if (first.trim()) send(first); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+/* Quick refinements under a finished meal, like suggested follow-ups: its size, and leaving out the
+   smallest extra (the butter, the sauce) when there's more than a couple of things in it. */
+export function refinements(meal) {
+  if (!meal) return [];
+  const extra = meal.items.length > 2 ? [...meal.items].sort((a, b) => a.kcal - b.kcal)[0] : null;
+  return ["Bigger portion", "Smaller portion", extra && `No ${extra.food.toLowerCase()}`].filter(Boolean);
+}
 
-  const chips = !busy && last?.role === "assistant" ? (last.trouble ? (last.retry ? ["Try again"] : []) : last.replies || []) : [];
-  const tap = (c) => {
-    if (c === "Try again") send(last.retry, messages.slice(0, -2)); // resend without showing it twice
-    else send(c);
-  };
-
+/**
+ * The answer card. `a`: useMealAnswer's state; `pending`: something new is typed and about to be asked,
+ * so it shows as working; `items`: what was understood while typing ({ amount, label, own } chips),
+ * shown while it works; `action`: the Add button's words; `onAdd({ meal, save })`; `onManual`;
+ * `onFollow(text)`: a reply or a refinement.
+ */
+export function MealAnswer({ a, pending = false, coach = "tank", items = [], action, onAdd, onManual, onFollow }) {
+  const who = COACHES[coach].name;
+  const theme = useTheme();
+  const [name, setName] = useState("");
+  const [save, setSave] = useState(false); // logged meals show in Your foods anyway; save the ones you repeat
+  useEffect(() => { if (a.meal) setName(a.meal.name); }, [a.meal]);
+  const working = pending || a.status === "working";
+  const updating = working && !pending && a.earlier; // a follow-up: the meal so far stays, dimmed, until the new one
   return (
-    <div className="chat tank-meal" style={{ "--c": COACHES.tank.color }}>
-      <div className="chat-list" ref={listRef} aria-live="polite">
-        {/* Asked from the search box, the meal is already on its way: no need to ask what they ate. */}
-        {!first.trim() && (
-          <div className="tank-meal-hello">
-            <Coach id={coach} size={44} mood={busy ? "focused" : card && cardIsLatest ? "hyped" : "idle"} decorative />
-            <p className="coach-bubble">What did you eat? List everything, with amounts if you know them. I'll ask if I need more.</p>
+    <section className={"answer" + (working ? " working" : "")} aria-live="polite" aria-busy={working} style={{ "--c": COACHES[coach].color }}>
+      <header className="answer-head">
+        <Coach id={coach} size={26} mood={working ? "focused" : a.status === "meal" ? "hyped" : "idle"} still decorative />
+        <b>{who}</b>
+        {working && <span className="answer-state"><ThinkingOrb state="breathing" size={20} theme={theme} aria-hidden="true" />{updating ? "Updating" : "Working it out"}</span>}
+      </header>
+
+      {updating && <div className="answer-stale" aria-hidden="true"><MealCard meal={a.earlier} who={who} name={name} /></div>}
+      {working && !updating && (
+        // What was understood, then the meal's shape forming: rows that shimmer where the items will go.
+        <>
+          {items.length > 0 && (
+            <div className="meal-chips" aria-label="Understood as">{items.map((it, k) => (
+              <span key={k} className={"meal-chip" + (it.own ? " own" : "")}>
+                {it.own && <Check size={12} strokeWidth={3} aria-hidden="true" />}{it.amount && <b>{it.amount}</b>}{it.label}
+              </span>
+            ))}</div>
+          )}
+          <div className="answer-skel" aria-hidden="true">{items.slice(0, 4).concat(items.length ? [] : [0, 1]).map((_, k) => <i key={k} />)}<i className="answer-skel-total" /></div>
+          {a.slow && onManual && <button type="button" className="btn-quiet food-manual" onClick={onManual}><Pencil size={14} aria-hidden="true" /> Taking a while. Enter it yourself</button>}
+        </>
+      )}
+
+      {!working && a.status === "asking" && (
+        <>
+          <p className="answer-text">{a.text}</p>
+          <div className="answer-chips" role="group" aria-label="Quick replies">
+            {a.replies.map((c) => <button key={c} type="button" className="chip" onClick={() => onFollow(c)}>{c}</button>)}
           </div>
-        )}
-        {messages.map((m, i) => (
-          <React.Fragment key={i}>
-            <p className={m.role === "user" ? "chat-me" : "coach-bubble"}>{m.content}</p>
-            {m.meal && (i === messages.length - 1
-              ? <MealCard meal={m.meal} who={who} name={name} onName={setName} />
-              : <p className="small muted meal-old">Earlier version: {fmt(m.meal.total.kcal)} kcal</p>)}
-          </React.Fragment>
-        ))}
-        {busy && (
-          <p className="coach-bubble"><span className="chat-wait"><ThinkingOrb state="breathing" size={20} theme={theme} aria-hidden="true" />{who} is working it out…</span></p>
-        )}
-        {busy && slow && onManual && (
-          <div className="tank-meal-slow">
-            <p className="small muted">Taking longer than usual. Keep waiting, or enter it yourself.</p>
-            <button type="button" className="chip" onClick={onManual}><Pencil size={14} aria-hidden="true" /> Enter manually</button>
-          </div>
-        )}
-        {chips.length > 0 && (
-          <div className="chat-suggest chat-replies" role="group" aria-label="Quick replies">
-            {chips.map((c) => <button key={c} type="button" className="chip" onClick={() => tap(c)}>{c}</button>)}
-          </div>
-        )}
-        {card && cardIsLatest && !busy && (
-          <div className="tank-meal-save">
-            <label className="check-row"><input type="checkbox" checked={save} onChange={(e) => setSave(e.target.checked)} />
-              <span>Save to my foods<small className="detail">It shows in Your foods for a while anyway. Saving keeps it for good.</small></span></label>
-            <div className="setup-choices food-meals" role="group" aria-label="Meal">
-              {MEALS.map((m) => <button key={m.id} type="button" className="chip" aria-pressed={slot === m.id} onClick={() => onMeal(m.id)}>{m.label}</button>)}
+        </>
+      )}
+
+      {!working && a.status === "trouble" && (
+        <>
+          <p className="answer-text">{a.text}</p>
+          {a.canRetry && <button type="button" className="chip" onClick={a.retry}><RotateCcw size={14} aria-hidden="true" /> Try again</button>}
+        </>
+      )}
+
+      {!working && a.status === "meal" && a.meal && (
+        <>
+          {a.text && <p className="answer-text">{a.text}</p>}
+          <MealCard meal={a.meal} who={who} name={name} onName={setName} />
+          <button type="button" className="btn btn-ink answer-add" onClick={() => onAdd({ meal: { ...a.meal, name: name.trim() || a.meal.name }, save })}>
+            <Check size={18} strokeWidth={3} aria-hidden="true" /> {action}
+          </button>
+          <div className="answer-foot">
+            <div className="answer-chips" role="group" aria-label="Change it">
+              {refinements(a.meal).map((c) => <button key={c} type="button" className="chip" onClick={() => onFollow(c)}>{c}</button>)}
             </div>
-            <button type="button" className="btn btn-ink" onClick={confirm}><Check size={18} strokeWidth={3} aria-hidden="true" /> {action}</button>
-            <p className="small muted detail">Something off? Tell {who} below, e.g. "it was 2 tbsp".</p>
+            <label className="answer-save"><input type="checkbox" checked={save} onChange={(e) => setSave(e.target.checked)} /> Save to my foods</label>
           </div>
-        )}
-      </div>
-      <form className="chat-input" aria-busy={busy} onSubmit={(e) => { e.preventDefault(); send(draft); }}>
-        <label htmlFor="tank-meal-q" className="sr-only">Describe your meal</label>
-        <textarea id="tank-meal-q" rows={2} value={draft} maxLength={1000} autoFocus={!messages.length && !first.trim()}
-          placeholder={messages.length ? "Reply or correct it…" : "e.g. ½ cup oatmeal, 1 tbsp peanut butter, half a small apple, ½ scoop protein"}
-          onChange={(e) => setDraft(e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(draft); } }} />
-        <button type="submit" aria-label="Send" disabled={!draft.trim() || busy}><ArrowUp size={20} strokeWidth={2.8} /></button>
-      </form>
-    </div>
+        </>
+      )}
+    </section>
   );
 }
 
@@ -155,25 +181,26 @@ export default function TankMeal({ coach = "tank", first = "", known = [], meal:
 function MealCard({ meal, who, name, onName }) {
   const t = meal.total;
   return (
-    <div className="proposal meal-card" role="group" aria-label={`${meal.name}: ${fmt(t.kcal)} calories`}>
+    <div className="meal-card" role="group" aria-label={`${meal.name}: ${fmt(t.kcal)} calories`}>
       <span className="proposal-head"><Utensils size={16} strokeWidth={2.6} aria-hidden="true" />
-        <input className="meal-name" value={name} maxLength={60} onChange={(e) => onName(e.target.value)} aria-label="Meal name" />
-        <Pencil size={15} aria-hidden="true" className="muted" /></span>
+        {onName ? <input className="meal-name" value={name} maxLength={60} onChange={(e) => onName(e.target.value)} aria-label="Meal name" /> : <b className="meal-name">{name || meal.name}</b>}
+        {onName && <Pencil size={15} aria-hidden="true" className="muted" />}</span>
       <ul className="meal-items">
         {meal.items.map((x, i) => (
           <li key={i}>
-            <span className="meal-item"><b>{x.food}</b><small>{x.estimated ? "~" : ""}{x.amount} · P {r(x.protein)} · C {r(x.carbs)} · F {r(x.fat)}</small>
-              {x.label && <small className="meal-label"><BadgeCheck size={13} strokeWidth={2.6} aria-hidden="true" /> Label: {x.label}</small>}</span>
+            <span className="meal-item"><span className="meal-item-name"><b>{x.food}</b>
+              {x.label && <small className="meal-label"><BadgeCheck size={13} strokeWidth={2.6} aria-hidden="true" /> {x.label === "your food" ? "Your food" : `Label: ${x.label}`}</small>}</span>
+              <small>{x.estimated ? "~" : ""}{x.amount} · P {r(x.protein)} · C {r(x.carbs)} · F {r(x.fat)}</small></span>
             <span className="meal-kcal-n">{x.estimated ? "~" : ""}{fmt(x.kcal)}</span>
           </li>
         ))}
       </ul>
       <div className="meal-total">
         <b>{fmt(t.kcal)} kcal</b>
-        <span>{r(t.protein)} g protein · {r(t.carbs)} g carbs · {r(t.fat)} g fat</span>
+        <span>{r(t.protein)} g protein · {r(t.carbs)} g carbs · {r(t.fat)} g fat{meal.estimated ? ` · ~ ${who}'s estimate` : ""}</span>
       </div>
-      {meal.estimated && <p className="proposal-skip">~ marks {who}'s estimates.</p>}
-      {meal.items.some((x) => x.label) && <p className="proposal-skip">Label: numbers from the product's label (a food database, or the web when the databases don't have it).</p>}
     </div>
   );
 }
+
+export { MEALS };

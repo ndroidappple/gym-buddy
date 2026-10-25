@@ -38,6 +38,7 @@ const PATTERN_WORDS = [
 const EQUIP_WORDS = [[/\b(dumbbells?|dbs?)\b/, "dumbbell"], [/\bcables?\b/, "cable"], [/\bmachines?\b/, "machine"], [/\bbarbells?\b/, "barbell"],
   [/\b(bodyweight|body weight|no equipment|calisthenics)\b/, "bodyweight"]];
 const NOT = /\b(no|without|not|skip|avoid|except|other than)\s+(an?\s+|the\s+|any\s+)?([a-z-]+)/g;
+const JOINT = /\b(easy on|easier on|kind to|gentle on|spare|sore|bad|hurt|injured|cranky|tweaked|achy)\s+(my\s+|the\s+)?(left\s+|right\s+|lower\s+)?(shoulders?|knees?|elbows?|wrists?|back|hips?|neck)\b/g;
 const FILLER = /\b(something|anything|for|alternative|instead|like|exercise|lift|move|movement|home|hotel|gym|easy|easier|harder|that|works?|hits?|target|i can)\b/;
 
 /**
@@ -51,7 +52,12 @@ export function readLiftQuery(raw, { known = false } = {}) {
   const out = { kind: "empty", text, muscles: [], pattern: null, want: [], avoid: [], bench: null, incline: false, decline: false, name: null, chips: [] };
   if (!t) return out;
   let rest = t;
-  for (const m of t.matchAll(NOT)) {
+  // A joint to go easy on ("easy on my shoulder", "bad knee") isn't a muscle to train: the coach weighs it.
+  for (const m of t.matchAll(JOINT)) {
+    out.chips.push({ text: `easy on ${m[4]}` });
+    rest = rest.replace(m[0], " ");
+  }
+  for (const m of rest.matchAll(NOT)) {
     const w = m[3];
     if (/^benche?s?$/.test(w)) out.bench = false;
     const e = EQUIP_WORDS.find(([re]) => re.test(w))?.[1] || (/^equipment$/.test(w) ? "equipment" : null);

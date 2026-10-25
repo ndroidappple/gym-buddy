@@ -423,8 +423,25 @@ export function weekSnapshot(data, weekEnd, weeksAgo) {
 
 const COACH_IDS = new Set(COACH_ORDER);
 const str = (s, max) => (typeof s === "string" ? s.replace(/\s+/g, " ").trim().slice(0, max) : "");
+
+/**
+ * Prose that ends where a sentence does. The model often writes past the length it was asked for, and
+ * cutting at the limit left "…three sessions, notab": a long text keeps its last whole sentence, or
+ * failing that, its last whole word and "…". Also mends reviews saved before this, cut mid-word.
+ */
+export function wholeSentences(s, max = Infinity) {
+  const t = typeof s === "string" ? s.replace(/\s+/g, " ").trim() : "";
+  if (t.length <= max && (!t || /[.!?…]["'”’)\]]?$/.test(t))) return t;
+  const cut = t.slice(0, max);
+  const ends = [...cut.matchAll(/[.!?…]["'”’)\]]?(?=\s|$)/g)];
+  const last = ends[ends.length - 1];
+  if (last && last.index + last[0].length >= cut.length * 0.4) return cut.slice(0, last.index + last[0].length);
+  if (t.length <= max) return t; // one sentence with no full stop: leave it whole
+  return `${cut.slice(0, cut.lastIndexOf(" ") > 0 ? cut.lastIndexOf(" ") : max).replace(/[\s,;:–—-]+$/, "")}…`;
+}
+const prose = (s, max) => wholeSentences(typeof s === "string" ? s : "", max);
 const coachId = (c, d = "tank") => (COACH_IDS.has(c) ? c : d);
-const note = (x, d, maxT = 70, maxB = 360) => (x && str(x.body, maxB) ? { title: str(x.title, maxT), body: str(x.body, maxB), coach: coachId(x.coach, d) } : null);
+const note = (x, d, maxT = 70, maxB = 600) => (x && prose(x.body, maxB) ? { title: str(x.title, maxT), body: prose(x.body, maxB), coach: coachId(x.coach, d) } : null);
 
 /** The agent's write_review input, trimmed and checked, with anything missing filled from `fallback`. */
 export function cleanStory(input, facts, fallback) {
@@ -432,15 +449,15 @@ export function cleanStory(input, facts, fallback) {
   const s = input && typeof input === "object" ? input : {};
   const list = (xs, fn, max) => (Array.isArray(xs) ? xs.map(fn).filter(Boolean).slice(0, max) : []);
   const story = {
-    headline: str(s.headline, 90), summary: str(s.summary, 420),
+    headline: str(s.headline, 90), summary: prose(s.summary, 600),
     training: note(s.training, head),
     nutrition: facts.nutrition ? note(s.nutrition, head) : null,
     body: facts.body ? note(s.body, head) : null,
     sleep: facts.sleep ? note(s.sleep, head) : null,
-    high: note(s.high, head, 70, 280), low: note(s.low, head, 70, 280),
-    trends: list(s.trends, (x) => note(x, head, 70, 280), 3),
-    insights: list(s.insights, (x) => { const n = note(x, head, 80, 360); return n && { ...n, evidence: str(x.evidence, 180) }; }, 4),
-    focus: list(s.focus, (x) => (x && str(x.action, 120) ? { action: str(x.action, 120), why: str(x.why, 220), coach: coachId(x.coach, head) } : null), 3),
+    high: note(s.high, head), low: note(s.low, head),
+    trends: list(s.trends, (x) => note(x, head), 3),
+    insights: list(s.insights, (x) => { const n = note(x, head, 80); return n && { ...n, evidence: str(x.evidence, 180) }; }, 4),
+    focus: list(s.focus, (x) => (x && str(x.action, 120) ? { action: str(x.action, 120), why: prose(x.why, 300), coach: coachId(x.coach, head) } : null), 3),
   };
   for (const k of ["headline", "summary", "training", "high", "low"]) if (!story[k]) story[k] = fallback[k];
   if (facts.nutrition && !story.nutrition) story.nutrition = fallback.nutrition;
