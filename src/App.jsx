@@ -40,6 +40,7 @@ import { phoneState, ensureSubscribed } from "./lib/push.js";
 import { useGoogleHealthSync, useHeartRate, useRecovery } from "./lib/googleHealth.js";
 import { mergeRecovery } from "./lib/recovery.js";
 import { summarize, withHeart, maxHrFor, estimatedBounds, hasHeart, withoutHeart, clearCurves } from "./lib/heart.js";
+import { useTabFade } from "./lib/tabFade.js";
 
 const TAB_VIEWS = ["today", "nutrition", "progress", "settings", "lift"];
 
@@ -311,6 +312,8 @@ export default function App() {
     },
   };
 
+  useTabFade(ready ? route : null, TAB_VIEWS);
+
   if (loadFailed) return <LoadError onRetry={load} />;
   if (!ready) return <Boot />;
 
@@ -425,3 +428,4 @@ export default function App() {
     </div>
   );
 }
+
