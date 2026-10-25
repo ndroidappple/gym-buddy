@@ -365,6 +365,12 @@ export default function App() {
       );
       break;
     }
+    case "preview": {
+      // The workout screen read-only, opened from Today's card: nothing logs until Start.
+      if (!allDays(program).includes(route.day) || !program[route.day].exercises.length) { view = <Today {...common} />; break; }
+      view = <Session key={"preview" + route.day} {...common} day={route.day} draft={drafts[route.day]} preview />;
+      break;
+    }
     case "review": {
       const current = route.id === latest.weekEnd;
       view = (

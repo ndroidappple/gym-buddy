@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useLayoutEffect, useMemo, useRef, useCallback } from "react";
-import { ChevronLeft, Check, Plus, Minus, Trash2, Bell, BellOff } from "lucide-react";
+import { ChevronLeft, Check, Plus, Minus, Trash2, Bell, BellOff, Play } from "lucide-react";
 import { BorderBeam } from "border-beam";
 import { fmtSet, uid, e1rm, fmtW, today, shortDate, mmss, byDateDesc, priorSessions, allTimeBest, bestSet, vibrate, readyToIncrease, nextGoal, fmtGoal, weightStep, bodyweightSeries, daysBetween, setChange, lifting } from "../lib/util.js";
 import { readiness, lowLine } from "../lib/recovery.js";
@@ -20,12 +20,15 @@ import { loadParts, partsIn, learnK, adjustedSeries } from "../lib/fatigue.js";
 import BusySheet from "../components/BusySheet.jsx";
 import { COACHES, coachFor } from "../data/coaches.js";
 import { isCardio, specLine, allDays } from "../data/program.js";
+import { href } from "../lib/router.js";
 
 const hasVal = (v) => v !== "" && v != null;
 // A draft untouched this long is a new workout when lifting picks back up (a set tapped days ago isn't when it started).
 const RESUME_GAP = 12 * 3600e3;
 
-export default function Session({ day, existing, draft, sessions, program, weighins, prefs, back, notify, onSaveDraft, onDiscardDraft, onFinish, onUpdate, onDelete, onProgramChange, nutrition, head, coachNotes, recovery }) {
+/** `preview`: the same screen, read-only, opened from Today's card to look through the lifts before
+    starting. Lifts open and the coach can be asked, but nothing logs or saves until Start. */
+export default function Session({ day, existing, draft, preview, sessions, program, weighins, prefs, go, back, notify, onSaveDraft, onDiscardDraft, onFinish, onUpdate, onDelete, onProgramChange, nutrition, head, coachNotes, recovery }) {
   const dayProgram = program[day];
   const [extras, setExtras] = useState(() => draft?.extras || []);
   const [skipped, setSkipped] = useState(() => draft?.skipped || []);
@@ -52,7 +55,7 @@ export default function Session({ day, existing, draft, sessions, program, weigh
     setStartedAt(Date.now());
     if (!datePicked) setDate(today());
   };
-  const [timer, setTimer] = useState(() => (draft?.timer?.endsAt > Date.now() ? draft.timer : null));
+  const [timer, setTimer] = useState(() => (!preview && draft?.timer?.endsAt > Date.now() ? draft.timer : null));
   const [sheet, setSheet] = useState(null); // "picker" | "details" | "delete"
   const [chat, setChat] = useState(null); // {coach, exercise} being asked
   const [flash, setFlash] = useState(null); // {ex, i} — the set that was just logged
@@ -242,7 +245,7 @@ export default function Session({ day, existing, draft, sessions, program, weigh
   const firstRun = useRef(true);
   useEffect(() => {
     if (firstRun.current) { firstRun.current = false; return; }
-    if (!existing && !dirty) return;
+    if (preview || (!existing && !dirty)) return;
     const t = setTimeout(() => {
       if (existing) {
         const sets = collectSets();
@@ -292,6 +295,7 @@ export default function Session({ day, existing, draft, sessions, program, weigh
 
   /* ── keep the screen awake while training ── */
   useEffect(() => {
+    if (preview) return;
     let lock = null;
     const req = async () => { try { lock = await navigator.wakeLock?.request("screen"); } catch {} };
     const onVis = () => { if (document.visibilityState === "visible") req(); };
@@ -468,12 +472,13 @@ export default function Session({ day, existing, draft, sessions, program, weigh
           <button className="icon-btn boxed" onClick={() => back()} aria-label="Back"><ChevronLeft size={20} /></button>
           <h1 className="top-title" data-day={day}>{dayProgram.name}</h1>
           <span className="spacer" />
-          <span className="pill sets-pill" aria-live="polite"><Roll value={doneSlots} /> of {totalSlots} sets</span>
+          {preview ? <span className="pill sets-pill">Preview · {doneSlots ? `${doneSlots} of ` : ""}{totalSlots} sets</span>
+            : <span className="pill sets-pill" aria-live="polite"><Roll value={doneSlots} /> of {totalSlots} sets</span>}
           {existing && <button className="icon-btn" onClick={() => setSheet("delete")} aria-label="Delete session"><Trash2 size={18} /></button>}
         </header>
-        <div className="progress" role="progressbar" aria-label="Sets completed" aria-valuemin={0} aria-valuemax={totalSlots} aria-valuenow={doneSlots}>
+        {!(preview && !doneSlots) && <div className="progress" role="progressbar" aria-label="Sets completed" aria-valuemin={0} aria-valuemax={totalSlots} aria-valuenow={doneSlots}>
           <i style={{ width: `${totalSlots ? (doneSlots / totalSlots) * 100 : 0}%` }} />
-        </div>
+        </div>}
       </div>
 
       <div className="body" style={{ gap: 10 }}>
@@ -489,8 +494,8 @@ export default function Session({ day, existing, draft, sessions, program, weigh
             const opening = openingFor(ex, rows);
             const pendingIdx = activeIdx != null && rows[activeIdx] && !rows[activeIdx].done ? activeIdx : rows.findIndex((r) => !r.done);
             return (
-              <ExerciseCard key={ex.n} ex={ex} rows={rows} target={target} goal={goal} targetDate={last?.date} bump={bump} call={call} opening={opening}
-                refSets={last?.sets[ex.n] || []} activeIdx={pendingIdx} flash={flash?.ex === ex.n ? flash.i : null}
+              <ExerciseCard key={ex.n} preview={preview} ex={ex} rows={rows} target={target} goal={goal} targetDate={last?.date} bump={bump} call={call} opening={opening}
+                refSets={last?.sets[ex.n] || []} activeIdx={preview ? -1 : pendingIdx} flash={flash?.ex === ex.n ? flash.i : null}
                 mood={reaction?.ex === ex.n ? reaction.mood : resting ? "resting" : editing ? "focused" : "idle"}
                 onEdit={(i, patch) => { setRow(ex.n, i, { ...patch, touched: true }); setEditing(true); }} onLog={(i) => logSet(ex, i)}
                 onPick={(i) => { setActiveIdx(i); setEditing(false); }} onReopen={(i) => reopen(ex.n, i)}
@@ -502,12 +507,12 @@ export default function Session({ day, existing, draft, sessions, program, weigh
             );
           }
           return <Collapsed key={ex.n} ex={ex} rows={rows} goal={goal} bump={bump} call={call} later={later.includes(ex.n) && isPending(ex.n)} swappedTo={swaps[ex.n]} skipped={skipped.includes(ex.n)} justClosed={closed.current === ex.n}
-            onOpen={() => { if (skipped.includes(ex.n)) setSkipped((s) => s.filter((x) => x !== ex.n)); setFocus(ex.n); setActiveIdx(null); }} />;
+            onOpen={() => { if (!preview && skipped.includes(ex.n)) setSkipped((s) => s.filter((x) => x !== ex.n)); setFocus(ex.n); setActiveIdx(null); }} />;
         })}
 
-        <button className="btn btn-ghost" onClick={() => setSheet("picker")}><Plus size={18} aria-hidden="true" /> Add a lift or cardio</button>
+        {!preview && <button className="btn btn-ghost" onClick={() => setSheet("picker")}><Plus size={18} aria-hidden="true" /> Add a lift or cardio</button>}
 
-        <div className="finish">
+        {!preview && <div className="finish">
           <button className="meta-chip" onClick={() => setSheet("details")}>
             <span className="spacer"><b>{metaBits[0]}</b>{metaBits.slice(1).map((b) => ` · ${b}`)}</span>
             <span>{bw === "" ? "Add bodyweight" : "Edit"}</span>
@@ -524,9 +529,18 @@ export default function Session({ day, existing, draft, sessions, program, weigh
               {dirty && <button className="btn-quiet danger" onClick={() => { cancelRestAlert(); onDiscardDraft(day); back(); }}>Discard this session</button>}
             </>
           )}
-        </div>
-        <div style={{ height: timer || allDone ? (askAlerts && timer && !allDone ? 250 : 120) : 16 }} />
+        </div>}
+        <div style={{ height: preview || timer || allDone ? (askAlerts && timer && !allDone ? 250 : 120) : 16 }} />
       </div>
+
+      {/* Start replaces the preview in history, so Back from the workout goes to Today. */}
+      {preview && (
+        <div className="dock finish-dock">
+          <button className="btn btn-day" onClick={() => go(href("session", day), { replace: true })}>
+            <Play size={20} strokeWidth={2.6} fill="currentColor" aria-hidden="true" /> {draft ? `Resume ${dayProgram.name}` : "Start lifting"}
+          </button>
+        </div>
+      )}
 
       {/* Every set in: Finish takes the dock's place, so it's one tap away instead of a scroll.
           Each slides off the bottom as it goes; Finish rises as the rest timer leaves. */}
@@ -647,7 +661,7 @@ function SetRing({ done, total, skipped }) {
   );
 }
 
-function ExerciseCard({ ex, showRir, rows, target, goal, targetDate, onHint, bump, call, opening, refSets, activeIdx, flash, mood, onAsk, onEdit, onLog, onPick, onReopen, onAddSet, onRemoveSet, onSkip, skipLabel, onBusy, onCollapse }) {
+function ExerciseCard({ preview, ex, showRir, rows, target, goal, targetDate, onHint, bump, call, opening, refSets, activeIdx, flash, mood, onAsk, onEdit, onLog, onPick, onReopen, onAddSet, onRemoveSet, onSkip, skipLabel, onBusy, onCollapse }) {
   const id = coachFor(ex.n);
   const coach = COACHES[id];
   // Calm moods read the form cue; reactions say their own line. Until the first set is logged,
@@ -667,6 +681,9 @@ function ExerciseCard({ ex, showRir, rows, target, goal, targetDate, onHint, bum
   const showCue = ex.cue && line !== ex.cue;
   const cardio = isCardio(ex.n);
   const lastEntry = cardio ? refSets[0] : null;
+  // In a preview, sets already logged (a workout in progress) can't be held to edit or swiped away.
+  const Done = preview ? StaticRow : DoneRow;
+  const Pending = preview ? "div" : "button";
   return (
     <section className="ex" aria-label={ex.n}>
       {/* Comic layout: the bubble's tail points down at the coach who says it. */}
@@ -701,25 +718,25 @@ function ExerciseCard({ ex, showRir, rows, target, goal, targetDate, onHint, bum
           if (r.done && cardio) {
             const label = fmtSet({ min: +r.min, mi: hasVal(r.mi) ? +r.mi : null });
             return (
-              <DoneRow key={i} className="done-row" label={`Entry ${i + 1}: ${label}. Hold to edit, swipe left to delete.`}
+              <Done key={i} className="done-row" label={`Entry ${i + 1}: ${label}. Hold to edit, swipe left to delete.`}
                 canDelete={rows.length > 1} onEdit={() => onReopen(i)} onDelete={() => onRemoveSet(i)} onHint={onHint}>
                 <span className="n">{i + 1}</span>
                 <span className="w">{label}<Change now={{ min: +r.min, mi: hasVal(r.mi) ? +r.mi : null }} last={refSets[i]} /></span>
                 <span />
                 <span className={"ck" + (flash === i ? " fill" : "")} aria-hidden="true"><Check size={18} strokeWidth={3} /></span>
-              </DoneRow>
+              </Done>
             );
           }
           if (r.done) {
             // PR sets get the animated gold rim (.pr-rim), bolder than the rest timer's line beam.
             return (
-              <DoneRow key={i} className={"done-row" + (r.pr ? " pr-rim" : "")} label={`Set ${i + 1}: ${fmtW(+r.w)} by ${r.r}${r.pr ? ", personal record" : ""}. Hold to edit, swipe left to delete.`}
+              <Done key={i} className={"done-row" + (r.pr ? " pr-rim" : "")} label={`Set ${i + 1}: ${fmtW(+r.w)} by ${r.r}${r.pr ? ", personal record" : ""}. Hold to edit, swipe left to delete.`}
                 canDelete={rows.length > 1} onEdit={() => onReopen(i)} onDelete={() => onRemoveSet(i)} onHint={onHint}>
                 <span className="n">{i + 1}</span>
                 <span className="w">{fmtW(+r.w)} × {r.r}{r.pr ? <span className={"stamp" + (flash === i ? " hit" : "")}>PR</span> : <Change now={{ w: +r.w, r: +r.r }} last={refSets[i]} />}</span>
                 <span className="small muted">{showRir && hasVal(r.rir) ? `RIR ${r.rir}` : ""}</span>
                 <span className={"ck" + (flash === i ? " fill" : "")} aria-hidden="true"><Check size={18} strokeWidth={3} /></span>
-              </DoneRow>
+              </Done>
             );
           }
           if (i === activeIdx && cardio) {
@@ -731,21 +748,21 @@ function ExerciseCard({ ex, showRir, rows, target, goal, targetDate, onHint, bum
               onEdit={(patch) => onEdit(i, patch)} onLog={() => onLog(i)} onRemove={() => onRemoveSet(i)} />;
           }
           return (
-            <button key={i} className="pending-row" onClick={() => onPick(i)} aria-label={`${cardio ? "Entry" : "Set"} ${i + 1}, not logged. Tap to enter.`}>
+            <Pending key={i} className="pending-row" {...(preview ? {} : { onClick: () => onPick(i), "aria-label": `${cardio ? "Entry" : "Set"} ${i + 1}, not logged. Tap to enter.` })}>
               <span>{i + 1}</span>
               <span>{cardio ? `${hasVal(r.min) ? r.min : "—"} min` : `${hasVal(r.w) ? fmtW(+r.w) : "—"} × ${hasVal(r.r) ? r.r : "—"}`}</span>
               <span>{refSets[i] ? `last time ${cardio ? fmtSet(refSets[i]) : `${fmtW(refSets[i].w)} × ${refSets[i].r}`}` : ""}</span>
-            </button>
+            </Pending>
           );
         })}
       </div>
 
-      <div className="ex-foot">
+      {!preview && <div className="ex-foot">
         <button className="btn-quiet" onClick={onAddSet}><Plus size={16} aria-hidden="true" style={{ verticalAlign: -3 }} /> {cardio ? "Add interval" : "Add set"}</button>
         <span className="spacer" />
         {onBusy && <button className="btn-quiet" onClick={onBusy}>Machine busy?</button>}
         {onSkip && <button className="btn-quiet" onClick={onSkip}>{skipLabel}</button>}
-      </div>
+      </div>}
     </section>
   );
 }
@@ -833,6 +850,9 @@ function Stepper({ id, label, unit, value, mode, placeholder, onChange, onDec, o
     </div>
   );
 }
+
+/** A logged set shown as-is, for a preview. */
+const StaticRow = ({ className, label, children }) => <div className="swipe"><div className={className} role="img" aria-label={label.replace(/ Hold to edit.*$/, "")}>{children}</div></div>;
 
 /* A logged set. Hold to edit, swipe left to delete: a plain tap only says how, so brushing the
    screen mid-workout never reopens a set. Enter or Space still edits from a keyboard. */

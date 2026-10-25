@@ -13,7 +13,7 @@ import { ReviewChip } from "../components/WeekReviewIntro.jsx";
 import { collapse } from "../lib/motion.js";
 import { byDateDesc, bestSet, fmtW, num, shortDate, weekDates, today, nextDayAfter, bodyweightSeries, daysBetween, plural, readyToIncrease, nextGoal, fmtGoal } from "../lib/util.js";
 
-export default function Today({ name, sessions, program, drafts, weighins, prefs, onWeighin, foodToday, review, head, recovery }) {
+export default function Today({ name, sessions, program, drafts, weighins, prefs, go, onWeighin, foodToday, review, head, recovery }) {
   const sorted = useMemo(() => [...sessions].sort(byDateDesc), [sessions]);
   const draftDay = [...activeDays(program), CUSTOM].find((d) => drafts[d]);
   const t = today();
@@ -36,6 +36,10 @@ export default function Today({ name, sessions, program, drafts, weighins, prefs
     try { next ? localStorage.setItem(PICK_KEY, JSON.stringify(next)) : localStorage.removeItem(PICK_KEY); } catch {}
     setChoosing(false);
   };
+  // Tapping the card anywhere but its buttons looks through the day's lifts before starting.
+  const canPreview = day !== CUSTOM && p.exercises.length > 0;
+  const openPreview = (e) => { if (canPreview && !e.target.closest("a, button")) go(href("preview", day)); };
+  const HeroText = canPreview ? "a" : "div";
 
   const weigh = useWeighIn(sessions, weighins, prefs?.phase);
   const lastDone = (d) => { const last = sorted.find((s) => s.day === d); return last ? `last done ${shortDate(last.date)}` : "not done yet"; };
@@ -105,17 +109,18 @@ export default function Today({ name, sessions, program, drafts, weighins, prefs
 
       <div className="body" data-day={day}>
         {sessions.length === 0 && <SetupCard prefs={prefs} glow />}
-        <section className="hero-card" aria-label={draft ? `${p.name} in progress` : `Up next: ${p.name}`}>
+        <section className={"hero-card" + (canPreview ? " can-preview" : "")} aria-label={draft ? `${p.name} in progress` : `Up next: ${p.name}`} onClick={openPreview}>
           <div className="hero-top">
             <span className="pill day-lbl">{draft ? `In progress · ${plural(setsLogged, "set")} logged` : day === CUSTOM ? "Today · Custom workout" : `${picked ? "Today" : "Up next"} · Day ${activeDays(program).indexOf(day) + 1}`}</span>
             <button type="button" className="pill hero-switch" data-help="change" onClick={() => setChoosing(true)} aria-haspopup="dialog">
               <ArrowLeftRight size={14} strokeWidth={2.6} aria-hidden="true" />Change
             </button>
           </div>
-          <div className="hero-text">
+          {/* The day's name is the link for keyboards and screen readers; a tap anywhere on the card works too. */}
+          <HeroText className="hero-text" {...(canPreview ? { href: href("preview", day), "data-help": "preview" } : {})}>
             <span className={"hero-day" + (p.name.length > 6 ? " long" : "")}>{p.name}</span>
             <span className="hero-meta">{p.detail}{lastOfDay ? ` · last done ${shortDate(lastOfDay.date)}` : ""}</span>
-          </div>
+          </HeroText>
           {p.exercises.length > 0 && (
             <>
               <div className="hero-pills">

@@ -382,6 +382,9 @@ button.chip { min-height: 38px; padding: 0 14px; border: 2px solid var(--rule); 
 .hero-card::after { width: 52px; height: 52px; right: 42px; top: 86px; }
 .hero-card > * { position: relative; }
 .hero-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+/* The card opens a preview of the day's lifts: a tap anywhere but its buttons. */
+.hero-card.can-preview { cursor: pointer; }
+a.hero-text { color: inherit; text-decoration: none; }
 .hero-card .day-lbl { align-self: flex-start; background: color-mix(in srgb, var(--on-day) 20%, transparent); color: var(--on-day); }
 .hero-day { font-weight: 800; font-size: 64px; line-height: 0.95; letter-spacing: -0.03em; }
 .hero-day.long { font-size: 48px; }
