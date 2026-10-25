@@ -282,7 +282,7 @@ button.chip { min-height: 38px; padding: 0 14px; border: 2px solid var(--rule); 
 
 /* ═══════════════ COACHES ═══════════════ */
 .coach { display: block; overflow: visible; color: var(--ink); flex-shrink: 0; touch-action: manipulation; }
-.coach-body { transform-box: fill-box; transform-origin: 50% 100%; animation-delay: var(--d); }
+.coach-body { transform-box: fill-box; transform-origin: 50% 100%; }
 /* Features ease between moods with a little overshoot, so a change of mood reads as a reaction. */
 .cz-brow { transition: transform 280ms cubic-bezier(.3, 1.6, .5, 1); }
 .cz-lid { transition: transform 220ms ease; }
@@ -302,9 +302,24 @@ button.chip { min-height: 38px; padding: 0 14px; border: 2px solid var(--rule); 
 .coach-sway { animation: c-sway 2.6s ease-in-out infinite; }
 .coach-sink { animation: c-sink 4s ease-in-out infinite; }
 .coach-nod { animation: c-nod 1.6s ease-in-out infinite; }
-.coach-poked .coach-body { animation: c-boing 600ms cubic-bezier(.3, 1.6, .5, 1); }
-/* Jump twice from the start, then hold still (the head coach picker swaps back to idle after). */
-.coach-twice .coach-body { animation-iteration-count: 2; animation-delay: 0s; }
+/* Each coach's idle: Wings hovers, Piston bounces on their toes, Brick barely moves, Dash bobs to the music. */
+.coach-float { animation: c-float 3.6s ease-in-out infinite; }
+.coach-bounce { animation: c-bounce .6s ease-in-out infinite; }
+.coach-steady { animation: c-steady 5s ease-in-out infinite; }
+.coach-bob { animation: c-bob 1.1s ease-in-out infinite; }
+/* Each coach on its own clock, so a row of them never moves in step. */
+.coach .coach-body { animation-delay: var(--d); }
+/* Once-through moves (a hello, a reaction to a tap) start from the top. Hello lengths match HELLO_MS in Coach.jsx. */
+.coach .coach-once { animation-delay: 0s; }
+.coach-boing { animation: c-boing 600ms cubic-bezier(.3, 1.6, .5, 1); }
+.coach-budge { animation: c-budge 500ms ease-out; }
+.coach-pump { animation: c-pump 1.6s ease-in-out; }
+.coach-glide { animation: c-glide 2s ease-in-out; }
+.coach-thud { animation: c-thud 1.4s cubic-bezier(.5, 0, .5, 1); }
+.coach-spin { animation: c-jump 1.2s ease-in-out 2; transform-origin: 50% 60%; }
+.coach-nod1 { animation: c-nod1 1.1s ease-out; }
+.coach-dance { animation: c-dance 1s ease-in-out 2; }
+.coach-note { animation: c-zzz 2.2s ease-out infinite; }
 .coach-twinkle { transform-box: fill-box; transform-origin: 50% 50%; animation: c-twinkle 1s ease-in-out infinite alternate; }
 .coach-drip { animation: c-drip 1.8s ease-in infinite; }
 .coach-zzz { animation: c-zzz 2.6s ease-in-out infinite; }
@@ -318,6 +333,16 @@ button.chip { min-height: 38px; padding: 0 14px; border: 2px solid var(--rule); 
 @keyframes c-sway { 25% { transform: rotate(-5deg); } 75% { transform: rotate(5deg); } }
 @keyframes c-sink { 50% { transform: translateY(3px) scale(1.02, .97); } }
 @keyframes c-nod { 30% { transform: rotate(-3deg) translateY(1px); } 60% { transform: translateY(-2px); } }
+@keyframes c-float { 50% { transform: translateY(-4px); } }
+@keyframes c-bounce { 0%, 100% { transform: scale(1.03, .97); } 50% { transform: translateY(-3px) scale(.99, 1.01); } }
+@keyframes c-steady { 50% { transform: scale(1.012, .992); } }
+@keyframes c-bob { 0%, 100% { transform: rotate(-3deg); } 25%, 75% { transform: translateY(-2px); } 50% { transform: rotate(3deg); } }
+@keyframes c-budge { 40% { transform: translateX(-1.5px); } 70% { transform: translateX(1px); } }
+@keyframes c-pump { 0%, 100% { transform: none; } 15%, 60% { transform: scale(1.1, .92); } 32%, 77% { transform: translateY(-3px) scale(.97, 1.04); } }
+@keyframes c-glide { 0%, 100% { transform: none; } 30% { transform: translateY(-12px) rotate(-6deg); } 65% { transform: translateY(-9px) rotate(6deg); } }
+@keyframes c-thud { 0%, 100% { transform: none; } 30% { transform: translateY(-16px) scale(.97, 1.03); } 52% { transform: scale(1.14, .84); } 68% { transform: scale(.97, 1.03); } 82% { transform: none; } }
+@keyframes c-nod1 { 0%, 100% { transform: none; } 25% { transform: translateY(3px) scale(1.02, .97); } 50% { transform: none; } }
+@keyframes c-dance { 0%, 50%, 100% { transform: scale(1.05, .95); } 25% { transform: translate(-4px, -9px) rotate(-9deg); } 75% { transform: translate(4px, -9px) rotate(9deg); } }
 @keyframes c-boing { 0% { transform: scale(1); } 30% { transform: scale(1.14, .86); } 60% { transform: scale(.94, 1.08) translateY(-6px); } 100% { transform: scale(1); } }
 @keyframes c-blink { 0%, 93%, 100% { transform: translateY(0); } 95.5% { transform: translateY(21px); } }
 @keyframes c-look { 0%, 20%, 85%, 100% { transform: translate(0, 0); } 30%, 45% { transform: translate(-2px, 0); } 55%, 70% { transform: translate(2px, -1px); } }
@@ -960,13 +985,14 @@ button.coach-card:active { transform: translateY(3px); box-shadow: 0 2px 0 var(-
 .head-pick-track:focus-visible { outline: 3px solid var(--ink); outline-offset: -3px; border-radius: 28px; }
 .head-pick-slide { flex: 0 0 72%; scroll-snap-align: center; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 2px; padding: 0 6px;
   transform: scale(0.86); opacity: 0.45; transition: transform var(--pop-ms) var(--pop), opacity 200ms ease; cursor: pointer; }
-.head-pick-slide.on { transform: none; opacity: 1; cursor: default; }
+.head-pick-slide.on { transform: none; opacity: 1; }
 .head-pick-stage { width: 100%; aspect-ratio: 1 / 0.92; display: grid; place-items: center; margin-bottom: 10px; border-radius: 28px;
   background: radial-gradient(circle at 50% 58%, color-mix(in srgb, var(--c) 34%, transparent), color-mix(in srgb, var(--c) 8%, transparent) 72%);
   border: 2px solid color-mix(in srgb, var(--c) 45%, transparent); }
 .head-pick-slide b { font-size: 26px; font-weight: 800; line-height: 1.1; }
 .head-pick-group { font-size: 13px; font-weight: 700; color: var(--c); }
-.head-pick-slide p { margin: 4px 0 0; min-height: 2.7em; font-size: 15px; font-weight: 500; line-height: 1.35; color: var(--mute); }
+.head-pick-says { margin-top: 8px; font-size: 16px; font-weight: 800; line-height: 1.3; color: var(--ink); quotes: "\201C" "\201D"; }
+.head-pick-slide p { margin: 2px 0 0; min-height: 2.7em; font-size: 15px; font-weight: 500; line-height: 1.35; color: var(--mute); }
 .head-pick-nav { display: flex; align-items: center; justify-content: center; gap: 6px; }
 .head-pick-dots { display: flex; }
 .head-pick-dots button { width: 20px; height: 32px; padding: 0; display: grid; place-items: center; }

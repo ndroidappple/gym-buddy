@@ -1,8 +1,8 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Sheet } from "./ui.jsx";
-import Coach from "./Coach.jsx";
-import { COACHES, COACH_ORDER, VIBES } from "../data/coaches.js";
+import Coach, { HELLO_MS } from "./Coach.jsx";
+import { COACHES, COACH_ORDER, HELLOS, VIBES } from "../data/coaches.js";
 import { useReducedMotion } from "../lib/motion.js";
 
 /** First login: an invitation, not a gate. The lifter picks a head coach, who sets up goals and days;
@@ -21,8 +21,6 @@ export default function Welcome({ name, onStart, onLater }) {
   );
 }
 
-const HOP_MS = 1000; // one c-hop in styles.css
-
 /** The six coaches, one large slide each, swiped through like cards. The slide in the middle is the
     pick: `onChange` follows the swipe. The neighbors peek in at the sides so it reads as swipeable.
     Also used in Settings to switch. */
@@ -31,14 +29,17 @@ export function HeadPicker({ value, onChange }) {
   const reduced = useReducedMotion();
   const at = Math.max(0, COACH_ORDER.indexOf(value));
   const width = () => track.current?.firstElementChild?.offsetWidth || 1;
-  // Once a coach settles in the middle, they jump twice (the hop, run exactly two times), then go
-  // back to normal. Passing coaches mid-swipe don't jump: it waits until the swipe stops.
-  const [jumping, setJumping] = useState(null);
+  // Once a coach settles in the middle they say hi their own way (Tank flexes, Boulder lands with a thud,
+  // Dash dances), then settle into their own idle. Passing coaches mid-swipe wait until the swipe stops.
+  // Tapping the coach in the middle plays it again.
+  const [greeting, setGreeting] = useState(null);
+  const [encore, setEncore] = useState(0);
   useEffect(() => {
-    const start = setTimeout(() => setJumping(value), 160);
-    const stop = setTimeout(() => setJumping(null), 160 + 2 * HOP_MS);
+    setGreeting(null);
+    const start = setTimeout(() => setGreeting(value), 160);
+    const stop = setTimeout(() => setGreeting(null), 160 + (HELLO_MS[value] || 1600) + 300);
     return () => { clearTimeout(start); clearTimeout(stop); };
-  }, [value]);
+  }, [value, encore]);
   // Start on the current pick, without animating there.
   useLayoutEffect(() => { if (track.current) track.current.scrollLeft = at * width(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   // The slide whose center is in the middle: the track pads both sides so slide n centers at n × width.
@@ -67,12 +68,13 @@ export function HeadPicker({ value, onChange }) {
         {COACH_ORDER.map((id, n) => (
           <section key={id} className={"head-pick-slide" + (id === value ? " on" : "")} style={{ "--c": COACHES[id].color }}
             aria-roledescription="slide" aria-label={`${n + 1} of ${COACH_ORDER.length}: ${COACHES[id].name}`} aria-current={id === value || undefined}
-            onClick={() => id !== value && go(n)}>
+            onClick={() => (id === value ? setEncore((e) => e + 1) : go(n))}>
             <div className="head-pick-stage">
-              <Coach id={id} size={176} mood={jumping === id ? "hyped" : "idle"} still={id !== value} className={jumping === id ? "coach-twice" : ""} decorative />
+              <Coach id={id} size={176} mood={greeting === id ? "hello" : "idle"} still={id !== value} decorative />
             </div>
             <b>{COACHES[id].name}</b>
             <span className="head-pick-group">Also coaches {COACHES[id].group.toLowerCase()}</span>
+            <q className="head-pick-says">{HELLOS[id]}</q>
             <p>{VIBES[id]}</p>
           </section>
         ))}

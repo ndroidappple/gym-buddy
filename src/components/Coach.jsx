@@ -29,6 +29,59 @@ const FACE = {
   proud: { brow: [-2, -4], lid: 0, eyes: "happy", mouth: "smirk", arms: "flex", anim: "nod", fx: "medal", blush: true },
 };
 
+/* What makes each coach themselves on top of the shared moods: how they hang around (idle, layered over
+   the idle face), how they say hi when picked (mood "hello") and how they take a tap (poke). `brow2` sets
+   the right brow on its own, for a raised eyebrow. Hello and poke animations run once (see ONCE). */
+const PERSONA = {
+  // Tank: a cocky smirk under heavy brows. Says hi with a double flex; a poke gets a scowl.
+  tank: {
+    idle: { brow: [1, 10], mouth: "smirk" },
+    hello: { brow: [2, 20], lid: 0.12, lidTilt: 10, eyes: "open", mouth: "grit", arms: "flex", anim: "pump", fx: "vein" },
+    poke: { brow: [3, 24], lid: 0.25, lidTilt: 18, eyes: "open", mouth: "grit", arms: "flex", fixed: true },
+  },
+  // Wings: calm and half-lidded, hovering like the ghost they are. One knowing eyebrow to say hi; a poke startles them.
+  wings: {
+    idle: { lid: 0.28, anim: "float" },
+    hello: { brow: [-1, -2], brow2: [-7, -9], lid: 0.2, eyes: "open", mouth: "smirk", arms: "down", anim: "glide" },
+    poke: { brow: [-7, -6], lid: 0, eyes: "open", big: true, mouth: "o", arms: "down", fixed: true },
+  },
+  // Boulder: content and in no hurry. Lands with a heavy thud; a poke barely moves a rock.
+  boulder: {
+    idle: { brow: [-1, -3], lid: 0.35, anim: "slow" },
+    hello: { brow: [-2, -6], lid: 0, eyes: "happy", mouth: "smile", arms: "down", anim: "thud", blush: true },
+    poke: { brow: [-2, -4], lid: 0, eyes: "happy", mouth: "smile", arms: "down", anim: "budge" },
+  },
+  // Piston: can't stand still, brows up, bouncing on their toes. Says hi with a spinning jump.
+  piston: {
+    idle: { brow: [-4, 2], anim: "bounce" },
+    hello: { brow: [-4, 8], lid: 0, eyes: "open", big: true, mouth: "roar", arms: "flex", anim: "spin", fx: "lines", blush: true, fixed: true },
+    poke: { brow: [-3, 6], lid: 0, eyes: "happy", mouth: "grin", arms: "flex", fx: "lines", blush: true },
+  },
+  // Brick: flat mouth, barely moves. Hi is one firm nod; a poke gets a raised eyebrow and nothing else.
+  brick: {
+    idle: { brow: [1, 6], mouth: "line", anim: "steady" },
+    hello: { brow: [0, 10], lid: 0.12, eyes: "open", mouth: "line", arms: "down", anim: "nod1" },
+    poke: { brow: [1, 6], brow2: [-5, -4], lid: 0.42, eyes: "open", mouth: "line", arms: "down", anim: "budge" },
+  },
+  // Dash: bobbing to whatever's in those headphones. Says hi with a little dance.
+  dash: {
+    idle: { anim: "bob", fx: "notes" },
+    hello: { brow: [-3, 6], lid: 0, eyes: "happy", mouth: "grin", arms: "flex", anim: "dance", fx: "notes", blush: true },
+    poke: { brow: [-3, 6], lid: 0, eyes: "happy", mouth: "grin", arms: "flex", fx: "notes", blush: true },
+  },
+};
+// Body animations that play once from the start instead of looping on the coach's own clock.
+const ONCE = new Set(["boing", "budge", "pump", "glide", "thud", "spin", "nod1", "dance"]);
+// How long each hello runs (matches styles.css), so a picker knows when to hand back to idle.
+export const HELLO_MS = { tank: 1600, wings: 2000, boulder: 1400, piston: 2400, brick: 1100, dash: 2000 };
+
+function faceFor(id, mood, poke) {
+  const p = PERSONA[id] || PERSONA.tank;
+  if (poke) return { anim: "boing", ...p.poke };
+  if (mood === "hello") return p.hello;
+  return FACE[mood] && mood !== "idle" ? FACE[mood] : { ...FACE.idle, ...p.idle };
+}
+
 const INK = "#1C1A22";
 function tone(hex, t) {
   const n = parseInt(hex.slice(1), 16);
@@ -260,7 +313,7 @@ if (typeof window !== "undefined") {
 }
 
 /**
- * A coach. `mood` is one of MOOD_ORDER. `still` holds the pose (use in lists): the face still shows the mood,
+ * A coach. `mood` is one of MOOD_ORDER, or "hello" for the coach's own once-through greeting (HELLO_MS long). `still` holds the pose (use in lists): the face still shows the mood,
  * the eyes still blink. Pass `decorative` when the coach's name is already shown as text beside it.
  */
 /* Centre of each coach's idle artwork in viewBox units (measured). The full viewBox leaves headroom
@@ -273,7 +326,7 @@ export default function Coach({ id = "tank", mood = "idle", size = 64, still = f
   const [bx, by] = BADGE_CENTER[id] || BADGE_CENTER.tank;
   const viewBox = badge ? `${bx - BADGE_SPAN / 2} ${by - BADGE_SPAN / 2} ${BADGE_SPAN} ${BADGE_SPAN}` : "-12 -24 124 132";
   const [poke, setPoke] = useState(false);
-  const f = FACE[poke ? "hyped" : mood] || FACE.idle;
+  const f = faceFor(id, mood, poke);
   const uid = useId().replace(/[^a-zA-Z0-9]/g, "");
   const svg = useRef(null);
   const pupils = useRef([]);
@@ -331,7 +384,7 @@ export default function Coach({ id = "tank", mood = "idle", size = 64, still = f
 
       <ellipse className="cz-ground" cx="50" cy="101" rx="30" ry="4.5" fill={INK} opacity=".13" />
 
-      <g className={`coach-body coach-${f.anim}`}>
+      <g className={`coach-body coach-${f.anim}${ONCE.has(f.anim) ? " coach-once" : ""}`}>
 
         {/* Flat shading: the body in its shadow color, then the lit body nudged up-left and clipped to the outline,
             leaving a crescent of shade along the bottom-right; a soft highlight sits top-left. */}
@@ -384,10 +437,11 @@ export default function Coach({ id = "tank", mood = "idle", size = 64, still = f
           const b = BROWS[id] || BROWS.tank;
           const side = i ? -1 : 1; // shapes are drawn for the left brow: negative dx is the outer end
           const P = (dx, dy) => `${x + side * dx} ${40.5 + (b.dy || 0) + dy}`;
+          const [lift, tilt] = (i && f.brow2) || f.brow;
           return (
             <path key={x} className="cz-brow" d={b.d(P)} fill={b.line ? "none" : INK} stroke={INK}
               strokeWidth={b.line || 1.4} strokeLinecap={b.square ? "butt" : "round"} strokeLinejoin={b.square ? "miter" : "round"}
-              style={{ transform: `translateY(${f.brow[0]}px) rotate(${side * (f.brow[1] + (b.tilt || 0))}deg)`, transformOrigin: `${x}px 40.5px` }} />
+              style={{ transform: `translateY(${lift}px) rotate(${side * (tilt + (b.tilt || 0))}deg)`, transformOrigin: `${x}px 40.5px` }} />
           );
         })}
 
@@ -406,6 +460,19 @@ export default function Coach({ id = "tank", mood = "idle", size = 64, still = f
         {f.fx === "medal" && <g><path d="M44 76 L50 86 L56 76" fill="none" stroke="#4C8DFF" strokeWidth="4" /><circle cx="50" cy="90" r="7.5" fill="#FFC53D" stroke="#D9A21F" strokeWidth="2" /><circle cx="48" cy="88" r="2" fill="#fff" opacity=".6" /></g>}
       </g>
 
+      {/* Dash's music, drifting out of the headphones. */}
+      {f.fx === "notes" && !still && (
+        <g fill="currentColor" stroke="currentColor" opacity=".7">
+          {[[94, 36, 0], [102, 22, 1.1], [2, 30, 0.55]].map(([x, y, dl]) => (
+            <g key={x} transform={`translate(${x} ${y})`}>
+              <g className="coach-note" style={{ animationDelay: `${dl}s` }}>
+                <ellipse cx="0" cy="0" rx="3.1" ry="2.3" transform="rotate(-20)" stroke="none" />
+                <path d="M2.7 -0.8 V-10.5 Q6.5 -8.5 7 -5" fill="none" strokeWidth="1.6" strokeLinecap="round" />
+              </g>
+            </g>
+          ))}
+        </g>
+      )}
       {f.fx === "zzz" && (
         <g fill="currentColor" opacity=".7" style={{ fontFamily: "var(--body)", fontWeight: 800 }}>
           <text className="coach-zzz" x="80" y="20" fontSize="14">z</text>
