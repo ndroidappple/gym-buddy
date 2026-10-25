@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { ChevronLeft, ChevronUp, ChevronDown, Trash2, Plus, Pencil, Flame } from "lucide-react";
 import { InfoButton, ConfirmSheet, Sheet } from "../components/ui.jsx";
 import ExercisePicker from "../components/ExercisePicker.jsx";
-import { isCardio, isWarmup, specLine, cardioLibrary, WARMUP_MIN, PROGRAM, allDays } from "../data/program.js";
+import { isCardio, isWarmup, specLine, cardioLibrary, WARMUP_MIN, PROGRAM, allDays, capRest } from "../data/program.js";
 import { checkRange } from "../lib/repRange.js";
 
 export default function ProgramEditor({ day, program, back, ops, head = "tank" }) {
@@ -104,7 +104,7 @@ function EditLift({ ex, onChange, onRemove }) {
           {numField("sets", "Sets", ex.sets, (v) => ({ sets: v }))}
           {numField("min", "Min reps", ex.reps[0], (v) => ({ reps: [v, Math.max(v, ex.reps[1])] }))}
           {numField("max", "Max reps", ex.reps[1], (v) => ({ reps: [Math.min(v, ex.reps[0]), v] }))}
-          {numField("rest", "Rest (sec)", ex.rest, (v) => ({ rest: Math.max(15, v) }))}
+          {numField("rest", "Rest (sec)", ex.rest, (v) => ({ rest: capRest(ex.n, Math.max(15, v)) }))}
         </div>
       )}
       {flag && (

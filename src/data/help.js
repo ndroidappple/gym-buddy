@@ -1,5 +1,5 @@
 import {
-  Play, Bell, ArrowLeftRight, Target, CalendarCheck, Scale, Trophy, TrendingUp, Flag, List, CalendarDays, Pencil,
+  Play, Eye, Bell, ArrowLeftRight, Target, CalendarCheck, Scale, Trophy, TrendingUp, Flag, List, CalendarDays, Pencil,
   Gauge, LineChart, Pin, Hash, History, Dumbbell, Plus, FileSpreadsheet, Users, MessageCircle, Sparkles, SlidersHorizontal, Download, ClipboardPaste, Utensils, PieChart, Copy, CircleUser, Timer,
 } from "lucide-react";
 
@@ -13,6 +13,7 @@ export const HELP = {
     title: "Today",
     steps: [
       { name: "Start lifting", Icon: Play, spot: "start", text: "Opens the next day in your rotation." },
+      { name: "Preview", Icon: Eye, spot: "preview", text: "Tap the card to look through the day's lifts before you start." },
       { name: "Change", Icon: ArrowLeftRight, spot: "change", text: "Train a different day or a custom workout instead." },
       { name: "Targets", Icon: Target, text: "Each lift aims one rep or one set past last time. [↑] means add weight." },
       { name: "This week", Icon: CalendarCheck, spot: "week", text: "Dots mark the days you trained." },

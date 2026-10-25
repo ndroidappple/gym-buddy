@@ -4,6 +4,8 @@
    Invariants every call must hold are checked on curated workouts and on thousands of random ones. */
 import { nextSetAdvice, openingAdvice } from "../src/lib/setCoach.js";
 import { e1rm, weightStep } from "../src/lib/util.js";
+import { normalizeProgram, PROGRAM } from "../src/data/program.js";
+import { applyChanges } from "../src/lib/programChange.js";
 
 const verbose = process.argv.includes("--verbose");
 const LIFTS = {
@@ -144,6 +146,22 @@ for (let t = 0; t < RUNS; t++) {
     check(`fuzz#${t}.${i}`, ex, args, out);
     if (out.w != null) { w = out.w; asked = { w: out.w, r: out.r }; }
   }
+}
+
+/* Incline's rest never goes past 2:30: the coach's advice after a rep cliff, a saved program, a coach's change. */
+{
+  const ex = { n: "Incline Barbell / Smith Press", sets: 4, reps: [6, 10] };
+  const out = nextSetAdvice({ ex, done: [{ w: 30, r: 10 }, { w: 30, r: 6 }], asked: { w: 30, r: 9 }, left: 2, history: [[{ w: 30, r: 9 }]], best: e1rm(30, 9) });
+  if (!/rest the full 2:30/.test(out.line) || /2–3 min/.test(out.line)) bad("incline cliff", "rest advice past Incline's 2:30 max", { done: [], asked: null, left: 2 }, out);
+  const bench = nextSetAdvice({ ex: LIFTS.bench, done: [{ w: 135, r: 10 }, { w: 135, r: 6 }], asked: { w: 135, r: 9 }, left: 2, history: [[{ w: 135, r: 9 }]], best: e1rm(135, 9) });
+  if (!/2–3 min/.test(bench.line)) bad("bench cliff", "other lifts keep the 2–3 min advice", { done: [], asked: null, left: 2 }, bench);
+  const saved = normalizeProgram({ push: { ...PROGRAM.push, exercises: PROGRAM.push.exercises.map((e) => ({ ...e, rest: 180 })) } });
+  const rests = Object.fromEntries(saved.push.exercises.map((e) => [e.n, e.rest]));
+  if (rests[ex.n] !== 150 || rests["Flat DB Press"] !== 180) bad("saved program", `rests after load: ${JSON.stringify(rests)}`, { done: [], asked: null, left: 0 }, null);
+  const at = (rest) => ({ ...PROGRAM, push: { ...PROGRAM.push, exercises: PROGRAM.push.exercises.map((e) => (e.n === ex.n ? { ...e, rest } : e)) } });
+  const res = applyChanges(at(90), [{ action: "update", day: "push", exercise: ex.n, rest_seconds: 240 }]);
+  const r = res.program.push.exercises.find((e) => e.n === ex.n).rest;
+  if (res.errors.length || r !== 150) bad("coach change", `coach set Incline rest to ${r} ${JSON.stringify(res.errors)}`, { done: [], asked: null, left: 0 }, null);
 }
 
 const byMsg = {};
