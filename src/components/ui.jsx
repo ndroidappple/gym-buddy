@@ -4,7 +4,6 @@ import { X, Home, TrendingUp, Settings as Gear, Utensils, Plus, Info, ChevronLef
 import { HELP } from "../data/help.js";
 import { vibrate } from "../lib/util.js";
 import { reducedMotion, usePresence, EXIT_MS, EXIT_EASE, MS, EASE } from "../lib/motion.js";
-import { LIBRARY, specLine } from "../data/program.js";
 import Coach from "./Coach.jsx";
 
 /* iOS lays the keyboard over the page instead of resizing it. The sheet follows the visible
@@ -660,72 +659,6 @@ export function LineChart({ points, format = (v) => v, height = 150, ariaLabel }
   );
 }
 
-/** Library search plus "create your own". Calls onPick({n, sets, reps, rest, cue}). */
-export function ExercisePicker({ title, sub, existingNames, onPick, onClose }) {
-  const [q, setQ] = useState("");
-  const [custom, setCustom] = useState(null);
-
-  const grouped = useMemo(() => {
-    const taken = new Set(existingNames);
-    const t = q.trim().toLowerCase();
-    const m = {};
-    LIBRARY.filter((e) => !taken.has(e.n) && (!t || e.n.toLowerCase().includes(t) || e.g.toLowerCase().includes(t)))
-      .forEach((e) => { (m[e.g] ||= []).push(e); });
-    return m;
-  }, [q, existingNames]);
-
-  if (custom) {
-    const valid = custom.n.trim() && !existingNames.includes(custom.n.trim());
-    const set = (k) => (e) => setCustom({ ...custom, [k]: e.target.value });
-    return (
-      <Sheet title="New exercise" sub="Set your defaults. You can change them later in Settings." onClose={onClose}>
-        <label className="field"><span className="lbl">Exercise name</span>
-          <input id="custom-name" className="input" value={custom.n} onChange={set("n")} placeholder="e.g. Smith Machine Row" /></label>
-        <div className="grid-4">
-          {[["sets", "Sets"], ["min", "Min reps"], ["max", "Max reps"], ["rest", "Rest (sec)"]].map(([k, l]) => (
-            <label key={k} className="field"><span className="lbl">{l}</span>
-              <input id={`custom-${k}`} className="input tn" type="number" inputMode="numeric" value={custom[k]} onChange={set(k)} /></label>
-          ))}
-        </div>
-        <label className="field"><span className="lbl">Cue (optional)</span>
-          <input id="custom-cue" className="input" value={custom.cue} onChange={set("cue")} placeholder="Form reminder you want to see mid-set" /></label>
-        <div className="btn-row">
-          <button className="btn btn-ghost" onClick={() => setCustom(null)}>Back</button>
-          <button className="btn btn-ink" disabled={!valid} onClick={() => onPick({
-            n: custom.n.trim(),
-            sets: Math.max(1, parseInt(custom.sets) || 3),
-            reps: [parseInt(custom.min) || 8, parseInt(custom.max) || 12],
-            rest: Math.max(15, parseInt(custom.rest) || 90),
-            cue: custom.cue.trim(),
-          })}>Add</button>
-        </div>
-      </Sheet>
-    );
-  }
-
-  return (
-    <Sheet title={title} sub={sub} onClose={onClose}>
-      <label className="field"><span className="sr-only">Search lifts</span>
-        <input id="lift-search" className="input" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search lifts or muscle groups" /></label>
-      {Object.keys(grouped).length === 0 && <p className="muted small" style={{ textAlign: "center", padding: "16px 0" }}>Nothing in the library matches "{q}".</p>}
-      {Object.entries(grouped).map(([g, items]) => (
-        <div key={g} className="section">
-          <div className="lbl group-lbl">{g}</div>
-          {items.map((e) => (
-            <button key={e.n} className="lib-row" onClick={() => onPick({ n: e.n, sets: e.sets, reps: e.reps, rest: e.rest, cue: "" })}>
-              <span style={{ flex: 1 }}><span className="name">{e.n}</span><span className="sub">{specLine(e)}</span></span>
-              <Plus size={18} aria-hidden="true" />
-            </button>
-          ))}
-        </div>
-      ))}
-      <button className="btn btn-ink" onClick={() => setCustom({ n: q.trim(), sets: 3, min: 8, max: 12, rest: 90, cue: "" })}>
-        <Plus size={18} aria-hidden="true" /> {q.trim() ? `Create "${q.trim()}"` : "Create your own"}
-      </button>
-    </Sheet>
-  );
-}
-
 /** Shown when the account can't be reached on launch and this phone has no copy yet. */
 export function LoadError({ onRetry }) {
   return (
@@ -749,6 +682,13 @@ export function SyncNote({ show, raised }) {
 }
 
 /** A screen with nothing to show yet: a coach, what will appear here, and the way to get it. */
+/* A number's verdict against the lifter's own usual or target: good (better) or watch (worse), with a
+   mark that says it without the color. Normal gets no pill: a pill always means something. */
+const READ_MARK = { good: "✓", watch: "!" };
+export function Read({ tone, children }) {
+  return <span className={`trend read ${tone}`}><span aria-hidden="true">{READ_MARK[tone]}</span>{children}</span>;
+}
+
 export function EmptyState({ coach = "tank", title, children, action, href }) {
   return (
     <section className="card empty">

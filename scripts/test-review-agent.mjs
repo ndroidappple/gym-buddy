@@ -71,6 +71,12 @@ console.log("review agent: all checks passed");
 {
   process.env.SUPABASE_URL = "http://sb.test"; process.env.SUPABASE_ANON_KEY = "anon"; process.env.REST_ALERT_SECRET = "s".repeat(32);
   const { POST } = await import(`../api/review.js?handler`);
+  // The review week ends the day before the review day: a Sunday review covers Sunday to Saturday.
+  // The server only reviews a recent week, so the made-up account runs up to this week's Saturday
+  // (built for the fixed WEEK_END, it would have nothing logged once that week fell out of range).
+  const today = new Date().toISOString().slice(0, 10);
+  const saturday = (() => { const d = new Date(today + "T12:00:00Z"); d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 1) % 7)); return d.toISOString().slice(0, 10); })();
+  const a = demoAccount(saturday);
   const kv = { "ironlog-v2": JSON.stringify({ sessions: a.sessions, weighins: a.weighins, prefs: a.prefs, program: a.program }) };
   const rpcs = [];
   const realFetch = globalThis.fetch;
@@ -95,9 +101,6 @@ console.log("review agent: all checks passed");
     }
     return ok([]);
   };
-  // The review week ends the day before the review day: a Sunday review covers Sunday to Saturday.
-  const today = new Date().toISOString().slice(0, 10);
-  const saturday = (() => { const d = new Date(today + "T12:00:00Z"); d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 1) % 7)); return d.toISOString().slice(0, 10); })();
   const post = (body, { token = "good", headers = {} } = {}) => POST(new Request("http://app/api/review", { method: "POST", headers: { authorization: `Bearer ${token}`, ...headers }, body: JSON.stringify(body) }));
   const quiet = async (fn) => { const e = console.error, l = console.log; console.error = console.log = () => {}; try { return await fn(); } finally { console.error = e; console.log = l; } };
   try {

@@ -33,6 +33,8 @@
   --stamp: #8A6400;
   --stamp-bg: #FFF1C2;
   --danger: #D63A31;
+  --good: #15744A;     /* a recap number better than the lifter's usual */
+  --watch: #B4530A;    /* ... or worse than it */
   --pr: #FFB23E;       /* PR gold: rims, glows, highlights */
   --pr-ink: #9A5B00;   /* PR text on light surfaces */
   --accent: #7B61FF;  --accent-lip: #5A42D6;  /* bodyweight: not a day, so not a plate color */
@@ -78,6 +80,8 @@
   --stamp: #FFC53D;
   --stamp-bg: #3A3016;
   --danger: #FF6B5E;
+  --good: #4FD69A;
+  --watch: #FFA66B;
   --pr-ink: #FFB23E;
   --accent-lip: #4A34B8;
 
@@ -335,9 +339,6 @@ button.chip { min-height: 38px; padding: 0 14px; border: 2px solid var(--rule); 
 /* Tail down toward the coach below (exercise card). Centred over the coach's body. */
 .coach-bubble.says-down { border-radius: 20px; }
 .coach-bubble.says-down::after { left: 18px; bottom: -13px; width: 22px; height: 14px; clip-path: path("M0 0 H22 C16 4 12 9 9 14 C7 8 4 3 0 0 Z"); }
-/* Tail up and to the right, toward the coach above (summary hero). */
-.coach-bubble.says-up { border-radius: 20px 6px 20px 20px; }
-.coach-bubble.says-up::after { left: auto; right: 0; bottom: auto; top: -15px; width: 26px; height: 16px; clip-path: path("M0 16 C10 14 20 9 26 0 C23 6 22 11 22 16 Z"); }
 
 /* ═══════════════ TODAY ═══════════════ */
 .today-top { flex-direction: column; align-items: stretch; gap: 4px; padding-top: calc(12px + var(--safe-t)); padding-bottom: 16px; }
@@ -490,9 +491,8 @@ html[data-typing] :is(.dock, .alert-ask) { opacity: 0; visibility: hidden; trans
 .summary .body { position: relative; }
 .summary-head { display: flex; flex-direction: column; gap: 14px; }
 .summary-meta { display: flex; align-items: center; gap: 8px; }
-.summary-hero { display: flex; align-items: flex-end; gap: 12px; }
-.summary-title { flex: 1; font-weight: 800; font-size: 44px; line-height: 1; letter-spacing: -0.03em; min-height: 44px; }
-.summary-title.past { font-size: 34px; }
+.summary-title, .summary-title.past { flex: 1; min-width: 0; font-weight: 800; font-size: 28px; line-height: 1.1; letter-spacing: -0.02em; }
+.summary-sub { display: flex; align-items: center; gap: 8px; margin: -6px 0 0 4px; font-size: 15px; font-weight: 700; color: var(--mute); }
 .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .stat { padding: 12px; display: flex; flex-direction: column; gap: 4px; min-width: 0; border-radius: 22px; }
 .stat b { font-weight: 800; font-size: 28px; line-height: 1; letter-spacing: -0.02em; }
@@ -504,6 +504,7 @@ html[data-typing] :is(.dock, .alert-ask) { opacity: 0; visibility: hidden; trans
 .rec .n { font-weight: 700; line-height: 1.25; }
 .rec .m { font-size: 12.5px; color: var(--mute); font-weight: 500; margin-top: 2px; }
 .rec .v { font-weight: 800; font-size: 18px; text-align: right; white-space: nowrap; }
+.rec-mark { font-weight: 700; font-size: 14px; color: var(--mute); white-space: nowrap; }
 .rec.plain { grid-template-columns: 1fr auto; }
 /* Heart rate (Summary). Zones are steps of the workout day's own color: lighter and thinner for
    light, deeper and bolder for peak (dark mode runs bright for harder). Color says which day, the
@@ -1096,8 +1097,10 @@ button.coach-card:active { transform: translateY(3px); box-shadow: 0 2px 0 var(-
 .food-search input { flex: 1; min-width: 0; border: 0; background: none; font-size: 16px; color: var(--ink); height: 46px; }
 .food-search input:focus { outline: none; }
 .food-search .food-scan { margin-right: -10px; color: var(--ink); }
-.food-actions { display: flex; flex-wrap: wrap; gap: 8px; }
-.food-actions .chip { min-height: 38px; padding: 6px 14px; }
+.food-search-coach { display: grid; place-items: center; width: 22px; height: 22px; margin: 0 -2px; }
+.food-manual, .food-lookup { align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; min-height: var(--tap); padding: 0 4px; font-size: 14px; font-weight: 700; color: var(--mute); }
+.food-first { display: flex; align-items: center; gap: 12px; padding: 4px 4px 0; }
+.food-first p { margin: 0; font-size: 14.5px; font-weight: 500; line-height: 1.4; color: var(--mute); }
 .food-form { display: flex; flex-direction: column; gap: 14px; }
 /* Barcode scanner: the camera fills a wide box with a target frame; messages sit under it. */
 .scan { display: flex; flex-direction: column; gap: 12px; }
@@ -1131,10 +1134,15 @@ button.coach-card:active { transform: translateY(3px); box-shadow: 0 2px 0 var(-
 .food-line { margin-top: -4px; }
 
 /* Add with Tank */
-.tank-add { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: var(--r); text-align: left; background: color-mix(in srgb, #5BD68A 14%, var(--surface)); border: 2px solid color-mix(in srgb, #5BD68A 55%, var(--rule)); box-shadow: 0 3px 0 var(--lip); color: var(--ink); }
-.tank-add span { display: flex; flex-direction: column; gap: 2px; }
-.tank-add b { font-size: 16px; font-weight: 800; }
-.tank-add small { font-size: 13px; color: var(--mute); font-weight: 600; }
+/* The head coach in Add food's results, offered with what's typed. Leading when it reads as a meal in
+   words (tinted in their color, Return sends it), else a quiet row after the matches. */
+.tank-row { display: flex; align-items: center; gap: 12px; width: 100%; padding: 10px 12px; border-radius: var(--r); text-align: left; color: var(--ink); background: var(--surface-2); }
+.tank-row.lead { padding: 12px 14px; background: color-mix(in srgb, #5BD68A 14%, var(--surface)); border: 2px solid color-mix(in srgb, #5BD68A 55%, var(--rule)); box-shadow: 0 3px 0 var(--lip); }
+.tank-row > .coach { flex: none; }
+.tank-row-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.tank-row-text b { font-size: 15px; font-weight: 800; line-height: 1.3; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.tank-row-text q { font-weight: 700; }
+.tank-row-text small { font-size: 12.5px; color: var(--mute); font-weight: 600; }
 .check-row { display: flex; align-items: center; gap: 12px; font-weight: 700; }
 .check-row input { width: 22px; height: 22px; flex: none; accent-color: var(--ink); }
 .check-row span { display: flex; flex-direction: column; line-height: 1.25; }
@@ -1183,10 +1191,19 @@ button.coach-card:active { transform: translateY(3px); box-shadow: 0 2px 0 var(-
 .ex-tag.later { background: color-mix(in srgb, var(--day) 18%, var(--surface-2)); color: var(--day-ink); }
 .late-note { display: block; font-size: 12px; font-weight: 600; color: var(--mute); margin-left: 18px; }
 .nut-ask { margin-top: 2px; }
-/* Summary: the head coach in the hero speaks the bubble under them; Ask sits low so the tail can reach up. */
+/* Summary: the head coach beside their bubble, Ask at the end. */
 .summary-ask { display: flex; align-items: flex-end; gap: 10px; }
+.summary-ask > .coach { flex: none; margin: 0 -4px -4px -6px; }
 .summary-ask .coach-bubble { flex: 1; font-size: 14px; padding: 10px 13px; }
-.summary-ask .ask-btn.compact { align-self: flex-end; }
+/* A tile's read: better or worse than the lifter's own usual (normal gets no pill). The mark says it
+   too, so it never rests on color alone. These are the only good/bad colors in the app: plates name days. */
+.trend.read { gap: 4px; }
+.trend.read > span { font-size: 0.8em; }
+.trend.read.good { color: var(--good); background: color-mix(in srgb, var(--good) 15%, var(--surface)); }
+.trend.read.watch { color: var(--watch); background: color-mix(in srgb, var(--watch) 15%, var(--surface)); }
+.stat .stat-note { margin-top: 2px; font-size: 12px; font-weight: 600; color: var(--faint); line-height: 1.25; }
+.night-line { margin: -4px 4px 0; font-size: 14px; font-weight: 500; line-height: 1.4; color: var(--mute); }
+.section-head .section-aside { flex: none; color: var(--faint); }
 /* Today, after a short or under-recovered night: one quiet line under the hero. */
 .night-note { display: flex; gap: 8px; align-items: flex-start; margin: 2px 4px 0; font-size: 14px; font-weight: 500; line-height: 1.4; color: var(--mute); }
 .night-note svg { flex: none; margin-top: 2px; }
@@ -1286,7 +1303,7 @@ html.walking .summary .body { padding-bottom: calc(var(--walk-h, 220px) + 40px);
 :root[data-view="focused"] .lib-row,
 :root[data-view="focused"] .food-row-main { min-height: 50px; }
 :root[data-view="focused"] .list-row.food-row-wrap { min-height: 0; }
-:root[data-view="focused"] .tank-add { padding: 10px 14px; }
+:root[data-view="focused"] .tank-row.lead { padding: 10px 14px; }
 
 /* ═══════════════ WEEK IN REVIEW ═══════════════ */
 /* Today's button: the lead coach hands it over in place of their hello (same speech-bubble corner).
@@ -1451,12 +1468,12 @@ html.walking .summary .body { padding-bottom: calc(var(--walk-h, 220px) + 40px);
    A press lands in 70 ms and lets go on the slower --pop spring, the same feel as .btn. Only
    :active, so nothing stays lit after a tap the way :hover would on a phone. (main.jsx listens for
    touches so iOS shows :active at all.) */
-:where(.lib-row, .meta-chip, .setup-card, .phase-line, .phase-empty, .tank-add, .food-row-main, .pending-row, .done-row,
+:where(.lib-row, .meta-chip, .setup-card, .phase-line, .phase-empty, .tank-row, .food-row-main, .pending-row, .done-row,
   .cal-day, .chip, .pill, .ask-btn, .rest .rb, .coach-link, .chat-input button, .icon-choice, .tab, .coach-hello,
   .btn-quiet, .proposal-undo, .phase-end, .setup-add, .hist-line, .prog-row .main, .setup-lift, .check-row) {
   transition: transform var(--pop-ms) var(--pop), box-shadow var(--pop-ms) var(--pop), background-color 160ms ease, opacity 160ms ease, color 120ms ease;
 }
-:is(.lib-row, .meta-chip, .setup-card, .phase-line, .phase-empty, .tank-add, .food-row-main, .pending-row, .done-row,
+:is(.lib-row, .meta-chip, .setup-card, .phase-line, .phase-empty, .tank-row, .food-row-main, .pending-row, .done-row,
   .cal-day, .chip, .pill, .ask-btn, .rest .rb, .coach-link, .chat-input button, .icon-choice, .tab, .coach-hello,
   .btn-quiet, .proposal-undo, .phase-end, .setup-add, .hist-line, .prog-row .main, .setup-lift, .check-row):active {
   transition-duration: 70ms; transition-timing-function: ease-out;
@@ -1464,7 +1481,7 @@ html.walking .summary .body { padding-bottom: calc(var(--walk-h, 220px) + 40px);
 
 /* Cards: sink onto the lip. */
 :is(.lib-row, .meta-chip, .setup-card, .phase-line, .phase-empty):active { transform: translateY(3px); box-shadow: 0 2px 0 var(--lip); }
-.tank-add:active { transform: scale(0.98); filter: brightness(0.94); }
+.tank-row:active { transform: scale(0.98); filter: brightness(0.94); }
 
 /* Rows: shade. Finished sets also shade while held (see hold-to-edit below). */
 :is(.food-row-main, .pending-row, .done-row):active { background-color: var(--surface-2); }
@@ -1497,3 +1514,77 @@ html.walking .summary .body { padding-bottom: calc(var(--walk-h, 220px) + 40px);
 .account-row .name { overflow-wrap: anywhere; }
 .alert-banner { background: color-mix(in srgb, var(--accent) 14%, var(--surface)); border: 2px solid color-mix(in srgb, var(--accent) 45%, var(--rule)); }
 .alert-banner svg:first-child { color: var(--accent); }
+
+/* ═══════════════ PROGRESS → NUTRITION ═══════════════ */
+.segctl.small button { min-height: 34px; font-size: 13px; }
+.nt-note { margin: -2px 4px 0; font-size: 13px; font-weight: 600; color: var(--faint); line-height: 1.4; }
+.nt-line { margin: 0 4px; font-size: 14px; font-weight: 500; line-height: 1.45; color: var(--mute); }
+.nt-chart { padding: 12px 12px 10px; }
+.nt-chart svg { display: block; width: 100%; height: auto; overflow: visible; }
+.nt-chart .ends { display: flex; margin-top: 6px; font-size: 12px; font-weight: 700; color: var(--faint); }
+.nt-bar { fill: color-mix(in srgb, var(--ink) 55%, var(--surface)); }
+.nt-bar.watch { fill: var(--watch); }
+.nt-bar.faint { fill: color-mix(in srgb, var(--ink) 18%, var(--surface)); }
+.nt-bar.on { fill: var(--ink); }
+.nt-bar.watch.on { fill: color-mix(in srgb, var(--watch) 80%, var(--ink)); }
+.nt-goal { stroke: var(--ink); stroke-width: 2; stroke-dasharray: 5 4; }
+.nt-band { fill: color-mix(in srgb, var(--ink) 7%, transparent); }
+.nt-base { stroke: var(--rule-2); stroke-width: 1.5; }
+.nt-key { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: -2px 4px 0; font-size: 12.5px; font-weight: 600; color: var(--faint); }
+.nt-key > span { display: inline-flex; align-items: center; gap: 6px; }
+.nt-key i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+.nt-key i.watch { background: var(--watch); }
+.nt-key i.faint { background: color-mix(in srgb, var(--ink) 18%, var(--surface)); }
+.nt-row { display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 8px 10px; }
+.nt-row-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.nt-row-main b { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.nt-row-main span { font-size: 13px; font-weight: 500; color: var(--mute); }
+.nt-row-v { display: flex; flex-direction: column; align-items: flex-end; font-weight: 800; font-size: 16px; white-space: nowrap; }
+.nt-row-v small { font-size: 12px; font-weight: 700; color: var(--faint); }
+.nt-row-v small.watch { color: var(--watch); }
+
+/* ═══════════════ ADD FOOD: THE COACH IN THE SEARCH BOX ═══════════════
+   When what's typed reads as a meal in words, the box is the coach's: their color travels its border
+   (border-beam, slow while listening, quick while working), or holds still in it with reduced motion. */
+.food-box { position: sticky; top: 0; z-index: 3; margin: 0 -16px; padding: 2px 16px 8px; background: var(--bg); }
+.food-search-beam { border-radius: var(--r); }
+.food-search-beam > .food-search { border-color: transparent; }
+.food-search.coach-on { border-color: color-mix(in srgb, var(--c) 70%, var(--rule)); }
+.food-search.coach-on:focus-within { outline-color: color-mix(in srgb, var(--c) 80%, var(--ink)); }
+/* The meal as it's understood: one chip an item, its amount in bold, one of their own foods ticked. */
+.meal-chips { display: flex; flex-wrap: wrap; gap: 5px; margin: 4px 0 2px; }
+.meal-chip { display: inline-flex; align-items: center; gap: 4px; max-width: 100%; padding: 3px 9px; border-radius: 999px; font-size: 12.5px; font-weight: 600; color: var(--ink);
+  background: color-mix(in srgb, var(--ink) 8%, var(--surface)); animation: bubble-in var(--pop-ms) var(--pop) both; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.meal-chip b { font-weight: 800; }
+.meal-chip.own { background: color-mix(in srgb, #5BD68A 26%, var(--surface)); }
+.meal-chip.own svg { flex: none; color: color-mix(in srgb, #2EA864 85%, var(--ink)); }
+/* The coach's answer, right under the box: no separate screen, the sheet scrolls. */
+.tank-meal.embedded { flex: none; }
+.tank-meal.embedded .chat-list { overflow: visible; padding: 2px 0 4px; }
+/* Yesterday's same meal, logged again in one tap. */
+.food-repeat { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 56px; padding: 10px 14px; border-radius: var(--r); text-align: left; color: inherit;
+  background: var(--surface); border: 2px dashed var(--rule-2); }
+.food-repeat .name { flex: 1; min-width: 0; font-weight: 700; display: flex; flex-direction: column; }
+.food-repeat .sub { font-size: 13px; font-weight: 500; color: var(--mute); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.food-repeat:active { background: var(--surface-2); }
+/* Database results arriving: rows that shimmer in their place, then the results slide in over them. */
+.food-skel .list-row { display: flex; flex-direction: column; justify-content: center; gap: 8px; min-height: 60px; padding: 0 16px; }
+.food-skel i { display: block; height: 11px; border-radius: 6px; width: 62%;
+  background: linear-gradient(90deg, var(--surface-2) 0%, color-mix(in srgb, var(--ink) 10%, var(--surface-2)) 50%, var(--surface-2) 100%) 0 0 / 200% 100%; animation: skel 1.1s linear infinite; }
+.food-skel i + i { width: 38%; height: 9px; }
+.food-skel .list-row:nth-child(2) i:first-child { width: 48%; }
+.food-skel .list-row:nth-child(3) i:first-child { width: 70%; }
+@keyframes skel { to { background-position: -200% 0; } }
+.food-results .list-row { animation: view-in var(--enter-ms) var(--enter) both; }
+.food-results .list-row:nth-child(2) { animation-delay: 30ms; }
+.food-results .list-row:nth-child(3) { animation-delay: 60ms; }
+.food-results .list-row:nth-child(n+4) { animation-delay: 90ms; }
+@media (prefers-reduced-motion: reduce) { .food-skel i, .meal-chip, .food-results .list-row { animation: none; } }
+
+/* The lift picker uses Add food's box (glow, chips); a gear or bench to do without is struck through. */
+.lift-chips { margin: -2px 0 0; }
+.meal-chip.avoid { text-decoration: line-through; text-decoration-thickness: 1.5px; color: var(--mute); background: color-mix(in srgb, var(--watch) 12%, var(--surface)); }
+.lift-ai { display: flex; flex-direction: column; gap: 10px; }
+.lift-ai .chat-me { align-self: flex-end; max-width: 85%; margin: 0; }
+.lift-ai .coach-bubble { align-self: flex-start; max-width: 92%; --c: #5BD68A; }
+.lift-ai .chip { align-self: flex-start; }

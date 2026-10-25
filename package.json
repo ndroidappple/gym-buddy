@@ -7,13 +7,14 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test:coach": "node scripts/stress-set-coach.mjs && node scripts/test-fatigue-note.mjs && node scripts/test-long-trend.mjs && node scripts/test-coach-history.mjs && node scripts/test-walkthrough.mjs",
+    "test:coach": "node scripts/test-lift-query.mjs && node scripts/stress-set-coach.mjs && node scripts/test-fatigue-note.mjs && node scripts/test-long-trend.mjs && node scripts/test-coach-history.mjs && node scripts/test-walkthrough.mjs",
     "test:barcode": "node scripts/test-barcode.mjs",
     "icons": "node scripts/render-icons.mjs",
-    "test:food": "node scripts/test-food-picker.mjs && node scripts/test-food-edit.mjs && node scripts/test-web-food.mjs",
+    "test:food": "node scripts/test-food-query.mjs && node scripts/test-food-picker.mjs && node scripts/test-food-edit.mjs && node scripts/test-web-food.mjs",
     "test:range": "node scripts/test-rep-range.mjs",
     "test:review": "node scripts/test-week-review.mjs && node scripts/test-review-agent.mjs",
-    "test:health": "node scripts/test-google-health.mjs"
+    "test:health": "node scripts/test-google-health.mjs",
+    "test:nutrition": "node scripts/test-nutrition-trends.mjs"
   },
   "dependencies": {
     "@ai-sdk/google": "^4.0.80",

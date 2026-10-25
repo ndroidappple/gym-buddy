@@ -81,6 +81,36 @@ export function readiness(rec = {}, date) {
   return { date, entry: e, usual: u, asleep, short, rhrUp, hrvDown, strained, low: short || strained };
 }
 
+/**
+ * Each of the night's numbers read against the lifter's usual, for the recap's tiles: tone "good"
+ * (better than usual), "even" (their normal) or "watch" (worse), and a word for it. The "watch" lines
+ * are the same ones readiness() uses (one alone isn't a low night). Better than usual: resting heart
+ * rate 3+ under, HRV 15%+ over, 45+ min more sleep. Null for a number with no usual yet.
+ * Also `line`: the night in a sentence.
+ */
+export function nightReads(r) {
+  if (!r) return null;
+  const { entry: e, usual: u } = r;
+  const read = (tone, word) => ({ tone, word });
+  const asleep = r.asleep == null || u.asleep == null ? null
+    : r.short ? read("watch", "Short") : r.asleep >= u.asleep + 45 ? read("good", "Better") : read("even", "Normal");
+  const rhr = e.rhr == null || u.rhr == null ? null
+    : r.rhrUp ? read("watch", "High") : e.rhr <= u.rhr - 3 ? read("good", "Better") : read("even", "Normal");
+  const hrv = e.hrv == null || u.hrv == null ? null
+    : r.hrvDown ? read("watch", "Low") : e.hrv >= u.hrv * 1.15 ? read("good", "Better") : read("even", "Normal");
+  const name = { asleep: "sleep", rhr: "resting heart rate", hrv: "HRV" };
+  const all = Object.entries({ asleep, rhr, hrv }).filter(([, x]) => x);
+  const worse = all.filter(([, x]) => x.tone === "watch").map(([k, x]) => `${name[k]} was ${x.word.toLowerCase()}`);
+  const better = all.filter(([, x]) => x.tone === "good").map(([k]) => name[k]);
+  const list = (xs) => (xs.length > 1 ? `${xs.slice(0, -1).join(", ")} and ${xs.at(-1)}` : xs[0]);
+  const line = !all.length ? null
+    : r.low ? (r.short && r.strained ? "A short night, and your body was still recovering." : r.short ? "A short night for you." : "Resting heart rate up and HRV down together: your body was still recovering.")
+    : worse.length ? `Mostly normal, but your ${list(worse)}.`
+    : better.length ? `Recovered well: ${list(better)} better than usual.`
+    : "A normal night for you: everything near your usual.";
+  return { asleep, rhr, hrv, line };
+}
+
 /** One line for the lifter when a night is off, else null: "Short night (5h40, usually 7h20)." */
 export function lowLine(r) {
   if (!r?.low) return null;

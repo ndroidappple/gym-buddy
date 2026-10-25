@@ -56,9 +56,6 @@ export function yourFoods(entries, foods, { meal = null, now = Date.now() } = {}
   }).sort((a, b) => b.score - a.score || (b.lastDate || "").localeCompare(a.lastDate || "") || b.created.localeCompare(a.created));
 }
 
-/** Whether a food matches what's typed: every word, anywhere in its name or brand. */
-export const matchesQuery = (x, q) => { const hay = `${norm(x.name)} ${norm(x.brand)}`; return norm(q).split(" ").every((w) => hay.includes(w)); };
-
 /**
  * What logging one of your foods starts from: the food (saved, or as last logged) and the amount
  * you had last time. A log with no nutrition basis (a quick add) gets one from its own numbers.

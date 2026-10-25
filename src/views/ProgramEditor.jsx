@@ -1,10 +1,11 @@
 import React, { useState } from "react";
 import { ChevronLeft, ChevronUp, ChevronDown, Trash2, Plus, Pencil, Flame } from "lucide-react";
-import { InfoButton, ExercisePicker, ConfirmSheet, Sheet } from "../components/ui.jsx";
-import { isCardio, isWarmup, specLine, cardioLibrary, WARMUP_MIN, PROGRAM } from "../data/program.js";
+import { InfoButton, ConfirmSheet, Sheet } from "../components/ui.jsx";
+import ExercisePicker from "../components/ExercisePicker.jsx";
+import { isCardio, isWarmup, specLine, cardioLibrary, WARMUP_MIN, PROGRAM, allDays } from "../data/program.js";
 import { checkRange } from "../lib/repRange.js";
 
-export default function ProgramEditor({ day, program, back, ops }) {
+export default function ProgramEditor({ day, program, back, ops, head = "tank" }) {
   const p = program[day];
   const [open, setOpen] = useState(null);
   const [sheet, setSheet] = useState(null);
@@ -43,7 +44,9 @@ export default function ProgramEditor({ day, program, back, ops }) {
       </div>
 
       {sheet === "picker" && (
-        <ExercisePicker title={`Add to ${p.name}`} sub="Pick from the library or create your own."
+        <ExercisePicker title={`Add to ${p.name}`} sub="Search, or describe what you want."
+          coach={head} known={allDays(program).flatMap((d) => program[d].exercises).filter((e) => !isCardio(e.n))}
+          context={`Adding to their ${p.name} workout (${p.detail}) in their plan.`}
           existingNames={p.exercises.map((e) => e.n)} onClose={() => setSheet(null)}
           onPick={(ex) => { ops.add(day, ex); setSheet(null); }} />
       )}

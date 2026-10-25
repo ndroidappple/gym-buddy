@@ -8,6 +8,7 @@ import PhaseCard from "../components/PhaseCard.jsx";
 import { adjustedSeries } from "../lib/fatigue.js";
 import PhaseSheet from "../components/PhaseSheet.jsx";
 import Workouts from "./Workouts.jsx";
+import NutritionTrends from "./NutritionTrends.jsx";
 import { ReviewList, PastReviewsSheet, useReviews } from "../components/WeekReviewIntro.jsx";
 import { reducedMotion } from "../lib/motion.js";
 import { chartLifts, toggleChartLift, MAX_CHART_LIFTS } from "../lib/chartLifts.js";
@@ -16,21 +17,26 @@ import { chartLifts, toggleChartLift, MAX_CHART_LIFTS } from "../lib/chartLifts.
    Only PRs from the most recent workout glow; older ones keep a still stamp, so the glow stays news. */
 const PR_DAYS = 14;
 
-/* Progress has two views: Trends (is it working?) and Workouts (what did I do?, formerly the
-   History tab). The view is in the URL (#/progress/trends, #/progress/workouts) so back from a lift or
-   a session lands on the same view; a plain #/progress opens whichever was used last on this device. */
-const SEG_KEY = "ironlog-progress-view"; // "trends" | "workouts"
+/* Progress has two views, three with food tracking on: Trends (is it working?), Workouts (what did I
+   do?, formerly the History tab) and Nutrition (how is my eating against my targets?). The view is in
+   the URL (#/progress/trends, /workouts, /nutrition) so back from a lift or a session lands on the same
+   view; a plain #/progress opens whichever was used last on this device. */
+const SEG_KEY = "ironlog-progress-view"; // "trends" | "workouts" | "nutrition"
 const CAL_KEY = "ironlog-history-view"; // "list" | "calendar" (key kept from the History tab)
 const readLocal = (k, d) => { try { return localStorage.getItem(k) || d; } catch { return d; } };
 const writeLocal = (k, v) => { try { localStorage.setItem(k, v); } catch {} };
 
 export default function Progress({ open, go, ...props }) {
   const { sessions } = props;
-  const seg = open === "workouts" ? "workouts" : open === "trends" || open === "phase" ? "trends" : readLocal(SEG_KEY, "trends") === "workouts" ? "workouts" : "trends";
+  const food = props.food && props.prefs?.nutrition?.targets ? props.food : null;
+  const views = food ? ["trends", "workouts", "nutrition"] : ["trends", "workouts"];
+  const asked = open === "phase" ? "trends" : open;
+  const seg = views.includes(asked) ? asked : views.includes(readLocal(SEG_KEY, "trends")) ? readLocal(SEG_KEY, "trends") : "trends";
   const pick = (v) => { writeLocal(SEG_KEY, v); if (v !== seg) go(href("progress", v), { replace: true }); };
   const [calendar, setCalendar] = useState(() => readLocal(CAL_KEY, "list") === "calendar");
   const toggleCalendar = () => { writeLocal(CAL_KEY, calendar ? "list" : "calendar"); setCalendar(!calendar); };
   const workouts = seg === "workouts";
+  const nutrition = seg === "nutrition";
 
   return (
     <main className="screen has-tabs">
@@ -43,15 +49,17 @@ export default function Progress({ open, go, ...props }) {
             {calendar ? <List size={20} strokeWidth={2.4} /> : <CalendarDays size={20} strokeWidth={2.4} />}
           </button>
         )}
-        <InfoButton screen={workouts ? "workouts" : "progress"} />
+        <InfoButton screen={workouts ? "workouts" : nutrition ? "progressNutrition" : "progress"} />
       </header>
       <div className="body">
         <div className="segctl" data-help="views" role="group" aria-label="Progress view">
-          <button aria-pressed={!workouts} onClick={() => pick("trends")}>Trends</button>
-          <button aria-pressed={workouts} onClick={() => pick("workouts")}>Workouts{sessions.length > 0 && <span className="seg-count"> · {sessions.length}</span>}</button>
+          <button aria-pressed={seg === "trends"} onClick={() => pick("trends")}>Trends</button>
+          <button aria-pressed={workouts} onClick={() => pick("workouts")}>Workouts{sessions.length > 0 && !food && <span className="seg-count"> · {sessions.length}</span>}</button>
+          {food && <button aria-pressed={nutrition} onClick={() => pick("nutrition")}>Nutrition</button>}
         </div>
         {workouts
           ? <Workouts sessions={sessions} program={props.program} calendar={calendar} heart={!!props.prefs?.googleHealth?.on} />
+          : nutrition ? <NutritionTrends food={food} prefs={props.prefs} sessions={sessions} weighins={props.weighins} />
           : <Trends {...props} openPhase={open === "phase"} onPhaseSheetClosed={() => open === "phase" && go(href("progress", "trends"), { replace: true })} />}
       </div>
     </main>

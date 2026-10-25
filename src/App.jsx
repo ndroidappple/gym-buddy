@@ -25,6 +25,7 @@ import Nutrition from "./views/Nutrition.jsx";
 import NutritionSetup from "./components/NutritionSetup.jsx";
 import { useFood } from "./lib/food.js";
 import { useCoachThread } from "./lib/coachThread.js";
+import { withTargetHistory } from "./lib/nutritionTrends.js";
 import { headContext } from "./lib/coachChat.js";
 import { headCoach } from "./data/coaches.js";
 import { coachFoodContext, totals } from "./lib/nutrition.js";
@@ -379,7 +380,7 @@ export default function App() {
       view = s ? <Summary key={s.id} {...common} session={s} past={route.past} coachChat={coachChat} onUpdate={upsertSession} /> : <Today {...common} />;
       break;
     }
-    case "progress": view = <Progress key={route.open || "p"} {...common} open={route.open} />; break;
+    case "progress": view = <Progress key={route.open || "p"} {...common} open={route.open} food={nutritionOn ? food : null} />; break;
     case "lift": view = <Lift {...common} name={route.lift} />; break;
     case "settings": view = <Settings {...common} thread={thread} onRename={programOps.rename} />; break;
     case "program": view = allDays(program).includes(route.day) ? <ProgramEditor {...common} day={route.day} ops={programOps} /> : <ProgramList {...common} onRename={programOps.rename} />; break;
@@ -394,7 +395,7 @@ export default function App() {
           {route.open === "setup" && (
             <NutritionSetup coach={head} prefs={prefs} program={program} sessions={sessions} weighins={weighins} name={name}
               onWeighin={(bw) => setWeighins((ws) => [...ws.filter((w) => w.date !== today()), { date: today(), bw }])}
-              onSave={(n) => { setPref("nutrition", n); closeSetup(); notify("Targets saved"); }} onClose={closeSetup} />
+              onSave={(n) => { setPref("nutrition", withTargetHistory(prefs.nutrition, n)); closeSetup(); notify("Targets saved"); }} onClose={closeSetup} />
           )}
         </>
       );

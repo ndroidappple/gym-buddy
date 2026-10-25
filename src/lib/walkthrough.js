@@ -43,6 +43,35 @@ export function walkPlaces(session, { heart = false, sleep = false } = {}) {
   return places;
 }
 
+/* The head coach's recap in the bubble on top of the recap: the workout in a sentence or two, made
+   here from the numbers on the page so it's there the moment the recap opens and always fits the
+   bubble. The walkthrough is the long version. Lifts come from the recap's groups (records, up, same,
+   down, baseline: { n, vsLast? }), volPct is volume against last time, low a short or strained night. */
+const shortName = (n) => n.split(/ \(| \/ /)[0];
+export function recapLine({ name, records = [], up = [], same = [], down = [], baseline = [], volPct = null, low = false }) {
+  const lifts = records.length + up.length + same.length + down.length + baseline.length;
+  if (!lifts) return null;
+  const compared = lifts - baseline.length;
+  const pct = (x) => `${Math.abs(x).toFixed(0)}%`;
+  const vol = volPct != null && Math.abs(volPct) >= 10 ? `Volume ${volPct > 0 ? "up" : "down"} ${pct(volPct)} on last time.` : "";
+  if (!compared) return `First ${name} logged: ${lifts === 1 ? "a baseline" : `baselines for ${lifts} lifts`} to beat next time.`;
+  if (records.length) {
+    const lead = records.length === 1 ? `A PR on ${shortName(records[0].n)}` : `${records.length} PRs, led by ${shortName([...records].sort((a, b) => b.pct - a.pct)[0].n)}`;
+    return `${lead}${low ? ", even after a rough night" : ""}.${vol ? ` ${vol}` : up.length ? ` ${up.length} more ${up.length === 1 ? "lift" : "lifts"} up on last time.` : ""}`;
+  }
+  if (up.length > down.length) {
+    return `${up.length === compared ? "Every lift" : `${up.length} of ${compared} lifts`} up on last time${low ? ", even after a rough night" : ""}.${vol ? ` ${vol}` : ""}`;
+  }
+  if (down.length > up.length) {
+    const worst = Math.max(...down.map((x) => Math.abs(x.vsLast || 0)));
+    const who = down.length === compared ? "Every lift" : `${down.length} of ${compared} lifts`;
+    const lead = low ? `${who} dipped after a rough night. Expect that.`
+      : worst < 5 ? `${who} dipped a few percent: an off day, not a stall.` : `${who} dipped on last time.`;
+    return `${lead}${vol ? ` ${vol}` : ""}`;
+  }
+  return `Matched last time${up.length ? `, ${up.length} up and ${down.length} down` : " across the board"}.${vol ? ` ${vol}` : ""}`;
+}
+
 const str = (x, max) => (typeof x === "string" ? x.replace(/\s+/g, " ").trim().slice(0, max) : "");
 
 const CHANGE_KEYS = ["action", "day", "exercise", "weight", "new_exercise", "sets", "rep_min", "rep_max", "rest_seconds"];

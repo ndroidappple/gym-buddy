@@ -23,6 +23,7 @@ export const HELP = {
   summary: {
     title: "Workout summary",
     steps: [
+      { name: "Your usual", Icon: CalendarCheck, text: "Numbers are judged against your own usual. ✓ marks one that's better, ! one that's worse; anything else is normal for you. For sleep, resting heart rate and HRV, your usual is your typical night over the last 4 weeks." },
       { name: "Records", Icon: Trophy, spot: "records", text: "Lifts where you beat your best [Est. max]." },
       { name: "Est. max", Icon: Gauge, text: "The most you could likely lift once, worked out from your best set." },
       { name: "Last time", Icon: TrendingUp, spot: "vs-last", text: "Each lift's best set, [Up], [Same] or [Down] on last time." },
@@ -47,6 +48,15 @@ export const HELP = {
       { name: "Charts", Icon: LineChart, spot: "charts", text: "Swipe the top card for your lifts. [Edit] picks which, up to 8. Hold a chart to read a point." },
       { name: "Bulk or cut", Icon: Scale, spot: "phase", text: "Set a target weight. Your coaches track your pace." },
       { name: "Your lifts", Icon: Dumbbell, spot: "lift", text: "Tap one for its chart and records." },
+    ],
+  },
+  progressNutrition: {
+    title: "Nutrition over time",
+    steps: [
+      { name: "Averages", Icon: PieChart, text: "What you ate a day against your targets. A day under 45% of your calorie target is probably only partly logged, so it's left out." },
+      { name: "On goal", Icon: Target, text: "Calories within 10% of target count as on goal. Protein counts as hit at 90% of target or more." },
+      { name: "Is it working?", Icon: Scale, text: "Your weight trend against your goal's pace. With 10+ logged days and a few weigh-ins, your log and the scale show what you really burn, and what to eat for your pace." },
+      { name: "Charts", Icon: LineChart, text: "One bar a day, the line is your target. Orange bars work against your goal. Hold a chart to read a day." },
     ],
   },
   lift: {
