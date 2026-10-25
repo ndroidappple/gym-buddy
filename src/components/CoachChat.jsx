@@ -321,7 +321,7 @@ export default function CoachChat({ coach, name, exercise, starter, sessions, pr
         </>
       )}
       lead={<span className="chat-head-coach" style={{ "--c": c.color }}><Coach id={coach} mood={mood} size={40} /></span>}
-      className={"sheet-chat sheet-convo" + (headChat ? " sheet-head-chat" : "")} focusField={false}>
+      className={"sheet-chat sheet-convo" + (headChat ? " sheet-head-chat" : "")} focusField={false} dragFromHead>
       {past ? <PastChats chats={thread.chats} open={chatId} coachName={c.name} onOpen={openChat} /> : (
       <div className="chat" style={{ "--c": c.color }}>
         <div className="chat-list" ref={listRef} aria-live="polite" onPointerDown={dismiss}>

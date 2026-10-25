@@ -77,7 +77,7 @@ export default function NutritionSetup({ coach = "tank", prefs, program, session
   const stepNo = STEPS.indexOf(step) + 1;
 
   return (
-    <Sheet title={`Nutrition with ${COACHES[coach].name}`} sub={step === "targets" ? "Your daily targets" : `Step ${stepNo} of ${STEPS.length}`} onClose={onClose} labelledBy="nutrition-setup-title" className="sheet-chat setup-chat keep-sub">
+    <Sheet title={`Nutrition with ${COACHES[coach].name}`} sub={step === "targets" ? "Your daily targets" : `Step ${stepNo} of ${STEPS.length}`} onClose={onClose} labelledBy="nutrition-setup-title" className="sheet-chat setup-chat keep-sub" dragFromHead>
       <div className="chat" style={{ "--c": COACHES[coach].color }}>
         <div className="chat-coach"><Coach id={coach} mood={step === "targets" ? "hyped" : "idle"} size={72} /></div>
         <div className="chat-list" ref={listRef} aria-live="polite">
