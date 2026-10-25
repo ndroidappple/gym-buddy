@@ -1102,6 +1102,12 @@ button.coach-card:active { transform: translateY(3px); box-shadow: 0 2px 0 var(-
 .food-first { display: flex; align-items: center; gap: 12px; padding: 4px 4px 0; }
 .food-first p { margin: 0; font-size: 14.5px; font-weight: 500; line-height: 1.4; color: var(--mute); }
 .food-form { display: flex; flex-direction: column; gap: 14px; }
+/* The Add button stays in reach at the bottom of the sheet, however long the form above it runs
+   (a meal's breakdown, the meal chips, the keyboard up). The background fades the form out under it. */
+/* It covers the sheet's bottom padding too, so nothing scrolls by beneath it (and whatever follows it, Remove, keeps its place). */
+.food-cta { position: sticky; bottom: -20px; z-index: 2; margin: -4px -16px -20px; padding: 14px 16px 30px; background: linear-gradient(transparent, var(--bg) 14px); }
+.food-cta + * { margin-top: 20px; }
+.food-cta .btn { width: 100%; }
 /* Barcode scanner: the camera fills a wide box with a target frame; messages sit under it. */
 .scan { display: flex; flex-direction: column; gap: 12px; }
 .scan-view { position: relative; aspect-ratio: 4 / 3; border-radius: var(--r); overflow: hidden; background: #000; }

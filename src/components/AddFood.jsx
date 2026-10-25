@@ -405,7 +405,7 @@ export function Portion({ item, amount: a0, unit: u0, meal, onMeal, action, onSa
       </div>
       <Macros n={n} shown={shown} onShow={items.length > 0 ? setShown : undefined} />
       {onMeal && <MealChips meal={meal} onMeal={onMeal} />}
-      <button type="submit" className="btn btn-ink" disabled={!ok}><Check size={18} strokeWidth={3} aria-hidden="true" /> {action}</button>
+      <div className="food-cta"><button type="submit" className="btn btn-ink" disabled={!ok}><Check size={18} strokeWidth={3} aria-hidden="true" /> {action}</button></div>
       {onDelete && <button type="button" className="btn-quiet danger" onClick={onDelete}><Trash2 size={16} aria-hidden="true" style={{ verticalAlign: -3 }} /> Remove</button>}
     </form>
   );
@@ -431,7 +431,7 @@ export function QuickAdd({ entry, meal, onMeal, action, onSave, onDelete }) {
       {numField("Calories", kcal, setKcal, { autoFocus: !entry, required: true })}
       <div className="grid-3">{numField("Protein g", p, setP)}{numField("Carbs g", c, setC)}{numField("Fat g", f, setF)}</div>
       {onMeal && <MealChips meal={meal} onMeal={onMeal} />}
-      <button type="submit" className="btn btn-ink" disabled={!ok}><Check size={18} strokeWidth={3} aria-hidden="true" /> {action}</button>
+      <div className="food-cta"><button type="submit" className="btn btn-ink" disabled={!ok}><Check size={18} strokeWidth={3} aria-hidden="true" /> {action}</button></div>
       {onDelete && <button type="button" className="btn-quiet danger" onClick={onDelete}><Trash2 size={16} aria-hidden="true" style={{ verticalAlign: -3 }} /> Remove</button>}
     </form>
   );
@@ -474,7 +474,7 @@ function ManualFood({ meal, onMeal, action, onSave, barcode }) {
       <label className="check-row"><input type="checkbox" checked={save} onChange={(e) => setSave(e.target.checked)} disabled={!name.trim()} />
         <span>Save to my foods<small>{!name.trim() ? "Give it a name to save it." : barcode ? "Scanning it next time finds it." : "One tap to log it next time."}</small></span></label>
       <MealChips meal={meal} onMeal={onMeal} />
-      <button type="submit" className="btn btn-ink" disabled={!ok}><Check size={18} strokeWidth={3} aria-hidden="true" /> {action}</button>
+      <div className="food-cta"><button type="submit" className="btn btn-ink" disabled={!ok}><Check size={18} strokeWidth={3} aria-hidden="true" /> {action}</button></div>
     </form>
   );
 }
