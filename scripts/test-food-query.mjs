@@ -58,5 +58,11 @@ eq("lb to oz", Q.portionFor(units, 0.5, "lb"), { amount: 8, unit: "oz" });
 eq("a count", Q.portionFor(units, 2, null), { amount: 2 });
 eq("no such unit", Q.portionFor([{ label: "serving", grams: null }], 1, "tbsp"), null);
 
+// A described meal, item by item.
+const items = (s) => Q.mealItems(s).map((x) => [x.food, x.amount, x.unit]);
+eq("items", items("2 eggs, toast with butter and a latte"), [["eggs", 2, null], ["toast", null, null], ["butter", null, null], ["latte", null, null]]);
+eq("items with units", items("½ cup oatmeal, 1 tbsp peanut butter + 200g greek yogurt"), [["oatmeal", 0.5, "cup"], ["peanut butter", 1, "tbsp"], ["greek yogurt", 200, "g"]]);
+eq("lead-ins dropped", items("I had a burrito bowl from chipotle and a coke"), [["burrito bowl from chipotle", null, null], ["coke", null, null]]);
+
 if (failed) { console.error(`\n${failed} food query check(s) failed`); process.exit(1); }
 console.log("food query: all checks passed");

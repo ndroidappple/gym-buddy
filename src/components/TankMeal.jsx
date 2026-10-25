@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { ArrowUp, Check, Utensils, Pencil, BadgeCheck } from "lucide-react";
 import { ThinkingOrb } from "thinking-orbs";
 import Coach from "./Coach.jsx";
@@ -29,8 +29,13 @@ const r = (n) => Math.round(n);
 /** What the model sees of an earlier card, so a correction edits the same meal. */
 const mealNote = (m) => ` [Meal shown: ${m.name}: ${m.items.map((x) => `${x.food} ${x.amount} ${x.kcal} kcal${x.label ? ` (label: ${x.label})` : ""}`).join("; ")}.]`;
 
-/** `coach`: the head coach, who does the itemizing. `first`: what was typed in the search box, sent at once. */
-export default function TankMeal({ coach = "tank", first = "", meal: slot, onMeal, action, onSave, onManual }) {
+/**
+ * `coach`: the head coach, who does the itemizing. `first`: what was typed in the search box, sent at
+ * once. `known`: the lifter's own foods it mentions ("Name: amount = numbers"), so the coach uses theirs.
+ * `embedded`: inside Add food's search, under its box: the box is the input (send() through the ref),
+ * there's no hello, and `onBusy` tells the box when to show the coach working.
+ */
+const TankMeal = forwardRef(function TankMeal({ coach = "tank", first = "", known = [], embedded = false, onBusy, meal: slot, onMeal, action, onSave, onManual }, ref) {
   const who = COACHES[coach].name;
   const [messages, setMessages] = useState([]); // { role, content, meal?, replies?, trouble?, retry? }
   const [draft, setDraft] = useState("");
@@ -64,7 +69,7 @@ export default function TankMeal({ coach = "tank", first = "", meal: slot, onMea
     setBusy(true);
     abort.current = new AbortController();
     try {
-      const res = await describeMeal({ coach, messages: history, mealSlot: MEALS.find((m) => m.id === slot)?.label, signal: abort.current.signal });
+      const res = await describeMeal({ coach, messages: history, mealSlot: MEALS.find((m) => m.id === slot)?.label, known, signal: abort.current.signal });
       if (res.meal) setName(res.meal.name);
       // A question with no suggested answers still gets the estimate button.
       const replies = res.meal ? [] : [...new Set([...(res.replies || []), ESTIMATE])].slice(0, 4);
@@ -84,6 +89,11 @@ export default function TankMeal({ coach = "tank", first = "", meal: slot, onMea
 
   // What was typed in the search box goes straight in: no typing it twice.
   useEffect(() => { if (first.trim()) send(first); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useImperativeHandle(ref, () => ({ send: (text) => send(text) }));
+  useEffect(() => { onBusy?.(busy); }, [busy]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Embedded, the sheet scrolls, not the list: keep the newest part in view.
+  const end = useRef(null);
+  useEffect(() => { if (embedded && messages.length) end.current?.scrollIntoView({ block: "nearest", behavior: "smooth" }); }, [embedded, messages, busy]);
 
   const chips = !busy && last?.role === "assistant" ? (last.trouble ? (last.retry ? ["Try again"] : []) : last.replies || []) : [];
   const tap = (c) => {
@@ -92,12 +102,14 @@ export default function TankMeal({ coach = "tank", first = "", meal: slot, onMea
   };
 
   return (
-    <div className="chat tank-meal" style={{ "--c": COACHES.tank.color }}>
+    <div className={"chat tank-meal" + (embedded ? " embedded" : "")} style={{ "--c": COACHES.tank.color }}>
       <div className="chat-list" ref={listRef} aria-live="polite">
-        <div className="tank-meal-hello">
-          <Coach id={coach} size={44} mood={busy ? "focused" : card && cardIsLatest ? "hyped" : "idle"} decorative />
-          <p className="coach-bubble">What did you eat? List everything, with amounts if you know them. I'll ask if I need more.</p>
-        </div>
+        {!embedded && (
+          <div className="tank-meal-hello">
+            <Coach id={coach} size={44} mood={busy ? "focused" : card && cardIsLatest ? "hyped" : "idle"} decorative />
+            <p className="coach-bubble">What did you eat? List everything, with amounts if you know them. I'll ask if I need more.</p>
+          </div>
+        )}
         {messages.map((m, i) => (
           <React.Fragment key={i}>
             <p className={m.role === "user" ? "chat-me" : "coach-bubble"}>{m.content}</p>
@@ -128,10 +140,12 @@ export default function TankMeal({ coach = "tank", first = "", meal: slot, onMea
               {MEALS.map((m) => <button key={m.id} type="button" className="chip" aria-pressed={slot === m.id} onClick={() => onMeal(m.id)}>{m.label}</button>)}
             </div>
             <button type="button" className="btn btn-ink" onClick={confirm}><Check size={18} strokeWidth={3} aria-hidden="true" /> {action}</button>
-            <p className="small muted detail">Something off? Tell {who} below, e.g. "it was 2 tbsp".</p>
+            <p className="small muted detail">Something off? Tell {who} {embedded ? "in the box above" : "below"}, e.g. "it was 2 tbsp".</p>
           </div>
         )}
+        <span ref={end} aria-hidden="true" />
       </div>
+      {!embedded && (
       <form className="chat-input" aria-busy={busy} onSubmit={(e) => { e.preventDefault(); send(draft); }}>
         <label htmlFor="tank-meal-q" className="sr-only">Describe your meal</label>
         <textarea id="tank-meal-q" rows={2} value={draft} maxLength={1000} autoFocus={!messages.length && !first.trim()}
@@ -140,9 +154,11 @@ export default function TankMeal({ coach = "tank", first = "", meal: slot, onMea
           onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(draft); } }} />
         <button type="submit" aria-label="Send" disabled={!draft.trim() || busy}><ArrowUp size={20} strokeWidth={2.8} /></button>
       </form>
+      )}
     </div>
   );
-}
+});
+export default TankMeal;
 
 /** The coach's itemized meal: each food with its amount and macros (~ marks an estimate), and the total. */
 function MealCard({ meal, who, name, onName }) {

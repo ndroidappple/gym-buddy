@@ -122,3 +122,20 @@ export function portionFor(units, amount, unit) {
   const match = units.find((u) => new RegExp(`\\b${unit}s?\\b`, "i").test(u.label));
   return match ? { amount, unit: match.label } : null;
 }
+
+/* ── A described meal, item by item ──
+   "2 eggs, toast with butter and a latte" → 2 eggs · toast · butter · latte, each with its amount when
+   one was given. Shown as chips under the box while typing, so the lifter sees it was understood, and
+   matched against their own foods so the coach uses their numbers for those. */
+
+const ITEM_SPLIT = /\s*(?:,|;|\+|&|\band\b|\bwith\b|\bw\/|\bplus\b)\s*/i;
+const LEAD = /^(i\s+(had|ate|drank)|for\s+(breakfast|lunch|dinner)\s*,?|some|a\s+bit\s+of)\s+/i;
+
+/** The items of a described meal: [{ text, amount, unit, food }]. Amount and unit null when none was given. */
+export function mealItems(raw) {
+  return String(raw || "").split(ITEM_SPLIT).map((x) => x.trim().replace(LEAD, "").replace(/^(an?|the)\s+/i, "").trim())
+    .filter((x) => /[a-z]/i.test(x)).slice(0, 12).map((text) => {
+      const r = readQuery(text);
+      return r.kind === "amount" ? { text, amount: r.amount, unit: r.unit, food: r.food } : { text, amount: null, unit: null, food: norm(text) };
+    });
+}

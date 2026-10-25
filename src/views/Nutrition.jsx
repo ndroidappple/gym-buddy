@@ -125,7 +125,7 @@ export default function Nutrition({ food, prefs, notify, sessions, weighins, pro
         <CoachChat coach={head} head={head} name={name} topic="nutrition" day={date} {...coachChat} sessions={sessions} program={program} weighins={weighins} profile={prefs.profile} phase={prefs.phase}
           nutrition={nutrition} onProgramChange={onProgramChange} onClose={() => setAsking(false)} />
       )}
-      {adding && <AddFood food={food} head={head} meal={adding} date={date} notify={notify} onClose={() => setAdding(null)} />}
+      {adding && <AddFood food={food} head={head} meal={adding} date={date} targets={t} notify={notify} onClose={() => setAdding(null)} />}
       {entry && (
         <Sheet title={entry.source === "quick" ? "Edit calories" : "Edit food"} onClose={() => setEditing(null)} labelledBy="edit-food-title" focusField={false}>
           {entry.basis

@@ -434,8 +434,10 @@ export async function reviewProgram({ coach = "tank", program, profile, onText, 
  * description, any questions and answers). Resolves { text, replies, meal } where meal is null
  * while Tank still needs amounts, else the checked meal from cleanMeal(). Throws like askCoach.
  */
-export async function describeMeal({ coach = "tank", messages, mealSlot, onText, signal }) {
-  const ask = () => askCoach({ coach, mode: "food", messages, signal, onText: onText || (() => {}), context: mealSlot ? `Logging to: ${mealSlot}.` : "" });
+export async function describeMeal({ coach = "tank", messages, mealSlot, known = [], onText, signal }) {
+  // known: the lifter's own foods the description mentions, as "Name: amount = numbers" lines.
+  const context = [mealSlot && `Logging to: ${mealSlot}.`, known.length && `Their own foods:\n${known.join("\n")}`].filter(Boolean).join("\n");
+  const ask = () => askCoach({ coach, mode: "food", messages, signal, onText: onText || (() => {}), context });
   // A blank reply is retried once, unless the model ran out of room thinking: then the retry would
   // most likely do the same, and the lifter would wait twice as long for nothing.
   const r = await ask().catch((e) => (e.kind === "empty" && !e.capped ? ask() : Promise.reject(e)));
