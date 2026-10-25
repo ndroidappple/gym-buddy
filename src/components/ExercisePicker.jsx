@@ -1,21 +1,20 @@
 import React, { useMemo, useRef, useState } from "react";
-import { BorderBeam } from "border-beam";
 import { ThinkingOrb } from "thinking-orbs";
-import { Plus, Search, ChevronRight, X } from "lucide-react";
+import { Plus, Search, ChevronRight, ChevronLeft, ArrowUp } from "lucide-react";
 import { Sheet } from "./ui.jsx";
 import Coach from "./Coach.jsx";
 import { COACHES } from "../data/coaches.js";
 import { LIBRARY, specLine } from "../data/program.js";
 import { readLiftQuery, rankLifts, liftMatch } from "../lib/liftQuery.js";
 import { suggestLifts } from "../lib/coachChat.js";
-import { useReducedMotion } from "../lib/motion.js";
 import { useTheme } from "../lib/theme.js";
 
 /* Adding a lift: one box, the same as Add food's. A lift's name searches the library and the lifter's
    own plan. What they want in words ("something for upper chest, no bench", "rows I can do at home")
-   is understood on the phone (lib/liftQuery.js): the box glows in the head coach's color, chips show
+   is understood on the phone (lib/liftQuery.js): the coach's face takes the box's icon, chips show
    what it read, and the best fits are listed with why. Return (or the coach's row) asks the head coach,
-   who answers right here with lifts to tap: for what the phone can't read, like a sore joint.
+   who answers with lifts to tap, for what the phone can't read, like a sore joint; a follow-up goes in
+   the box at the bottom, like any chat, and Back at the top returns to the list.
    Calls onPick({ n, sets, reps, rest, cue }). `known`: lifts from the lifter's plan, searched too.
    `context`: what the coach reads about the workout it's for. */
 
@@ -31,11 +30,11 @@ const TROUBLE = {
 export default function ExercisePicker({ title, sub, existingNames, onPick, onClose, coach = "tank", known = [], context = "" }) {
   const who = COACHES[coach]?.name || "Tank";
   const [q, setQ] = useState("");
+  const [more, setMore] = useState(""); // a follow-up to the coach, typed at the bottom
   const [custom, setCustom] = useState(null);
   const [ai, setAi] = useState(null); // { asked, status: loading | done | error, text, lifts, kind }
   const input = useRef(null);
   const abort = useRef(null);
-  const reduced = useReducedMotion();
   const theme = useTheme();
 
   // The library and the lifter's own plan, once each, minus what's already in this workout.
@@ -62,33 +61,35 @@ export default function ExercisePicker({ title, sub, existingNames, onPick, onCl
     const ctl = new AbortController();
     abort.current = ctl;
     setAi({ asked: text, status: "loading" });
-    setQ("");
+    setMore("");
     input.current?.blur();
     const lib = lifts.map((e) => e.n).join(", ");
     suggestLifts({ coach, text, taken: existingNames, signal: ctl.signal, context: [context, `Already in this workout: ${existingNames.join(", ") || "nothing yet"}.`, `Library and their plan: ${lib}.`].filter(Boolean).join("\n") })
       .then((r) => setAi({ asked: text, status: "done", text: r.text, lifts: r.lifts }))
       .catch((e) => { if (e.name !== "AbortError") setAi({ asked: text, status: "error", kind: e.kind }); });
   };
-  const stop = () => { abort.current?.abort(); setAi(null); setQ(""); };
+  const stop = () => { abort.current?.abort(); setAi(null); };
   const submit = (e) => {
     e.preventDefault();
-    if (ai) { if (q.trim() && ai.status !== "loading") ask(q.trim()); return; }
     if (describing) return ask(read.text);
     input.current?.blur();
+  };
+  // A follow-up builds on what was asked: "no machines either" means the same ask, narrowed.
+  const followUp = (e) => {
+    e.preventDefault();
+    if (more.trim() && ai?.status !== "loading") ask(`${ai.asked}. ${more.trim()}`);
   };
   const pick = (e) => onPick({ n: e.n, sets: e.sets, reps: e.reps, rest: e.rest, cue: e.cue || "" });
 
   if (custom) return <CustomLift custom={custom} setCustom={setCustom} existingNames={existingNames} onPick={onPick} onClose={onClose} />;
 
-  const coachOn = describing || !!ai;
   const busy = ai?.status === "loading";
   const box = (
-    <form className={"food-search" + (coachOn ? " coach-on" : "")} role="search" onSubmit={submit} style={{ "--c": COACHES[coach]?.color }}>
-      {coachOn ? <span className="food-search-coach" aria-hidden="true"><Coach id={coach} size={22} mood={busy ? "focused" : "idle"} still decorative /></span> : <Search size={18} aria-hidden="true" />}
-      <label htmlFor="lift-search" className="sr-only">{ai ? `Ask ${who} again` : "Search lifts, or describe what you want"}</label>
+    <form className="food-search" role="search" onSubmit={submit}>
+      {describing ? <span className="food-search-coach" aria-hidden="true"><Coach id={coach} size={22} still decorative /></span> : <Search size={18} aria-hidden="true" />}
+      <label htmlFor="lift-search" className="sr-only">Search lifts, or describe what you want</label>
       <input id="lift-search" ref={input} type="search" value={q} onChange={(e) => setQ(e.target.value)} autoComplete="off"
-        placeholder={ai ? "Ask again, or say more" : "Search or describe a lift"} enterKeyHint={coachOn ? "send" : "search"} />
-      {ai && <button type="button" className="icon-btn food-scan" onClick={stop} aria-label="Back to the list"><X size={20} /></button>}
+        placeholder="Search or describe a lift" enterKeyHint={describing ? "send" : "search"} />
     </form>
   );
   const row = (e, why) => (
@@ -100,11 +101,9 @@ export default function ExercisePicker({ title, sub, existingNames, onPick, onCl
 
   return (
     <Sheet title={title} sub={sub} onClose={onClose} className="sheet-tall">
-      <div className="food-box">
-        {coachOn && !reduced
-          ? <BorderBeam size="md" colorVariant="forest" theme={theme} duration={busy ? 1.4 : 3.6} brightness={busy ? 1.5 : 1.1} className="food-search-beam">{box}</BorderBeam>
-          : box}
-      </div>
+      {ai
+        ? <button type="button" className="btn-quiet food-back" onClick={stop}><ChevronLeft size={16} aria-hidden="true" /> Back to the list</button>
+        : <div className="food-box">{box}</div>}
 
       {/* What the phone understood, then the library's best fits for it, each with why. */}
       {describing && (
@@ -150,7 +149,12 @@ export default function ExercisePicker({ title, sub, existingNames, onPick, onCl
               </div>
             </>
           )}
-          <button type="button" className="btn-quiet food-manual" onClick={stop}><Search size={15} aria-hidden="true" /> Back to the list</button>
+          {/* A follow-up, at the bottom like any chat. */}
+          <form className="chat-input lift-reply" onSubmit={followUp} aria-busy={busy}>
+            <label htmlFor="lift-more" className="sr-only">Say more to {who}</label>
+            <input id="lift-more" className="lift-reply-input" value={more} onChange={(e) => setMore(e.target.value)} placeholder="Say more, e.g. no machines either" autoComplete="off" enterKeyHint="send" />
+            <button type="submit" aria-label="Send" disabled={!more.trim() || busy}><ArrowUp size={20} strokeWidth={2.8} /></button>
+          </form>
         </div>
       )}
 

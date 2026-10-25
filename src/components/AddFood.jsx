@@ -1,13 +1,10 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { BorderBeam } from "border-beam";
 import { Search, Plus, PenLine, Pencil, ChevronLeft, ChevronRight, Trash2, Check, ScanBarcode, X } from "lucide-react";
 import Coach from "./Coach.jsx";
 import { COACHES } from "../data/coaches.js";
 import TankMeal from "./TankMeal.jsx";
 import ScanFood from "./ScanFood.jsx";
 import { Sheet } from "./ui.jsx";
-import { useReducedMotion } from "../lib/motion.js";
-import { useTheme } from "../lib/theme.js";
 import { MEALS, unitsFor, nutritionFor, defaultPortion, totals, addDays } from "../lib/nutrition.js";
 import { yourFoods, pickYourFood, whenLabel } from "../lib/yourFoods.js";
 import { readQuery, matchScore, portionFor, mealItems } from "../lib/foodQuery.js";
@@ -66,17 +63,22 @@ export default function AddFood({ food, head = "tank", meal: meal0, date, target
   const [editing, setEditing] = useState(null); // the saved food being renamed or deleted
   const saved = view.step === "portion" && ["custom", "ai"].includes(view.food.source) ? food.foods.find((f) => f.id === view.food.ref) || null : null;
   const picked = saved ? { ...view.food, name: saved.name } : view.food; // a rename shows (and logs) at once
-  const title = view.step === "scan" ? "Scan a barcode" : view.step === "manual" ? (view.barcode ? "Enter from the label" : "Enter manually")
+  const title = view.step === "tank" ? `Add with ${who}` : view.step === "scan" ? "Scan a barcode" : view.step === "manual" ? (view.barcode ? "Enter from the label" : "Enter manually")
     : view.step === "portion" ? "How much?" : `Add to ${mealLabel}`;
 
   return (
-    <Sheet title={title} sub={view.step === "find" ? (standing || `Search your foods, or describe what you ate and ${who} works it out.`) : null}
-      onClose={onClose} labelledBy="add-food-title" className="sheet-tall" focusField={!touchScreen()}>
+    <Sheet title={title} sub={view.step === "find" || view.step === "tank" ? (standing || `Search your foods, or describe what you ate and ${who} works it out.`) : null}
+      onClose={onClose} labelledBy="add-food-title" className={"sheet-tall" + (view.step === "tank" ? " sheet-chat" : "")} focusField={!touchScreen()}>
       {view.step !== "find" && (
         <button type="button" className="btn-quiet food-back" onClick={() => setView({ step: "find" })}><ChevronLeft size={16} aria-hidden="true" /> Back</button>
       )}
-      {view.step === "find" && <Find food={food} head={head} meal={meal} onMeal={setMeal} date={date} action={`Add to ${mealLabel}`} onTankSave={tankSave} onRepeat={addMany}
+      {view.step === "find" && <Find food={food} head={head} meal={meal} date={date} onTank={(text, known) => setView({ step: "tank", text, known })} onRepeat={addMany}
         onPick={(f, prior) => setView({ step: "portion", food: f, prior })} onScan={() => setView({ step: "scan" })} onManual={() => setView({ step: "manual" })} />}
+      {/* Tank's chat: the meal already sent, the reply box at the bottom like any chat. */}
+      {view.step === "tank" && (
+        <TankMeal coach={head} first={view.text} known={view.known} meal={meal} onMeal={setMeal} action={`Add to ${mealLabel}`}
+          onSave={tankSave} onManual={() => setView({ step: "manual" })} />
+      )}
       {view.step === "scan" && <ScanFood food={food} toFood={scannedFood} onFound={(f) => setView({ step: "portion", food: f })} onManual={(barcode) => setView({ step: "manual", barcode })} />}
       {view.step === "portion" && (
         <>
@@ -107,29 +109,24 @@ const TOP = 8; // your foods shown before "Show all"
 const MEAL_WORD = Object.fromEntries(MEALS.map((m) => [m.id, m.label.toLowerCase()]));
 
 /* One box for everything (see the top of this file). When what's typed reads as a meal in words, the
-   head coach takes the box: it glows in their color, the meal's items show as chips as it's understood
+   head coach's face takes the box's search icon, the meal's items show as chips as it's understood
    (one of the lifter's own foods marked as theirs, and handed to the coach so it uses their numbers),
-   and Return sends it. The coach answers right here under the box, and the box takes the replies. */
-function Find({ food, head, meal, onMeal, date, action, onTankSave, onRepeat, onPick, onScan, onManual }) {
+   and Return opens the coach's chat with it already sent: replies go in the chat's own box, at the bottom. */
+function Find({ food, head, meal, date, onTank, onRepeat, onPick, onScan, onManual }) {
   const who = COACHES[head].name;
   const [q, setQ] = useState("");
   const [state, setState] = useState({ status: "idle", results: [] }); // idle | loading | done | error
   const [all, setAll] = useState(false); // every one of your foods, not just the top
   const [lookUp, setLookUp] = useState(false); // search the databases for a description after all
-  const [tank, setTank] = useState(null); // { first, known }: the coach working on a described meal, under the box
-  const [busy, setBusy] = useState(false); // the coach is thinking
   const abort = useRef(null);
   const input = useRef(null);
-  const tankRef = useRef(null);
-  const reduced = useReducedMotion();
-  const theme = useTheme();
   const ranked = useMemo(() => yourFoods(food.entries, food.foods, { meal }), [food.entries, food.foods, meal]);
   // What's typed: a search, an amount and a food, or a meal in words for the coach (lib/foodQuery.js).
   // A name of one of their own foods is a search for it, however list-like it reads.
   const known = useMemo(() => q.trim() && ranked.some((x) => matchScore(x, q) >= 2), [ranked, q]);
   const read = useMemo(() => readQuery(q, { known }), [q, known]);
-  const describing = !tank && read.kind === "describe";
-  const term = tank || read.kind === "empty" ? "" : read.food;
+  const describing = read.kind === "describe";
+  const term = read.kind === "empty" ? "" : read.food;
   // Their own foods first, best match first, then most used.
   const mine = useMemo(() => {
     if (!term) return ranked;
@@ -185,13 +182,11 @@ function Find({ food, head, meal, onMeal, date, action, onTankSave, onRepeat, on
     const at = read.kind === "amount" ? portionFor(unitsFor(x.basis), read.amount, read.unit) : null;
     onPick(x, at || undefined);
   };
-  const startTank = (text) => { setTank({ first: text, known: knownLines(mealItems(text).map((it) => ({ ...it, own: items.find((x) => x.text === it.text)?.own }))) }); setQ(""); input.current?.blur(); };
-  const stopTank = () => { setTank(null); setBusy(false); setQ(""); };
+  const startTank = (text) => onTank(text, knownLines(mealItems(text).map((it) => ({ ...it, own: items.find((x) => x.text === it.text)?.own }))));
   // Return: with the coach working, a reply to them; a description goes to the coach; an amount opens
   // the best match; a search just closes the keyboard.
   const submit = (e) => {
     e.preventDefault();
-    if (tank) { if (q.trim() && !busy) { tankRef.current?.send(q); setQ(""); input.current?.blur(); } return; }
     if (describing) return startTank(read.text);
     if (read.kind === "amount" && mine[0]) return pickMine(mine[0]);
     if (read.kind === "amount" && results[0]) return pickResult(results[0]);
@@ -202,39 +197,22 @@ function Find({ food, head, meal, onMeal, date, action, onTankSave, onRepeat, on
   const why = (x) => [x.brand, x.count > 1 && `${x.count}×`, x.usual && `usually ${MEAL_WORD[x.usual]}`, x.lastDate ? whenLabel(x.lastDate) : "saved"].filter(Boolean).join(" · ");
   const shown = all ? mine : mine.slice(0, term ? 5 : TOP);
   const more = mine.length - shown.length;
-  const coachOn = !!tank || describing;
 
   const box = (
-    <form className={"food-search" + (coachOn ? " coach-on" : "")} role="search" onSubmit={submit} style={{ "--c": COACHES[head].color }}>
-      {coachOn ? <span className="food-search-coach" aria-hidden="true"><Coach id={head} size={22} mood={busy ? "focused" : "idle"} still decorative /></span> : <Search size={18} aria-hidden="true" />}
-      <label htmlFor="food-q" className="sr-only">{tank ? `Reply to ${who}` : "Search foods, or describe a meal"}</label>
+    <form className="food-search" role="search" onSubmit={submit}>
+      {describing ? <span className="food-search-coach" aria-hidden="true"><Coach id={head} size={22} still decorative /></span> : <Search size={18} aria-hidden="true" />}
+      <label htmlFor="food-q" className="sr-only">Search foods, or describe a meal</label>
       <input id="food-q" ref={input} type="search" autoFocus={!touchScreen()} value={q} onChange={(e) => setQ(e.target.value)}
-        placeholder={tank ? `Reply or correct it` : "Search or describe a meal"}
-        enterKeyHint={tank || describing ? "send" : read.kind === "amount" ? "go" : "search"} autoComplete="off" />
-      {tank
-        ? <button type="button" className="icon-btn food-scan" onClick={stopTank} aria-label={`Stop and search instead`}><X size={20} /></button>
-        : <button type="button" className="icon-btn food-scan" onClick={onScan} aria-label="Scan a barcode"><ScanBarcode size={20} /></button>}
+        placeholder="Search or describe a meal"
+        enterKeyHint={describing ? "send" : read.kind === "amount" ? "go" : "search"} autoComplete="off" />
+      <button type="button" className="icon-btn food-scan" onClick={onScan} aria-label="Scan a barcode"><ScanBarcode size={20} /></button>
     </form>
   );
 
   return (
     <>
-      {/* The coach's color travels the box's border while they're on it: slowly while listening, quicker
-          while working. With reduced motion, a still border in their color says the same. */}
-      {/* The box stays at the top while the list or the coach's answer scrolls under it. */}
-      <div className="food-box">
-        {coachOn && !reduced
-          ? <BorderBeam size="md" colorVariant="forest" theme={theme} duration={busy ? 1.4 : 3.6} brightness={busy ? 1.5 : 1.1} className="food-search-beam">{box}</BorderBeam>
-          : box}
-      </div>
-
-      {tank && (
-        <>
-          <TankMeal ref={tankRef} embedded coach={head} first={tank.first} known={tank.known} onBusy={setBusy}
-            meal={meal} onMeal={onMeal} action={action} onSave={onTankSave} onManual={onManual} />
-          <button type="button" className="btn-quiet food-manual" onClick={stopTank}><Search size={15} aria-hidden="true" /> Search instead</button>
-        </>
-      )}
+      {/* The box stays at the top while the list scrolls under it. */}
+      <div className="food-box">{box}</div>
 
       {describing && (
         <button type="button" className="tank-row lead" onClick={() => startTank(read.text)}>
@@ -256,7 +234,7 @@ function Find({ food, head, meal, onMeal, date, action, onTankSave, onRepeat, on
         </button>
       )}
 
-      {!tank && (mine.length > 0 || read.kind === "empty") && (
+      {(mine.length > 0 || read.kind === "empty") && (
         <section className="section food-group" aria-labelledby="your-foods-lbl">
           <h3 className="lbl" id="your-foods-lbl">Your foods</h3>
           {read.kind === "empty" && yesterday && (
@@ -293,7 +271,7 @@ function Find({ food, head, meal, onMeal, date, action, onTankSave, onRepeat, on
         <button type="button" className="btn-quiet food-lookup" onClick={() => setLookUp(true)}><Search size={15} aria-hidden="true" /> Search the food database for it instead</button>
       )}
 
-      {!tank && dbTerm.length >= 2 && (
+      {dbTerm.length >= 2 && (
         <section className="section food-group" aria-labelledby="food-db-lbl" aria-busy={state.status === "loading"}>
           <h3 className="lbl food-db-lbl" id="food-db-lbl">Food database<span className="detail">USDA · Open Food Facts</span></h3>
           {state.status === "loading" && (
@@ -315,14 +293,14 @@ function Find({ food, head, meal, onMeal, date, action, onTankSave, onRepeat, on
         </section>
       )}
 
-      {!tank && read.kind !== "empty" && !describing && (
+      {read.kind !== "empty" && !describing && (
         <button type="button" className="tank-row" onClick={() => startTank(read.text)}>
           <Coach id={head} size={28} still decorative />
           <span className="tank-row-text"><b>Ask {who} about <q>{read.text}</q></b><small>{who} works out the macros from a description.</small></span>
           <ChevronRight size={18} aria-hidden="true" className="muted" />
         </button>
       )}
-      {!tank && <button type="button" className="btn-quiet food-manual" onClick={onManual}><PenLine size={15} aria-hidden="true" /> Enter manually</button>}
+      {<button type="button" className="btn-quiet food-manual" onClick={onManual}><PenLine size={15} aria-hidden="true" /> Enter manually</button>}
     </>
   );
 }
