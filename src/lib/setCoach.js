@@ -1,6 +1,6 @@
-import { e1rm, fmtW, weightStep, isIsolation, nextGoal, readyToIncrease, lifting } from "./util.js";
+import { e1rm, fmtW, weightStep, isIsolation, nextGoal, readyToIncrease, lifting, mmss } from "./util.js";
 import { freshness, freshMax, loadNote, DEFAULT_K } from "./fatigue.js";
-import { isCardio } from "../data/program.js";
+import { isCardio, MAX_REST } from "../data/program.js";
 
 /* The in-workout coach: after every logged set, what the next set should be and why.
    Runs on the phone (instant, works on gym wifi), from rules a good hypertrophy coach uses:
@@ -264,9 +264,10 @@ export function nextSetAdvice({ ex, done, asked, left, history = [], best = 0, p
   if (lastSet) t = Math.max(t, r - drop + 1); // the last set goes closer to failure
   t = clamp(t, lo, Math.max(lo, ceiling));
   const toFailure = rir === 0 && !lastSet ? " That one was to failure; leave a rep in the tank next set." : "";
-  // Reps fell off a cliff at the same weight: usually not enough rest.
+  // Reps fell off a cliff at the same weight: usually not enough rest (never more than the lift's max).
   const prev = done[done.length - 2];
-  const cliff = prev && +prev.w === w && +prev.r - r >= Math.max(3, drop + 2) ? " That's a big drop from the last set: rest a full 2–3 min before the next one." : "";
+  const longest = MAX_REST[ex.n] < 180 ? `the full ${mmss(MAX_REST[ex.n])}` : "a full 2–3 min";
+  const cliff = prev && +prev.w === w && +prev.r - r >= Math.max(3, drop + 2) ? ` That's a big drop from the last set: rest ${longest} before the next one.` : "";
   let why;
   if (offDay) why = `You're about ${Math.round((1 - form) * 100)}% under your best today. Normal off day: hold ${fmtW(w)}, own every rep, don't chase numbers.`;
   else if (r < lo) why = `One short of your range. Stay at ${fmtW(w)} and fight for ${lo}; if it's a grind, drop to ${fmtW(stepDown(w, w - step, step) ?? w)}.`;

@@ -3,7 +3,7 @@ import { CUES, refreshCues } from "./cues.js";
 /* Program definition — imported from Week2_Running_Log.xlsx. Cues live in cues.js. */
 const BASE_PROGRAM = {
   push: { name: "Push", detail: "Chest + Triceps", exercises: [
-    { n: "Incline Barbell / Smith Press", sets: 4, reps: [6,10], rest: 120 },
+    { n: "Incline Barbell / Smith Press", sets: 4, reps: [6,10], rest: 150 },
     { n: "Flat DB Press", sets: 3, reps: [8,12], rest: 90 },
     { n: "Machine Pec Dec", sets: 3, reps: [10,15], rest: 90 },
     { n: "Cable Fly (Low to High)", sets: 3, reps: [12,15], rest: 60 },
@@ -42,8 +42,20 @@ const BASE_PROGRAM = {
 export const CUSTOM = "custom";
 const CUSTOM_DAY = { name: "Custom", detail: "Your pick of lifts", exercises: [], virtual: true };
 
-/** Normalises a saved program: current cues, and the custom day present. */
-export const normalizeProgram = (p) => { const q = refreshCues(p); return q[CUSTOM] ? q : { ...q, [CUSTOM]: CUSTOM_DAY }; };
+/* The most rest a lift ever gets, in seconds. The timer, the program editor, setup styles and coach
+   changes all stop here, and a saved program over it is brought down when it loads. */
+export const MAX_REST = { "Incline Barbell / Smith Press": 150 };
+export const capRest = (n, sec) => (MAX_REST[n] != null && sec > MAX_REST[n] ? MAX_REST[n] : sec);
+/** `program` with every lift's rest within its MAX_REST (the same object when nothing was over). */
+function capRests(program) {
+  const over = (ex) => capRest(ex.n, ex.rest) !== ex.rest;
+  if (!Object.values(program).some((p) => p.exercises?.some(over))) return program;
+  return Object.fromEntries(Object.entries(program).map(([day, p]) => [day,
+    p.exercises?.some(over) ? { ...p, exercises: p.exercises.map((ex) => (over(ex) ? { ...ex, rest: capRest(ex.n, ex.rest) } : ex)) } : p]));
+}
+
+/** Normalises a saved program: current cues, rests within their max, and the custom day present. */
+export const normalizeProgram = (p) => { const q = capRests(refreshCues(p)); return q[CUSTOM] ? q : { ...q, [CUSTOM]: CUSTOM_DAY }; };
 
 export const PROGRAM = normalizeProgram(BASE_PROGRAM);
 /** The four built-in day slots. A day can be switched off (`off: true`), e.g. a 3-day split. */

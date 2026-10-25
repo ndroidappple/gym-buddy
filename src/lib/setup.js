@@ -1,4 +1,4 @@
-import { DAYS, EXTRA_DAYS, PROGRAM, allDays, LIBRARY, activeDays, isCardio, isFinisherCardio } from "../data/program.js";
+import { DAYS, EXTRA_DAYS, PROGRAM, allDays, LIBRARY, activeDays, isCardio, isFinisherCardio, capRest } from "../data/program.js";
 import { CUES } from "../data/cues.js";
 import { COACH_ORDER, coachFor, headCoach } from "../data/coaches.js";
 
@@ -33,7 +33,7 @@ function styled(ex, style) {
   if (isCardio(ex.n)) return ex;
   const base = ex.base || { reps: ex.reps, rest: ex.rest };
   const [lo, hi] = base.reps;
-  if (style === "strength") return { ...ex, base, reps: [Math.max(3, lo - 4), Math.max(Math.max(3, lo - 4) + 2, hi - 4)], rest: Math.min(180, base.rest + 30) };
+  if (style === "strength") return { ...ex, base, reps: [Math.max(3, lo - 4), Math.max(Math.max(3, lo - 4) + 2, hi - 4)], rest: capRest(ex.n, Math.min(180, base.rest + 30)) };
   if (style === "lean") return { ...ex, base, reps: [lo + 2, Math.min(25, hi + 3)], rest: Math.max(45, base.rest - 15) };
   const { base: _, ...plain } = ex; // eslint-disable-line no-unused-vars
   return { ...plain, reps: base.reps, rest: base.rest };

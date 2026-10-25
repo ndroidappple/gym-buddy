@@ -19,7 +19,7 @@ import { anchorOf, doInstead, swapsFor } from "../lib/busy.js";
 import { loadParts, partsIn, learnK, adjustedSeries } from "../lib/fatigue.js";
 import BusySheet from "../components/BusySheet.jsx";
 import { COACHES, coachFor } from "../data/coaches.js";
-import { isCardio, specLine, allDays } from "../data/program.js";
+import { isCardio, specLine, allDays, capRest } from "../data/program.js";
 import { href } from "../lib/router.js";
 
 const hasVal = (v) => v !== "" && v != null;
@@ -378,7 +378,8 @@ export default function Session({ day, existing, draft, preview, sessions, progr
     const more = grid[ex.n].some((r, j) => j !== i && !r.done);
     const upNext = more ? null : nextAfter(ex.n)?.n;
     const alert = more ? `Next: ${ex.n}${next ? ` ${next}` : ""}` : upNext ? `Next up: ${upNext}` : "Time for your next set.";
-    setTimer({ endsAt: Date.now() + ex.rest * 1000, total: ex.rest, coach: coachFor(ex.n), alert });
+    const rest = capRest(ex.n, ex.rest);
+    setTimer({ endsAt: Date.now() + rest * 1000, total: rest, coach: coachFor(ex.n), alert });
     setActiveIdx(null);
     setEditing(false);
     // The coach reacts first, then settles into recovering while the rest timer runs.
