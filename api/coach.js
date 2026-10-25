@@ -78,6 +78,46 @@ const HEART = "Heart rate, when a workout has it, comes from the lifter's watch:
 /* The walkthrough of one workout, on its recap: steps the app shows one at a time, each pointing at a
    part of the recap (a target id from the places listed in the data) that it scrolls to and outlines.
    No execute: the steps travel to the app, which checks every target against the places it shows. */
+/* Lifts for what the lifter described in the lift picker ("upper chest, no bench, my shoulder's
+   cranky"): the app shows them as rows to tap, so they come back as one tool call, not prose. */
+export const LIFT_TOOL = {
+  suggest_lifts: tool({
+    description: "Give the lifter 2 to 4 lifts that fit what they asked for, best first. The app shows them as rows they can add with one tap.",
+    inputSchema: jsonSchema({
+      type: "object",
+      properties: {
+        lifts: {
+          type: "array", minItems: 1, maxItems: 4,
+          items: {
+            type: "object",
+            properties: {
+              n: { type: "string", maxLength: 40, description: "The lift's name: exactly as in the library or their plan when it's one of those, else a short standard gym name in Title Case, e.g. \"Cable Fly (Low to High)\"." },
+              why: { type: "string", maxLength: 90, description: "Under 14 words: why it fits what they asked, e.g. \"Upper chest without a bench: cables set low, press up and in\"." },
+              sets: { type: "integer", minimum: 1, maximum: 6 },
+              reps_min: { type: "integer", minimum: 1, maximum: 30 },
+              reps_max: { type: "integer", minimum: 1, maximum: 40 },
+              rest_seconds: { type: "integer", minimum: 30, maximum: 300 },
+              cue: { type: "string", maxLength: 90, description: "One short form cue for it." },
+            },
+            required: ["n", "why", "sets", "reps_min", "reps_max", "rest_seconds"],
+          },
+        },
+      },
+      required: ["lifts"],
+    }),
+  }),
+};
+
+export function liftInstructions(context = "", coach = "tank") {
+  return [
+    `You are ${nameOf(coach)}, the head coach inside GymBuddy. The lifter is adding a lift and described what they want instead of naming one.`,
+    "Call suggest_lifts once with 2 to 4 lifts that fit: the muscle and movement they asked for, the gear they have or don't, and anything they say about pain, a joint or how it should feel (pick lifts that spare it). Prefer lifts from the library or their plan, by their exact names; a standard lift that isn't listed is fine when it fits better.",
+    "Never a lift already in this workout. Sets, reps and rest suit the lift: heavy compounds 3 to 4 sets of 6 to 10 with 2 to 3 minutes, isolations 2 to 3 sets of 10 to 15 with 60 to 90 seconds.",
+    "Also write one short sentence (under 20 words) to the lifter about the picks. Plain text. Never give medical advice beyond picking lifts that spare a sore spot.",
+    context && `Lifter data:\n${context}`,
+  ].filter(Boolean).join("\n");
+}
+
 export const WALK_TOOL = {
   walk_through: tool({
     description: "Give the lifter your walkthrough of this workout as 3 to 6 steps. The app shows them one at a time, each next to the part of the recap it's about.",
@@ -320,7 +360,7 @@ const LITE = "google/gemini-2.5-flash-lite";
 const FREE = ["inclusionai/ling-3.1-flash-free", "poolside/laguna-s-2.1-free"];
 // The head coach reads 30 days of training and food and connects them: Flash, for the reasoning.
 // A workout walkthrough judges every set against history and the plan: Flash too.
-const MODELS = { chat: LITE, nutrition: LITE, head: FLASH, food: FLASH, review: FLASH, walk: FLASH };
+const MODELS = { chat: LITE, nutrition: LITE, head: FLASH, food: FLASH, review: FLASH, walk: FLASH, lift: FLASH };
 export const modelFor = (mode) => process.env.AI_GATEWAY_MODEL || MODELS[mode] || MODELS.chat;
 export const fallbacksFor = (model) => [FLASH, LITE, ...FREE].filter((m) => m !== model);
 
@@ -449,6 +489,7 @@ export async function POST(request) {
   const food = body.mode === "food";
   const eat = body.mode === "nutrition";
   const walk = body.mode === "walk";
+  const lift = body.mode === "lift";
   // A safety cap, above what the app sends: the head coach's context is fitted to 30,000 characters
   // (HEAD_BUDGET in src/lib/coachChat.js) and a heavy lifter's crew context runs about 11,000 plus the live workout. The app
   // puts what matters most first, so a cut here would only lose the oldest history.
@@ -458,10 +499,10 @@ export async function POST(request) {
   const model = modelFor(body.mode);
   const result = streamText({
     model,
-    instructions: head ? headInstructions(body.coach, context) : walk ? walkInstructions(body.coach, context) : review ? reviewInstructions(context, body.coach) : food ? foodInstructions(context, body.coach)
+    instructions: head ? headInstructions(body.coach, context) : lift ? liftInstructions(context, body.coach) : walk ? walkInstructions(body.coach, context) : review ? reviewInstructions(context, body.coach) : food ? foodInstructions(context, body.coach)
       : eat ? nutritionInstructions(context, body.coach) : coachInstructions(body.coach, context, headCoach),
     messages,
-    tools: head ? { ...COACH_TOOLS, ...FOOD_LOG_TOOLS, ...MEMORY_TOOL, look_up_food: FOOD_TOOLS.look_up_food, search_web: FOOD_TOOLS.search_web } : walk ? WALK_TOOL : review ? REVIEW_TOOLS : food ? FOOD_TOOLS : eat ? { ...FOOD_LOG_TOOLS, offer_replies: COACH_TOOLS.offer_replies } : COACH_TOOLS,
+    tools: head ? { ...COACH_TOOLS, ...FOOD_LOG_TOOLS, ...MEMORY_TOOL, look_up_food: FOOD_TOOLS.look_up_food, search_web: FOOD_TOOLS.search_web } : lift ? LIFT_TOOL : walk ? WALK_TOOL : review ? REVIEW_TOOLS : food ? FOOD_TOOLS : eat ? { ...FOOD_LOG_TOOLS, offer_replies: COACH_TOOLS.offer_replies } : COACH_TOOLS,
     // Brevity comes from the prompt, not this cap. The model thinks before it answers and that counts
     // against the cap (up to ~580 tokens measured with the full context), so a tight cap returns an
     // empty reply, which used to look like a rate limit. Only tokens actually written are billed.
@@ -474,6 +515,8 @@ export async function POST(request) {
     maxOutputTokens: review ? 6000 : food ? 4000 : head ? 4000 : walk ? 4000 : eat ? 2500 : 1500,
     // The walkthrough is only its tool call: no text to fall back on.
     ...(walk ? { toolChoice: { type: "tool", toolName: "walk_through" } } : {}),
+    // Lifts to pick: always the tool call, with a sentence when the model writes one.
+    ...(lift ? { toolChoice: { type: "tool", toolName: "suggest_lifts" } } : {}),
     // How hard it thinks first: a quick answer mid-set or a meal (standard nutrition values need
     // little thought, and long thinking left slow free models with no tokens to answer); more for
     // reading a whole program.
@@ -518,6 +561,9 @@ export function toReplyStream(result, asked) {
           } else if (part.type === "tool-call" && part.toolName === "log_meal") {
             wrote = true;
             ctl.enqueue(enc.encode(`${PROPOSAL_MARK}${JSON.stringify({ meal: part.input })}\n`));
+          } else if (part.type === "tool-call" && part.toolName === "suggest_lifts") {
+            wrote = true;
+            ctl.enqueue(enc.encode(`${PROPOSAL_MARK}${JSON.stringify({ lifts: part.input?.lifts })}\n`));
           } else if (part.type === "tool-call" && part.toolName === "walk_through") {
             wrote = true;
             ctl.enqueue(enc.encode(`${PROPOSAL_MARK}${JSON.stringify({ walk: part.input })}\n`));

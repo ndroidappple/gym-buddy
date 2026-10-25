@@ -5,7 +5,8 @@ import { fmtSet, uid, e1rm, fmtW, today, shortDate, mmss, byDateDesc, priorSessi
 import { readiness, lowLine } from "../lib/recovery.js";
 import { primeAudio, chime } from "../lib/sound.js";
 import { restAlertState, scheduleRestAlert, cancelRestAlert, enableRestAlerts, declineRestAlerts, warmRestAlerts } from "../lib/restAlerts.js";
-import { Sheet, ConfirmSheet, ExercisePicker } from "../components/ui.jsx";
+import { Sheet, ConfirmSheet } from "../components/ui.jsx";
+import ExercisePicker from "../components/ExercisePicker.jsx";
 import Coach, { MOODS } from "../components/Coach.jsx";
 import CoachChat from "../components/CoachChat.jsx";
 import { useReducedMotion, usePresence, collapse, reducedMotion, rollField, EXIT_EASE } from "../lib/motion.js";
@@ -18,7 +19,7 @@ import { anchorOf, doInstead, swapsFor } from "../lib/busy.js";
 import { loadParts, partsIn, learnK, adjustedSeries } from "../lib/fatigue.js";
 import BusySheet from "../components/BusySheet.jsx";
 import { COACHES, coachFor } from "../data/coaches.js";
-import { isCardio, specLine } from "../data/program.js";
+import { isCardio, specLine, allDays } from "../data/program.js";
 
 const hasVal = (v) => v !== "" && v != null;
 // A draft untouched this long is a new workout when lifting picks back up (a set tapped days ago isn't when it started).
@@ -543,6 +544,8 @@ export default function Session({ day, existing, draft, sessions, program, weigh
 
       {sheet === "picker" && (
         <ExercisePicker title="Add for today" sub={`Adds to this ${dayProgram.name} session only. Change the program in Settings.`}
+          coach={head} known={allDays(program).flatMap((d) => program[d].exercises).filter((e) => !isCardio(e.n))}
+          context={`Adding to today's ${dayProgram.name} workout (${dayProgram.detail}), mid-session.`}
           existingNames={exercises.map((e) => e.n)} onClose={() => setSheet(null)}
           onPick={(ex) => { setExtras((xs) => [...xs, ex]); setFocus(ex.n); setActiveIdx(null); setSheet(null); }} />
       )}

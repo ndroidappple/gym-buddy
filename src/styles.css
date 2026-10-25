@@ -1580,3 +1580,11 @@ html.walking .summary .body { padding-bottom: calc(var(--walk-h, 220px) + 40px);
 .food-results .list-row:nth-child(3) { animation-delay: 60ms; }
 .food-results .list-row:nth-child(n+4) { animation-delay: 90ms; }
 @media (prefers-reduced-motion: reduce) { .food-skel i, .meal-chip, .food-results .list-row { animation: none; } }
+
+/* The lift picker uses Add food's box (glow, chips); a gear or bench to do without is struck through. */
+.lift-chips { margin: -2px 0 0; }
+.meal-chip.avoid { text-decoration: line-through; text-decoration-thickness: 1.5px; color: var(--mute); background: color-mix(in srgb, var(--watch) 12%, var(--surface)); }
+.lift-ai { display: flex; flex-direction: column; gap: 10px; }
+.lift-ai .chat-me { align-self: flex-end; max-width: 85%; margin: 0; }
+.lift-ai .coach-bubble { align-self: flex-start; max-width: 92%; --c: #5BD68A; }
+.lift-ai .chip { align-self: flex-start; }

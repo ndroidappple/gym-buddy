@@ -388,14 +388,16 @@ export async function askCoach({ coach, messages, context, onText, signal, mode,
   const memory = records.filter((r) => Array.isArray(r.memory)).map((r) => r.memory).pop() || null;
   // A workout walkthrough (mode "walk"): its steps, checked by cleanWalk in walkthrough.js.
   const walk = records.filter((r) => r.walk && typeof r.walk === "object").map((r) => r.walk).pop() || null;
-  if (!text.trim() && !proposals.length && !meal && !foodEdits.length && !memory && !walk) {
+  // Lifts for what the lifter described in the lift picker (mode "lift"), checked by suggestLifts.
+  const lifts = records.filter((r) => Array.isArray(r.lifts)).map((r) => r.lifts).pop() || null;
+  if (!text.trim() && !proposals.length && !meal && !foodEdits.length && !memory && !walk && !lifts?.length) {
     const kind = status === "rate" ? "rate" : status === "error" ? "busy" : "empty";
     // capped: the model thought until it ran out of room and never answered.
     throw Object.assign(new Error(kind), { kind, capped: finish === "length" });
   }
   const replies = [...new Set(records.flatMap((r) => (Array.isArray(r.replies) ? r.replies : []))
     .filter((x) => typeof x === "string").map((x) => x.trim().slice(0, 60)).filter(Boolean))].slice(0, 3);
-  return { text, changes: proposals.flat(), replies, meal, foodEdits, memory, walk };
+  return { text, changes: proposals.flat(), replies, meal, foodEdits, memory, walk, lifts };
 }
 
 /** What Tank reads to review a program the lifter brought in: their goals, days, and every workout. */
@@ -434,6 +436,24 @@ export async function reviewProgram({ coach = "tank", program, profile, onText, 
  * description, any questions and answers). Resolves { text, replies, meal } where meal is null
  * while Tank still needs amounts, else the checked meal from cleanMeal(). Throws like askCoach.
  */
+/**
+ * Lifts for what the lifter described in the lift picker. `context`: the workout it's for, what's in
+ * it already, and the library. Resolves { text, lifts: [{ n, why, sets, reps: [min, max], rest, cue }] },
+ * checked: names trimmed, numbers in range, nothing already in the workout, at most 4.
+ */
+export async function suggestLifts({ coach = "tank", text, context, taken = [], signal }) {
+  const r = await askCoach({ coach, mode: "lift", messages: [{ role: "user", content: text }], context, signal, onText: () => {} });
+  const clamp = (v, lo, hi, d) => (Number.isFinite(+v) ? Math.min(hi, Math.max(lo, Math.round(+v))) : d);
+  const seen = new Set(taken.map((n) => n.toLowerCase()));
+  const lifts = (r.lifts || []).map((x) => {
+    const n = String(x?.n || "").replace(/\s+/g, " ").trim().slice(0, 40);
+    const lo = clamp(x?.reps_min, 1, 30, 8);
+    return n && { n, why: String(x.why || "").trim().slice(0, 90), sets: clamp(x.sets, 1, 6, 3), reps: [lo, Math.max(lo, clamp(x.reps_max, 1, 40, 12))], rest: clamp(x.rest_seconds, 30, 300, 90), cue: String(x.cue || "").trim().slice(0, 90) };
+  }).filter((x) => x && !seen.has(x.n.toLowerCase()) && seen.add(x.n.toLowerCase())).slice(0, 4);
+  if (!lifts.length) throw Object.assign(new Error("empty"), { kind: "empty" });
+  return { text: r.text.trim(), lifts };
+}
+
 export async function describeMeal({ coach = "tank", messages, mealSlot, known = [], onText, signal }) {
   // known: the lifter's own foods the description mentions, as "Name: amount = numbers" lines.
   const context = [mealSlot && `Logging to: ${mealSlot}.`, known.length && `Their own foods:\n${known.join("\n")}`].filter(Boolean).join("\n");

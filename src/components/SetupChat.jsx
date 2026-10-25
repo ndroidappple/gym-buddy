@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Check, CircleCheck, ListChecks, Plus, ArrowUp, ClipboardList } from "lucide-react";
 import { ThinkingOrb } from "thinking-orbs";
-import { Sheet, ExercisePicker } from "./ui.jsx";
+import { Sheet } from "./ui.jsx";
+import ExercisePicker from "./ExercisePicker.jsx";
 import Coach from "./Coach.jsx";
 import { COACHES } from "../data/coaches.js";
 import { activeDays } from "../data/program.js";
@@ -449,7 +450,8 @@ export default function SetupChat({ coach, head = "tank", program, profile, name
         </div>
       </div>
       {picking && (
-        <ExercisePicker title={`Add to ${c.name}'s lifts`} sub="Pick from the library or create your own."
+        <ExercisePicker title={`Add to ${c.name}'s lifts`} sub="Search, or describe what you want." coach={coach}
+          context={`Adding a lift for ${c.name} to coach, in their first chat.`}
           existingNames={[...activeDays(working).flatMap((d) => working[d].exercises.map((e) => e.n)), ...added]}
           onPick={(ex) => { setAdded((a) => [...a, ex.n]); setPicking(false); }} onClose={() => setPicking(false)} />
       )}
