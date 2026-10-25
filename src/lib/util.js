@@ -197,7 +197,8 @@ export function nextGoal(ex, sets) {
   const j = l.findIndex((s) => !atTop(s));
   return { w: best.w, r: top, idx: j >= 0 ? j : l.length, sets: l.filter(atTop).length + 1 };
 }
-export const fmtGoal = (g) => (g.sets > 1 ? `${g.sets} × ${g.r} @ ${fmtW(g.w)}` : `${fmtW(g.w)} × ${g.r}`);
+// Weight × reps first, like every set in the app; a goal over several sets says how many after it.
+export const fmtGoal = (g) => `${fmtW(g.w)} × ${g.r}${g.sets > 1 ? ` · ${g.sets} sets` : ""}`;
 
 /** { from, to, sets, reps } when `sets` (one session's sets for `ex`) earned a weight increase, else null. */
 export function readyToIncrease(ex, sets) {
