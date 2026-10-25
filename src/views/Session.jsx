@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useLayoutEffect, useMemo, useRef, useCallback } from "react";
 import { ChevronLeft, Check, Plus, Minus, Trash2, Bell, BellOff, Play } from "lucide-react";
 import { BorderBeam } from "border-beam";
-import { fmtSet, uid, e1rm, fmtW, today, shortDate, mmss, byDateDesc, priorSessions, allTimeBest, bestSet, vibrate, readyToIncrease, nextGoal, fmtGoal, weightStep, bodyweightSeries, daysBetween, setChange, lifting } from "../lib/util.js";
+import { fmtSet, uid, e1rm, fmtW, today, shortDate, mmss, byDateDesc, priorSessions, allTimeBest, bestSet, vibrate, readyToIncrease, nextGoal, fmtGoal, weightStep, bodyweightSeries, daysBetween, setChange, lifting, num } from "../lib/util.js";
 import { readiness, lowLine } from "../lib/recovery.js";
 import { primeAudio, chime } from "../lib/sound.js";
 import { restAlertState, scheduleRestAlert, cancelRestAlert, enableRestAlerts, declineRestAlerts, warmRestAlerts } from "../lib/restAlerts.js";
@@ -464,7 +464,11 @@ export default function Session({ day, existing, draft, preview, sessions, progr
       ...(done.length ? { order: done } : {}), ...(Object.keys(swaps).length ? { swaps } : {}) });
   };
 
-  const metaBits = [shortDate(date), bw !== "" ? `${bw} lb bodyweight` : null, note.trim() ? "note" : null].filter(Boolean);
+  // A weigh-in already logged for the session's day is its bodyweight (it's what the chart uses for
+  // that day), so it shows here rather than "Add bodyweight". Typing one in still sets the session's own.
+  const dayWeigh = weighins.find((w) => w.date === date);
+  const shownBw = bw !== "" ? bw : dayWeigh ? num(dayWeigh.bw) : "";
+  const metaBits = [shortDate(date), shownBw !== "" ? `${shownBw} lb bodyweight` : null, note.trim() ? "note" : null].filter(Boolean);
 
   return (
     <main className="screen" data-day={day}>
@@ -516,7 +520,7 @@ export default function Session({ day, existing, draft, preview, sessions, progr
         {!preview && <div className="finish">
           <button className="meta-chip" onClick={() => setSheet("details")}>
             <span className="spacer"><b>{metaBits[0]}</b>{metaBits.slice(1).map((b) => ` · ${b}`)}</span>
-            <span>{bw === "" ? "Add bodyweight" : "Edit"}</span>
+            <span>{shownBw === "" ? "Add bodyweight" : "Edit"}</span>
           </button>
 
           {existing ? (
@@ -570,7 +574,8 @@ export default function Session({ day, existing, draft, preview, sessions, progr
             <label className="field"><span className="lbl">Date</span>
               <input id="sess-date" className="input" type="date" value={date} onChange={(e) => { setDate(e.target.value || today()); setDatePicked(true); }} /></label>
             <label className="field"><span className="lbl">Bodyweight (lb)</span>
-              <input id="sess-bw" className="input tn" type="number" inputMode="decimal" placeholder="—" value={bw} onChange={(e) => setBw(e.target.value)} /></label>
+              <input id="sess-bw" className="input tn" type="number" inputMode="decimal" placeholder={dayWeigh ? num(dayWeigh.bw) : "—"} value={bw} onChange={(e) => setBw(e.target.value)} />
+              {dayWeigh && bw === "" && <span className="small muted">From your weigh-in</span>}</label>
           </div>
           <label className="field"><span className="lbl">Note</span>
             <textarea id="sess-note" className="textarea" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Energy, niggles, gym conditions, anything worth remembering." /></label>
