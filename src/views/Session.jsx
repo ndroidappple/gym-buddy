@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useLayoutEffect, useMemo, useRef, useCallback } from "react";
 import { ChevronLeft, Check, Plus, Minus, Trash2, Bell, BellOff, Play } from "lucide-react";
 import { BorderBeam } from "border-beam";
-import { fmtSet, uid, e1rm, fmtW, today, shortDate, mmss, byDateDesc, priorSessions, allTimeBest, bestSet, vibrate, readyToIncrease, nextGoal, fmtGoal, weightStep, bodyweightSeries, daysBetween, setChange, lifting } from "../lib/util.js";
+import { fmtSet, uid, e1rm, fmtW, today, shortDate, mmss, byDateDesc, priorSessions, allTimeBest, bestSet, vibrate, readyToIncrease, nextGoal, fmtGoal, weightStep, bodyweightSeries, daysBetween, setChange, lifting, num } from "../lib/util.js";
 import { readiness, lowLine } from "../lib/recovery.js";
 import { primeAudio, chime } from "../lib/sound.js";
 import { restAlertState, scheduleRestAlert, cancelRestAlert, enableRestAlerts, declineRestAlerts, warmRestAlerts } from "../lib/restAlerts.js";
@@ -57,6 +57,7 @@ export default function Session({ day, existing, draft, preview, sessions, progr
   };
   const [timer, setTimer] = useState(() => (!preview && draft?.timer?.endsAt > Date.now() ? draft.timer : null));
   const [sheet, setSheet] = useState(null); // "picker" | "details" | "delete"
+  const [restOpen, setRestOpen] = useState(false); // the rest timer full screen
   const [chat, setChat] = useState(null); // {coach, exercise} being asked
   const [flash, setFlash] = useState(null); // {ex, i} — the set that was just logged
   const [reaction, setReaction] = useState(null); // {ex, mood} — the coach's brief reaction to a logged set
@@ -205,6 +206,14 @@ export default function Session({ day, existing, draft, preview, sessions, progr
     });
     return () => cancelAnimationFrame(id);
   }, [focus]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Once rest starts (after the card has moved, if a new lift opened), the set to log and its Log
+  // button come up clear of the rest dock instead of sitting under it.
+  useEffect(() => {
+    if (!timer?.id || existing) return;
+    const t = setTimeout(() => revealActiveSet(!reducedMotion), 420);
+    return () => clearTimeout(t);
+  }, [timer?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const active = exercises.filter((e) => !skipped.includes(e.n));
   const totalSlots = active.reduce((a, e) => a + (grid[e.n]?.length || 0), 0);
@@ -379,7 +388,7 @@ export default function Session({ day, existing, draft, preview, sessions, progr
     const upNext = more ? null : nextAfter(ex.n)?.n;
     const alert = more ? `Next: ${ex.n}${next ? ` ${next}` : ""}` : upNext ? `Next up: ${upNext}` : "Time for your next set.";
     const rest = capRest(ex.n, ex.rest);
-    setTimer({ endsAt: Date.now() + rest * 1000, total: rest, coach: coachFor(ex.n), alert });
+    setTimer({ id: Date.now(), endsAt: Date.now() + rest * 1000, total: rest, coach: coachFor(ex.n), alert });
     setActiveIdx(null);
     setEditing(false);
     // The coach reacts first, then settles into recovering while the rest timer runs.
@@ -464,7 +473,23 @@ export default function Session({ day, existing, draft, preview, sessions, progr
       ...(done.length ? { order: done } : {}), ...(Object.keys(swaps).length ? { swaps } : {}) });
   };
 
-  const metaBits = [shortDate(date), bw !== "" ? `${bw} lb bodyweight` : null, note.trim() ? "note" : null].filter(Boolean);
+  /* Rest full screen: the set coming up after this rest (the open lift's next set, else the next lift
+     still to do), editable so it's ready when rest ends. Closing it opens that lift and brings the set up. */
+  const restEx = timer ? exercises.find((e) => e.n === focus && isPending(e.n)) || ordered.find((e) => isPending(e.n)) : null;
+  const restRows = restEx ? grid[restEx.n] || [] : [];
+  const restIdx = restEx?.n === focus && activeIdx != null && restRows[activeIdx] && !restRows[activeIdx].done ? activeIdx : restRows.findIndex((r) => !r.done);
+  const closeRest = () => {
+    setRestOpen(false);
+    if (restEx && focus !== restEx.n) { setFocus(restEx.n); setActiveIdx(null); }
+    setTimeout(() => revealActiveSet(!reducedMotion), 420);
+  };
+  useEffect(() => { if (!timer || allDone) setRestOpen(false); }, [timer, allDone]);
+
+  // A weigh-in already logged for the session's day is its bodyweight (it's what the chart uses for
+  // that day), so it shows here rather than "Add bodyweight". Typing one in still sets the session's own.
+  const dayWeigh = weighins.find((w) => w.date === date);
+  const shownBw = bw !== "" ? bw : dayWeigh ? num(dayWeigh.bw) : "";
+  const metaBits = [shortDate(date), shownBw !== "" ? `${shownBw} lb bodyweight` : null, note.trim() ? "note" : null].filter(Boolean);
 
   return (
     <main className="screen" data-day={day}>
@@ -516,7 +541,7 @@ export default function Session({ day, existing, draft, preview, sessions, progr
         {!preview && <div className="finish">
           <button className="meta-chip" onClick={() => setSheet("details")}>
             <span className="spacer"><b>{metaBits[0]}</b>{metaBits.slice(1).map((b) => ` · ${b}`)}</span>
-            <span>{bw === "" ? "Add bodyweight" : "Edit"}</span>
+            <span>{shownBw === "" ? "Add bodyweight" : "Edit"}</span>
           </button>
 
           {existing ? (
@@ -555,7 +580,12 @@ export default function Session({ day, existing, draft, preview, sessions, progr
           </div>
         </div>
       )}
-      {restShown && <RestDock timer={restShown} setTimer={setTimer} alertSet={alertSet} leaving={restLeaving} />}
+      {restShown && <RestDock timer={restShown} setTimer={setTimer} alertSet={alertSet} leaving={restLeaving} onOpen={() => setRestOpen(true)} />}
+      {restOpen && timer && !allDone && (
+        <RestFull day={day} timer={timer} setTimer={setTimer} ex={restEx} row={restRows[restIdx]} idx={restIdx}
+          first={!restRows.some((r) => r.done)} last={restEx ? lastFor(restEx.n)?.sets[restEx.n]?.[restIdx] : null}
+          onEdit={(patch) => setRow(restEx.n, restIdx, { ...patch, touched: true })} onClose={closeRest} />
+      )}
 
       {sheet === "picker" && (
         <ExercisePicker title="Add for today" sub={`Adds to this ${dayProgram.name} session only. Change the program in Settings.`}
@@ -570,7 +600,8 @@ export default function Session({ day, existing, draft, preview, sessions, progr
             <label className="field"><span className="lbl">Date</span>
               <input id="sess-date" className="input" type="date" value={date} onChange={(e) => { setDate(e.target.value || today()); setDatePicked(true); }} /></label>
             <label className="field"><span className="lbl">Bodyweight (lb)</span>
-              <input id="sess-bw" className="input tn" type="number" inputMode="decimal" placeholder="—" value={bw} onChange={(e) => setBw(e.target.value)} /></label>
+              <input id="sess-bw" className="input tn" type="number" inputMode="decimal" placeholder={dayWeigh ? num(dayWeigh.bw) : "—"} value={bw} onChange={(e) => setBw(e.target.value)} />
+              {dayWeigh && bw === "" && <span className="small muted">From your weigh-in</span>}</label>
           </div>
           <label className="field"><span className="lbl">Note</span>
             <textarea id="sess-note" className="textarea" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Energy, niggles, gym conditions, anything worth remembering." /></label>
@@ -951,7 +982,24 @@ function Change({ now, last }) {
   return <span className={"chg" + (c.dir > 0 ? " up" : "")} aria-label={c.label}>{c.dir > 0 ? "▲ " : c.dir < 0 ? "▼ " : ""}{c.text}</span>;
 }
 
-function RestDock({ timer, setTimer, alertSet, leaving }) {
+/** ±15 s on the rest under way: never into the past, never under 15 s in all. */
+const adjustRest = (setTimer, d) => setTimer((t) => ({ ...t, endsAt: Math.max(Date.now(), t.endsAt + d * 1000), total: Math.max(15, t.total + d) }));
+
+/** Scrolls just enough that the set being logged, Log button included, sits clear of the dock at the
+    bottom (and of the sticky header, when the set is above it). */
+function revealActiveSet(smooth) {
+  const set = document.querySelector(".active-set");
+  if (!set) return;
+  const r = set.getBoundingClientRect();
+  const head = document.querySelector(".sticky")?.getBoundingClientRect().bottom ?? 0;
+  const dock = document.querySelector(".dock");
+  // Where the dock rests once it has slid in (its box mid-slide would read lower).
+  const floor = dock ? innerHeight - parseFloat(getComputedStyle(dock).bottom) - dock.offsetHeight : innerHeight;
+  const dy = r.bottom + 12 > floor ? r.bottom + 12 - floor : r.top < head + 10 ? r.top - head - 10 : 0;
+  if (Math.abs(dy) > 2) scrollTo({ top: scrollY + dy, behavior: smooth ? "smooth" : "auto" });
+}
+
+function RestDock({ timer, setTimer, alertSet, leaving, onOpen }) {
   const [now, setNow] = useState(Date.now());
   const alerted = useRef(false);
   const handedOff = useRef(false);
@@ -970,8 +1018,10 @@ function RestDock({ timer, setTimer, alertSet, leaving }) {
   useEffect(() => {
     if (!over && !leaving && left <= 4 && alertSet && !handedOff.current && document.visibilityState === "visible") { handedOff.current = true; cancelRestAlert(); }
   }, [left, over, alertSet, leaving]);
-  const adjust = (d) => setTimer((t) => ({ ...t, endsAt: Math.max(Date.now(), t.endsAt + d * 1000), total: Math.max(15, t.total + d) }));
+  const adjust = (d) => adjustRest(setTimer, d);
   const reduced = useReducedMotion();
+  // The coach and the clock open the full-screen timer while resting.
+  const Face = over ? "div" : "button";
   const theme = useTheme();
   return (
     // The dock moves in and out; the beam inside can pause its own animations, so it doesn't carry them.
@@ -979,6 +1029,7 @@ function RestDock({ timer, setTimer, alertSet, leaving }) {
     {/* Line beam runs only while resting (a 60–120 s wait); the line type ignores reduced motion, so gate it here. */}
     <BorderBeam size="line" theme={theme} active={!over && !reduced} className="rest-beam">
       <div className={"rest" + (over ? " over" : "")} role="timer" aria-label="Rest timer">
+        <Face className="rest-open" {...(over ? {} : { type: "button", onClick: onOpen })}>
         <Coach id={timer.coach || "tank"} mood={over ? "focused" : "resting"} size={46} decorative />
         <div className="rest-text">
           <span className="rest-line">
@@ -988,12 +1039,86 @@ function RestDock({ timer, setTimer, alertSet, leaving }) {
             {over ? "Rest over. Next set!" : "Rest"}
           </span>
           <span className="clock" aria-live={over ? "assertive" : "off"} aria-label={over ? "Rest over" : `${mmss(left)} of ${mmss(timer.total)} rest left`}>{over ? "Go" : <Roll value={mmss(left)} />}</span>
+          {!over && <span className="sr-only">Open full screen</span>}
         </div>
+        </Face>
         {!over && <button className="rb" onClick={() => adjust(-15)} aria-label="Remove 15 seconds">−15</button>}
         {!over && <button className="rb" onClick={() => adjust(15)} aria-label="Add 15 seconds">+15</button>}
         <button className="rb primary" onClick={() => setTimer(null)}>{over ? "Dismiss" : "Skip"}</button>
       </div>
     </BorderBeam>
     </div>
+  );
+}
+
+/* Rest, full screen (tap the rest dock): the countdown big enough to read from the bench, the next
+   set ready to adjust, and one form cue. Nothing to read up on or log: it's still rest. The dock
+   underneath keeps time (chime, lock-screen alert); this only shows it. */
+function RestFull({ day, timer, setTimer, ex, row, idx, first, last, onEdit, onClose }) {
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => { const id = setInterval(() => setNow(Date.now()), 250); return () => clearInterval(id); }, []);
+  const left = Math.max(0, Math.ceil((timer.endsAt - now) / 1000));
+  const over = left === 0;
+  const soon = !over && left <= 10;
+  // One buzz with 10 s to go, so you're set up when it ends rather than watching it.
+  const buzzed = useRef(left <= 10);
+  useEffect(() => {
+    if (left > 10) buzzed.current = false;
+    else if (!over && !buzzed.current) { buzzed.current = true; vibrate(30); }
+  }, [left, over]);
+  // Over: "Go" for a moment, then back to the set.
+  const close = useRef(onClose);
+  close.current = onClose;
+  useEffect(() => {
+    if (!over) return;
+    const id = setTimeout(() => close.current(), 1500);
+    return () => clearTimeout(id);
+  }, [over]);
+  const C = 2 * Math.PI * 92;
+  const frac = timer.total ? Math.min(1, Math.max(0, (timer.endsAt - now) / 1000 / timer.total)) : 0;
+  const cardio = ex && isCardio(ex.n);
+  const step = ex ? weightStep(ex.n) : 5;
+  const bump = (field, by) => onEdit({ [field]: String(Math.max(0, Math.round(((parseFloat(row[field]) || 0) + by) * 10) / 10)) });
+  const coach = ex ? coachFor(ex.n) : timer.coach || "tank";
+  return (
+    <Sheet title="Rest" onClose={onClose} labelledBy="rest-title" className="sheet-rest" focusField={false}>
+      <div className="rest-full" data-day={day}>
+        <div className={"rest-ring" + (soon ? " soon" : "") + (over ? " over" : "")} role="timer" aria-live={over ? "assertive" : "off"}
+          aria-label={over ? "Rest over" : `${mmss(left)} of ${mmss(timer.total)} rest left`}>
+          <svg viewBox="0 0 200 200" aria-hidden="true"><circle className="trk" cx="100" cy="100" r="92" />
+            <circle className="val" cx="100" cy="100" r="92" strokeDasharray={C} strokeDashoffset={C * (1 - frac)} transform="rotate(-90 100 100)" /></svg>
+          <span className="rest-ring-text" aria-hidden="true">
+            <b>{over ? "Go" : <Roll value={mmss(left)} />}</b>
+            <span>{over ? (row && !cardio ? `${fmtW(+row.w)} × ${row.r}` : "Next set") : `of ${mmss(timer.total)}`}</span>
+          </span>
+        </div>
+
+        {ex && row && (
+          <section className="rest-next" aria-label="Up next">
+            <div className="rest-next-head"><span className="lbl">Up next</span><b>{ex.n}</b></div>
+            <div className="set-head">
+              <span>{first ? "First set" : `${cardio ? "Interval" : "Set"} ${idx + 1}`}</span><span className="spacer" />
+              {last && <span className="lbl">last time {cardio ? fmtSet(last) : `${fmtW(last.w)} × ${last.r}`}</span>}
+            </div>
+            {cardio ? <p className="rest-cardio">{hasVal(row.min) ? row.min : "—"} min</p> : (
+              <div className="steppers">
+                <Stepper id="rest-w" label="Weight" unit={row.w === "0" ? "bodyweight" : "lb"} value={row.w} mode="decimal"
+                  onChange={(v) => onEdit({ w: v })} onDec={() => bump("w", -step)} onInc={() => bump("w", step)} step={`${step} pounds`} stepText={step} />
+                <Stepper id="rest-r" label="Reps" unit="reps" value={row.r} mode="numeric" placeholder={`${ex.reps[0]}–${ex.reps[1]}`}
+                  onChange={(v) => onEdit({ r: v })} onDec={() => bump("r", -1)} onInc={() => bump("r", 1)} step="1 rep" />
+              </div>
+            )}
+          </section>
+        )}
+
+        {ex?.cue && <p className="rest-cue" style={{ "--c": COACHES[coach].color }}><Coach id={coach} mood="resting" size={40} decorative /><span>{ex.cue}</span></p>}
+
+        <div className="rest-full-ctrls">
+          <button type="button" onClick={() => adjustRest(setTimer, -15)} disabled={over} aria-label="Remove 15 seconds">−15</button>
+          <button type="button" onClick={() => adjustRest(setTimer, 15)} disabled={over} aria-label="Add 15 seconds">+15</button>
+          <button type="button" className="primary" onClick={() => { if (!over) setTimer(null); onClose(); }}>{over ? "Back to the set" : "Skip rest"}</button>
+        </div>
+      </div>
+    </Sheet>
   );
 }

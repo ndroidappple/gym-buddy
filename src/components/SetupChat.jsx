@@ -226,7 +226,7 @@ export default function SetupChat({ coach, head = "tank", program, profile, name
   const pickedCount = review?.suggestions ? picked.size : 0;
 
   return (
-    <Sheet title={tankIntro ? `Set up with ${c.name}` : importOnly ? "Bring in your program" : `Meet ${c.name}`} sub={sub} onClose={onClose} labelledBy="setup-title" className="sheet-chat setup-chat">
+    <Sheet title={tankIntro ? `Set up with ${c.name}` : importOnly ? "Bring in your program" : `Meet ${c.name}`} sub={sub} onClose={onClose} labelledBy="setup-title" className="sheet-chat setup-chat" dragFromHead>
       <div className="chat" style={{ "--c": c.color }}>
         <div className="chat-coach"><Coach id={coach} mood={step === "done" ? "hyped" : step === "reviewing" ? "focused" : "idle"} size={72} /></div>
         <div className="chat-list" ref={listRef} aria-live="polite">

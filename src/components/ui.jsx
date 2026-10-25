@@ -125,9 +125,11 @@ function useExitCopy(wrap) {
 
 /* Drag down to close, from the grab bar and header, or from the content when it's scrolled to the
    top. Text fields, sliders and charts keep their own gestures. Far enough or fast enough closes;
-   otherwise it springs back. Touch only: a mouse has the ✕, Escape and the scrim. */
+   otherwise it springs back. Touch only: a mouse has the ✕, Escape and the scrim.
+   `headOnly` (chats): only the grab bar and header drag. A swipe down through a conversation is
+   reading back or putting the keyboard away, and closing it by accident loses your place. */
 const DRAG_START = 8, DRAG_CLOSE = 140, FLICK = 0.5; // px, px, px/ms
-function useDragToClose(sheetRef, wrapRef, close) {
+function useDragToClose(sheetRef, wrapRef, close, headOnly) {
   useEffect(() => {
     const sheet = sheetRef.current, wrap = wrapRef.current;
     const scrim = wrap?.querySelector(".sheet-scrim");
@@ -144,6 +146,7 @@ function useDragToClose(sheetRef, wrapRef, close) {
       if (e.touches.length !== 1) return;
       const t = e.target;
       if (t.closest("input, textarea, select, [contenteditable], .scrub, [data-no-drag]")) return;
+      if (headOnly && !t.closest(".sheet-grab, .sheet-head")) return;
       for (let el = t; el && el !== sheet; el = el.parentElement) if (el.scrollTop > 0) return; // scroll back up first
       const p = e.touches[0];
       g = { x: p.clientX, y: p.clientY, dy: 0, on: null, trail: [] };
@@ -189,20 +192,21 @@ function useDragToClose(sheetRef, wrapRef, close) {
       sheet.removeEventListener("touchend", end);
       sheet.removeEventListener("touchcancel", end);
     };
-  }, [sheetRef, wrapRef, close]);
+  }, [sheetRef, wrapRef, close, headOnly]);
 }
 
 /** `lead`: something shown before the title in the header, e.g. a chat's coach; `actions`: buttons
     before the close button. `focusField`: false
-    keeps the keyboard down on open (a chat you open to read), instead of focusing the first field. */
-export function Sheet({ title, sub, lead, actions, onClose, children, labelledBy = "sheet-title", className = "", focusField = true }) {
+    keeps the keyboard down on open (a chat you open to read), instead of focusing the first field.
+    `dragFromHead`: closes by dragging the grab bar or header only, not the content (chats). */
+export function Sheet({ title, sub, lead, actions, onClose, children, labelledBy = "sheet-title", className = "", focusField = true, dragFromHead = false }) {
   const ref = useRef(null);
   const wrap = useRef(null);
   useVisibleViewport(wrap);
   useExitCopy(wrap);
   const close = useRef(onClose);
   close.current = onClose;
-  useDragToClose(ref, wrap, close);
+  useDragToClose(ref, wrap, close, dragFromHead);
   useEffect(() => {
     const prev = document.activeElement;
     const first = focusField ? ref.current?.querySelector("input, textarea") : null;

@@ -880,7 +880,8 @@ html[data-typing] :is(.dock, .alert-ask) { opacity: 0; visibility: hidden; trans
 .chat-dock { flex: none; position: relative; display: flex; flex-direction: column; gap: 8px; padding: 8px 0 4px; }
 .chat-replies { display: flex; gap: 8px; overflow-x: auto; margin: 0 -12px; padding: 0 12px 4px; scrollbar-width: none; overscroll-behavior-x: contain; scroll-padding-inline: 12px; }
 .chat-replies::-webkit-scrollbar { display: none; }
-.chat-replies .chip { flex: none; white-space: nowrap; min-height: 40px; padding: 0 16px; animation: bubble-in var(--pop-ms) var(--pop) both; }
+/* A long question wraps inside the chip instead of running off screen; the next one still peeks in. */
+.chat-replies .chip { flex: none; max-width: 85%; white-space: normal; text-align: left; line-height: 1.3; min-height: 40px; padding: 8px 16px; animation: bubble-in var(--pop-ms) var(--pop) both; }
 .chat-replies .chip:nth-child(2) { animation-delay: 40ms; }
 .chat-replies .chip:nth-child(3) { animation-delay: 80ms; }
 .chat-replies .chip:nth-child(n + 4) { animation-delay: 120ms; }
@@ -1296,6 +1297,33 @@ html.walking .summary .body { padding-bottom: calc(var(--walk-h, 220px) + 40px);
 
 /* Rest alerts: the bell in the rest dock (set / couldn't be set), and the one-time "turn on?" card above it. */
 .rest-bell { display: inline-block; vertical-align: -1px; margin-right: 5px; }
+/* The coach and clock in the rest dock open the full-screen timer. */
+.rest-open { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; text-align: left; color: inherit; border-radius: 22px; }
+button.rest-open:active { opacity: 0.75; }
+
+/* Rest, full screen: the ring readable from the bench, the next set, one cue, the same controls. */
+.sheet-rest { height: calc(100% - var(--safe-t) - 8px); max-height: none; }
+.rest-full { flex: 1; display: flex; flex-direction: column; justify-content: space-between; gap: 12px; }
+.rest-ring { position: relative; width: min(64vw, 250px, 30dvh); aspect-ratio: 1; margin: 0 auto; display: grid; place-items: center; }
+.rest-ring svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.rest-ring .trk { fill: none; stroke: var(--surface-2); stroke-width: 12; }
+.rest-ring .val { fill: none; stroke: var(--ink); stroke-width: 12; stroke-linecap: round; transition: stroke-dashoffset 260ms linear, stroke 300ms ease; }
+.rest-ring:is(.soon, .over) .val { stroke: var(--day); }
+.rest-ring-text { position: relative; display: grid; justify-items: center; gap: 4px; }
+.rest-ring-text b { position: relative; font-weight: 800; font-size: min(62px, 7.5dvh); line-height: 1; letter-spacing: -0.03em; }
+.rest-ring-text > span { font-size: 15px; font-weight: 700; color: var(--mute); }
+.rest-ring:is(.soon, .over) .rest-ring-text b { color: var(--day-ink); }
+.rest-next { border-radius: 24px; padding: 12px; display: flex; flex-direction: column; gap: 8px; background: var(--surface-2); }
+.rest-next-head { display: flex; flex-direction: column; gap: 2px; padding: 0 2px; }
+.rest-next-head b { font-weight: 800; font-size: 19px; line-height: 1.2; }
+.rest-next .set-head { display: flex; align-items: center; font-weight: 800; padding: 0 2px; }
+.rest-cardio { margin: 0; text-align: center; font-weight: 800; font-size: 34px; }
+.rest-cue { display: flex; align-items: center; gap: 10px; margin: 0; font-size: 15px; font-weight: 600; line-height: 1.35; }
+.rest-full-ctrls { display: grid; grid-template-columns: 1fr 1fr 1.6fr; gap: 8px; }
+.rest-full-ctrls button { height: 54px; border-radius: 18px; font-weight: 800; font-size: 16px; background: var(--surface-2); color: var(--ink); }
+.rest-full-ctrls button:disabled { opacity: 0.4; }
+.rest-full-ctrls .primary { background: var(--ink); color: var(--bg); }
+.rest-full-ctrls button:active:not(:disabled) { transform: scale(0.96); }
 .alert-ask { position: fixed; left: 12px; right: 12px; bottom: calc(108px + var(--safe-b)); max-width: 536px; margin: 0 auto; z-index: 30; animation: rise var(--enter-ms) var(--enter);
   padding: 14px 14px 12px; border-radius: 24px; background: var(--surface); border: 2px solid var(--rule); box-shadow: 0 5px 0 var(--lip); color: var(--ink); }
 .alert-ask p { margin: 0; font-size: 15px; line-height: 1.35; }
