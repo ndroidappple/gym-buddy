@@ -23,6 +23,15 @@ export const VIBES = {
   brick: "No-nonsense. Short answers, solid plans.",
   dash: "Upbeat. Big on habits and showing up.",
 };
+// What each coach says when they come up in the picker, in their own voice.
+export const HELLOS = {
+  tank: "Excuses don't lift. You do.",
+  wings: "Slow it down. Feel every rep.",
+  boulder: "No rush. We build this one rep at a time.",
+  piston: "Leg day? Every day. LET'S GO!",
+  brick: "Show up. Lift. Go home.",
+  dash: "Showing up is the win. Let's make it a habit!",
+};
 export const headCoach = (prefs) => (COACHES[prefs?.headCoach] ? prefs.headCoach : "tank");
 
 /* Checked in order: the more specific muscle wins (Leg Press is legs before "press" is chest,
