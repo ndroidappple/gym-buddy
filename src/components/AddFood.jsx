@@ -1,9 +1,10 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Search, Plus, PenLine, Pencil, ChevronLeft, ChevronRight, Trash2, Check, ScanBarcode, ArrowUp, X } from "lucide-react";
+import { Search, Plus, PenLine, Pencil, ChevronLeft, ChevronRight, Trash2, Check, ScanBarcode, ArrowUp, X, Camera } from "lucide-react";
 import Coach from "./Coach.jsx";
 import { COACHES } from "../data/coaches.js";
 import { useMealAnswer, MealAnswer } from "./TankMeal.jsx";
 import ScanFood from "./ScanFood.jsx";
+import PhotoMeal from "./PhotoMeal.jsx";
 import { Sheet } from "./ui.jsx";
 import { MEALS, unitsFor, nutritionFor, defaultPortion, totals, addDays } from "../lib/nutrition.js";
 import { yourFoods, pickYourFood, whenLabel } from "../lib/yourFoods.js";
@@ -12,7 +13,8 @@ import { searchFoods, SEARCH_TROUBLE } from "../lib/foodSearch.js";
 
 /* Adding food: one box for everything. It searches your foods (one tap, then Add, ranked by what you
    have and when) and the food databases, and when what's typed reads as a meal in words, the head coach
-   answers on the same page, above the matches, with it itemized into one food. Or scan a barcode, or enter it by hand. Every path shows exactly
+   answers on the same page, above the matches, with it itemized into one food. Or photograph it on a kitchen scale, scan a barcode,
+   or enter it by hand. Every path shows exactly
    what will be logged before Add. `food` is the useFood() store; `meal` and `date` are where it goes. */
 
 const fmt = (n) => Math.round(n).toLocaleString();
@@ -33,7 +35,7 @@ const touchScreen = () => typeof matchMedia === "function" && matchMedia("(point
 /** `head`: the head coach, who itemizes a described meal. */
 export default function AddFood({ food, head = "tank", meal: meal0, date, targets = null, onClose, notify }) {
   const who = COACHES[head].name;
-  const [view, setView] = useState({ step: "find" }); // find (with the coach inside) | portion {food} | scan | manual {barcode?}
+  const [view, setView] = useState({ step: "find" }); // find (with the coach inside) | portion {food} | photo | scan | manual {barcode?}
   const [meal, setMeal] = useState(meal0);
   const mealLabel = MEALS.find((m) => m.id === meal)?.label;
   const add = (row, label) => {
@@ -63,7 +65,7 @@ export default function AddFood({ food, head = "tank", meal: meal0, date, target
   const [editing, setEditing] = useState(null); // the saved food being renamed or deleted
   const saved = view.step === "portion" && ["custom", "ai"].includes(view.food.source) ? food.foods.find((f) => f.id === view.food.ref) || null : null;
   const picked = saved ? { ...view.food, name: saved.name } : view.food; // a rename shows (and logs) at once
-  const title = view.step === "scan" ? "Scan a barcode" : view.step === "manual" ? (view.barcode ? "Enter from the label" : "Enter manually")
+  const title = view.step === "scan" ? "Scan a barcode" : view.step === "photo" ? "Snap it on the scale" : view.step === "manual" ? (view.barcode ? "Enter from the label" : "Enter manually")
     : view.step === "portion" ? "How much?" : `Add to ${mealLabel}`;
 
   return (
@@ -73,7 +75,8 @@ export default function AddFood({ food, head = "tank", meal: meal0, date, target
         <button type="button" className="btn-quiet food-back" onClick={() => setView({ step: "find" })}><ChevronLeft size={16} aria-hidden="true" /> Back</button>
       )}
       {view.step === "find" && <Find food={food} head={head} meal={meal} date={date} action={`Add to ${mealLabel}`} onMeal={addMeal} onRepeat={addMany}
-        onPick={(f, prior) => setView({ step: "portion", food: f, prior })} onScan={() => setView({ step: "scan" })} onManual={() => setView({ step: "manual" })} />}
+        onPick={(f, prior) => setView({ step: "portion", food: f, prior })} onScan={() => setView({ step: "scan" })} onPhoto={() => setView({ step: "photo" })} onManual={() => setView({ step: "manual" })} />}
+      {view.step === "photo" && <PhotoMeal head={head} meal={meal} action={`Add to ${mealLabel}`} onAdd={addMeal} onManual={() => setView({ step: "manual" })} />}
       {view.step === "scan" && <ScanFood food={food} toFood={scannedFood} onFound={(f) => setView({ step: "portion", food: f })} onManual={(barcode) => setView({ step: "manual", barcode })} />}
       {view.step === "portion" && (
         <>
@@ -111,7 +114,7 @@ const AUTO_MS = 900; // a described meal is asked about once typing pauses this 
    lifter's own foods ticked, and handed to the coach so it uses their numbers), then the meal and its
    total with one-tap Add. Your foods and the databases stay below it. A correction or an answer to the
    coach's question goes in the box at the bottom, which only shows once there's an answer to change. */
-function Find({ food, head, meal, date, action, onMeal, onRepeat, onPick, onScan, onManual }) {
+function Find({ food, head, meal, date, action, onMeal, onRepeat, onPick, onScan, onPhoto, onManual }) {
   const who = COACHES[head].name;
   const [q, setQ] = useState("");
   const [reply, setReply] = useState(""); // a follow-up to the coach, typed at the bottom
@@ -227,6 +230,7 @@ function Find({ food, head, meal, date, action, onMeal, onRepeat, onPick, onScan
         onFocus={() => setTyping(true)} onBlur={() => setTyping(false)}
         placeholder="Search or describe a meal"
         enterKeyHint={describing ? "send" : read.kind === "amount" ? "go" : "search"} autoComplete="off" />
+      <button type="button" className="icon-btn food-photo" onClick={onPhoto} aria-label="Photograph a meal on a scale"><Camera size={20} /></button>
       <button type="button" className="icon-btn food-scan" onClick={onScan} aria-label="Scan a barcode"><ScanBarcode size={20} /></button>
     </form>
   );
@@ -269,7 +273,7 @@ function Find({ food, head, meal, date, action, onMeal, onRepeat, onPick, onScan
             // Nothing logged yet: the box itself is the way in, so say what it can do.
             <div className="food-first">
               <Coach id={head} size={40} still decorative />
-              <p>Type what you ate, like <q>2 eggs and toast</q>, and {who} works out the macros. Or search for a food, or scan its barcode.</p>
+              <p>Type what you ate, like <q>2 eggs and toast</q>, and {who} works out the macros. Or snap it on a kitchen scale, search for a food, or scan its barcode.</p>
             </div>
           )}
         </section>

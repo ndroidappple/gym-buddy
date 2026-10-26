@@ -199,12 +199,54 @@ export function cleanMeal(m) {
     if (worked > 0 && Math.abs(kcal - worked) > Math.max(20, worked * 0.2)) kcal = Math.round(worked);
     // label: the product label Tank looked up for these numbers (absent when he estimated them).
     const label = typeof x.label === "string" && x.label.trim() ? x.label.trim().slice(0, 80) : null;
-    return { food, amount: String(x.amount || "").slice(0, 40), grams: x.grams > 0 ? Math.round(x.grams) : null, kcal, protein, carbs, fat, alcohol, estimated: !!x.estimated, ...(label ? { label } : {}) };
+    // onScale false: a photographed meal's item that wasn't weighed with the rest (a drink beside the plate).
+    return { food, amount: String(x.amount || "").slice(0, 40), grams: x.grams > 0 ? Math.round(x.grams) : null, kcal, protein, carbs, fat, alcohol, estimated: !!x.estimated, ...(label ? { label } : {}), ...(x.on_scale === false ? { onScale: false } : {}) };
   }).filter((x) => x.kcal > 0 || x.protein > 0);
   if (!items.length) return null;
-  const sum = (k) => Math.round(items.reduce((a, x) => a + x[k], 0) * (k === "kcal" ? 1 : 10)) / (k === "kcal" ? 1 : 10);
   const name = shortName(m.name) || shortName(items.slice(0, 2).map((x) => x.food).join(" & "));
-  return { name, items, total: { kcal: sum("kcal"), protein: sum("protein"), carbs: sum("carbs"), fat: sum("fat"), alcohol: sum("alcohol") }, estimated: items.some((x) => x.estimated) };
+  // scale: what a photographed scale's display read, in grams (absent when it couldn't be read).
+  const scale = scaleGrams(m.scale_reading);
+  return { name, items, total: mealTotal(items), estimated: items.some((x) => x.estimated), ...(scale ? { scale } : {}) };
+}
+
+const mealTotal = (items) => {
+  const sum = (k) => Math.round(items.reduce((a, x) => a + x[k], 0) * (k === "kcal" ? 1 : 10)) / (k === "kcal" ? 1 : 10);
+  return { kcal: sum("kcal"), protein: sum("protein"), carbs: sum("carbs"), fat: sum("fat"), alcohol: sum("alcohol") };
+};
+
+const TO_GRAMS = { g: 1, kg: 1000, oz: 28.3495, lb: 453.592, ml: 1 };
+/** A scale's display as Tank read it ({ value, unit }) in grams, or null when unread or not a plausible plate. */
+export function scaleGrams(r) {
+  const g = r && TO_GRAMS[r.unit] && Number.isFinite(+r.value) ? +r.value * TO_GRAMS[r.unit] : 0;
+  return g > 0 && g <= 20000 ? Math.round(g) : null;
+}
+
+/**
+ * A photographed meal fitted to its weight. Tank judges how the plate splits (so much rice, so much
+ * chicken) and the scale says how much there is in all, so what he judged by eye is scaled together
+ * until everything on the scale adds up to `net` (the food alone, plate taken off), keeping his split.
+ * Amounts that are known (the tablespoon of oil the lifter named, a labeled yogurt) stay as they are,
+ * unless they alone outweigh the scale; then everything on it is scaled. Returns the meal with
+ * fit = { net, seen, k } (seen: his grams by eye for all of it, k = net / seen), or the meal as it was
+ * when there's no weight or an item on the scale has no grams to scale.
+ */
+export function fitToScale(meal, net) {
+  if (!meal || !(net > 0)) return meal;
+  const on = meal.items.filter((x) => x.onScale !== false);
+  if (!on.length || on.some((x) => !(x.grams > 0))) return meal;
+  const grams = (xs) => xs.reduce((a, x) => a + x.grams, 0);
+  const seen = grams(on);
+  const guessed = on.filter((x) => x.estimated);
+  const known = grams(on.filter((x) => !x.estimated));
+  const flex = guessed.length && net > known ? guessed : on;
+  const by = (flex === on ? net : net - known) / grams(flex);
+  const r1 = (v) => Math.round(v * 10) / 10;
+  const items = meal.items.map((x) => {
+    if (!flex.includes(x)) return x;
+    const g = Math.max(1, Math.round(x.grams * by));
+    return { ...x, grams: g, amount: `${g} g`, kcal: Math.round(x.kcal * by), protein: r1(x.protein * by), carbs: r1(x.carbs * by), fat: r1(x.fat * by), alcohol: r1(x.alcohol * by) };
+  });
+  return { ...meal, items, total: mealTotal(items), fit: { net: Math.round(net), seen, k: net / seen } };
 }
 
 /** A food name for a list: amounts, brackets and "with …" tails removed, Title Case, and cut at a

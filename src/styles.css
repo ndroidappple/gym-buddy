@@ -1127,6 +1127,30 @@ button.coach-card:active { transform: translateY(3px); box-shadow: 0 2px 0 var(-
 .food-search input { flex: 1; min-width: 0; border: 0; background: none; font-size: 16px; color: var(--ink); height: 46px; }
 .food-search input:focus { outline: none; }
 .food-search .food-scan { margin-right: -10px; color: var(--ink); }
+.food-search .food-photo { margin-right: -12px; color: var(--ink); }
+
+/* A meal photographed on a kitchen scale (PhotoMeal.jsx). */
+.photo { display: flex; flex-direction: column; gap: 14px; }
+.photo > .small { margin: 0; }
+.photo-shots { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.photo-shot { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; aspect-ratio: 3 / 4; overflow: hidden;
+  border-radius: var(--r); border: 2px dashed var(--rule); background: var(--surface); color: var(--ink); font-size: 14px; font-weight: 700; }
+.photo-shot small { color: var(--mute); font-weight: 600; }
+.photo-shot.taken { border-style: solid; }
+.photo-shot img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.photo-shot.taken span { position: absolute; left: 8px; bottom: 8px; padding: 3px 10px; border-radius: 999px; background: var(--bg); font-size: 12.5px; }
+.photo-shot[aria-busy="true"] { opacity: 0.6; }
+.photo-plate { padding: 0; }
+.photo-strip { display: flex; align-items: center; gap: 8px; }
+.photo-strip img { width: 56px; height: 56px; object-fit: cover; border-radius: 12px; border: 2px solid var(--rule); }
+.photo-strip .btn-quiet { margin-left: auto; font-size: 14px; }
+.photo-weight { display: flex; flex-direction: column; gap: 6px; }
+.photo-weight-field { display: flex; align-items: center; gap: 8px; }
+.photo-weight-field .lbl { flex: 1; color: var(--ink); font-size: 15px; }
+.photo-weight-field .input { width: 96px; min-height: 44px; padding: 6px 10px; text-align: right; }
+.photo-weight-g { font-weight: 700; color: var(--mute); }
+.photo-weight small { font-size: 12.5px; line-height: 1.35; }
+.photo-weight-warn { color: var(--danger); font-weight: 700; }
 .food-search-coach { display: grid; place-items: center; width: 22px; height: 22px; margin: 0 -2px; }
 .food-manual, .food-lookup { align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; min-height: var(--tap); padding: 0 4px; font-size: 14px; font-weight: 700; color: var(--mute); }
 .food-first { display: flex; align-items: center; gap: 12px; padding: 4px 4px 0; }

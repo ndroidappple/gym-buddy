@@ -52,21 +52,24 @@ export function useMealAnswer({ coach = "tank", mealSlot }) {
     return () => clearTimeout(t);
   }, [busy]);
 
-  const send = async (text, base) => {
+  // images: a photographed meal's photos, sent with its first message (and so with every follow-up,
+  // which carries the whole conversation).
+  const send = async (text, base, images) => {
     const q = text.trim();
     if (!q) return;
     abort.current?.abort();
     const ctl = new AbortController();
     abort.current = ctl;
-    const history = [...base.filter((m) => !m.trouble).map((m) => ({ role: m.role, content: m.content + (m.meal ? mealNote(m.meal) : "") })), { role: "user", content: q }];
-    setMessages([...base, { role: "user", content: q }]);
+    const asked = { role: "user", content: q, ...(images?.length ? { images } : {}) };
+    const history = [...base.filter((m) => !m.trouble).map((m) => ({ role: m.role, content: m.content + (m.meal ? mealNote(m.meal) : ""), ...(m.images ? { images: m.images } : {}) })), asked];
+    setMessages([...base, asked]);
     setBusy(true);
     try {
       const res = await describeMeal({ coach, messages: history, mealSlot, known: known.current, signal: ctl.signal });
       // A question with no suggested answers still gets the estimate button.
       const replies = res.meal ? [] : [...new Set([...(res.replies || []), ESTIMATE])].slice(0, 4);
       const reply = { role: "assistant", content: res.text || (res.meal ? "" : "How much of each?"), meal: res.meal, replies };
-      if (!base.length) seen.current.set(q, [{ role: "user", content: q }, reply]);
+      if (!base.length && !images?.length) seen.current.set(q, [asked, reply]);
       setMessages((ms) => [...ms, reply]);
     } catch (e) {
       if (e.name === "AbortError") return;
@@ -84,14 +87,14 @@ export function useMealAnswer({ coach = "tank", mealSlot }) {
     text: last?.role === "assistant" ? last.content : "",
     replies: status === "asking" ? last.replies || [] : [],
     canRetry: status === "trouble" && !!last.retry,
-    ask: (text, k = []) => {
+    ask: (text, k = [], images = null) => {
       const q = text.trim();
       known.current = k;
       setAsked(q);
-      if (seen.current.has(q)) { abort.current?.abort(); setBusy(false); setMessages(seen.current.get(q)); } else send(q, []);
+      if (!images?.length && seen.current.has(q)) { abort.current?.abort(); setBusy(false); setMessages(seen.current.get(q)); } else send(q, [], images);
     },
     follow: (text) => send(text, messages),
-    retry: () => send(last.retry, messages.slice(0, -2)),
+    retry: () => send(last.retry, messages.slice(0, -2), messages[messages.length - 2]?.images),
     reset: () => { abort.current?.abort(); setBusy(false); setMessages([]); setAsked(""); },
   };
 }
@@ -110,12 +113,13 @@ export function refinements(meal) {
  * shown while it works; `action`: the Add button's words; `onAdd({ meal, save })`; `onManual`;
  * `onFollow(text)`: a reply or a refinement.
  */
-export function MealAnswer({ a, pending = false, coach = "tank", items = [], action, onAdd, onManual, onFollow }) {
+export function MealAnswer({ a, pending = false, coach = "tank", items = [], action, onAdd, onManual, onFollow, refine = true, extra = null }) {
   const who = COACHES[coach].name;
   const theme = useTheme();
   const [name, setName] = useState("");
   const [save, setSave] = useState(false); // logged meals show in Your foods anyway; save the ones you repeat
-  useEffect(() => { if (a.meal) setName(a.meal.name); }, [a.meal]);
+  // By name, not by the meal: a photographed meal is refitted as its weight is typed, and that keeps a renamed name.
+  useEffect(() => { if (a.meal) setName(a.meal.name); }, [a.meal?.name]); // eslint-disable-line react-hooks/exhaustive-deps
   const working = pending || a.status === "working";
   const updating = working && !pending && a.earlier; // a follow-up: the meal so far stays, dimmed, until the new one
   return (
@@ -162,12 +166,13 @@ export function MealAnswer({ a, pending = false, coach = "tank", items = [], act
         <>
           {a.text && <p className="answer-text">{a.text}</p>}
           <MealCard meal={a.meal} who={who} name={name} onName={setName} />
+          {extra}
           <button type="button" className="btn btn-ink answer-add" onClick={() => onAdd({ meal: { ...a.meal, name: name.trim() || a.meal.name }, save })}>
             <Check size={18} strokeWidth={3} aria-hidden="true" /> {action}
           </button>
           <div className="answer-foot">
             <div className="answer-chips" role="group" aria-label="Change it">
-              {refinements(a.meal).map((c) => <button key={c} type="button" className="chip" onClick={() => onFollow(c)}>{c}</button>)}
+              {refine && refinements(a.meal).map((c) => <button key={c} type="button" className="chip" onClick={() => onFollow(c)}>{c}</button>)}
             </div>
             <label className="answer-save"><input type="checkbox" checked={save} onChange={(e) => setSave(e.target.checked)} /> Save to my foods</label>
           </div>
