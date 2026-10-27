@@ -11,7 +11,7 @@ import { weighInEvery, phaseStatus, statusLine, PHASE_TYPES } from "../lib/phase
 import Coach from "../components/Coach.jsx";
 import { ReviewChip } from "../components/WeekReviewIntro.jsx";
 import { collapse } from "../lib/motion.js";
-import { byDateDesc, bestSet, fmtW, num, shortDate, weekDates, today, nextDayAfter, bodyweightSeries, daysBetween, plural, readyToIncrease, nextGoal, fmtGoal } from "../lib/util.js";
+import { byDateDesc, bestSet, fmtW, num, shortDate, weekDates, today, nextDayAfter, bodyweightSeries, daysBetween, plural, readyToIncrease, nextGoal, fmtGoal, sessionSetCount, countRecords } from "../lib/util.js";
 
 export default function Today({ name, sessions, program, drafts, weighins, prefs, go, onWeighin, foodToday, review, head, recovery }) {
   const sorted = useMemo(() => [...sessions].sort(byDateDesc), [sessions]);
@@ -28,10 +28,15 @@ export default function Today({ name, sessions, program, drafts, weighins, prefs
   const p = program[day];
   const draft = drafts[day];
   const lastOfDay = sorted.find((s) => s.day === day);
+  // Trained today, and nothing else picked or under way: until midnight Today is a recap of that
+  // workout, and the next one is a line under it (still there to start for a second session).
+  const doneToday = sorted.filter((s) => s.date === t);
+  const done = !picked && !draftDay && doneToday[0] ? doneToday[0] : null;
   // Last night was short or under-recovered for this lifter (Google Health): said once, before training today.
   const nightNote = prefs.googleHealth?.on && !sessions.some((s) => s.date === t) ? lowLine(readiness(recovery, t)) : null;
   const choose = (d) => {
-    const next = d === fallback ? null : { date: t, day: d, after: sessions.length };
+    // After a workout even the day that's up next is a pick: it trades the recap for that day's card.
+    const next = d === fallback && !done ? null : { date: t, day: d, after: sessions.length };
     setPick(next);
     try { next ? localStorage.setItem(PICK_KEY, JSON.stringify(next)) : localStorage.removeItem(PICK_KEY); } catch {}
     setChoosing(false);
@@ -84,7 +89,10 @@ export default function Today({ name, sessions, program, drafts, weighins, prefs
   // always in the hello when a workout's in progress, since that headline has no name).
   const nameInTitle = !draft && Math.floor(new Date(t + "T12:00:00").getTime() / 864e5) % 2 === 1;
   const to = name && nameInTitle ? `, ${name}` : "";
-  const headline = draft ? "Pick up where you left off." : daysOff != null && daysOff >= 5 ? `${daysOff} days off${to}. Back to it.` : `${p.name} day${to}. Let's lift.`;
+  const doneName = done && (done.day === CUSTOM ? "Workout" : program[done.day]?.name || "Workout");
+  const headline = draft ? "Pick up where you left off."
+    : done ? (doneToday.length > 1 ? `${doneToday.length} workouts done${to}. Rest up.` : `${doneName} done${to}. Rest up.`)
+    : daysOff != null && daysOff >= 5 ? `${daysOff} days off${to}. Back to it.` : `${p.name} day${to}. Let's lift.`;
 
   return (
     <main className="screen has-tabs">
@@ -107,8 +115,9 @@ export default function Today({ name, sessions, program, drafts, weighins, prefs
         <h1>{headline}</h1>
       </header>
 
-      <div className="body" data-day={day}>
+      <div className="body" data-day={done ? done.day : day}>
         {sessions.length === 0 && <SetupCard prefs={prefs} glow />}
+        {done ? <DoneCard session={done} sessions={sessions} name={doneName} detail={done.day === CUSTOM ? null : program[done.day]?.detail} /> : (
         <section className={"hero-card" + (canPreview ? " can-preview" : "")} aria-label={draft ? `${p.name} in progress` : `Up next: ${p.name}`} onClick={openPreview}>
           <div className="hero-top">
             <span className="pill day-lbl">{draft ? `In progress · ${plural(setsLogged, "set")} logged` : day === CUSTOM ? "Today · Custom workout" : `${picked ? "Today" : "Up next"} · Day ${activeDays(program).indexOf(day) + 1}`}</span>
@@ -136,6 +145,16 @@ export default function Today({ name, sessions, program, drafts, weighins, prefs
           )}
           <a className="btn hero-cta" data-help="start" href={href("session", day)}>{draft ? `Resume ${p.name}` : "Start lifting"}</a>
         </section>
+        )}
+
+        {done && (
+          <div className="card up-next" data-day={day}>
+            <span className="dot" aria-hidden="true" />
+            <span className="name">Up next: {p.name}<span className="sub detail">{day === CUSTOM ? "Custom workout" : p.detail}</span></span>
+            <button type="button" className="pill" data-help="change" onClick={() => setChoosing(true)} aria-haspopup="dialog">Change</button>
+            <a className="pill up-next-go" data-help="start" href={href("session", day)} aria-label={`Start ${p.name} anyway`}>Start</a>
+          </div>
+        )}
 
         {choosing && (
           <Sheet title="Train something else" sub={draftDay ? `Your ${program[draftDay].name} workout in progress stays saved. Tap it to pick back up.` : "Swap today's workout. Your rotation picks back up after you log it."} onClose={() => setChoosing(false)} labelledBy="swap-title">
@@ -161,7 +180,7 @@ export default function Today({ name, sessions, program, drafts, weighins, prefs
           : prefs?.phase ? <PhaseLine phase={prefs.phase} sessions={sessions} weighins={weighins} />
           : null}
 
-        {targets.length > 0 && (
+        {targets.length > 0 && !done && (
           <section className="section">
             <h2 className="lbl">Today's targets</h2>
             <div className="card-list">
@@ -205,6 +224,31 @@ export default function Today({ name, sessions, program, drafts, weighins, prefs
         )}
       </div>
     </main>
+  );
+}
+
+/** Today's finished workout, in place of the next one: what was done, and the way back to its summary. */
+function DoneCard({ session, sessions, name, detail }) {
+  const mins = session.startedAt && session.finishedAt ? Math.max(1, Math.round((session.finishedAt - session.startedAt) / 60000)) : null;
+  const lifts = Object.values(session.sets).filter((v) => v.length).length;
+  const prs = countRecords(sessions, session);
+  return (
+    <section className="hero-card" aria-label={`${name} done today`}>
+      <div className="hero-top">
+        <span className="pill day-lbl"><Check size={14} strokeWidth={3} aria-hidden="true" />Done today</span>
+      </div>
+      <a className="hero-text" href={href("summary", session.id)}>
+        <span className={"hero-day" + (name.length > 6 ? " long" : "")}>{name}</span>
+        {detail && <span className="hero-meta">{detail}</span>}
+      </a>
+      <div className="hero-pills">
+        <span className="pill">{plural(lifts, "lift")}</span>
+        <span className="pill">{plural(sessionSetCount(session), "set")}</span>
+        {mins && <span className="pill">{mins} min</span>}
+        {prs > 0 && <span className="pill">{plural(prs, "PR")}</span>}
+      </div>
+      <a className="btn hero-cta" href={href("summary", session.id)}>See summary</a>
+    </section>
   );
 }
 

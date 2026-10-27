@@ -20,6 +20,19 @@ VITE_SUPABASE_URL=https://<project-ref>.supabase.co
 VITE_SUPABASE_ANON_KEY=<publishable key>
 ```
 
+## Test it like a user
+
+`npm run test:e2e` runs the real app in a phone-sized Chromium, signed in, and taps through it:
+open Add food, search, pick a food, go Back, log it. Supabase and `/api` are faked by Playwright
+(`scripts/e2e/fake-backend.mjs`), so nothing touches the real account, the food databases or the AI,
+and every run starts from the same account (`scripts/e2e/fixtures.mjs`). The fake's address
+overrides `.env.local`, so it's safe to run with your real keys in place. A failing test saves a
+screenshot to `e2e-failures/`. `npm run test:e2e -- Back` runs only the tests whose name has "Back".
+
+It needs a Chromium: set `CHROMIUM_PATH` if it isn't at `/opt/pw-browsers/chromium` (on a Mac,
+`CHROMIUM_PATH="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"`). It's Chromium, not
+Safari, so iPhone-only behavior (the keyboard, the home screen app) still needs a look on the phone.
+
 ## How data is stored
 
 The app talks to `window.storage.get/set(...)` for everything — sessions,

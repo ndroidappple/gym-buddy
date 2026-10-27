@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Search, Plus, PenLine, Pencil, ChevronLeft, ChevronRight, Trash2, Check, ScanBarcode, ArrowUp, X } from "lucide-react";
 import Coach from "./Coach.jsx";
 import { COACHES } from "../data/coaches.js";
@@ -34,6 +34,15 @@ const touchScreen = () => typeof matchMedia === "function" && matchMedia("(point
 export default function AddFood({ food, head = "tank", meal: meal0, date, targets = null, onClose, notify }) {
   const who = COACHES[head].name;
   const [view, setView] = useState({ step: "find" }); // find (with the coach inside) | portion {food} | scan | manual {barcode?}
+  // Find stays mounted under the other steps, so Back returns to what was typed, the coach's answer and
+  // the results, scrolled where they were.
+  const findRef = useRef(null);
+  const findTop = useRef(0);
+  const leaveFind = (next) => { findTop.current = findRef.current?.closest(".sheet-body")?.scrollTop || 0; setView(next); };
+  useLayoutEffect(() => {
+    const body = findRef.current?.closest(".sheet-body");
+    if (body) body.scrollTop = view.step === "find" ? findTop.current : 0;
+  }, [view.step]);
   const [meal, setMeal] = useState(meal0);
   const mealLabel = MEALS.find((m) => m.id === meal)?.label;
   const add = (row, label) => {
@@ -72,8 +81,10 @@ export default function AddFood({ food, head = "tank", meal: meal0, date, target
       {view.step !== "find" && (
         <button type="button" className="btn-quiet food-back" onClick={() => setView({ step: "find" })}><ChevronLeft size={16} aria-hidden="true" /> Back</button>
       )}
-      {view.step === "find" && <Find food={food} head={head} meal={meal} date={date} action={`Add to ${mealLabel}`} onMeal={addMeal} onRepeat={addMany}
-        onPick={(f, prior) => setView({ step: "portion", food: f, prior })} onScan={() => setView({ step: "scan" })} onManual={() => setView({ step: "manual" })} />}
+      <div ref={findRef} style={{ display: view.step === "find" ? "contents" : "none" }}>
+        <Find food={food} head={head} meal={meal} date={date} action={`Add to ${mealLabel}`} onMeal={addMeal} onRepeat={addMany}
+          onPick={(f, prior) => leaveFind({ step: "portion", food: f, prior })} onScan={() => leaveFind({ step: "scan" })} onManual={() => leaveFind({ step: "manual" })} />
+      </div>
       {view.step === "scan" && <ScanFood food={food} toFood={scannedFood} onFound={(f) => setView({ step: "portion", food: f })} onManual={(barcode) => setView({ step: "manual", barcode })} />}
       {view.step === "portion" && (
         <>

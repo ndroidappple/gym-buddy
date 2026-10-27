@@ -65,7 +65,8 @@ export function useRoute() {
     if (nav) document.documentElement.dataset.nav = nav; // also stops the first screen's cascade replaying
     if (nav === "tab") { startTransition(() => setRoute(next)); return; }
     if (!nav || uaAnimated || !document.startViewTransition || reducedMotion()) { setRoute(next); return; }
-    document.startViewTransition(() => flushSync(() => setRoute(next)));
+    // A second navigation mid-animation skips this one; the screen still changes, so that's not an error.
+    document.startViewTransition(() => flushSync(() => setRoute(next))).ready.catch(() => {});
   }, []);
 
   useEffect(() => {

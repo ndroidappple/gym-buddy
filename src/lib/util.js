@@ -85,6 +85,15 @@ export function allTimeBest(sessions, lift) {
   return best;
 }
 
+/** How many lifts in session `s` beat their best from before it (PRs). */
+export function countRecords(sessions, s) {
+  const prior = priorSessions(sessions, s);
+  return Object.entries(s.sets).filter(([n, sets]) => {
+    const at = allTimeBest(prior, n);
+    return at && bestE1rm(sets) > at + 0.05;
+  }).length;
+}
+
 /** Per-session series for a lift, oldest first, with PR flags. */
 export function liftSeries(sessions, lift) {
   let running = 0;
