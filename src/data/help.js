@@ -13,6 +13,7 @@ export const HELP = {
     title: "Today",
     steps: [
       { name: "Start lifting", Icon: Play, spot: "start", text: "Opens the next day in your rotation." },
+      { name: "Done today", Icon: CalendarCheck, text: "After a workout, the card shows it until midnight. Tap it for the summary." },
       { name: "Preview", Icon: Eye, spot: "preview", text: "Tap the card to look through the day's lifts before you start." },
       { name: "Change", Icon: ArrowLeftRight, spot: "change", text: "Train a different day or a custom workout instead." },
       { name: "Targets", Icon: Target, text: "Each lift aims one rep or one set past last time. [↑] means add weight." },

@@ -16,7 +16,7 @@ import { freshWalk, showsHeart, changeDiff, undoDiff, recapLine } from "../lib/w
 import { applyChanges } from "../lib/programChange.js";
 import { readiness, nightReads, hm } from "../lib/recovery.js";
 import { useTheme } from "../lib/theme.js";
-import { fmtSet, cardioTotals, priorSessions, allTimeBest, bestSet, bestE1rm, e1rm, fmtW, num, compact, longDate, plural, sessionVolume, sessionSetCount, byDateDesc, nextDayAfter } from "../lib/util.js";
+import { fmtSet, cardioTotals, priorSessions, allTimeBest, bestSet, bestE1rm, e1rm, fmtW, num, compact, longDate, plural, sessionVolume, sessionSetCount, byDateDesc, nextDayAfter, countRecords } from "../lib/util.js";
 
 /**
  * A workout's summary. Straight after finishing it ("Session logged", Done goes on to Today), or, with
@@ -263,14 +263,6 @@ function Headline({ text }) {
 function PrBadge() {
   const metal = useMetal();
   return metal ? <metal.MetalBadge theme="dark">PR</metal.MetalBadge> : <span className="stamp">PR</span>;
-}
-
-function countRecords(sessions, s) {
-  const prior = priorSessions(sessions, s);
-  return Object.entries(s.sets).filter(([n, sets]) => {
-    const at = allTimeBest(prior, n);
-    return at && bestE1rm(sets) > at + 0.05;
-  }).length;
 }
 
 /* Tiles flag only what's unusual for the lifter (Read, in ui.jsx): a pill when a number is better or

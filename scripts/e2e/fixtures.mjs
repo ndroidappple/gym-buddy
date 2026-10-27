@@ -27,9 +27,19 @@ const record = {
   savedAt: Date.parse("2026-10-01T15:00:00Z"),
 };
 
-export const account = () => ({
+/** A date as the app writes them (local, YYYY-MM-DD), `days` from today. */
+export const day = (days = 0) => new Date(Date.now() + days * 864e5).toLocaleDateString("en-CA");
+
+/** A logged workout: `sets` is { lift: [[weight, reps], ...] }, an hour long. */
+export const workout = (id, dayKey, date, sets) => ({
+  id, date, day: dayKey, startedAt: Date.parse(`${date}T17:00:00`), finishedAt: Date.parse(`${date}T18:00:00`),
+  sets: Object.fromEntries(Object.entries(sets).map(([n, xs]) => [n, xs.map(([w, r]) => ({ w, r }))])),
+});
+
+/** The account; `sessions` are its logged workouts (none by default). */
+export const account = ({ sessions = [] } = {}) => ({
   tables: {
-    storage_kv: [{ user_id: USER.id, key: "ironlog-v2", value: JSON.stringify(record), updated_at: "2026-10-01T15:00:00Z" }],
+    storage_kv: [{ user_id: USER.id, key: "ironlog-v2", value: JSON.stringify({ ...record, sessions }), updated_at: "2026-10-01T15:00:00Z" }],
     foods: FOODS.map((f) => ({ ...f, user_id: USER.id })),
     food_entries: [],
   },

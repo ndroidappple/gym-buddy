@@ -4,15 +4,17 @@
    Needs a Chromium; set CHROMIUM_PATH if it isn't at /opt/pw-browsers/chromium. */
 import { mkdirSync } from "node:fs";
 import { startApp, launch, openApp } from "./e2e/app.mjs";
-import { account, SEARCH_RESULT } from "./e2e/fixtures.mjs";
+import { account, SEARCH_RESULT, workout, day } from "./e2e/fixtures.mjs";
 
 const only = process.argv[2]; // a test's name, or part of it, to run just that one
 const tests = [];
-const test = (name, fn) => tests.push({ name, fn });
+const test = (name, fn, seed = account()) => tests.push({ name, fn, seed }); // seed: the account it signs in to
 const check = (what, ok, detail = "") => { if (!ok) throw new Error(`${what}${detail ? `\n    ${detail}` : ""}`); };
 
-const searchApi = (seen) => ({
+// What the app's /api functions answer in every test.
+const apis = (seen) => ({
   "/api/food": (url) => { seen?.push(url.searchParams.get("q")); return { results: /smoothie/i.test(url.searchParams.get("q")) ? [SEARCH_RESULT] : [] }; },
+  "/api/review": () => ({}), // no week in review written (the app says to try again later)
 });
 
 /** Nutrition, then Add on a meal: the add-food sheet, open. */
@@ -54,17 +56,52 @@ test("add food: a saved food is logged and reaches the account", async ({ page, 
   check("saved to lunch with the food's numbers", row.meal === "lunch" && row.name === "Banana Berry Smoothie" && Math.round(row.kcal) === 421, JSON.stringify(row));
 });
 
+// Push last week, Pull since, Push again today: today's incline press beats last week's (one PR).
+const trainedToday = account({ sessions: [
+  workout("w1", "push", day(-7), { "Incline Barbell / Smith Press": [[135, 8]], "Flat DB Press": [[60, 10]] }),
+  workout("w2", "pull", day(-3), { "Lat Pulldown (Wide Grip)": [[140, 10]] }),
+  workout("w3", "push", day(0), { "Incline Barbell / Smith Press": [[145, 8], [145, 7]], "Flat DB Press": [[60, 9]] }),
+] });
+
+test("today: after a workout, Today recaps it instead of the next one", async ({ page }) => {
+  await page.getByRole("heading", { level: 1 }).waitFor();
+  const headline = await page.getByRole("heading", { level: 1 }).innerText();
+  check("the headline says it's done", /^Push done.*Rest up\.$/.test(headline), `got "${headline}"`);
+  const card = page.getByRole("region", { name: "Push done today" });
+  check("the card is today's workout", await card.isVisible());
+  for (const pill of ["2 lifts", "3 sets", "60 min", "1 PR"]) check(`the card shows ${pill}`, await card.getByText(pill, { exact: true }).isVisible());
+  check("no Start lifting", !(await page.getByRole("link", { name: "Start lifting" }).count()));
+  check("the next workout is a line below", await page.getByText("Up next: Legs").isVisible());
+  await card.getByRole("link", { name: "See summary" }).click();
+  await page.waitForURL(/#\/summary\/w3/);
+}, trainedToday);
+
+test("today: the next workout can still be started after one's done", async ({ page }) => {
+  await page.getByRole("link", { name: "Start Legs anyway" }).click();
+  await page.waitForURL(/#\/session\/legs/);
+  await page.goBack();
+  await page.getByRole("button", { name: "Change" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: /^Legs/ }).click();
+  await page.getByRole("link", { name: "Start lifting" }).waitFor();
+  check("picking a day brings its card back", await page.getByRole("region", { name: "Up next: Legs" }).isVisible());
+}, trainedToday);
+
+test("today: a workout from yesterday isn't 'done today'", async ({ page }) => {
+  await page.getByRole("link", { name: "Start lifting" }).waitFor();
+  check("no recap card", !(await page.getByText("Done today").count()));
+}, account({ sessions: [workout("w1", "push", day(-1), { "Flat DB Press": [[60, 10]] })] }));
+
 const run = tests.filter((t) => !only || t.name.includes(only));
 const app = await startApp();
 const browser = await launch();
 let failed = 0;
 for (const t of run) {
   const seen = [];
-  const { page, backend, errors, context } = await openApp(browser, app.url, { ...account(), api: searchApi(seen) });
+  const { page, backend, errors, context } = await openApp(browser, app.url, { ...t.seed, api: apis(seen) });
   page.setDefaultTimeout(5000);
   try {
     await t.fn({ page, backend }, seen);
-    check("no errors on the page", !errors.length, errors.join("\n    "));
+    check("no errors on the page", !errors.length, [...errors, ...backend.requests.filter((r) => r.path.startsWith("/api/") && !(r.path in apis())).map((r) => `unfaked: ${r.method} ${r.path}${r.search}`)].join("\n    "));
     console.log(`✓ ${t.name}`);
   } catch (e) {
     failed++;
