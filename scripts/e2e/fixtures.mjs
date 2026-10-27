@@ -21,6 +21,7 @@ const record = {
   prefs: {
     welcomed: true,
     headCoach: "tank",
+    weekReview: { intro: true }, // its "New: Week in review" sheet already seen
     nutrition: { on: true, targets: { kcal: 2400, protein: 180, carbs: 250, fat: 70 } },
   },
   savedAt: Date.parse("2026-10-01T15:00:00Z"),
