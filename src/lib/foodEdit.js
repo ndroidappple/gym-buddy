@@ -74,10 +74,18 @@ export function previewFoodEdits(entries, edits, foods = [], date = today()) {
     if (error) { errors.push(`${error}.`); continue; }
 
     if (action === "add") {
-      if (!name || !meal || n.kcal === undefined) { errors.push("A food to add needs a name, a meal and its calories."); continue; }
-      const row = { date, meal, name, amount: 1, unit: "serving", kcal: n.kcal, protein: n.protein ?? 0, carbs: n.carbs ?? 0, fat: n.fat ?? 0, source: "quick" };
+      // A food with its ingredients ("pie with whipped cream"): the app adds them up, as for a meal
+      // change, and keeps the breakdown so the entry can be edited later.
+      const cooked = Array.isArray(e?.items) ? cleanMeal({ name, items: e.items }) : null;
+      const label = name || cooked?.name;
+      const missing = [!label && "a name", !meal && "a meal", !cooked && n.kcal === undefined && "its calories"].filter(Boolean);
+      if (missing.length) { errors.push(`A food to add needs ${missing.join(" and ")}.`); continue; }
+      const { alcohol, ...t } = cooked?.total || {}; // eslint-disable-line no-unused-vars -- not a food_entries column
+      const row = cooked
+        ? { date, meal, name: label, amount: 1, unit: "meal", ...t, basis: { servingLabel: "meal", perServing: cooked.total, items: cooked.items }, source: "ai" }
+        : { date, meal, name: label, amount: 1, unit: "serving", kcal: n.kcal, protein: n.protein ?? 0, carbs: n.carbs ?? 0, fat: n.fat ?? 0, source: "quick" };
       ops.push({ type: "add", row });
-      lines.push(`Add to ${mealLabel(meal)}: ${name}, ${macroLine(row)}`);
+      lines.push(`Add to ${mealLabel(meal)}: ${label}, ${macroLine(row)}`);
       continue;
     }
 

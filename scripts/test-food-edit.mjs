@@ -63,6 +63,19 @@ p = previewFoodEdits(ENTRIES, [
 ]);
 eq("only the valid edit is kept", p.ops.map((o) => [o.type, o.entry?.id]), [["remove", "a"]]);
 eq("each bad edit says why", p.errors.length, 5);
+eq("a missing field is named", p.errors[1], "A food to add needs its calories.");
+
+// An add sent as ingredients (Tank does this after a meal change): the app adds them up.
+p = previewFoodEdits(ENTRIES, [{ action: "add", meal: "snacks", items: [
+  { food: "Pumpkin pie", amount: "1 slice", kcal: 320, protein: 5, carbs: 45, fat: 18, estimated: true },
+  { food: "Whipped cream", amount: "4 tbsp", kcal: 30, protein: 0, carbs: 2, fat: 2 },
+] }]);
+eq("add with items: no errors", p.errors, []);
+eq("add with items: totals and breakdown", (({ name, unit, kcal, protein, carbs, fat, source, basis }) => ({ name, unit, kcal, protein, carbs, fat, source, n: basis.items.length }))(p.ops[0].row),
+  { name: "Pumpkin Pie & Whipped Cream", unit: "meal", kcal: 350, protein: 5, carbs: 47, fat: 20, source: "ai", n: 2 });
+eq("add with items: no alcohol column", "alcohol" in p.ops[0].row, false);
+eq("add with items: line", p.lines, ["Add to Snacks: Pumpkin Pie & Whipped Cream, 350 kcal · P 5 · C 47 · F 20"]);
+eq("add without a meal says so", previewFoodEdits(ENTRIES, [{ action: "add", name: "Pie", kcal: 320 }]).errors, ["A food to add needs a meal."]);
 p = previewFoodEdits(ENTRIES, [
   { action: "remove", entry: 0 },
   { action: "update", entry: 3, kcal: -5 },
