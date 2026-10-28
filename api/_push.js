@@ -8,7 +8,7 @@ import { timingSafeEqual } from "node:crypto";
 export const PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY;
 const PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY;
 // Apple's push service wants a contact for the sender: a mailto: or https: URL.
-const SUBJECT = process.env.VAPID_SUBJECT || "https://github.com/ndroidappple/ironlog";
+const SUBJECT = process.env.VAPID_SUBJECT || "https://github.com/ndroidappple/gym-buddy";
 export const pushReady = () => !!(PUBLIC_KEY && PRIVATE_KEY);
 
 /** Whether a request carries the shared secret, compared in constant time. */
