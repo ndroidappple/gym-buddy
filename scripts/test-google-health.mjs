@@ -103,7 +103,8 @@ const sealed = sealToken("1//refresh-token");
 ok("token is sealed", sealed.startsWith("v1.") && !sealed.includes("refresh"));
 eq("and opens", openToken(sealed), "1//refresh-token");
 let threw = false;
-try { openToken(sealed.slice(0, -2) + (sealed.endsWith("A") ? "B" : "A") + sealed.slice(-1)); } catch { threw = true; }
+// Swap the character being replaced for a different one, or the token wouldn't change at all.
+try { openToken(sealed.slice(0, -2) + (sealed.at(-2) === "A" ? "B" : "A") + sealed.slice(-1)); } catch { threw = true; }
 ok("a changed token doesn't open", threw);
 const state = signState({ user: "11111111-2222-3333-4444-555555555555", since: "2026-10-22" });
 eq("state reads back", readState(state), { user: "11111111-2222-3333-4444-555555555555", since: "2026-10-22" });

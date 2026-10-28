@@ -10,7 +10,7 @@ import { createClient } from "@supabase/supabase-js";
    but is rate limited, so set a real one (free at https://fdc.nal.usda.gov/api-key-signup). */
 
 const FDC_KEY = process.env.FDC_API_KEY || "DEMO_KEY";
-const UA = "GymBuddy/1.0 (https://github.com/ndroidappple/ironlog)"; // Open Food Facts asks apps to identify themselves
+const UA = "GymBuddy/1.0 (https://github.com/ndroidappple/gym-buddy)"; // Open Food Facts asks apps to identify themselves
 const TIMEOUT_MS = 6000;
 
 const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
