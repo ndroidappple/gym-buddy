@@ -271,7 +271,7 @@ export const FOOD_LOG_TOOLS = {
           items: {
             type: "object",
             properties: {
-              action: { type: "string", enum: ["update", "add", "remove"], description: "update = change an entry already logged today; add = log a new food; remove = delete an entry." },
+              action: { type: "string", enum: ["update", "add", "remove"], description: "update = change an entry already logged today; add = log a new food (always with its meal and name, plus either kcal/protein/carbs/fat or items); remove = delete an entry." },
               entry: { type: "integer", minimum: 1, description: "update/remove: the entry's number from the numbered Eaten list (today's, or the open day's) (#1 is 1)." },
               meal: { type: "string", enum: ["breakfast", "lunch", "dinner", "snacks"], description: "add: the meal to log it to. update: only to move it to another meal." },
               name: { type: "string", maxLength: 60, description: "add: the food's name. update: only to rename it." },
@@ -281,7 +281,7 @@ export const FOOD_LOG_TOOLS = {
               fat: { type: "number", minimum: 0, maximum: 500, description: "Grams, the whole entry." },
               items: {
                 type: "array", minItems: 1, maxItems: 12,
-                description: "update only, to change what's in a meal: the entry's whole new ingredient list, every ingredient from its [ingredients] in the numbered Eaten list with the lifter's change made (an entry with no ingredients listed: its foods as you understand them). Each item's numbers are for its own amount. The app adds up the totals, so don't also send kcal, protein, carbs or fat.",
+                description: "add: a food made of several things (pie with whipped cream), one item each, instead of kcal/protein/carbs/fat. update, to change what's in a meal: the entry's whole new ingredient list, every ingredient from its [ingredients] in the numbered Eaten list with the lifter's change made (an entry with no ingredients listed: its foods as you understand them). Each item's numbers are for its own amount. The app adds up the totals, so don't also send kcal, protein, carbs or fat.",
                 items: {
                   type: "object",
                   properties: {
