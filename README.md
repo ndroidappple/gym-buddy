@@ -6,7 +6,7 @@ lunch in plain English and it's itemized into macros. Every Sunday the crew writ
 
 GymBuddy is a React web app you add to your home screen, backed by Supabase and a handful of Vercel
 Functions. It started as a single-file Claude artifact for one lifter's 4-day split and grew, PR by
-PR, into what's here. Almost all of it was built with [Claude Code](https://claude.com/claude-code).
+PR, into what's here. 
 
 ## What it does
 
