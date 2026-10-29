@@ -195,6 +195,9 @@ function useDragToClose(sheetRef, wrapRef, close, headOnly) {
   }, [sheetRef, wrapRef, close, headOnly]);
 }
 
+/** Fired when a sheet opens, so a toast about what came before can step aside (App.jsx). */
+export const SHEET_OPEN = "gymbuddy-sheet-open";
+
 /** `lead`: something shown before the title in the header, e.g. a chat's coach; `actions`: buttons
     before the close button. `focusField`: false
     keeps the keyboard down on open (a chat you open to read), instead of focusing the first field.
@@ -214,6 +217,7 @@ export function Sheet({ title, sub, lead, actions, onClose, children, labelledBy
     const onKey = (e) => { if (e.key === "Escape") close.current(); };
     addEventListener("keydown", onKey);
     document.body.style.overflow = "hidden";
+    dispatchEvent(new Event(SHEET_OPEN));
     return () => { removeEventListener("keydown", onKey); document.body.style.overflow = ""; prev?.focus?.(); };
   }, []);
   // Portalled to <body>: a sheet opened from a sticky header would otherwise sit under the tab bar.

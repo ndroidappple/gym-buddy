@@ -56,6 +56,41 @@ test("add food: a saved food is logged and reaches the account", async ({ page, 
   check("saved to lunch with the food's numbers", row.meal === "lunch" && row.name === "Banana Berry Smoothie" && Math.round(row.kcal) === 421, JSON.stringify(row));
 });
 
+/** Logs a saved food to a meal, through the add-food sheet. */
+async function logFood(page, meal, food) {
+  await openAddFood(page, meal);
+  await page.getByRole("searchbox", { name: /search foods/i }).fill(food.split(" ")[0]);
+  await page.getByRole("button", { name: new RegExp(food) }).click();
+  await page.getByRole("button", { name: `Add to ${meal}` }).click();
+  await page.getByRole("dialog").waitFor({ state: "detached" });
+}
+
+/** Two foods logged, then the first removed from its edit sheet: its Undo toast, showing. */
+async function removeWithUndo(page) {
+  await logFood(page, "Breakfast", "Banana Berry Smoothie");
+  await logFood(page, "Lunch", "Oatmeal with chia");
+  await page.getByRole("button", { name: /Banana Berry Smoothie/ }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Remove" }).click();
+  const toast = page.locator(".toast", { hasText: "Banana Berry Smoothie removed" });
+  await toast.waitFor();
+  await page.waitForTimeout(800); // past the grace a toast gets for the move that raised it
+  check("the toast stays while nothing else happens", await toast.isVisible());
+  return toast;
+}
+
+test("toast: opening another food puts the Undo away", async ({ page }) => {
+  const toast = await removeWithUndo(page);
+  await page.getByRole("button", { name: /Oatmeal with chia/ }).click();
+  await page.getByRole("dialog").getByRole("heading", { name: "Edit food" }).waitFor();
+  await toast.waitFor({ state: "detached", timeout: 1000 }); // well before its own 5 s
+});
+
+test("toast: switching tabs puts the Undo away", async ({ page }) => {
+  const toast = await removeWithUndo(page);
+  await page.getByRole("button", { name: "Today" }).click();
+  await toast.waitFor({ state: "detached", timeout: 1000 }); // well before its own 5 s
+});
+
 // Push last week, Pull since, Push again today: today's incline press beats last week's (one PR).
 const trainedToday = account({ sessions: [
   workout("w1", "push", day(-7), { "Incline Barbell / Smith Press": [[135, 8]], "Flat DB Press": [[60, 10]] }),
