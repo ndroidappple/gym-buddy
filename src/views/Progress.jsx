@@ -39,7 +39,7 @@ export default function Progress({ open, go, ...props }) {
   const nutrition = seg === "nutrition";
 
   return (
-    <main className="screen has-tabs">
+    <main className="screen has-tabs prog-screen">
       <header className="top">
         <h1 className="page-title">Progress</h1>
         <span className="spacer" />
@@ -179,7 +179,7 @@ function Trends({ sessions, program, weighins, prefs, setPref, notify, onWeighin
             ))}
             {g.unlogged.length > 0 && (
               <div className="lift-row unlogged">
-                <span className="name" style={{ whiteSpace: "normal" }}>Not logged yet
+                <span className="name">Not logged yet
                   <span className="sub">{g.unlogged.join(", ")}</span>
                 </span>
               </div>

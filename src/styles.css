@@ -1718,3 +1718,20 @@ button.rest-open:active { opacity: 0.75; }
 .answer-lifts .lib-row { background: var(--surface-2); border: 0; box-shadow: none; min-height: 52px; }
 .lift-reply-input { flex: 1; min-width: 0; border: 0; background: none; padding: 9px 10px; font-size: 16px; color: var(--ink); }
 .lift-reply-input:focus { outline: none; }
+
+/* ── Hierarchy on Nutrition and Progress ──
+   Under the hero, what organizes the screen leads and what acts on it steps back: a section's name
+   is dark and bold (its numbers stay grey beside it), the screen's takeaway reads as a sentence,
+   and secondary actions (See all, Edit, Add) are quieter than the sections they belong to. */
+:is(.nut-screen, .prog-screen) h2.lbl { color: var(--ink); font-size: 16px; font-weight: 800; }
+/* A meal's name sits a step above the foods in it (16), so the day reads meal by meal. */
+.meal h2.lbl { font-size: 18px; }
+.meal-kcal { font-size: 13.5px; color: var(--mute); }
+button.meal-add { background: var(--surface-2); border-color: transparent; }
+.trends-sum { color: var(--ink); font-size: 18px; font-weight: 800; letter-spacing: -0.01em; }
+.see-all { color: var(--mute); font-weight: 700; }
+/* A lift's name is how you find it: it wraps rather than being cut off. */
+.lift-row .name { white-space: normal; overflow: visible; }
+.lift-card-head .lbl { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+/* "Not logged yet" is a footnote to the lifts above it, not one of them. */
+.lift-row.unlogged .name { font-size: 13.5px; color: var(--mute); }
