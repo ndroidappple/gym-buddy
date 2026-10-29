@@ -95,25 +95,36 @@ test("add food: + logs at once, and the sheet stays open for more", async ({ pag
     && backend.tables.food_entries[0].meal === "lunch", JSON.stringify(backend.tables.food_entries.map((e) => [e.name, e.meal])));
 });
 
-test("nutrition: hold a food to log it again", async ({ page, backend }) => {
+test("nutrition: hold a food for its options", async ({ page, backend }) => {
   await page.goto(new URL("#/nutrition", page.url()).href);
   const row = page.getByRole("button", { name: /^Protein Latte/ });
-  const lattes = () => backend.tables.food_entries.filter((e) => e.name === "Protein Latte" && e.date === day(0) && e.meal === "breakfast").length;
-  const box = await row.boundingBox();
-  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-  await page.mouse.down();
-  await page.waitForTimeout(700);
-  await page.mouse.up();
-  await page.locator(".toast", { hasText: "Protein Latte logged again" }).waitFor();
-  check("a hold doesn't open the food", !(await page.getByRole("dialog").count()));
+  const lattes = (meal = "breakfast") => backend.tables.food_entries.filter((e) => e.name === "Protein Latte" && e.date === day(0) && e.meal === meal).length;
+  const hold = async () => {
+    const box = await row.first().boundingBox();
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.waitForTimeout(700);
+    await page.mouse.up();
+    return page.getByRole("dialog", { name: "Protein Latte" });
+  };
+  let options = await hold();
+  await options.waitFor();
+  check("a hold doesn't log anything", backend.tables.food_entries.length === 1, String(backend.tables.food_entries.length));
+  check("no edit form behind it", !(await page.getByRole("dialog", { name: "Edit food" }).count()));
+  await options.getByRole("button", { name: "Duplicate" }).click();
+  await page.locator(".toast", { hasText: "Protein Latte duplicated" }).waitFor();
   for (let i = 0; i < 20 && lattes() < 2; i++) await page.waitForTimeout(100);
   check("two lattes at breakfast", lattes() === 2, String(lattes()));
-  // From its sheet too.
-  await row.first().click();
-  await page.getByRole("dialog").getByRole("button", { name: "Log again" }).click();
-  await page.getByRole("dialog").waitFor({ state: "detached" });
-  for (let i = 0; i < 20 && lattes() < 3; i++) await page.waitForTimeout(100);
-  check("three after Log again", lattes() === 3, String(lattes()));
+  // Move one to snacks.
+  options = await hold();
+  await options.getByRole("button", { name: "Snacks" }).click();
+  await page.locator(".toast", { hasText: "Protein Latte moved to Snacks" }).waitFor();
+  for (let i = 0; i < 20 && lattes("snacks") < 1; i++) await page.waitForTimeout(100);
+  check("one at breakfast, one at snacks", lattes() === 1 && lattes("snacks") === 1, `${lattes()} / ${lattes("snacks")}`);
+  // Edit from the options opens the edit sheet.
+  options = await hold();
+  await options.getByRole("button", { name: "Edit" }).click();
+  await page.getByRole("dialog", { name: "Edit food" }).waitFor();
 }, account({ entries: [entry("Protein Latte", "breakfast", 0, { kcal: 130 })] }));
 
 /** Logs a saved food to a meal, through the add-food sheet. */

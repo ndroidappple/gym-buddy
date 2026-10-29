@@ -78,7 +78,7 @@ export const HELP = {
       { name: "One-tap add", Icon: Plus, text: "In Add, the [+] on one of your foods logs it at your usual amount. Tap the name to change it." },
       { name: "Describe a meal", Icon: MessageCircle, text: "Say what you ate in your own words. Your head coach itemizes it and saves it as one food." },
       { name: "Copy", Icon: Copy, text: "An empty meal can copy yesterday's in one tap." },
-      { name: "Log again", Icon: CopyPlus, text: "Hold a food to have it again today, same meal and amount." },
+      { name: "Hold", Icon: CopyPlus, text: "Hold a food to edit, duplicate, move or remove it." },
       { name: "Ask", Icon: MessageCircle, spot: "ask", text: "Ask your head coach what to eat, about your macros, or how your week's going. Same chats as on Today." },
       { name: "This week", Icon: CalendarDays, spot: "week", text: "Each day against your target. The line is your calorie target." },
     ],
