@@ -84,7 +84,7 @@ export default function WeekReviewIntro({ settings, onSave }) {
       )}
       <button type="button" className="btn btn-ink" onClick={keep}>Keep it on</button>
       <button type="button" className="btn-quiet" onClick={() => onSave({ ...r, notify: ping, on: false, intro: true })}>Turn it off</button>
-      <p className="small muted review-intro-note">You can change all of this any time in Settings.</p>
+      <p className="small muted review-intro-note">You can change this any time in Settings.</p>
     </Sheet>
   );
 }

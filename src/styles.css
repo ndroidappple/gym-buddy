@@ -1221,6 +1221,20 @@ button.coach-card:active { transform: translateY(3px); box-shadow: 0 2px 0 var(-
 .food-row-main { flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px; min-height: 58px; padding: 8px 10px 8px 16px; text-align: left; color: var(--ink); }
 .food-row-main .food-kcal { font-size: 15px; white-space: nowrap; }
 .food-row-main .food-kcal small { font-size: 12px; font-weight: 700; color: var(--mute); }
+/* The + on one of your foods logs it there and then; it ticks for a moment to say so. */
+.food-quick { color: var(--mute); }
+.food-quick:active { background: var(--surface-2); color: var(--ink); }
+.food-quick.ticked { color: var(--accent); }
+.food-quick.ticked svg { animation: food-tick var(--pop-ms) var(--pop); }
+@keyframes food-tick { from { transform: scale(.5); } }
+@media (prefers-reduced-motion: reduce) { .food-quick.ticked svg { animation: none; } }
+/* What's been added with +, held at the bottom of the sheet until Done. */
+.food-tray { position: sticky; bottom: -20px; z-index: 2; display: flex; align-items: center; gap: 6px; margin: auto -16px -20px; padding: 14px 16px 30px;
+  background: linear-gradient(transparent, var(--bg) 14px); }
+.food-tray-text { flex: 1; min-width: 0; display: flex; flex-direction: column; font-size: 15px; }
+.food-tray-text .sub { font-size: 13px; font-weight: 500; color: var(--mute); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.food-tray .btn-quiet { padding: 0 10px; min-height: 48px; font-weight: 800; }
+.food-tray .btn { width: auto; padding: 0 24px; }
 .food-edit { align-self: center; display: inline-flex; align-items: center; gap: 6px; }
 .food-more { justify-content: center; min-height: 48px; font-weight: 800; font-size: 14.5px; color: var(--ink); }
 .food-db-lbl { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
@@ -1575,6 +1589,8 @@ button.rest-open:active { opacity: 0.75; }
 /* Hold to edit (a finished set): the row presses in for the whole hold, so it's clear holding is
    doing something, then lets go when the editor opens. */
 .done-row.holding { background-color: var(--surface-2); transform: scale(0.97); transition: transform 450ms var(--pop), background-color 200ms ease; }
+/* Hold to log again (a food on Nutrition): the same press-in. */
+.food-row.holding { background-color: var(--surface-2); transform: scale(0.97); transition: transform 450ms var(--pop), background-color 200ms ease; }
 /* The set number's circle is surface-2 too: lift it so it doesn't vanish into the shade. */
 :is(.done-row:active, .done-row.holding) .n { background-color: var(--rule-2); color: var(--ink); }
 

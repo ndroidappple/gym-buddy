@@ -36,12 +36,20 @@ export const workout = (id, dayKey, date, sets) => ({
   sets: Object.fromEntries(Object.entries(sets).map(([n, xs]) => [n, xs.map(([w, r]) => ({ w, r }))])),
 });
 
-/** The account; `sessions` are its logged workouts (none by default). */
-export const account = ({ sessions = [] } = {}) => ({
+/** A logged food: `days` from today, at `meal`; a meal Tank itemized unless `extra` says otherwise. */
+let entryN = 0;
+export const entry = (name, meal, days, extra = {}) => {
+  const date = day(days), id = `22222222-2222-4222-8222-${String(++entryN).padStart(12, "0")}`;
+  return { id, user_id: USER.id, date, meal, name, brand: null, amount: 1, unit: "meal", grams: null, kcal: 500, protein: 40, carbs: 50, fat: 15,
+    source: "ai", source_ref: null, basis: null, created_at: `${date}T18:00:0${entryN % 10}Z`, updated_at: `${date}T18:00:00Z`, ...extra };
+};
+
+/** The account; `sessions` are its logged workouts and `entries` its food log (none by default). */
+export const account = ({ sessions = [], entries = [] } = {}) => ({
   tables: {
     storage_kv: [{ user_id: USER.id, key: "ironlog-v2", value: JSON.stringify({ ...record, sessions }), updated_at: "2026-10-01T15:00:00Z" }],
     foods: FOODS.map((f) => ({ ...f, user_id: USER.id })),
-    food_entries: [],
+    food_entries: entries,
   },
   userMeta: { name_asked: true, first_name: "Nick" },
 });

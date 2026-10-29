@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { ChevronLeft, ChevronRight, Plus, Copy, MessageCircle } from "lucide-react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { ChevronLeft, ChevronRight, Plus, Copy, CopyPlus, MessageCircle } from "lucide-react";
 import Coach from "../components/Coach.jsx";
 import CoachChat from "../components/CoachChat.jsx";
 import { COACHES } from "../data/coaches.js";
@@ -8,7 +8,7 @@ import AddFood, { Portion, QuickAdd, amountLabel } from "../components/AddFood.j
 import { MEALS, totals, byDate, weekSummary, addDays } from "../lib/nutrition.js";
 import { savedFoodFor } from "../lib/food.js";
 import { href } from "../lib/router.js";
-import { today, longDate, plural } from "../lib/util.js";
+import { today, longDate, plural, vibrate } from "../lib/util.js";
 import Roll from "../components/Roll.jsx";
 
 /* The Nutrition tab: one day at a time (today by default). Calories left and the three macros
@@ -64,7 +64,19 @@ export default function Nutrition({ food, prefs, notify, sessions, weighins, pro
     const { id, created_at, updated_at, ...rest } = e; // eslint-disable-line no-unused-vars
     notify(`${e.name} removed`, () => food.addEntry({ ...rest, id }));
   };
+  // Hold a food (or Log again in its sheet) to have it again today, at the same meal and amount.
+  const again = (e) => {
+    const { id, created_at, updated_at, ...rest } = e; // eslint-disable-line no-unused-vars
+    const nid = food.addEntry({ ...rest, date: today() });
+    const meal = MEALS.find((m) => m.id === e.meal)?.label.toLowerCase();
+    notify(isToday ? `${e.name} logged again` : `${e.name} added to today's ${meal}`, () => food.removeEntry(nid));
+  };
   const entry = editing && food.entries.find((e) => e.id === editing);
+  const againBtn = entry && (
+    <button type="button" className="btn-quiet food-again" onClick={() => { again(entry); setEditing(null); }}>
+      <CopyPlus size={16} aria-hidden="true" style={{ verticalAlign: -3 }} /> {isToday ? "Log again" : "Log again today"}
+    </button>
+  );
 
   return (
     <main className="screen has-tabs">
@@ -105,10 +117,10 @@ export default function Nutrition({ food, prefs, notify, sessions, weighins, pro
               {list.length > 0 && (
                 <div className="list">
                   {list.map((e) => (
-                    <button key={e.id} type="button" className="list-row food-row" onClick={() => setEditing(e.id)}>
+                    <FoodRow key={e.id} onOpen={() => setEditing(e.id)} onHold={() => again(e)}>
                       <span className="name">{e.name}<span className="sub detail">{[e.brand, e.source === "quick" ? null : amountLabel(e), `P ${Math.round(e.protein)} · C ${Math.round(e.carbs)} · F ${Math.round(e.fat)}`].filter(Boolean).join(" · ")}</span></span>
                       <span className="food-kcal">{fmt(e.kcal)}</span>
-                    </button>
+                    </FoodRow>
                   ))}
                 </div>
               )}
@@ -137,12 +149,37 @@ export default function Nutrition({ food, prefs, notify, sessions, weighins, pro
                   if (saved && name !== entry.name) food.updateFood(saved.id, { name });
                   setEditing(null);
                 }}
-                onDelete={() => remove(entry)} />
+                extra={againBtn} onDelete={() => remove(entry)} />
             : <QuickAdd entry={entry} meal={entry.meal} onMeal={(meal) => food.updateEntry(entry.id, { meal })} action="Save"
-                onSave={(row) => { food.updateEntry(entry.id, row); setEditing(null); }} onDelete={() => remove(entry)} />}
+                onSave={(row) => { food.updateEntry(entry.id, row); setEditing(null); }} extra={againBtn} onDelete={() => remove(entry)} />}
         </Sheet>
       )}
     </main>
+  );
+}
+
+/* A logged food: a tap opens it, a hold logs it again (onHold). The row presses in for the whole hold,
+   like a finished set in a workout; moving off it (a scroll) cancels. */
+const HOLD_MS = 450;
+function FoodRow({ onOpen, onHold, children }) {
+  const [holding, setHolding] = useState(false);
+  const g = useRef(null);
+  useEffect(() => () => clearTimeout(g.current?.timer), []);
+  const stop = () => { clearTimeout(g.current?.timer); setHolding(false); };
+  const down = (e) => {
+    if (e.button) return;
+    const t = { x: e.clientX, y: e.clientY, held: false };
+    t.timer = setTimeout(() => { t.held = true; setHolding(false); vibrate(15); onHold(); }, HOLD_MS);
+    g.current = t;
+    setHolding(true);
+  };
+  const move = (e) => { const t = g.current; if (t && !t.held && Math.hypot(e.clientX - t.x, e.clientY - t.y) > 8) { stop(); g.current = null; } };
+  const click = () => { const t = g.current; g.current = null; if (!t?.held) onOpen(); };
+  return (
+    <button type="button" className={"list-row food-row" + (holding ? " holding" : "")} onClick={click} onContextMenu={(e) => e.preventDefault()}
+      onPointerDown={down} onPointerMove={move} onPointerUp={stop} onPointerCancel={() => { stop(); g.current = null; }}>
+      {children}
+    </button>
   );
 }
 

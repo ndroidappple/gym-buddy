@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { PROGRAM, allDays, CUSTOM, normalizeProgram, warmupOf, baseOf } from "./data/program.js";
 import { useRoute, href } from "./lib/router.js";
-import { Toast, TabBar, Boot, LoadError, SyncNote } from "./components/ui.jsx";
+import { Toast, TabBar, Boot, LoadError, SyncNote, SHEET_OPEN } from "./components/ui.jsx";
 import { loadState, createSaver } from "./lib/store.js";
 import { merge3 } from "./lib/merge.js";
 import { DEFAULT_PREFS } from "./lib/prefs.js";
@@ -43,6 +43,7 @@ import { summarize, withHeart, maxHrFor, estimatedBounds, hasHeart, withoutHeart
 import { useTabFade } from "./lib/tabFade.js";
 
 const TAB_VIEWS = ["today", "nutrition", "progress", "settings", "lift"];
+const TOAST_GRACE = 600; // ms a new toast survives a screen change or sheet opening that came with it
 
 /** Saved account data as app state, with defaults filled in. */
 const fromData = (data) => ({
@@ -150,6 +151,16 @@ export default function App() {
   }, [toast]);
 
   const notify = useCallback((msg, undo) => setToast({ msg, undo, at: Date.now() }), []);
+
+  /* A toast is about what was just done: moving on (another screen, or a sheet opening) puts it away,
+     Undo and all. One raised by the move itself (a sheet's Save that also closes it) gets a moment first. */
+  const dropToast = useCallback(() => setToast((t) => (t && Date.now() - t.at > TOAST_GRACE ? null : t)), []);
+  const routeKey = JSON.stringify(route);
+  useEffect(dropToast, [routeKey, dropToast]);
+  useEffect(() => {
+    addEventListener(SHEET_OPEN, dropToast);
+    return () => removeEventListener(SHEET_OPEN, dropToast);
+  }, [dropToast]);
 
   useEffect(() => { window.scrollTo(0, 0); }, [route.name, route.day, route.id, route.lift]);
 
