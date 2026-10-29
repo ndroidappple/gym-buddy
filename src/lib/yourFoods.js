@@ -21,9 +21,9 @@ const DAY = 86400000;
 
 /**
  * Your foods, best first, for the meal being added to on `date` (today by default). Each item:
- * { key, name, brand, saved, last, count, usual, lastDate, kcal, score }. `saved` is the saved food
- * (or null), `last` the latest log of it (or null), `usual` the meal it's mostly had at (when that's
- * clear), `kcal` its usual portion.
+ * { key, name, brand, saved, last, atMeal, count, usual, lastDate, kcal, score }. `saved` is the saved
+ * food (or null), `last` the latest log of it (or null), `atMeal` the latest at this meal (or null),
+ * `usual` the meal it's mostly had at (when that's clear), `kcal` its usual portion here.
  */
 export function yourFoods(entries, foods, { meal = null, now = Date.now(), date = iso(new Date(now)) } = {}) {
   const halfLife = HALF_LIFE_DAYS[meal] || 14;
@@ -33,7 +33,7 @@ export function yourFoods(entries, foods, { meal = null, now = Date.now(), date 
   for (const f of foods) byName.set(nameKey(f), [...(byName.get(nameKey(f)) || []), f]);
   const items = new Map();
   const item = (key, saved = null) => {
-    if (!items.has(key)) items.set(key, { key, saved, last: null, count: 0, meals: {}, score: 0, lastAt: "", here: 0, hereDays: new Set(), hadIt: false });
+    if (!items.has(key)) items.set(key, { key, saved, last: null, count: 0, meals: {}, score: 0, lastAt: "", atMeal: null, atMealAt: "", here: 0, hereDays: new Set(), hadIt: false });
     return items.get(key);
   };
   for (const f of foods) item(`food:${f.id}`, f);
@@ -53,6 +53,7 @@ export function yourFoods(entries, foods, { meal = null, now = Date.now(), date 
     if (e.meal === meal) { it.here++; it.hereDays.add(e.date); if (e.date === date) it.hadIt = true; }
     const at = `${e.date}|${e.created_at || ""}`; // same day: the later log wins
     if (at > it.lastAt) { it.lastAt = at; it.last = e; }
+    if (e.meal === meal && at > it.atMealAt) { it.atMealAt = at; it.atMeal = e; }
   }
   return [...items.values()].map((it) => {
     const [top, n] = Object.entries(it.meals).sort((a, b) => b[1] - a[1])[0] || [];
@@ -61,11 +62,11 @@ export function yourFoods(entries, foods, { meal = null, now = Date.now(), date 
     const often = it.here >= 1.5 * it.hereDays.size; // had more than once at this meal most days
     const score = it.score * (meal && usual && !pool.includes(usual) ? OFF_MEAL : 1) * (it.hadIt && !often ? HAD_IT : 1);
     return {
-      key: it.key, saved: it.saved, last: it.last, count: it.count, score, at: it.lastAt,
+      key: it.key, saved: it.saved, last: it.last, atMeal: it.atMeal, count: it.count, score, at: it.lastAt,
       name: it.saved?.name ?? it.last.name, brand: it.saved ? it.saved.brand || null : it.last.brand || null,
       usual,
       lastDate: it.last?.date || null,
-      kcal: it.last ? +it.last.kcal : s ? +s.kcal : null,
+      kcal: it.atMeal || it.last ? +(it.atMeal || it.last).kcal : s ? +s.kcal : null,
       created: it.saved?.created_at || "",
     };
   }).sort((a, b) => b.score - a.score || b.at.localeCompare(a.at) || b.created.localeCompare(a.created)); // a tie: had latest first (last night's dinner over yesterday's lunch)
@@ -111,10 +112,11 @@ function dayWord(d, from) {
 
 /**
  * What logging one of your foods starts from: the food (saved, or as last logged) and the amount
- * you had last time. A log with no nutrition basis (a quick add) gets one from its own numbers.
+ * you had last time at this meal, else last time at all (two lattes at breakfast, one as a snack).
+ * A log with no nutrition basis (a quick add) gets one from its own numbers.
  */
 export function pickYourFood(it) {
-  const e = it.last;
+  const e = it.atMeal || it.last;
   const prior = e ? { amount: +e.amount, unit: e.unit } : {};
   if (it.saved) {
     // Keep the source of the log it came from (a Tank meal stays "ai"), so the entry still links back.

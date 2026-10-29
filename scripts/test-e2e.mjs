@@ -31,7 +31,7 @@ test("add food: Back from 'How much?' keeps the search as it was", async ({ page
   const dbRow = page.getByRole("button", { name: /Strawberry smoothie/ });
   await dbRow.waitFor();
 
-  await page.getByRole("button", { name: /Banana Berry Smoothie/ }).click();
+  await page.getByRole("button", { name: /^Banana Berry Smoothie/ }).click();
   await page.getByRole("heading", { name: "How much?" }).waitFor();
   check("the portion step shows the food", await page.getByText("Banana Berry Smoothie", { exact: true }).filter({ visible: true }).count() === 1);
 
@@ -45,7 +45,7 @@ test("add food: Back from 'How much?' keeps the search as it was", async ({ page
 test("add food: a saved food is logged and reaches the account", async ({ page, backend }) => {
   await openAddFood(page, "Lunch");
   await page.getByRole("searchbox", { name: /search foods/i }).fill("banana");
-  await page.getByRole("button", { name: /Banana Berry Smoothie/ }).click();
+  await page.getByRole("button", { name: /^Banana Berry Smoothie/ }).click();
   await page.getByRole("button", { name: "Add to Lunch" }).click();
   await page.getByRole("dialog").waitFor({ state: "detached" });
   check("the meal shows the food", await page.getByText("Banana Berry Smoothie").first().isVisible());
@@ -74,11 +74,53 @@ test("add food: last night's dinner is one tap at lunch", async ({ page, backend
   entry("Steak Pico Rice Bowl", "dinner", -1, { created_at: `${day(-1)}T23:30:00Z` }),
 ] }));
 
+test("add food: + logs at once, and the sheet stays open for more", async ({ page, backend }) => {
+  await openAddFood(page, "Lunch");
+  const dialog = page.getByRole("dialog");
+  const order = async () => (await dialog.locator(".food-row .name").allTextContents()).join(" | ");
+  const before = await order();
+  await dialog.getByRole("button", { name: "Add Banana Berry Smoothie" }).click();
+  const tray = dialog.locator(".food-tray");
+  await tray.getByText("1 added · 421 kcal").waitFor();
+  check("the list stays put under the next tap", (await order()) === before, `${before}\n    now ${await order()}`);
+  await dialog.getByRole("button", { name: "Add Oatmeal with chia" }).click();
+  await tray.getByText("2 added · 943 kcal").waitFor();
+  await tray.getByRole("button", { name: "Undo" }).click();
+  await tray.getByText("1 added · 421 kcal").waitFor();
+  await tray.getByRole("button", { name: "Done" }).click();
+  await dialog.waitFor({ state: "detached" });
+  await page.locator(".toast", { hasText: "Banana Berry Smoothie added to Lunch" }).waitFor();
+  for (let i = 0; i < 20 && backend.tables.food_entries.length !== 1; i++) await page.waitForTimeout(100);
+  check("only the one left in the tray reaches the account", backend.tables.food_entries.length === 1 && backend.tables.food_entries[0].name === "Banana Berry Smoothie"
+    && backend.tables.food_entries[0].meal === "lunch", JSON.stringify(backend.tables.food_entries.map((e) => [e.name, e.meal])));
+});
+
+test("nutrition: hold a food to log it again", async ({ page, backend }) => {
+  await page.goto(new URL("#/nutrition", page.url()).href);
+  const row = page.getByRole("button", { name: /^Protein Latte/ });
+  const lattes = () => backend.tables.food_entries.filter((e) => e.name === "Protein Latte" && e.date === day(0) && e.meal === "breakfast").length;
+  const box = await row.boundingBox();
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.waitForTimeout(700);
+  await page.mouse.up();
+  await page.locator(".toast", { hasText: "Protein Latte logged again" }).waitFor();
+  check("a hold doesn't open the food", !(await page.getByRole("dialog").count()));
+  for (let i = 0; i < 20 && lattes() < 2; i++) await page.waitForTimeout(100);
+  check("two lattes at breakfast", lattes() === 2, String(lattes()));
+  // From its sheet too.
+  await row.first().click();
+  await page.getByRole("dialog").getByRole("button", { name: "Log again" }).click();
+  await page.getByRole("dialog").waitFor({ state: "detached" });
+  for (let i = 0; i < 20 && lattes() < 3; i++) await page.waitForTimeout(100);
+  check("three after Log again", lattes() === 3, String(lattes()));
+}, account({ entries: [entry("Protein Latte", "breakfast", 0, { kcal: 130 })] }));
+
 /** Logs a saved food to a meal, through the add-food sheet. */
 async function logFood(page, meal, food) {
   await openAddFood(page, meal);
   await page.getByRole("searchbox", { name: /search foods/i }).fill(food.split(" ")[0]);
-  await page.getByRole("button", { name: new RegExp(food) }).click();
+  await page.getByRole("button", { name: new RegExp(`^${food}`) }).click();
   await page.getByRole("button", { name: `Add to ${meal}` }).click();
   await page.getByRole("dialog").waitFor({ state: "detached" });
 }
@@ -87,7 +129,7 @@ async function logFood(page, meal, food) {
 async function removeWithUndo(page) {
   await logFood(page, "Breakfast", "Banana Berry Smoothie");
   await logFood(page, "Lunch", "Oatmeal with chia");
-  await page.getByRole("button", { name: /Banana Berry Smoothie/ }).click();
+  await page.getByRole("button", { name: /^Banana Berry Smoothie/ }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Remove" }).click();
   const toast = page.locator(".toast", { hasText: "Banana Berry Smoothie removed" });
   await toast.waitFor();
@@ -98,7 +140,7 @@ async function removeWithUndo(page) {
 
 test("toast: opening another food puts the Undo away", async ({ page }) => {
   const toast = await removeWithUndo(page);
-  await page.getByRole("button", { name: /Oatmeal with chia/ }).click();
+  await page.getByRole("button", { name: /^Oatmeal with chia/ }).click();
   await page.getByRole("dialog").getByRole("heading", { name: "Edit food" }).waitFor();
   await toast.waitFor({ state: "detached", timeout: 1000 }); // well before its own 5 s
 });

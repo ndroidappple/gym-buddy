@@ -131,6 +131,16 @@ const chips = bk.find((x) => x.name === "Vending machine chips");
 const p3 = pickYourFood(chips);
 eq("quick add: a basis from its own numbers", [p3.amount, p3.unit, nutritionFor(p3.food.basis, p3.amount, p3.unit).kcal], [2, "serving", 300]);
 
+// Each meal remembers its own amount: two lattes at breakfast, one as a snack.
+const lattes = [
+  log("Latte", "breakfast", 3, { amount: 2, kcal: 260 }), log("Latte", "breakfast", 2, { amount: 2, kcal: 260 }),
+  log("Latte", "snacks", 1, { amount: 1, kcal: 130 }),
+];
+const latteAt = (m) => { const x = yourFoods(lattes, [], { meal: m, now: NOW })[0]; return [pickYourFood(x).amount, x.kcal]; };
+eq("breakfast: two, as at breakfast", latteAt("breakfast"), [2, 260]);
+eq("snacks: one, as at snacks", latteAt("snacks"), [1, 130]);
+eq("never at lunch: the latest amount", latteAt("lunch"), [1, 130]);
+
 // Search within your foods: every word, any order.
 eq("all words, any order", matchesQuery({ name: "Sugar-Free Protein Latte" }, "latte protein"), true);
 eq("brand counts", matchesQuery({ name: "Latte", brand: "Starbucks" }, "starbucks latte"), true);

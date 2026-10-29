@@ -1,6 +1,6 @@
 import {
   Play, Eye, Bell, ArrowLeftRight, Target, CalendarCheck, Scale, Trophy, TrendingUp, Flag, List, CalendarDays, Pencil,
-  Gauge, LineChart, Pin, Hash, History, Dumbbell, Plus, FileSpreadsheet, Users, MessageCircle, Sparkles, SlidersHorizontal, Download, ClipboardPaste, Utensils, PieChart, Copy, CircleUser, Timer,
+  Gauge, LineChart, Pin, Hash, History, Dumbbell, Plus, FileSpreadsheet, Users, MessageCircle, Sparkles, SlidersHorizontal, Download, ClipboardPaste, Utensils, PieChart, Copy, CopyPlus, CircleUser, Timer,
 } from "lucide-react";
 
 /* What each screen is for, shown from the (i) in its header as a short tap-through: one feature per
@@ -75,8 +75,10 @@ export const HELP = {
     steps: [
       { name: "Calories left", Icon: PieChart, spot: "summary", text: "What's left of today's calories, and your protein, carbs and fat." },
       { name: "Add", Icon: Plus, spot: "meal", text: "Log food: describe it to your head coach, pick a recent food, search, or enter it manually." },
+      { name: "One-tap add", Icon: Plus, text: "In Add, the [+] on one of your foods logs it at your usual amount. Tap the name to change it." },
       { name: "Describe a meal", Icon: MessageCircle, text: "Say what you ate in your own words. Your head coach itemizes it and saves it as one food." },
       { name: "Copy", Icon: Copy, text: "An empty meal can copy yesterday's in one tap." },
+      { name: "Log again", Icon: CopyPlus, text: "Hold a food to have it again today, same meal and amount." },
       { name: "Ask", Icon: MessageCircle, spot: "ask", text: "Ask your head coach what to eat, about your macros, or how your week's going. Same chats as on Today." },
       { name: "This week", Icon: CalendarDays, spot: "week", text: "Each day against your target. The line is your calorie target." },
     ],

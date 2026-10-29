@@ -5,6 +5,7 @@ import { COACHES } from "../data/coaches.js";
 import { useMealAnswer, MealAnswer } from "./TankMeal.jsx";
 import ScanFood from "./ScanFood.jsx";
 import { Sheet } from "./ui.jsx";
+import { vibrate, plural } from "../lib/util.js";
 import { MEALS, unitsFor, nutritionFor, defaultPortion, totals } from "../lib/nutrition.js";
 import { yourFoods, pickYourFood, whenLabel, recentMeals } from "../lib/yourFoods.js";
 import { readQuery, matchScore, portionFor, mealItems } from "../lib/foodQuery.js";
@@ -24,6 +25,18 @@ export const amountLabel = (e) => (e.unit === "g" || e.unit === "oz" ? `${+e.amo
 const asFood = (x) => ({ name: x.name, brand: x.brand || null, source: x.source, ref: x.ref ?? x.source_ref ?? x.id ?? null, basis: x.basis || null });
 /** A barcode match on this phone (see foodForBarcode) as a food. */
 const scannedFood = ({ kind, item }) => (kind === "saved" ? asFood({ ...item, source: "custom" }) : asFood(item));
+/** A food at an amount, as the entry to log. */
+const entryFor = (f, amount, unit) => {
+  const n = nutritionFor(f.basis, amount, unit);
+  return { name: f.name, brand: f.brand, amount, unit, grams: n.grams, kcal: n.kcal, protein: n.protein, carbs: n.carbs, fat: n.fat,
+    source: f.source, source_ref: f.ref ? String(f.ref).slice(0, 80) : null, basis: f.basis };
+};
+/** The amount a + logs: what the portion step would open at (last time's, else the food's default). */
+const usualPortion = (f, prior = {}) => {
+  const d = defaultPortion(f.basis);
+  const unit = prior.unit && unitsFor(f.basis).some((u) => u.label === prior.unit) ? prior.unit : d.unit;
+  return { amount: +prior.amount > 0 ? +prior.amount : d.amount, unit };
+};
 
 /* On a phone the sheet opens without focusing search: the keyboard rising while the sheet slides up
    reads as two motions fighting, and it covers what's tapped most (your foods, Scan). Tapping the
@@ -45,6 +58,27 @@ export default function AddFood({ food, head = "tank", meal: meal0, date, target
   }, [view.step]);
   const [meal, setMeal] = useState(meal0);
   const mealLabel = MEALS.find((m) => m.id === meal)?.label;
+  /* A + logs at once and the sheet stays open, so a meal can be built from its parts. What's been added
+     shows in a tray at the bottom (Undo takes back the last, Done closes); closing says what went in,
+     with an Undo for all of it. The lists above stay as they were, so nothing jumps under the next tap. */
+  const [added, setAdded] = useState([]); // { id, name, kcal }, oldest first
+  const quick = (f, prior) => {
+    const { amount, unit } = usualPortion(f, prior);
+    const row = entryFor(f, amount, unit);
+    const id = food.addEntry({ date, meal, ...row });
+    vibrate(10);
+    setAdded((xs) => [...xs, { id, name: row.name, kcal: row.kcal }]);
+  };
+  const undoLast = () => { const x = added[added.length - 1]; if (!x) return; food.removeEntry(x.id); setAdded(added.slice(0, -1)); };
+  const done = () => {
+    if (added.length) {
+      const ids = added.map((x) => x.id);
+      notify?.(`${added.length === 1 ? added[0].name : plural(added.length, "food")} added to ${mealLabel}`, () => ids.forEach((id) => food.removeEntry(id)));
+    }
+    onClose();
+  };
+  const addedIds = useMemo(() => new Set(added.map((x) => x.id)), [added]);
+  const entries = useMemo(() => food.entries.filter((e) => !addedIds.has(e.id)), [food.entries, addedIds]);
   const add = (row, label) => {
     food.addEntry({ date, meal, ...row });
     notify?.(`${label} added to ${mealLabel}`);
@@ -77,22 +111,27 @@ export default function AddFood({ food, head = "tank", meal: meal0, date, target
 
   return (
     <Sheet title={title} sub={view.step === "find" ? (standing || `Search your foods, or describe what you ate and ${who} works it out.`) : null}
-      onClose={onClose} labelledBy="add-food-title" className="sheet-tall" focusField={!touchScreen()}>
+      onClose={done} labelledBy="add-food-title" className="sheet-tall" focusField={!touchScreen()}>
       {view.step !== "find" && (
         <button type="button" className="btn-quiet food-back" onClick={() => setView({ step: "find" })}><ChevronLeft size={16} aria-hidden="true" /> Back</button>
       )}
       <div ref={findRef} style={{ display: view.step === "find" ? "contents" : "none" }}>
-        <Find food={food} head={head} meal={meal} date={date} action={`Add to ${mealLabel}`} onMeal={addMeal} onRepeat={addMany}
-          onPick={(f, prior) => leaveFind({ step: "portion", food: f, prior })} onScan={() => leaveFind({ step: "scan" })} onManual={() => leaveFind({ step: "manual" })} />
+        <Find food={food} entries={entries} head={head} meal={meal} date={date} action={`Add to ${mealLabel}`} onMeal={addMeal} onRepeat={addMany}
+          onPick={(f, prior) => leaveFind({ step: "portion", food: f, prior })} onQuick={quick} onScan={() => leaveFind({ step: "scan" })} onManual={() => leaveFind({ step: "manual" })}
+          tray={added.length > 0 && (
+            <div className="food-tray" role="status">
+              <span className="food-tray-text"><b>{added.length} added · {fmt(added.reduce((t, x) => t + x.kcal, 0))} kcal</b>
+                <span className="sub">{added.map((x) => x.name).join(" · ")}</span></span>
+              <button type="button" className="btn-quiet" onClick={undoLast}>Undo</button>
+              <button type="button" className="btn btn-ink" onClick={done}>Done</button>
+            </div>
+          )} />
       </div>
       {view.step === "scan" && <ScanFood food={food} toFood={scannedFood} onFound={(f) => setView({ step: "portion", food: f })} onManual={(barcode) => setView({ step: "manual", barcode })} />}
       {view.step === "portion" && (
         <>
         <Portion item={picked} amount={view.prior?.amount} unit={view.prior?.unit} meal={meal} onMeal={setMeal} action={`Add to ${mealLabel}`}
-          onSave={({ amount, unit, n }) => add({
-            name: picked.name, brand: picked.brand, amount, unit, grams: n.grams, kcal: n.kcal, protein: n.protein, carbs: n.carbs, fat: n.fat,
-            source: picked.source, source_ref: picked.ref ? String(picked.ref).slice(0, 80) : null, basis: picked.basis,
-          }, picked.name)} />
+          onSave={({ amount, unit }) => add(entryFor(picked, amount, unit), picked.name)} />
         {/* Renaming or deleting a saved food lives here, not on every row of the list. */}
         {saved && <button type="button" className="btn-quiet food-edit" onClick={() => setEditing(saved)}><Pencil size={15} aria-hidden="true" /> Rename or delete this saved food</button>}
         {editing && <EditSavedFood food={food} item={editing} onClose={(gone) => { setEditing(null); if (gone) setView({ step: "find" }); }} />}
@@ -122,7 +161,7 @@ const AUTO_MS = 900; // a described meal is asked about once typing pauses this 
    lifter's own foods ticked, and handed to the coach so it uses their numbers), then the meal and its
    total with one-tap Add. Your foods and the databases stay below it. A correction or an answer to the
    coach's question goes in the box at the bottom, which only shows once there's an answer to change. */
-function Find({ food, head, meal, date, action, onMeal, onRepeat, onPick, onScan, onManual }) {
+function Find({ food, entries, head, meal, date, action, onMeal, onRepeat, onPick, onQuick, onScan, onManual, tray }) {
   const who = COACHES[head].name;
   const [q, setQ] = useState("");
   const [reply, setReply] = useState(""); // a follow-up to the coach, typed at the bottom
@@ -133,7 +172,7 @@ function Find({ food, head, meal, date, action, onMeal, onRepeat, onPick, onScan
   const [lookUp, setLookUp] = useState(false); // search the databases for a description after all
   const abort = useRef(null);
   const input = useRef(null);
-  const ranked = useMemo(() => yourFoods(food.entries, food.foods, { meal, date }), [food.entries, food.foods, meal, date]);
+  const ranked = useMemo(() => yourFoods(entries, food.foods, { meal, date }), [entries, food.foods, meal, date]);
   // What's typed: a search, an amount and a food, or a meal in words for the coach (lib/foodQuery.js).
   // A name of one of their own foods is a search for it, however list-like it reads.
   const known = useMemo(() => q.trim() && ranked.some((x) => matchScore(x, q) >= 2), [ranked, q]);
@@ -180,13 +219,24 @@ function Find({ food, head, meal, date, action, onMeal, onRepeat, onPick, onScan
   const results = state.results.filter((x) => !mineKeys.has(`${x.name}|${x.brand || ""}`.toLowerCase()));
 
   // Earlier meals to log again in one tap: for lunch, last night's dinner (leftovers) and yesterday's lunch.
-  const repeats = useMemo(() => recentMeals(food.entries, { meal, date }), [food.entries, date, meal]);
+  const repeats = useMemo(() => recentMeals(entries, { meal, date }), [entries, date, meal]);
 
   // An amount typed with the food starts its portion there: "200g chicken breast" opens at 200 g.
-  const pickMine = (x) => {
+  const mineAt = (x) => {
     const p = pickYourFood(x);
     const at = read.kind === "amount" ? portionFor(unitsFor(p.food.basis), read.amount, read.unit) : null;
-    onPick(p.food, at ? { amount: at.unit ? at.amount : at.amount * (p.unit && p.amount ? p.amount : 1), unit: at.unit || p.unit } : { amount: p.amount, unit: p.unit });
+    return [p.food, at ? { amount: at.unit ? at.amount : at.amount * (p.unit && p.amount ? p.amount : 1), unit: at.unit || p.unit } : { amount: p.amount, unit: p.unit }];
+  };
+  const pickMine = (x) => onPick(...mineAt(x));
+  // The row's + logs it at that amount without leaving the list; it ticks for a moment to say so.
+  const [ticked, setTicked] = useState(null);
+  const tick = useRef(null);
+  useEffect(() => () => clearTimeout(tick.current), []);
+  const quickMine = (x) => {
+    onQuick(...mineAt(x));
+    setTicked(x.key);
+    clearTimeout(tick.current);
+    tick.current = setTimeout(() => setTicked(null), 1200);
   };
   const pickResult = (x) => {
     const at = read.kind === "amount" ? portionFor(unitsFor(x.basis), read.amount, read.unit) : null;
@@ -267,7 +317,9 @@ function Find({ food, head, meal, date, action, onMeal, onRepeat, onPick, onScan
                   <button type="button" className="food-row-main" onClick={() => pickMine(x)}>
                     <span className="name">{x.name}<span className="sub detail">{why(x)}</span></span>
                     {x.kcal != null && <span className="food-kcal">{fmt(x.kcal)}<small> kcal</small></span>}
-                    <Plus size={18} aria-hidden="true" className="muted" />
+                  </button>
+                  <button type="button" className={"icon-btn food-quick" + (ticked === x.key ? " ticked" : "")} onClick={() => quickMine(x)} aria-label={`Add ${x.name}`}>
+                    {ticked === x.key ? <Check size={18} strokeWidth={3} /> : <Plus size={18} />}
                   </button>
                 </div>
               ))}
@@ -300,7 +352,7 @@ function Find({ food, head, meal, date, action, onMeal, onRepeat, onPick, onScan
                 <div key={x.id} className="list-row food-row food-row-wrap">
                   <button type="button" className="food-row-main" onClick={() => pickResult(x)}>
                     <span className="name">{x.name}<span className="sub">{[x.brand, serving(x)].filter(Boolean).join(" · ")}</span></span>
-                    <Plus size={18} aria-hidden="true" className="muted" />
+                    <ChevronRight size={18} aria-hidden="true" className="muted" />
                   </button>
                 </div>
               ))}</div>
@@ -318,6 +370,8 @@ function Find({ food, head, meal, date, action, onMeal, onRepeat, onPick, onScan
       )}
       {<button type="button" className="btn-quiet food-manual" onClick={onManual}><PenLine size={15} aria-hidden="true" /> Enter manually</button>}
 
+      {/* What's been added with +, until Done; it steps aside while the answer is being corrected. */}
+      {!canFollow && tray}
       {/* Once there's an answer: correct it, add to it, or answer the coach's question, here at the bottom. */}
       {canFollow && (
         <form className="chat-input answer-follow" onSubmit={(e) => { e.preventDefault(); if (reply.trim() && a.status !== "working") follow(reply.trim()); }} aria-busy={a.status === "working"}>
@@ -370,7 +424,8 @@ function Macros({ n, shown, onShow }) {
 }
 
 /** Amount and unit for a food with a known basis, with the result shown live. Also used to edit an entry. */
-export function Portion({ item, amount: a0, unit: u0, meal, onMeal, action, onSave, onDelete, editName = false }) {
+/** `extra`: more actions under the main one, before Remove (Log again, when editing an entry). */
+export function Portion({ item, amount: a0, unit: u0, meal, onMeal, action, onSave, onDelete, extra = null, editName = false }) {
   const [name, setName] = useState(item.name);
   const units = unitsFor(item.basis);
   const d = defaultPortion(item.basis);
@@ -414,6 +469,7 @@ export function Portion({ item, amount: a0, unit: u0, meal, onMeal, action, onSa
       <Macros n={n} shown={shown} onShow={items.length > 0 ? setShown : undefined} />
       {onMeal && <MealChips meal={meal} onMeal={onMeal} />}
       <div className="food-cta"><button type="submit" className="btn btn-ink" disabled={!ok}><Check size={18} strokeWidth={3} aria-hidden="true" /> {action}</button></div>
+      {extra}
       {onDelete && <button type="button" className="btn-quiet danger" onClick={onDelete}><Trash2 size={16} aria-hidden="true" style={{ verticalAlign: -3 }} /> Remove</button>}
     </form>
   );
@@ -425,7 +481,7 @@ const numField = (label, value, set, props = {}) => (
 );
 
 /** Calories (and macros if known) with no food behind them: a restaurant meal, a label at hand. Also edits one. */
-export function QuickAdd({ entry, meal, onMeal, action, onSave, onDelete }) {
+export function QuickAdd({ entry, meal, onMeal, action, onSave, onDelete, extra = null }) {
   const [name, setName] = useState(entry?.name ?? "");
   const [kcal, setKcal] = useState(entry ? String(Math.round(entry.kcal)) : "");
   const [p, setP] = useState(entry?.protein ? String(entry.protein) : "");
@@ -440,6 +496,7 @@ export function QuickAdd({ entry, meal, onMeal, action, onSave, onDelete }) {
       <div className="grid-3">{numField("Protein g", p, setP)}{numField("Carbs g", c, setC)}{numField("Fat g", f, setF)}</div>
       {onMeal && <MealChips meal={meal} onMeal={onMeal} />}
       <div className="food-cta"><button type="submit" className="btn btn-ink" disabled={!ok}><Check size={18} strokeWidth={3} aria-hidden="true" /> {action}</button></div>
+      {extra}
       {onDelete && <button type="button" className="btn-quiet danger" onClick={onDelete}><Trash2 size={16} aria-hidden="true" style={{ verticalAlign: -3 }} /> Remove</button>}
     </form>
   );
