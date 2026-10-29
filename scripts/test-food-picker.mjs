@@ -1,7 +1,7 @@
 /* Checks for adding food: one ranked "Your foods" list (src/lib/yourFoods.js), the food
    database's relevance order (api/food.js), and Tank's meals with alcohol (cleanMeal).
    Run: npm run test:food   (exits 1 on any failure) */
-import { yourFoods, pickYourFood, whenLabel } from "../src/lib/yourFoods.js";
+import { yourFoods, pickYourFood, whenLabel, recentMeals } from "../src/lib/yourFoods.js";
 import { matchScore } from "../src/lib/foodQuery.js";
 const matchesQuery = (x, q) => matchScore(x, q) > 0;
 import { relevance, combine, forTank } from "../api/food.js";
@@ -60,10 +60,50 @@ eq("breakfast: smoothie above the bowl", names(bk).indexOf("Banana smoothie") < 
 // Lunch: the bowl you have most lunches leads.
 const ln = yourFoods(entries, foods, { meal: "lunch", now: NOW });
 eq("lunch: bowl first", ln[0].name, "Turkey Meatball Bowl");
-// A one-off sinks below things you have often; saved-but-never-logged comes last.
-eq("one-off below the regulars", names(ln).indexOf("Culver's Meal") > names(ln).indexOf("Brown sugar latte"), true);
+// At breakfast, a one-off sinks below things you have often; saved-but-never-logged comes last.
+eq("one-off below the regulars", names(bk).indexOf("Culver's Meal") > names(bk).indexOf("Brown sugar latte"), true);
 eq("never logged is last", ln[ln.length - 1].name, "Saved, never logged");
 eq("never logged: no date, its own calories", [ln[ln.length - 1].lastDate, ln[ln.length - 1].kcal, ln[ln.length - 1].count], [null, 300, 0]);
+
+// Meal prep: lunch and dinner go by what's recent, breakfast and snacks by habit.
+const prep = [
+  ...Array.from({ length: 10 }, (_, d) => log("Protein Latte", "breakfast", d)), // every morning, today too
+  ...[1, 2, 4, 6].map((d) => log("Protein Bar", "snacks", d)),
+  ...[4, 5, 6].map((d) => log("Blackened Chicken", "lunch", d)), // last week's batch
+  log("Steak Pico Rice Bowl", "dinner", 1), // this week's, first had last night
+];
+const prepLunch = yourFoods(prep, [], { meal: "lunch", now: NOW });
+eq("lunch: last night's dinner leads", prepLunch[0].name, "Steak Pico Rice Bowl");
+eq("lunch: the breakfast latte sinks below lunch foods", names(prepLunch).indexOf("Protein Latte") > names(prepLunch).indexOf("Blackened Chicken"), true);
+const prepSnack = yourFoods(prep, [], { meal: "snacks", now: NOW });
+eq("snacks: the usual bar leads", prepSnack[0].name, "Protein Bar");
+eq("breakfast: the daily latte leads, though had today", yourFoods(prep, [], { meal: "breakfast", now: NOW })[0].name, "Protein Latte");
+// Already had at this meal today: below another regular, unless it's often had twice.
+const morning = [
+  ...[2, 4].map((d) => log("Oats", "breakfast", d)),
+  ...[0, 3, 5].map((d) => log("Yogurt", "breakfast", d)),
+];
+eq("had it today: drops below another regular", names(yourFoods(morning, [], { meal: "breakfast", now: NOW })), ["Oats", "Yogurt"]);
+const twice = [...morning, ...[0, 0, 1, 1, 2, 2].map((d) => log("Coffee", "breakfast", d))];
+eq("had it today, but often twice: stays up", yourFoods(twice, [], { meal: "breakfast", now: NOW })[0].name, "Coffee");
+
+// Earlier meals to log again: lunch and dinner look back over both; others the same meal yesterday.
+const meals = [
+  log("Steak Pico Rice Bowl", "dinner", 1), log("Sparkling water", "dinner", 1),
+  log("Blackened Chicken", "lunch", 1),
+  log("Eggs", "breakfast", 1), log("Toast", "breakfast", 1),
+  log("Blackened Chicken", "dinner", 2),
+];
+const labels = (xs) => xs.map((x) => x.label);
+eq("lunch: yesterday's dinner, then lunch", labels(recentMeals(meals, { meal: "lunch", date: TODAY })), ["yesterday's dinner", "yesterday's lunch"]);
+eq("leftovers come whole, in order", recentMeals(meals, { meal: "lunch", date: TODAY })[0].entries.map((e) => e.name), ["Steak Pico Rice Bowl", "Sparkling water"]);
+const lunchedToday = [...meals, log("Steak Pico Rice Bowl", "lunch", 0)];
+eq("dinner: today's lunch first", labels(recentMeals(lunchedToday, { meal: "dinner", date: TODAY }))[0], "today's lunch");
+eq("a meal already logged here is left out", labels(recentMeals([...meals, log("Blackened Chicken", "lunch", 0)], { meal: "lunch", date: TODAY })), ["yesterday's dinner"]);
+eq("the same meal twice shows once, latest", labels(recentMeals([log("Bowl", "dinner", 1), log("Bowl", "lunch", 1)], { meal: "lunch", date: TODAY })), ["yesterday's dinner"]);
+eq("older days by weekday", labels(recentMeals([log("Bowl", "dinner", 2)], { meal: "lunch", date: TODAY })), [`${new Date(`${ago(2)}T12:00:00`).toLocaleDateString(undefined, { weekday: "long" })}'s dinner`]);
+eq("breakfast: the same meal yesterday only", labels(recentMeals(meals, { meal: "breakfast", date: TODAY })), ["yesterday's breakfast"]);
+eq("nothing earlier: none", recentMeals(meals, { meal: "snacks", date: TODAY }), []);
 
 // One item per food: logs join their saved food; each food appears once.
 const latte = bk.find((x) => x.name === "Brown sugar latte");

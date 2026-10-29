@@ -4,7 +4,7 @@
    Needs a Chromium; set CHROMIUM_PATH if it isn't at /opt/pw-browsers/chromium. */
 import { mkdirSync } from "node:fs";
 import { startApp, launch, openApp } from "./e2e/app.mjs";
-import { account, SEARCH_RESULT, workout, day } from "./e2e/fixtures.mjs";
+import { account, SEARCH_RESULT, workout, day, entry } from "./e2e/fixtures.mjs";
 
 const only = process.argv[2]; // a test's name, or part of it, to run just that one
 const tests = [];
@@ -55,6 +55,24 @@ test("add food: a saved food is logged and reaches the account", async ({ page, 
   check("one entry saved to the account", backend.tables.food_entries.length === 1, JSON.stringify(backend.tables.food_entries));
   check("saved to lunch with the food's numbers", row.meal === "lunch" && row.name === "Banana Berry Smoothie" && Math.round(row.kcal) === 421, JSON.stringify(row));
 });
+
+// Meal prep: last night's dinner, ready to log again at lunch.
+test("add food: last night's dinner is one tap at lunch", async ({ page, backend }) => {
+  await openAddFood(page, "Lunch");
+  const repeat = page.getByRole("button", { name: /Same as yesterday's dinner/ });
+  check("leftovers row first, above yesterday's lunch", (await page.locator(".food-repeat .name").allTextContents()).map((t) => t.split("Same as ")[1]).join(" | ") === "yesterday's dinnerSteak Pico Rice Bowl | yesterday's lunchBlackened Chicken",
+    (await page.locator(".food-repeat .name").allTextContents()).join(" | "));
+  check("the bowl leads your foods", (await page.getByRole("dialog").locator(".food-row .name").first().textContent()).startsWith("Steak Pico Rice Bowl"));
+  await repeat.click();
+  await page.getByRole("dialog").waitFor({ state: "detached" });
+  for (let i = 0; i < 20 && !backend.tables.food_entries.some((e) => e.date === day(0) && e.meal === "lunch"); i++) await page.waitForTimeout(100);
+  const logged = backend.tables.food_entries.filter((e) => e.date === day(0) && e.meal === "lunch");
+  check("logged once, at lunch today", logged.length === 1 && logged[0].meal === "lunch" && logged[0].name === "Steak Pico Rice Bowl", JSON.stringify(logged));
+}, account({ entries: [
+  ...[0, 1, 2, 3].map((d) => entry("Protein Latte", "breakfast", -d, { kcal: 130 })),
+  entry("Blackened Chicken", "lunch", -1, { created_at: `${day(-1)}T17:00:00Z` }),
+  entry("Steak Pico Rice Bowl", "dinner", -1, { created_at: `${day(-1)}T23:30:00Z` }),
+] }));
 
 /** Logs a saved food to a meal, through the add-food sheet. */
 async function logFood(page, meal, food) {

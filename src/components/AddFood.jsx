@@ -5,8 +5,8 @@ import { COACHES } from "../data/coaches.js";
 import { useMealAnswer, MealAnswer } from "./TankMeal.jsx";
 import ScanFood from "./ScanFood.jsx";
 import { Sheet } from "./ui.jsx";
-import { MEALS, unitsFor, nutritionFor, defaultPortion, totals, addDays } from "../lib/nutrition.js";
-import { yourFoods, pickYourFood, whenLabel } from "../lib/yourFoods.js";
+import { MEALS, unitsFor, nutritionFor, defaultPortion, totals } from "../lib/nutrition.js";
+import { yourFoods, pickYourFood, whenLabel, recentMeals } from "../lib/yourFoods.js";
 import { readQuery, matchScore, portionFor, mealItems } from "../lib/foodQuery.js";
 import { searchFoods, SEARCH_TROUBLE } from "../lib/foodSearch.js";
 
@@ -50,7 +50,7 @@ export default function AddFood({ food, head = "tank", meal: meal0, date, target
     notify?.(`${label} added to ${mealLabel}`);
     onClose();
   };
-  // Everything a meal was, logged again in one tap ("Same as yesterday's lunch").
+  // Everything a meal was, logged again in one tap ("Same as yesterday's dinner").
   const addMany = (rows, label) => {
     rows.forEach((row) => food.addEntry({ date, meal, ...row }));
     notify?.(`${label} added to ${mealLabel}`);
@@ -133,7 +133,7 @@ function Find({ food, head, meal, date, action, onMeal, onRepeat, onPick, onScan
   const [lookUp, setLookUp] = useState(false); // search the databases for a description after all
   const abort = useRef(null);
   const input = useRef(null);
-  const ranked = useMemo(() => yourFoods(food.entries, food.foods, { meal }), [food.entries, food.foods, meal]);
+  const ranked = useMemo(() => yourFoods(food.entries, food.foods, { meal, date }), [food.entries, food.foods, meal, date]);
   // What's typed: a search, an amount and a food, or a meal in words for the coach (lib/foodQuery.js).
   // A name of one of their own foods is a search for it, however list-like it reads.
   const known = useMemo(() => q.trim() && ranked.some((x) => matchScore(x, q) >= 2), [ranked, q]);
@@ -179,11 +179,8 @@ function Find({ food, head, meal, date, action, onMeal, onRepeat, onPick, onScan
   const mineKeys = useMemo(() => new Set(mine.map((x) => `${x.name}|${x.brand || ""}`.toLowerCase())), [mine]);
   const results = state.results.filter((x) => !mineKeys.has(`${x.name}|${x.brand || ""}`.toLowerCase()));
 
-  // Yesterday's same meal, to log again in one tap.
-  const yesterday = useMemo(() => {
-    const es = food.entries.filter((e) => e.date === addDays(date, -1) && e.meal === meal);
-    return es.length ? { entries: es, kcal: totals(es).kcal } : null;
-  }, [food.entries, date, meal]);
+  // Earlier meals to log again in one tap: for lunch, last night's dinner (leftovers) and yesterday's lunch.
+  const repeats = useMemo(() => recentMeals(food.entries, { meal, date }), [food.entries, date, meal]);
 
   // An amount typed with the food starts its portion there: "200g chicken breast" opens at 200 g.
   const pickMine = (x) => {
@@ -256,13 +253,13 @@ function Find({ food, head, meal, date, action, onMeal, onRepeat, onPick, onScan
       {(mine.length > 0 || read.kind === "empty") && (
         <section className="section food-group" aria-labelledby="your-foods-lbl">
           <h3 className="lbl" id="your-foods-lbl">Your foods</h3>
-          {read.kind === "empty" && yesterday && (
-            <button type="button" className="food-repeat" onClick={() => onRepeat(yesterday.entries.map(copyEntry), `Yesterday's ${MEAL_WORD[meal]}`)}>
-              <span className="name">Same as yesterday's {MEAL_WORD[meal]}<span className="sub detail">{yesterday.entries.map((e) => e.name).join(" · ")}</span></span>
-              <span className="food-kcal">{fmt(yesterday.kcal)}<small> kcal</small></span>
+          {read.kind === "empty" && repeats.map((r) => (
+            <button key={r.date + r.meal} type="button" className="food-repeat" onClick={() => onRepeat(r.entries.map(copyEntry), r.label[0].toUpperCase() + r.label.slice(1))}>
+              <span className="name">Same as {r.label}<span className="sub detail">{r.entries.map((e) => e.name).join(" · ")}</span></span>
+              <span className="food-kcal">{fmt(totals(r.entries).kcal)}<small> kcal</small></span>
               <Plus size={18} aria-hidden="true" className="muted" />
             </button>
-          )}
+          ))}
           {mine.length ? (
             <div className="list">
               {shown.map((x) => (
