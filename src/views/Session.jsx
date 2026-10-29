@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useLayoutEffect, useMemo, useRef, useCallback } from "react";
 import { ChevronLeft, Check, Plus, Minus, Trash2, Bell, BellOff, Play } from "lucide-react";
 import { BorderBeam } from "border-beam";
-import { fmtSet, uid, e1rm, fmtW, today, shortDate, mmss, byDateDesc, priorSessions, allTimeBest, bestSet, vibrate, readyToIncrease, nextGoal, fmtGoal, weightStep, bodyweightSeries, daysBetween, setChange, lifting, num } from "../lib/util.js";
+import { fmtSet, uid, e1rm, fmtW, today, shortDate, mmss, byDateDesc, priorSessions, allTimeBest, bestSet, vibrate, readyToIncrease, nextGoal, workingSet, fmtGoal, weightStep, bodyweightSeries, daysBetween, setChange, lifting, num } from "../lib/util.js";
 import { readiness, lowLine } from "../lib/recovery.js";
 import { primeAudio, chime } from "../lib/sound.js";
 import { restAlertState, scheduleRestAlert, cancelRestAlert, enableRestAlerts, declineRestAlerts, warmRestAlerts } from "../lib/restAlerts.js";
@@ -127,9 +127,14 @@ export default function Session({ day, existing, draft, preview, sessions, progr
     const lastW = ref.length ? String(ref[ref.length - 1].w) : "";
     // Last time's numbers, with the goal (see nextGoal) filled into its set: logging as-is makes progress.
     const goal = easy ? null : nextGoal(ex, ref);
+    // A set lighter than the working weight that already reached the top of the range is too light to
+    // grow from: it comes up to the working weight, at the reps done there.
+    const work = easy ? null : workingSet(ex, ref);
     return Array.from({ length: count }, (_, i) => {
-      const w = goal && i === goal.idx ? String(goal.w) : ref[i] ? String(ref[i].w) : lastW;
-      const r = goal && i === goal.idx ? String(goal.r) : ref[i] ? String(ref[i].r) : "";
+      const s = ref[i];
+      const light = work && s && +s.w < +work.w && s.r >= ex.reps[1];
+      const w = goal && i === goal.idx ? String(goal.w) : light ? String(work.w) : s ? String(s.w) : lastW;
+      const r = goal && i === goal.idx ? String(goal.r) : light ? String(work.r) : s ? String(s.r) : "";
       return { w, r, rir: "", done: false, asked: w !== "" && r !== "" ? { w: +w, r: +r } : null };
     });
   }, [existing, lastFor, easy]);

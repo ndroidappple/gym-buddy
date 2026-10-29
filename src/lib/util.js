@@ -193,12 +193,25 @@ export const isIsolation = (lift) => /straight-arm/i.test(lift) || !COMPOUND.tes
 const BIG_LOWER = /leg press|squat|deadlift|romanian|hip thrust|good morning/i;
 export const weightStep = (lift) => (BIG_LOWER.test(lift) ? 10 : 5);
 
+/** The set to build on from one session: the most reps at the heaviest weight that reached the bottom
+    of the rep range (the heaviest weight, when none did). By weight, not estimated max: 110 × 14 scores
+    above 120 × 10, but growing means owning 120, not piling reps onto 110. */
+export function workingSet(ex, sets) {
+  const l = lifting(sets);
+  if (!l.length) return null;
+  const lo = ex?.reps?.[0] ?? 0;
+  const pool = l.some((s) => s.r >= lo) ? l.filter((s) => s.r >= lo) : l;
+  const w = Math.max(...pool.map((s) => +s.w));
+  return pool.filter((s) => +s.w === w).reduce((b, s) => (s.r > b.r ? s : b));
+}
+
 /** What to aim for when a lift isn't ready for more weight, from last time's sets. Below the top of the
-    rep range: the best set plus one rep (which beats it; a matched set is only a match). At the top:
-    one more set at the top, as double progression asks. `idx` is the set to put the goal on. */
+    rep range: the working set (see workingSet) plus one rep (which beats it; a matched set is only a
+    match). At the top: one more set at the top, as double progression asks. `idx` is the set to put
+    the goal on. */
 export function nextGoal(ex, sets) {
   const l = lifting(sets);
-  const best = bestSet(l);
+  const best = workingSet(ex, l);
   if (!best) return null;
   const top = ex?.reps?.[1];
   if (!top || best.r < top) return { w: best.w, r: best.r + 1, idx: l.indexOf(best), sets: 1 };
