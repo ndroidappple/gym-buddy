@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { ChevronLeft, ChevronRight, Plus, Copy, CopyPlus, MessageCircle } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Copy, CopyPlus, MessageCircle, Pencil, Trash2 } from "lucide-react";
 import Coach from "../components/Coach.jsx";
 import CoachChat from "../components/CoachChat.jsx";
 import { COACHES } from "../data/coaches.js";
@@ -33,6 +33,7 @@ export default function Nutrition({ food, prefs, notify, sessions, weighins, pro
   }, []);
   const [adding, setAdding] = useState(null); // meal id
   const [editing, setEditing] = useState(null); // entry id
+  const [options, setOptions] = useState(null); // entry id held: what can be done with it
   const days = useMemo(() => byDate(food.entries), [food.entries]);
   const dayEntries = days[date] || [];
   const sum = totals(dayEntries);
@@ -64,22 +65,28 @@ export default function Nutrition({ food, prefs, notify, sessions, weighins, pro
     const { id, created_at, updated_at, ...rest } = e; // eslint-disable-line no-unused-vars
     notify(`${e.name} removed`, () => food.addEntry({ ...rest, id }));
   };
-  // Hold a food (or Log again in its sheet) to have it again today, at the same meal and amount.
-  const again = (e) => {
+  // The same food again today, at the same meal and amount (from a past day: copied to today).
+  const duplicate = (e) => {
     const { id, created_at, updated_at, ...rest } = e; // eslint-disable-line no-unused-vars
     const nid = food.addEntry({ ...rest, date: today() });
     const meal = MEALS.find((m) => m.id === e.meal)?.label.toLowerCase();
-    notify(isToday ? `${e.name} logged again` : `${e.name} added to today's ${meal}`, () => food.removeEntry(nid));
+    notify(isToday ? `${e.name} duplicated` : `${e.name} added to today's ${meal}`, () => food.removeEntry(nid));
   };
+  const move = (e, meal) => {
+    food.updateEntry(e.id, { meal });
+    notify(`${e.name} moved to ${MEALS.find((m) => m.id === meal)?.label}`, () => food.updateEntry(e.id, { meal: e.meal }));
+  };
+  const duplicateLabel = isToday ? "Duplicate" : "Copy to today";
   const entry = editing && food.entries.find((e) => e.id === editing);
-  const againBtn = entry && (
-    <button type="button" className="btn-quiet food-again" onClick={() => { again(entry); setEditing(null); }}>
-      <CopyPlus size={16} aria-hidden="true" style={{ verticalAlign: -3 }} /> {isToday ? "Log again" : "Log again today"}
+  const held = options && food.entries.find((e) => e.id === options);
+  const duplicateBtn = entry && (
+    <button type="button" className="btn-quiet food-again" onClick={() => { duplicate(entry); setEditing(null); }}>
+      <CopyPlus size={16} aria-hidden="true" style={{ verticalAlign: -3 }} /> {duplicateLabel}
     </button>
   );
 
   return (
-    <main className="screen has-tabs">
+    <main className="screen has-tabs nut-screen">
       <header className="top">
         <h1 className="page-title">Nutrition</h1><span className="spacer" />
         <InfoButton screen="nutrition" />
@@ -117,7 +124,7 @@ export default function Nutrition({ food, prefs, notify, sessions, weighins, pro
               {list.length > 0 && (
                 <div className="list">
                   {list.map((e) => (
-                    <FoodRow key={e.id} onOpen={() => setEditing(e.id)} onHold={() => again(e)}>
+                    <FoodRow key={e.id} onOpen={() => setEditing(e.id)} onHold={() => setOptions(e.id)}>
                       <span className="name">{e.name}<span className="sub detail">{[e.brand, e.source === "quick" ? null : amountLabel(e), `P ${Math.round(e.protein)} · C ${Math.round(e.carbs)} · F ${Math.round(e.fat)}`].filter(Boolean).join(" · ")}</span></span>
                       <span className="food-kcal">{fmt(e.kcal)}</span>
                     </FoodRow>
@@ -149,16 +156,38 @@ export default function Nutrition({ food, prefs, notify, sessions, weighins, pro
                   if (saved && name !== entry.name) food.updateFood(saved.id, { name });
                   setEditing(null);
                 }}
-                extra={againBtn} onDelete={() => remove(entry)} />
+                extra={duplicateBtn} onDelete={() => remove(entry)} />
             : <QuickAdd entry={entry} meal={entry.meal} onMeal={(meal) => food.updateEntry(entry.id, { meal })} action="Save"
-                onSave={(row) => { food.updateEntry(entry.id, row); setEditing(null); }} extra={againBtn} onDelete={() => remove(entry)} />}
+                onSave={(row) => { food.updateEntry(entry.id, row); setEditing(null); }} extra={duplicateBtn} onDelete={() => remove(entry)} />}
+        </Sheet>
+      )}
+      {/* Held: what can be done with it, without opening it. */}
+      {held && (
+        <Sheet title={held.name} sub={[held.source === "quick" ? null : amountLabel(held), `${fmt(held.kcal)} kcal`].filter(Boolean).join(" · ")}
+          onClose={() => setOptions(null)} labelledBy="food-options-title" focusField={false}>
+          <div className="list">
+            <button type="button" className="list-row" onClick={() => { setOptions(null); setEditing(held.id); }}>
+              <Pencil size={18} aria-hidden="true" /><span className="name">Edit</span></button>
+            <button type="button" className="list-row" onClick={() => { duplicate(held); setOptions(null); }}>
+              <CopyPlus size={18} aria-hidden="true" /><span className="name">{duplicateLabel}</span></button>
+          </div>
+          <section className="section" aria-labelledby="food-move-lbl">
+            <h3 className="lbl" id="food-move-lbl">Move to</h3>
+            <div className="setup-choices">
+              {MEALS.filter((m) => m.id !== held.meal).map((m) => (
+                <button key={m.id} type="button" className="chip" onClick={() => { move(held, m.id); setOptions(null); }}>{m.label}</button>
+              ))}
+            </div>
+          </section>
+          <button type="button" className="btn-quiet danger" onClick={() => { remove(held); setOptions(null); }}>
+            <Trash2 size={16} aria-hidden="true" style={{ verticalAlign: -3 }} /> Remove</button>
         </Sheet>
       )}
     </main>
   );
 }
 
-/* A logged food: a tap opens it, a hold logs it again (onHold). The row presses in for the whole hold,
+/* A logged food: a tap opens it, a hold shows what can be done with it (onHold). The row presses in for the whole hold,
    like a finished set in a workout; moving off it (a scroll) cancels. */
 const HOLD_MS = 450;
 function FoodRow({ onOpen, onHold, children }) {
@@ -183,7 +212,7 @@ function FoodRow({ onOpen, onHold, children }) {
   );
 }
 
-/** Calories left (or over) with a ring, and a bar per macro against its target. */
+/** Calories left (or over) inside a ring, and beside it a bar per macro against its target. */
 function Summary({ sum, t }) {
   const left = t.kcal - sum.kcal;
   const pct = Math.min(1, sum.kcal / t.kcal);
@@ -209,10 +238,12 @@ function Summary({ sum, t }) {
         <div className="nut-left">
           <span className="big"><Roll value={fmt(Math.abs(left))} /></span>
           <span className="lbl">{left >= 0 ? "kcal left" : "kcal over"}</span>
-          <span className="small">{fmt(sum.kcal)} eaten of {fmt(t.kcal)}</span>
         </div>
       </div>
-      <div className="macros">{macro("protein", "Protein")}{macro("carbs", "Carbs")}{macro("fat", "Fat")}</div>
+      <div className="macros">
+        <span className="nut-eaten">{fmt(sum.kcal)} eaten of {fmt(t.kcal)}</span>
+        {macro("protein", "Protein")}{macro("carbs", "Carbs")}{macro("fat", "Fat")}
+      </div>
     </section>
   );
 }

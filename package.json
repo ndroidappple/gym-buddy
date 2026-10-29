@@ -15,7 +15,8 @@
     "test:review": "node scripts/test-week-review.mjs && node scripts/test-review-agent.mjs",
     "test:health": "node scripts/test-google-health.mjs",
     "test:nutrition": "node scripts/test-nutrition-trends.mjs",
-    "test:e2e": "node scripts/test-e2e.mjs"
+    "test:e2e": "node scripts/test-e2e.mjs",
+    "test:type": "node scripts/check-type.mjs"
   },
   "dependencies": {
     "@ai-sdk/google": "^4.0.80",

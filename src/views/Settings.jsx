@@ -187,7 +187,7 @@ export default function Settings({ program, sessions, prefs, setPref, go, notify
             </button>
             <button className="list-row" onClick={() => setSheet("install")}>
               <Smartphone size={18} aria-hidden="true" />
-              <span className="name">Add to your home screen<span className="sub detail">Opens full screen, like an app.</span></span>
+              <span className="name">Add GymBuddy to your home screen<span className="sub detail">Opens full screen, like an app.</span></span>
               <ChevronRight size={18} aria-hidden="true" className="muted" />
             </button>
           </div>
@@ -330,9 +330,9 @@ function useAlerts({ review, setReview, notify, onInstall }) {
   const banner = !reviewOn ? null : {
     ask: { Icon: BellPlus, label: "Allow notifications on this phone", sub: "So your week in review reaches you here.", onClick: allow },
     denied: { Icon: BellOff, label: "Notifications are blocked", sub: "Turn them on in your phone's Settings › Notifications › GymBuddy." },
-    install: { Icon: BellOff, label: "Add to your home screen", sub: "iPhone only shows notifications for the home screen app.", onClick: onInstall },
+    install: { Icon: BellOff, label: "Add GymBuddy to your home screen", sub: "iPhone only shows notifications for the home screen app.", onClick: onInstall },
   }[phone] || null;
-  const restSub = { install: "Add to your home screen first.", denied: "Blocked in your phone's settings." }[rest] || "A notification when rest is over, even with your phone locked. This phone only.";
+  const restSub = { install: "Add GymBuddy to your home screen first.", denied: "Blocked in your phone's settings." }[rest] || "A notification when rest is over, even with your phone locked. This phone only.";
   const reviewSub = phone !== "on" && review.notify !== false ? `${whenLabel(review)}. Allow notifications on this phone to get it here.`
     : `${whenLabel(review)}, with the week's headline. Every phone that allows notifications.`;
   return { phone, rest, busy, banner, restSub, reviewSub, toggleRest, toggleReview };
@@ -568,7 +568,7 @@ function InstallSheet({ onClose }) {
         [null, <>Tap <b>Add</b>. GymBuddy now opens full screen, like an app.</>],
       ];
   return (
-    <Sheet title="Add to your home screen" sub={ios || !android ? "On iPhone, in Safari" : "On Android, in Chrome"} onClose={onClose} labelledBy="install-title" className="keep-sub">
+    <Sheet title="Add GymBuddy to your home screen" sub={ios || !android ? "On iPhone, in Safari" : "On Android, in Chrome"} onClose={onClose} labelledBy="install-title" className="keep-sub">
       {installed && <p className="note-box">You're in the home screen app now. To add it again, open GymBuddy in {android ? "Chrome" : "Safari"} first.</p>}
       <ol className="steps">
         {steps.map(([I, text], n) => (
