@@ -68,7 +68,8 @@ export default function Progress({ open, go, ...props }) {
 
 /** The latest week in review; See all opens the rest. Hidden until there's one. */
 function RecentReviews() {
-  const rows = useReviews(2); // a second one means there's more to see
+  // The whole list, though one shows: this phone then has every row, so See all opens complete.
+  const rows = useReviews();
   const [all, setAll] = useState(false);
   if (!rows?.length) return null;
   return (

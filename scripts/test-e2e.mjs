@@ -4,7 +4,7 @@
    Needs a Chromium; set CHROMIUM_PATH if it isn't at /opt/pw-browsers/chromium. */
 import { mkdirSync } from "node:fs";
 import { startApp, launch, openApp } from "./e2e/app.mjs";
-import { account, SEARCH_RESULT, workout, day, entry } from "./e2e/fixtures.mjs";
+import { account, SEARCH_RESULT, workout, day, entry, reviews } from "./e2e/fixtures.mjs";
 
 const only = process.argv[2]; // a test's name, or part of it, to run just that one
 const tests = [];
@@ -126,6 +126,21 @@ test("nutrition: hold a food for its options", async ({ page, backend }) => {
   await options.getByRole("button", { name: "Edit" }).click();
   await page.getByRole("dialog", { name: "Edit food" }).waitFor();
 }, account({ entries: [entry("Protein Latte", "breakfast", 0, { kcal: 130 })] }));
+
+// See all on Progress: the sheet opens with every review on its first frame, not growing once the account answers.
+const withReviews = account();
+withReviews.tables.storage_kv.push(...reviews(7));
+test("progress: See all opens with every past review at once", async ({ page }) => {
+  await page.goto(new URL("#/progress", page.url()).href);
+  await page.getByRole("button", { name: "See all" }).waitFor();
+  // A slow account from here on: anything the sheet waits for shows up as missing rows.
+  await page.route("**/rest/v1/storage_kv**", async (r) => { await new Promise((ok) => setTimeout(ok, 1500)); await r.fallback(); });
+  await page.getByRole("button", { name: "See all" }).click();
+  const sheet = page.getByRole("dialog", { name: "Past reviews" });
+  await sheet.waitFor();
+  const rows = await sheet.locator(".list-row").count();
+  check("all 7 reviews on the first frame", rows === 7, `got ${rows}`);
+}, withReviews);
 
 /** Logs a saved food to a meal, through the add-food sheet. */
 async function logFood(page, meal, food) {

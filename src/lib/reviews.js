@@ -6,6 +6,8 @@ import { REVIEW_PREFIX, reviewKey } from "./weekReview.js";
    opens instantly (and offline), and asks the server to write one. */
 
 const CACHE = (uid) => `gymbuddy-reviews:${uid}`;
+// Every review's date and headline (the full copies above stop at 12): a list opens complete.
+const INDEX = (uid) => `gymbuddy-review-list:${uid}`;
 async function uid() {
   const { data } = await supabase.auth.getSession();
   return data.session?.user?.id || null;
@@ -18,11 +20,21 @@ function writeCache(id, reviews) {
   const keep = Object.fromEntries(Object.entries(reviews).sort(([a], [b]) => b.localeCompare(a)).slice(0, 12));
   try { if (id) localStorage.setItem(CACHE(id), JSON.stringify(keep)); } catch {}
 }
-function remember(id, review) {
-  if (review?.weekEnd && review.story) writeCache(id, { ...readCache(id), [review.weekEnd]: review });
+function remember(id, ...reviews) {
+  const add = reviews.filter((r) => r?.weekEnd && r.story);
+  if (add.length) writeCache(id, { ...readCache(id), ...Object.fromEntries(add.map((r) => [r.weekEnd, r])) });
 }
 const summaries = (reviews) => Object.values(reviews).sort((a, b) => b.weekEnd.localeCompare(a.weekEnd))
   .map((r) => ({ weekEnd: r.weekEnd, headline: r.story?.headline || "" }));
+function readIndex(id) {
+  try { return (id && JSON.parse(localStorage.getItem(INDEX(id)))) || []; } catch { return []; }
+}
+/** The index and the full copies together, one row a week, newest first. */
+function known(id) {
+  const rows = new Map(readIndex(id).map((r) => [r.weekEnd, r]));
+  for (const r of summaries(readCache(id))) rows.set(r.weekEnd, r);
+  return [...rows.values()].sort((a, b) => b.weekEnd.localeCompare(a.weekEnd));
+}
 
 /* Who's signed in, known without waiting, so a list can draw from this phone's copies on its first
    frame instead of popping in once the account answers. */
@@ -31,7 +43,7 @@ supabase.auth.onAuthStateChange((_e, s) => { signedIn = s?.user?.id || null; });
 
 /** The reviews this phone already has, newest first, right now: what a list shows while listReviews asks the account. */
 export function cachedReviews(limit = 26) {
-  return summaries(readCache(signedIn)).slice(0, limit);
+  return known(signedIn).slice(0, limit);
 }
 
 /** This phone's copy of a week's review, if it has one. */
@@ -55,11 +67,15 @@ export async function listReviews(limit = 26) {
     const { data, error } = await supabase.from("storage_kv").select("key, value").eq("user_id", id)
       .like("key", `${REVIEW_PREFIX}%`).order("key", { ascending: false }).limit(limit);
     if (error) throw error;
-    return data.map((row) => {
-      try { const r = JSON.parse(row.value); remember(id, r); return { weekEnd: r.weekEnd, headline: r.story?.headline || "" }; } catch { return null; }
-    }).filter(Boolean);
+    const reviews = data.map((row) => { try { return JSON.parse(row.value); } catch { return null; } }).filter((r) => r?.weekEnd);
+    remember(id, ...reviews);
+    const list = reviews.map((r) => ({ weekEnd: r.weekEnd, headline: r.story?.headline || "" }));
+    // A shorter list than the index already holds only refreshes the newest rows.
+    const all = new Map([...readIndex(id), ...list].map((r) => [r.weekEnd, r]));
+    try { if (id) localStorage.setItem(INDEX(id), JSON.stringify([...all.values()].sort((a, b) => b.weekEnd.localeCompare(a.weekEnd)))); } catch {}
+    return list;
   } catch {
-    return summaries(readCache(id)).slice(0, limit);
+    return known(id).slice(0, limit);
   }
 }
 

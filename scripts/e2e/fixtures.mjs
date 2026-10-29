@@ -44,6 +44,13 @@ export const entry = (name, meal, days, extra = {}) => {
     source: "ai", source_ref: null, basis: null, created_at: `${date}T18:00:0${entryN % 10}Z`, updated_at: `${date}T18:00:00Z`, ...extra };
 };
 
+/** Saved weeks in review, newest first, one a week ending yesterday: storage_kv rows as api/review.js writes them. */
+export const reviews = (n) => Array.from({ length: n }, (_, i) => {
+  const weekEnd = day(-7 * i - 1);
+  return { user_id: USER.id, key: `week-review:${weekEnd}`, updated_at: `${weekEnd}T12:00:00Z`,
+    value: JSON.stringify({ weekEnd, story: { headline: `Week ${n - i} headline` } }) };
+});
+
 /** The account; `sessions` are its logged workouts and `entries` its food log (none by default). */
 export const account = ({ sessions = [], entries = [] } = {}) => ({
   tables: {
