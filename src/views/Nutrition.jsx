@@ -86,7 +86,7 @@ export default function Nutrition({ food, prefs, notify, sessions, weighins, pro
   );
 
   return (
-    <main className="screen has-tabs">
+    <main className="screen has-tabs nut-screen">
       <header className="top">
         <h1 className="page-title">Nutrition</h1><span className="spacer" />
         <InfoButton screen="nutrition" />
@@ -212,7 +212,7 @@ function FoodRow({ onOpen, onHold, children }) {
   );
 }
 
-/** Calories left (or over) with a ring, and a bar per macro against its target. */
+/** Calories left (or over) inside a ring, and beside it a bar per macro against its target. */
 function Summary({ sum, t }) {
   const left = t.kcal - sum.kcal;
   const pct = Math.min(1, sum.kcal / t.kcal);
@@ -238,10 +238,12 @@ function Summary({ sum, t }) {
         <div className="nut-left">
           <span className="big"><Roll value={fmt(Math.abs(left))} /></span>
           <span className="lbl">{left >= 0 ? "kcal left" : "kcal over"}</span>
-          <span className="small">{fmt(sum.kcal)} eaten of {fmt(t.kcal)}</span>
         </div>
       </div>
-      <div className="macros">{macro("protein", "Protein")}{macro("carbs", "Carbs")}{macro("fat", "Fat")}</div>
+      <div className="macros">
+        <span className="nut-eaten">{fmt(sum.kcal)} eaten of {fmt(t.kcal)}</span>
+        {macro("protein", "Protein")}{macro("carbs", "Carbs")}{macro("fat", "Fat")}
+      </div>
     </section>
   );
 }

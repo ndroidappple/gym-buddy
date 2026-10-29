@@ -1091,27 +1091,31 @@ button.coach-card:active { transform: translateY(3px); box-shadow: 0 2px 0 var(-
 .day-switch { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: -14px 0 -10px; }
 .day-switch b { font-size: 16px; font-weight: 800; }
 .day-switch .icon-btn:disabled { opacity: .3; }
-.nut-card { display: flex; flex-direction: column; gap: 16px; padding: 18px; border-radius: var(--r-xl); background: var(--surface); border: 2px solid var(--rule); box-shadow: 0 5px 0 var(--lip); }
-.nut-top { display: flex; align-items: center; gap: 18px; }
-.nut-ring { width: 104px; height: 104px; flex: none; }
+/* The day's numbers in one row: calories left inside the ring, the three macros stacked beside it. */
+.nut-card { display: flex; align-items: center; gap: 16px; padding: 14px 16px; border-radius: var(--r-xl); background: var(--surface); border: 2px solid var(--rule); box-shadow: 0 5px 0 var(--lip); }
+.nut-top { position: relative; flex: none; }
+.nut-ring { display: block; width: 112px; height: 112px; }
 .nut-ring circle { fill: none; stroke-width: 11; stroke-linecap: round; }
 .ring-bg { stroke: var(--surface-2); }
 .ring-fg { stroke: var(--accent); transition: stroke-dasharray var(--enter-ms) var(--enter); }
 .ring-fg.over { stroke: var(--danger); }
-.nut-left { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.nut-left .big { font-size: 38px; font-weight: 800; line-height: 1; letter-spacing: -0.02em; }
-.nut-left .lbl { font-size: 14px; }
-.nut-left .small { color: var(--mute); font-weight: 600; }
-.macros { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
-.macro { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
-.macro-top { display: flex; flex-direction: column; font-size: 12.5px; font-weight: 700; color: var(--mute); }
-.macro-top b { color: var(--ink); font-size: 16px; font-weight: 800; }
+.nut-left { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+.nut-left .big { font-size: 27px; font-weight: 800; line-height: 1; letter-spacing: -0.02em; }
+.nut-left .lbl { font-size: 11.5px; }
+.macros { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 9px; }
+.nut-eaten { font-size: 12.5px; font-weight: 700; color: var(--mute); }
+.macro { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.macro-top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-size: 12.5px; font-weight: 700; color: var(--mute); }
+.macro-top b { color: var(--ink); font-size: 14px; font-weight: 800; white-space: nowrap; }
 .macro-top small { color: var(--mute); font-size: 12px; font-weight: 600; }
-.macro-bar { height: 8px; border-radius: 99px; background: var(--surface-2); overflow: hidden; }
+.macro-bar { height: 6px; border-radius: 99px; background: var(--surface-2); overflow: hidden; }
 .macro-bar i { display: block; height: 100%; border-radius: 99px; background: var(--m); transition: width var(--enter-ms) var(--enter); }
 .macro[data-macro="protein"] { --m: var(--protein); }
 .macro[data-macro="carbs"] { --m: var(--carbs); }
 .macro[data-macro="fat"] { --m: var(--fat); }
+/* Tighter than other screens, so more of the day's meals fit before the tab bar. */
+.nut-screen .body { gap: 14px; }
+.nut-screen .meal { gap: 8px; }
 .meal .section-head { align-items: center; }
 .meal-kcal { font-weight: 600; }
 .meal-add { min-height: 34px; }
