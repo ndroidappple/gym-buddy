@@ -89,7 +89,7 @@ function LiftDetail({ name, sessions, program, back, prefs, setPref, notify }) {
         <h1 className="detail-title">{name}</h1>
 
         {series.length === 0 ? (
-          <p className="muted">No sets logged for this lift yet. Its chart and records appear after the first session.</p>
+          <p className="muted">No sets logged yet. Its chart and records appear after the first session.</p>
         ) : (
           <>
             {iso ? (

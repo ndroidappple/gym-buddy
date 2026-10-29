@@ -50,7 +50,7 @@ export default function AddFood({ food, head = "tank", meal: meal0, date, target
     notify?.(`${label} added to ${mealLabel}`);
     onClose();
   };
-  // Everything a meal was, logged again in one tap ("Same as yesterday's dinner").
+  // Everything a meal was, logged again in one tap ("Yesterday's dinner").
   const addMany = (rows, label) => {
     rows.forEach((row) => food.addEntry({ date, meal, ...row }));
     notify?.(`${label} added to ${mealLabel}`);
@@ -255,7 +255,7 @@ function Find({ food, head, meal, date, action, onMeal, onRepeat, onPick, onScan
           <h3 className="lbl" id="your-foods-lbl">Your foods</h3>
           {read.kind === "empty" && repeats.map((r) => (
             <button key={r.date + r.meal} type="button" className="food-repeat" onClick={() => onRepeat(r.entries.map(copyEntry), r.label[0].toUpperCase() + r.label.slice(1))}>
-              <span className="name">Same as {r.label}<span className="sub detail">{r.entries.map((e) => e.name).join(" · ")}</span></span>
+              <span className="name">{r.label[0].toUpperCase() + r.label.slice(1)}<span className="sub detail">{r.entries.map((e) => e.name).join(" · ")}</span></span>
               <span className="food-kcal">{fmt(totals(r.entries).kcal)}<small> kcal</small></span>
               <Plus size={18} aria-hidden="true" className="muted" />
             </button>
@@ -284,7 +284,7 @@ function Find({ food, head, meal, date, action, onMeal, onRepeat, onPick, onScan
       )}
 
       {describing && !lookUp && term.length >= 2 && (
-        <button type="button" className="btn-quiet food-lookup" onClick={() => setLookUp(true)}><Search size={15} aria-hidden="true" /> Search the food database for it instead</button>
+        <button type="button" className="btn-quiet food-lookup" onClick={() => setLookUp(true)}><Search size={15} aria-hidden="true" /> Search the food database instead</button>
       )}
 
       {dbTerm.length >= 2 && (

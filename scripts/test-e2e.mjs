@@ -59,8 +59,8 @@ test("add food: a saved food is logged and reaches the account", async ({ page, 
 // Meal prep: last night's dinner, ready to log again at lunch.
 test("add food: last night's dinner is one tap at lunch", async ({ page, backend }) => {
   await openAddFood(page, "Lunch");
-  const repeat = page.getByRole("button", { name: /Same as yesterday's dinner/ });
-  check("leftovers row first, above yesterday's lunch", (await page.locator(".food-repeat .name").allTextContents()).map((t) => t.split("Same as ")[1]).join(" | ") === "yesterday's dinnerSteak Pico Rice Bowl | yesterday's lunchBlackened Chicken",
+  const repeat = page.getByRole("button", { name: /Yesterday's dinner/ });
+  check("leftovers row first, above yesterday's lunch", (await page.locator(".food-repeat .name").allTextContents()).join(" | ") === "Yesterday's dinnerSteak Pico Rice Bowl | Yesterday's lunchBlackened Chicken",
     (await page.locator(".food-repeat .name").allTextContents()).join(" | "));
   check("the bowl leads your foods", (await page.getByRole("dialog").locator(".food-row .name").first().textContent()).startsWith("Steak Pico Rice Bowl"));
   await repeat.click();
