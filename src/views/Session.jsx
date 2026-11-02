@@ -518,11 +518,14 @@ export default function Session({ day, existing, draft, preview, sessions, progr
           const last = lastFor(ex.n);
           const target = bestSet(last?.sets[ex.n]);
           const bump = easy ? null : readyToIncrease(ex, last?.sets[ex.n]);
-          const goal = bump || isCardio(ex.n) ? null : easy ? matchGoal(last?.sets[ex.n]) : nextGoal(ex, last?.sets[ex.n]);
+          // Before the first set: last time, today's goal, and warm-ups if it's the first lift of the day.
+          // Its goal counts today's fatigue (it may build on an older session done at the same point), so
+          // the badge shows it too; the plain goal from the latest session is the fallback.
+          const opening = openingFor(ex, rows);
+          const goal = bump || isCardio(ex.n) ? null
+            : opening?.goal || (easy ? matchGoal(last?.sets[ex.n]) : nextGoal(ex, last?.sets[ex.n]));
           const call = advice[ex.n];
           if (focus === ex.n) {
-            // Before the first set: last time, today's goal, and warm-ups if it's the first lift of the day.
-            const opening = openingFor(ex, rows);
             const pendingIdx = activeIdx != null && rows[activeIdx] && !rows[activeIdx].done ? activeIdx : rows.findIndex((r) => !r.done);
             return (
               <ExerciseCard key={ex.n} preview={preview} ex={ex} rows={rows} target={target} goal={goal} targetDate={last?.date} bump={bump} call={call} opening={opening}

@@ -75,7 +75,8 @@ function stepDown(w, wanted, step) {
 
 /**
  * Advice before the first set: last time's work sets, the goal for today, and warm-ups for the first
- * heavy lift of the day. Returns { w, r, line } or null for a first-ever lift.
+ * heavy lift of the day. Returns { w, r, line, goal } or null for a first-ever lift. `goal` ({ w, r, sets,
+ * match }) is the target the lift's badge shows, so the badge, the first set and the line all agree.
  */
 export function openingAdvice({ ex, history, firstLift, daysSince = null, fatigue = null, easy = null }) {
   if (!history[0]?.length) return null;
@@ -99,12 +100,12 @@ export function openingAdvice({ ex, history, firstLift, daysSince = null, fatigu
     const w = long && work[0].w > 0 ? Math.max(step, Math.round((work[0].w * 0.9) / step) * step) : work[0].w;
     const r = Math.max(ex.reps[0], Math.min(ex.reps[1], work[0].r));
     const weeks = Math.round(daysSince / 7);
-    return { w, r, line: `Last time ${listSets(work)}, ${weeks} weeks ago. ${long ? `Ease back in: ${fmtW(w)} × ${r}, leave 2 reps in the tank.` : `Rebuild first: match ${fmtW(w)} × ${r} today, PRs next week.`}` };
+    return { w, r, goal: { w, r, sets: 1, match: !long }, line: `Last time ${listSets(work)}, ${weeks} weeks ago. ${long ? `Ease back in: ${fmtW(w)} × ${r}, leave 2 reps in the tank.` : `Rebuild first: match ${fmtW(w)} × ${r} today, PRs next week.`}` };
   }
   // A short or under-recovered night (`easy` says which): match last time's best, PRs on a better day.
   if (easy) {
     const best = work.reduce((b, x) => (!b || e1rm(x.w, x.r) > e1rm(b.w, b.r) ? x : b), null);
-    if (best) return { w: best.w, r: best.r, line: `Last time ${listSets(work)}. ${easy} Match ${fmtW(best.w)} × ${best.r} today and save the PR for a better night.` };
+    if (best) return { w: best.w, r: best.r, goal: { w: best.w, r: best.r, sets: 1, match: true }, line: `Last time ${listSets(work)}. ${easy} Match ${fmtW(best.w)} × ${best.r} today and save the PR for a better night.` };
   }
   const bump = readyToIncrease(ex, work);
   const goal = bump ? { w: bump.to, r: ex.reps[0] } : nextGoal(ex, work);
@@ -113,7 +114,7 @@ export function openingAdvice({ ex, history, firstLift, daysSince = null, fatigu
   if (idx > 0) {
     // An older session done this late is the fair comparison.
     const when = note ? `this late (${note})` : "fresh";
-    return { w: goal.w, r: goal.r, line: `Last time you did it ${when}: ${listSets(work)}. Beat that: ${fmtW(goal.w)} × ${goal.r}.` };
+    return { w: goal.w, r: goal.r, goal: { w: goal.w, r: goal.r, sets: goal.sets || 1 }, line: `Last time you did it ${when}: ${listSets(work)}. Beat that: ${fmtW(goal.w)} × ${goal.r}${goal.sets > 1 ? ` on ${goal.sets} sets` : ""}.` };
   }
   const then = past[0] ?? 0;
   if (fatigue && Math.abs(now - then) >= 3 && goal.w > 0 && !bump) {
@@ -121,7 +122,7 @@ export function openingAdvice({ ex, history, firstLift, daysSince = null, fatigu
     const adj = Math.max(ex.reps[0], Math.min(ex.reps[1], Math.floor(30 * ((e1rm(goal.w, goal.r) * freshness(now, k)) / freshness(then, k) / goal.w - 1) + 1e-9)));
     if (adj !== goal.r) {
       const when = now > then ? `${note} today` : "fresher today";
-      return { w: goal.w, r: adj, line: `Last time ${listSets(work)}${then >= 3 ? ` (${loadNote(then, ex.n, fatigue.pastSets?.[0])})` : " (done fresh)"}. ${when[0].toUpperCase()}${when.slice(1)}, ${fmtW(goal.w)} × ${adj} is the same effort as beating it.` };
+      return { w: goal.w, r: adj, goal: { w: goal.w, r: adj, sets: 1 }, line: `Last time ${listSets(work)}${then >= 3 ? ` (${loadNote(then, ex.n, fatigue.pastSets?.[0])})` : " (done fresh)"}. ${when[0].toUpperCase()}${when.slice(1)}, ${fmtW(goal.w)} × ${adj} is the same effort as beating it.` };
     }
   }
   const aim = bump
@@ -131,7 +132,7 @@ export function openingAdvice({ ex, history, firstLift, daysSince = null, fatigu
   const warm = firstLift && !isIsolation(ex.n) && !BODYWEIGHT.test(ex.n) && goal.w >= 60
     ? ` Warm up first: ${fmtW(Math.round(goal.w * 0.5 / step) * step)} × 8, then ${fmtW(Math.round(goal.w * 0.75 / step) * step)} × 4.`
     : "";
-  return { w: goal.w, r: goal.r, line: `Last time ${listSets(work)}. ${aim}${warm}` };
+  return { w: goal.w, r: goal.r, goal: { w: goal.w, r: goal.r, sets: goal.sets || 1 }, line: `Last time ${listSets(work)}. ${aim}${warm}` };
 }
 
 /**
