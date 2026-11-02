@@ -18,9 +18,14 @@ await vite.close();
 
 const day = (n) => iso(new Date(Date.now() - n * 864e5));
 const LIFTS = { push: ["Flat DB Press", "Machine Pec Dec", "Tricep Pushdown (Rope)"], pull: ["Lat Pulldown (Wide Grip)", "Hammer Curl"], legs: ["Leg Press (Heavy)", "Romanian Deadlift"], shoulders: ["Seated DB Shoulder Press", "Lateral Raise (Cable)"] };
-// Two years, four days a week, with a 6-week break from 300 to 258 days ago.
+// Two years, four days a week, with a 6-week break: the whole calendar month 280 days ago plus about
+// a week either side. Monthly rows are calendar months, so the break has to cover one whole month to
+// show as a month with no workouts, whatever today's date is.
 const sessions = [];
-const BREAK = (i) => i <= 300 && i > 258;
+const gap = day(280).slice(0, 7);
+const gapFrom = iso(new Date(+gap.slice(0, 4), +gap.slice(5, 7) - 1, -6)); // a week before the month
+const gapTo = iso(new Date(+gap.slice(0, 4), +gap.slice(5, 7), 7)); // a week after it
+const BREAK = (i) => day(i) >= gapFrom && day(i) <= gapTo;
 let k = 0;
 for (let i = 730; i >= 1; i--) {
   if (i % 7 >= 4 || BREAK(i)) continue;
