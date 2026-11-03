@@ -538,6 +538,8 @@ html[data-typing] :is(.dock, .alert-ask) { opacity: 0; visibility: hidden; trans
 .summary-head { display: flex; flex-direction: column; gap: 14px; }
 .summary-meta { display: flex; align-items: center; gap: 8px; }
 .summary-title, .summary-title.past { flex: 1; min-width: 0; font-weight: 800; font-size: 28px; line-height: 1.1; letter-spacing: -0.02em; }
+.summary-meta .info-btn + .summary-x { margin-left: 8px; }
+.summary-x { min-height: 40px; padding: 0 16px; font-size: 15px; }
 .summary-sub { display: flex; align-items: center; gap: 8px; margin: -6px 0 0 4px; font-size: 15px; font-weight: 700; color: var(--mute); }
 .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .stat { padding: 12px; display: flex; flex-direction: column; gap: 4px; min-width: 0; border-radius: 22px; }

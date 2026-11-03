@@ -182,6 +182,18 @@ test("today: after a workout, Today recaps it instead of the next one", async ({
   await page.waitForURL(/#\/summary\/w3/);
 }, trainedToday);
 
+test("summary: Done is at the top, no scrolling past the recap to leave", async ({ page }) => {
+  await page.getByRole("region", { name: "Push done today" }).getByRole("link", { name: "See summary" }).click();
+  await page.waitForURL(/#\/summary\/w3/);
+  const top = page.getByRole("button", { name: "Done", exact: true });
+  await top.waitFor();
+  const box = await top.boundingBox();
+  check("Done is on screen as the recap opens", box && box.y >= 0 && box.y + box.height <= page.viewportSize().height, JSON.stringify(box));
+  check("the page hasn't scrolled", (await page.evaluate(() => scrollY)) === 0);
+  await top.click();
+  await page.waitForURL(/#\/today/);
+}, trainedToday);
+
 test("today: the next workout can still be started after one's done", async ({ page }) => {
   await page.getByRole("link", { name: "Start Legs anyway" }).click();
   await page.waitForURL(/#\/session\/legs/);

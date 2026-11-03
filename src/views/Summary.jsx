@@ -120,12 +120,15 @@ export default function Summary({ session, sessions, program, prefs, go, back, o
     <main className="screen summary" data-day={session.day}>
       <div className="body" style={{ paddingTop: "calc(24px + var(--safe-t))" }}>
         {/* The date (or "Session logged") is the title, the workout and its length under it, then the head
-            coach beside their bubble. Nothing above the title but the back button. */}
+            coach beside their bubble. A way out is always at the top: back for a past workout, Done after one. */}
         <header className="summary-head">
           <div className="summary-meta">
             {past && <button className="icon-btn boxed" onClick={leave} aria-label="Back to workouts"><ChevronLeft size={20} /></button>}
             <Headline text={past ? longDate(session.date) : null} />
             <InfoButton screen="summary" />
+            {/* Leaving shouldn't take a scroll past the whole recap: Done is up here too (the one at the
+                bottom also says what's next). A past workout has its back button on the left instead. */}
+            {!past && <button type="button" className="ask-btn summary-x" onClick={done}>Done</button>}
           </div>
           <p className="summary-sub"><span className="dot" aria-hidden="true" />{p.name}{mins ? ` · ${mins} min` : ""}</p>
           {/* The head coach speaks for the recap: a walkthrough of this workout (the bubble), or questions
