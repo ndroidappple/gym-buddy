@@ -16,7 +16,7 @@ export const HELP = {
       { name: "Done today", Icon: CalendarCheck, text: "After a workout, the card shows it until midnight. Tap it for the summary." },
       { name: "Preview", Icon: Eye, spot: "preview", text: "Tap the card to look through the day's lifts before you start." },
       { name: "Change", Icon: ArrowLeftRight, spot: "change", text: "Train a different day or a custom workout instead." },
-      { name: "Targets", Icon: Target, text: "Each lift aims one rep or one set past last time. [↑] means add weight." },
+      { name: "Targets", Icon: Target, text: "Each lift aims one rep past last time. [↑] means add weight: set 1 hit the top of the range and the rest held up." },
       { name: "This week", Icon: CalendarCheck, spot: "week", text: "Dots mark the days you trained." },
       { name: "Weigh-in", Icon: Scale, spot: "weigh", text: "Once a week, for your bodyweight chart. [✕] skips to Sunday." },
       { name: "Week in review", Icon: Sparkles, spot: "review", text: "On your review day, your coaches look back at your week." },

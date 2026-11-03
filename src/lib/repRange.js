@@ -23,7 +23,7 @@ const BANDS = {
   heavy: { lo: 3, hi: 10, suggest: [5, 8], kind: "heavy barbell lift" },
   compound: { lo: 5, hi: 12, suggest: [8, 12], kind: "compound lift" },
   isolation: { lo: 8, hi: 15, suggest: [10, 15], kind: "isolation lift" },
-  light: { lo: 12, hi: 20, suggest: [15, 20], kind: "small-muscle lift" },
+  light: { lo: 12, hi: 20, suggest: [12, 20], kind: "small-muscle lift" },
   core: { lo: 8, hi: 20, suggest: [10, 15], kind: "core lift" },
 };
 

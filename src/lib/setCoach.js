@@ -1,11 +1,13 @@
-import { e1rm, fmtW, weightStep, isIsolation, nextGoal, readyToIncrease, lifting, mmss } from "./util.js";
+import { e1rm, fmtW, weightStep, isIsolation, nextGoal, readyToIncrease, repsToEarn, lifting, mmss } from "./util.js";
 import { freshness, freshMax, loadNote, DEFAULT_K } from "./fatigue.js";
 import { isCardio, MAX_REST } from "../data/program.js";
 
 /* The in-workout coach: after every logged set, what the next set should be and why.
    Runs on the phone (instant, works on gym wifi), from rules a good hypertrophy coach uses:
 
-   - Double progression inside the lift's rep range: reps first, then weight.
+   - Double progression inside the lift's rep range: reps first, then weight. The weight goes up once the
+     first set reaches the top with the rest holding the usual fatigue drop (util.js repsToEarn), so
+     a lifter who follows the coach actually earns it.
    - Work sets end about 1-2 reps short of failure (RIR 1-2). Too easy means go heavier; well
      short of the range means the weight is too heavy, so drop it and get quality reps.
    - Reps fall off set to set at the same weight. How much is learned from this lifter's own
@@ -110,14 +112,19 @@ export function openingAdvice({ ex, history, firstLift, daysSince = null, fatigu
   const bump = readyToIncrease(ex, work);
   const goal = bump ? { w: bump.to, r: ex.reps[0] } : nextGoal(ex, work);
   if (!goal) return null;
+  // A goal on a later set (the one that fell short last time): set 1 repeats last time's first set.
+  const later = goal.set > 1 ? goal.set : 0;
+  const first = later ? { w: goal.w, r: Math.min(+work[0].r, ex.reps[1]) } : goal;
+  const where = later ? ` on set ${later}` : goal.sets > 1 ? ` on ${goal.sets} sets` : "";
+  const badge = { w: goal.w, r: goal.r, sets: goal.sets || 1, ...(later ? { set: later } : {}) };
   const note = loadNote(now, ex.n, fatigue?.nowSets);
   if (idx > 0) {
     // An older session done this late is the fair comparison.
     const when = note ? `this late (${note})` : "fresh";
-    return { w: goal.w, r: goal.r, goal: { w: goal.w, r: goal.r, sets: goal.sets || 1 }, line: `Last time you did it ${when}: ${listSets(work)}. Beat that: ${fmtW(goal.w)} × ${goal.r}${goal.sets > 1 ? ` on ${goal.sets} sets` : ""}.` };
+    return { w: first.w, r: first.r, goal: badge, line: `Last time you did it ${when}: ${listSets(work)}. Beat that: ${fmtW(goal.w)} × ${goal.r}${where}.` };
   }
   const then = past[0] ?? 0;
-  if (fatigue && Math.abs(now - then) >= 3 && goal.w > 0 && !bump) {
+  if (fatigue && Math.abs(now - then) >= 3 && goal.w > 0 && !bump && !later) {
     // Done at a different point than last time: scale the goal to the same effort.
     const adj = Math.max(ex.reps[0], Math.min(ex.reps[1], Math.floor(30 * ((e1rm(goal.w, goal.r) * freshness(now, k)) / freshness(then, k) / goal.w - 1) + 1e-9)));
     if (adj !== goal.r) {
@@ -127,12 +134,12 @@ export function openingAdvice({ ex, history, firstLift, daysSince = null, fatigu
   }
   const aim = bump
     ? `You earned it: ${fmtW(bump.to)} lb today. Aim for ${ex.reps[0]}+ on set 1.`
-    : `Beat it by one: ${fmtW(goal.w)} × ${goal.r}${goal.sets > 1 ? ` on ${goal.sets} sets` : ""}.`;
+    : `Beat it by one: ${fmtW(goal.w)} × ${goal.r}${where}.`;
   // Warm-ups: the first loaded compound lift of the day.
   const warm = firstLift && !isIsolation(ex.n) && !BODYWEIGHT.test(ex.n) && goal.w >= 60
     ? ` Warm up first: ${fmtW(Math.round(goal.w * 0.5 / step) * step)} × 8, then ${fmtW(Math.round(goal.w * 0.75 / step) * step)} × 4.`
     : "";
-  return { w: goal.w, r: goal.r, goal: { w: goal.w, r: goal.r, sets: goal.sets || 1 }, line: `Last time ${listSets(work)}. ${aim}${warm}` };
+  return { w: bump ? goal.w : first.w, r: bump ? goal.r : first.r, goal: bump ? { w: goal.w, r: goal.r, sets: 1 } : badge, line: `Last time ${listSets(work)}. ${aim}${warm}` };
 }
 
 /**
@@ -202,8 +209,8 @@ export function nextSetAdvice({ ex, done, asked, left, history = [], best = 0, p
     const sets = done.map((x) => ({ w: +x.w, r: +x.r })).filter((x) => x.r > 0);
     const earned = sets.length >= ex.sets && readyToIncrease(ex, sets);
     const goal = nextGoal(ex, workSets(sets));
-    const tail = earned ? `Every set at ${hi}: ${fmtW(earned.to)} lb next time.`
-      : goal ? `Next time: ${fmtW(goal.w)} × ${goal.r}${goal.sets > 1 ? ` on ${goal.sets} sets` : ""}.` : "That's the lift.";
+    const tail = earned ? `Earned it: ${fmtW(earned.to)} lb next time.`
+      : goal ? `Next time: ${fmtW(goal.w)} × ${goal.r}${goal.set > 1 ? ` on set ${goal.set}` : goal.sets > 1 ? ` on ${goal.sets} sets` : ""}.` : "That's the lift.";
     return { kind: "done", line: say(tail) };
   }
 
@@ -252,10 +259,14 @@ export function nextSetAdvice({ ex, done, asked, left, history = [], best = 0, p
     return { w: +asked.w, r: t, kind: "up", line: say(`${fmtW(+asked.w)} is there. Go back up for ${t}.`, finisher) };
   }
 
-  // At the top of the range: hold; every set up here earns more weight next time.
+  // At the top of the range: hold; the first set here with the rest holding up earns more weight next time.
   if (r >= hi) {
     const t = clamp(hi - (lastSet ? 0 : Math.min(drop, 1)), lo, ceiling);
-    return { w, r: t, kind: "hold", line: say(`Top of the range: stay at ${fmtW(w)}.`, `${hi} on every set earns more weight.`, finisher) };
+    // On track for more weight when every set at this weight so far held up: say what the next one needs.
+    const at = done.filter((x) => +x.w === w);
+    const onTrack = at.every((x, k) => +x.r >= repsToEarn(ex, k));
+    const need = repsToEarn(ex, at.length);
+    return { w, r: Math.max(t, Math.min(need, ceiling)), kind: "hold", line: say(`Top of the range: stay at ${fmtW(w)}.`, onTrack ? `${need}+ next earns more weight.` : "", finisher) };
   }
 
   // Well under the range, or under it at failure: too heavy for quality reps. Drop to land in range.

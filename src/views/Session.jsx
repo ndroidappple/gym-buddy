@@ -380,10 +380,10 @@ export default function Session({ day, existing, draft, preview, sessions, progr
       else if (nx >= 0 && !hasVal(rows[nx].w)) rows[nx] = { ...rows[nx], w: row.w };
       return { ...g, [ex.n]: rows };
     });
-    // Finishing the planned sets at the top of the rep range earns more weight next time.
+    // Finishing the planned sets with the first at the top of the range (the rest holding up) earns more weight.
     const doneNow = grid[ex.n].map((r, j) => (j === i ? { ...r, done: true } : r)).filter((r) => r.done && hasVal(r.w) && hasVal(r.r));
     const earned = doneNow.length >= ex.sets && readyToIncrease(ex, doneNow.map((r) => ({ w: +r.w, r: +r.r })));
-    if (earned && !call) notify(`${ex.n}: ${earned.sets} × ${earned.reps} done. Go up to ${fmtW(earned.to)} lb next time.`); // the coach's wrap-up says it otherwise
+    if (earned && !call) notify(`${ex.n}: ${earned.line} at ${fmtW(earned.from)}. Go up to ${fmtW(earned.to)} lb next time.`); // the coach's wrap-up says it otherwise
     markStart();
     setFlash({ ex: ex.n, i });
     vibrate(pr ? [40, 60, 40, 60, 80] : 20);

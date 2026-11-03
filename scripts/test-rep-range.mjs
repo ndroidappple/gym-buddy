@@ -3,6 +3,7 @@
    Run: npm run test:range   (exits 1 on any failure) */
 import { liftKind, checkRange } from "../src/lib/repRange.js";
 import { LIBRARY, PROGRAM } from "../src/data/program.js";
+import { planFor } from "../src/lib/setup.js";
 
 let failed = 0;
 const eq = (name, got, want) => {
@@ -44,7 +45,7 @@ for (const [n, lo, hi] of [["Lat Pulldown (Wide Grip)", 6, 8], ["Face Pulls", 10
 
 // Clearly off: flagged, with the suggestion.
 const flag = (n, lo, hi) => { const c = checkRange({ n, reps: [lo, hi] }); return c && [c.dir, c.suggest]; };
-eq("Face Pulls 4–6", flag("Face Pulls", 4, 6), ["low", [15, 20]]);
+eq("Face Pulls 4–6", flag("Face Pulls", 4, 6), ["low", [12, 20]]);
 eq("Lateral Raise 5–8", flag("Lateral Raise (Cable)", 5, 8), ["low", [12, 20]]);
 eq("Leg Extension 3–5", flag("Leg Extension", 3, 5), ["low", [12, 15]]);
 eq("unknown curl 2–4 gets the isolation default", flag("Spider Curl", 2, 4), ["low", [10, 15]]);
@@ -52,13 +53,29 @@ eq("Deadlift 20–25", flag("Deadlift", 20, 25), ["high", [4, 6]]);
 eq("Barbell Curl 25–30", flag("Barbell Curl", 25, 30), ["high", [8, 12]]);
 eq("Lat Pulldown 1–2", flag("Lat Pulldown (Wide Grip)", 1, 2), ["low", [8, 12]]);
 eq("the line reads", checkRange({ n: "Face Pulls", reps: [4, 6] }).line,
-  "4–6 is low for Face Pulls: as a small-muscle lift it usually goes 15–20, because heavy sets on a small muscle turn into a swing or shrug and strain the joint.");
+  "4–6 is low for Face Pulls: as a small-muscle lift it usually goes 12–20, because heavy sets on a small muscle turn into a swing or shrug and strain the joint.");
 eq("an before a vowel", /as an isolation lift/.test(checkRange({ n: "Barbell Curl", reps: [25, 30] }).line), true);
 
 // Not judged.
 eq("warm-up", checkRange({ n: "Stair Climber (Warm-up)", reps: [5, 5], warmup: true }), null);
 eq("cardio minutes", checkRange({ n: "Stair Climber", reps: [40, 60] }), null);
 eq("bad range", checkRange({ n: "Face Pulls", reps: [6, 4] }), null);
+
+// Setup styles (src/lib/setup.js): lean keeps every lift at its standard range and rest (heavy work keeps
+// muscle on a cut) and adds the finisher; no style ever turns a range upside down or restyles a timed hold.
+const withPlank = { ...PROGRAM, push: { ...PROGRAM.push, exercises: [...PROGRAM.push.exercises, LIBRARY.find((e) => e.n === "Plank")] } };
+for (const goals of [["lean"], ["strength"], ["muscle"]]) {
+  const { program } = planFor(withPlank, { goals });
+  const lifts = Object.values(program).flatMap((d) => d.exercises || []);
+  for (const e of lifts) if (!(e.reps[0] <= e.reps[1])) eq(`${goals}: ${e.n} range in order`, e.reps, "lo <= hi");
+  eq(`${goals}: plank untouched`, lifts.find((e) => e.n === "Plank").reps, [30, 60]);
+}
+const lean = planFor(withPlank, { goals: ["lean"] }).program;
+eq("lean keeps the push day's ranges and rests", lean.push.exercises.filter((e) => !e.finisher).map((e) => [e.reps, e.rest]), withPlank.push.exercises.map((e) => [e.reps, e.rest]));
+eq("lean adds the finisher", lean.push.exercises.some((e) => e.finisher), true);
+// Redoing setup as lean after an older lean program (more reps, less rest) puts the lifts back.
+const oldLean = { ...PROGRAM, push: { ...PROGRAM.push, exercises: PROGRAM.push.exercises.map((e) => ({ ...e, base: { reps: e.reps, rest: e.rest }, reps: [e.reps[0] + 2, e.reps[1] + 3], rest: e.rest - 15 })) } };
+eq("old lean program goes back to standard", planFor(oldLean, { goals: ["lean"] }).program.push.exercises.filter((e) => !e.finisher).map((e) => e.reps), PROGRAM.push.exercises.map((e) => e.reps));
 
 console.log(failed ? `rep range: ${failed} failed` : "rep range: all checks passed");
 process.exit(failed ? 1 : 0);

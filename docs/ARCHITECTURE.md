@@ -34,7 +34,9 @@ JSON copy any time.
 
 **The set coach** (`src/lib/setCoach.js`): after every logged set, what the next one should be and why.
 It runs on the phone, so it's instant and works on gym wifi, from the rules a hypertrophy coach uses:
-double progression inside the lift's rep range (reps first, then weight), work sets ending 1 to 2 reps
+double progression inside the lift's rep range (reps first, then weight: the weight goes up once the first
+set reaches the top and the rest hold the usual fatigue drop, about 8% a set, `repsToEarn` in `src/lib/util.js`;
+demanding the top on every set meant a lifter following the coach never earned it), work sets ending 1 to 2 reps
 short of failure, and the usual set-to-set rep drop learned from this lifter's own history on this
 lift, so "7 after 8" isn't read as a failure. Today's best set is compared with the all-time best
 estimated 1-rep max: a PR is only chased on a day it's on, and an off day is told to bank quality sets.
@@ -55,7 +57,9 @@ then the same muscle. Or a swap for a lift with the same movement pattern (cable
 warm-ups that open a day and finishers that close it. `src/lib/importProgram.js` reads a program pasted
 from the Notes app ("Lat Pulldown — 3 × 8–12, 90s rest"), and the head coach can review it before it's
 saved. `src/lib/repRange.js` sorts each lift by name into heavy barbell, compound, isolation,
-small-muscle or core, each with the band coaches broadly use (3–10, 5–12, 8–15, 12–20, 8–20). A range
+small-muscle or core, each with the band coaches broadly use (3–10, 5–12, 8–15, 12–20, 8–20). Setup's
+"lean" style keeps lifts at these ranges and adds a cardio finisher: on a cut, heavy work keeps the muscle.
+Every coach prompt shares one progressive-overload stance (`OVERLOAD` in `api/coach.js`). A range
 that clearly misses its band gets a note in the program editor with a one-tap fix, and the coach
 mentions it before the lift's first set. It never changes a range on its own.
 

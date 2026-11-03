@@ -32,7 +32,7 @@ function describeLift(sessions, plan, n) {
     (lt ? `, trend since start ${signed(lt.pct)} (e1RM ${num(lt.start)} -> ${num(lt.now)} lb${lt.perMonth != null ? `, ${signed(lt.perMonth)}/month` : ""})` : "") +
     (best.orm > last.orm ? `, best ever e1RM ${num(best.orm)} lb on ${best.date}` : "") +
     (lately != null ? `, lately ${signed(lately)} (last 3 sessions vs the 3 before)` : "") + (rir.length ? `, RIR ${rir.join("/")}` : "") +
-    (up ? `, READY TO ADD WEIGHT (hit ${up.sets}x${up.reps} at ${up.from} lb; next: ${up.to} lb)` : "");
+    (up ? `, READY TO ADD WEIGHT (hit ${up.line} at ${up.from} lb; next: ${up.to} lb)` : "");
 }
 const planOf = (program) => Object.fromEntries(activeDays(program).flatMap((d) => program[d].exercises.map((e) => [e.n, e])));
 const liftsOf = (program) => [...new Set(activeDays(program).flatMap((d) => program[d].exercises.map((e) => e.n)))];

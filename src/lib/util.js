@@ -188,10 +188,18 @@ export function vibrate(pattern) {
 const COMPOUND = /press|squat|deadlift|\brows?\b|pulldown|pull-?ups?|chin-?ups?|\bdips?\b|lunge|thrust|clean|snatch|good morning/i;
 export const isIsolation = (lift) => /straight-arm/i.test(lift) || !COMPOUND.test(lift);
 
-/* Double progression. Each lift has its own rep range; once every planned set at your top weight
-   reached the top of that range, it's time to add weight (and work back up the reps). */
+/* Double progression. Each lift has its own rep range: add reps at a weight until the first set reaches
+   the top of the range with the planned sets behind it holding up, then add weight (and work back up).
+
+   "Holding up" allows the normal set-to-set fatigue drop instead of demanding the top on every set:
+   at 1-2 reps in reserve, straight sets lose about 8% of their reps a set (12, 11, 10, 9 on an 8-12 lift;
+   20, 18, 16, 15 on 12-20). Asking for the top on every set means the first sets end 3+ reps short of
+   failure, which the set coach (rightly) never asks for, so the weight would never go up. */
 const BIG_LOWER = /leg press|squat|deadlift|romanian|hip thrust|good morning/i;
 export const weightStep = (lift) => (BIG_LOWER.test(lift) ? 10 : 5);
+/** Reps the k-th set at the working weight (0 = first) needs for the weight to go up: the top of the range,
+    less the usual fatigue drop (about 8% a set), never under the bottom of the range. */
+export const repsToEarn = (ex, k) => Math.max(ex.reps[0], Math.floor(ex.reps[1] * (1 - 0.08 * k) + 1e-9));
 
 /** The set to build on from one session: the most reps at the heaviest weight that reached the bottom
     of the rep range (the heaviest weight, when none did). By weight, not estimated max: 110 × 14 scores
@@ -207,27 +215,43 @@ export function workingSet(ex, sets) {
 
 /** What to aim for when a lift isn't ready for more weight, from last time's sets. Below the top of the
     rep range: the working set (see workingSet) plus one rep (which beats it; a matched set is only a
-    match). At the top: one more set at the top, as double progression asks. `idx` is the set to put
-    the goal on. */
+    match). At the top: the first set at that weight that fell short of what earns more weight (see
+    repsToEarn) gets one more rep, or the set still missing from the plan comes up to the weight. `idx`
+    is the set to put the goal on. `set` (the work set's number, warm-ups left out) is there when the goal
+    is on a later set and the first work set is already at the weight: that first set repeats last time,
+    and the goal says which set to beat. */
 export function nextGoal(ex, sets) {
   const l = lifting(sets);
   const best = workingSet(ex, l);
   if (!best) return null;
   const top = ex?.reps?.[1];
   if (!top || best.r < top) return { w: best.w, r: best.r + 1, idx: l.indexOf(best), sets: 1 };
-  const atTop = (s) => s.w === best.w && s.r >= top;
-  const j = l.findIndex((s) => !atTop(s));
-  return { w: best.w, r: top, idx: j >= 0 ? j : l.length, sets: l.filter(atTop).length + 1 };
+  const at = l.filter((s) => +s.w === +best.w);
+  const k = at.findIndex((s, i) => s.r < repsToEarn(ex, i));
+  if (k >= 0) {
+    const idx = l.indexOf(at[k]);
+    const warm = l.slice(0, idx).filter((s) => +s.w < +best.w * 0.8);
+    const set = idx - warm.length + 1;
+    const firstWork = l.find((s) => +s.w >= +best.w * 0.8);
+    return { w: best.w, r: at[k].r + 1, idx, sets: 1, ...(set > 1 && +firstWork.w === +best.w ? { set } : {}) };
+  }
+  // Every set there held up but one's missing: the next set not at the weight comes up to it, with the
+  // reps its place in the order needs (a first set needs the top).
+  const j = l.findIndex((s) => +s.w !== +best.w);
+  const idx = j >= 0 ? j : l.length;
+  return { w: best.w, r: repsToEarn(ex, l.slice(0, idx).filter((s) => +s.w === +best.w).length), idx, sets: 1 };
 }
 // Weight × reps first, like every set in the app; a goal over several sets says how many after it.
-export const fmtGoal = (g) => `${fmtW(g.w)} × ${g.r}${g.sets > 1 ? ` · ${g.sets} sets` : ""}`;
+export const fmtGoal = (g) => `${fmtW(g.w)} × ${g.r}${g.sets > 1 ? ` · ${g.sets} sets` : g.set > 1 ? ` · set ${g.set}` : ""}`;
 
 /** { from, to, sets, reps } when `sets` (one session's sets for `ex`) earned a weight increase, else null. */
 export function readyToIncrease(ex, sets) {
   if (!ex || !sets?.length || isCardio(ex.n)) return null;
   const top = Math.max(...sets.map((s) => +s.w || 0));
   if (!(top > 0)) return null; // bodyweight moves progress by reps, not plates
-  const hits = sets.filter((s) => +s.w === top && +s.r >= ex.reps[1]).length;
-  if (hits < ex.sets) return null;
-  return { from: top, to: top + weightStep(ex.n), sets: ex.sets, reps: ex.reps[1] };
+  // The planned sets at the top weight, in order: the first at the top of the range, the rest within
+  // the usual fatigue drop of it (see repsToEarn).
+  const at = sets.filter((s) => +s.w === top).slice(0, ex.sets);
+  if (at.length < ex.sets || at.some((s, k) => +s.r < repsToEarn(ex, k))) return null;
+  return { from: top, to: top + weightStep(ex.n), sets: ex.sets, reps: ex.reps[1], line: at.map((s) => s.r).join(", ") };
 }
