@@ -1,6 +1,7 @@
 import { DAYS, EXTRA_DAYS, PROGRAM, allDays, LIBRARY, activeDays, isCardio, isFinisherCardio, capRest } from "../data/program.js";
 import { CUES } from "../data/cues.js";
 import { COACH_ORDER, coachFor, headCoach } from "../data/coaches.js";
+import { liftKind } from "./repRange.js";
 
 /* First-run setup with the coaches. Tank asks about goals, weight and training days; every coach
    then lets the lifter pick their lifts. All of it is plain functions over the program, so the
@@ -28,13 +29,17 @@ export function styleFor(goals = []) {
 }
 
 /* Styles are applied from each lift's original numbers (kept in `base`), so redoing setup or
-   switching goals never compounds. */
+   switching goals never compounds.
+
+   Lean (fat loss) keeps every lift at its standard range and rest, and the cardio finisher does the
+   extra work. In a deficit the heavy work that built the muscle is what keeps it, and fat loss comes
+   from food: lighter weights for more reps with shorter rest only means less load and less strength
+   kept. Timed holds (planks) and cardio are never restyled: their numbers are seconds and minutes. */
 function styled(ex, style) {
   if (isCardio(ex.n)) return ex;
   const base = ex.base || { reps: ex.reps, rest: ex.rest };
   const [lo, hi] = base.reps;
-  if (style === "strength") return { ...ex, base, reps: [Math.max(3, lo - 4), Math.max(Math.max(3, lo - 4) + 2, hi - 4)], rest: capRest(ex.n, Math.min(180, base.rest + 30)) };
-  if (style === "lean") return { ...ex, base, reps: [lo + 2, Math.min(25, hi + 3)], rest: Math.max(45, base.rest - 15) };
+  if (style === "strength" && liftKind(ex.n)) return { ...ex, base, reps: [Math.max(3, lo - 4), Math.max(Math.max(3, lo - 4) + 2, hi - 4)], rest: capRest(ex.n, Math.min(180, base.rest + 30)) };
   const { base: _, ...plain } = ex; // eslint-disable-line no-unused-vars
   return { ...plain, reps: base.reps, rest: base.rest };
 }
@@ -96,7 +101,7 @@ export function planFor(program, { goals = [], days = 4 } = {}) {
     const eg = next.push.exercises.find((e) => !isCardio(e.n));
     lines.push({
       strength: "Lower reps and longer rest on every lift, to build strength",
-      lean: "A few more reps and shorter rest on every lift, to keep the pace up",
+      lean: "Every lift back to its standard range: heavy work is what keeps your muscle on a cut",
       standard: "Rep ranges back to the standard muscle-building ranges",
     }[style] + (eg ? ` (e.g. ${eg.n}: ${eg.sets} × ${eg.reps[0]}–${eg.reps[1]}, ${eg.rest}s rest).` : "."));
   }

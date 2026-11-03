@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { ChevronLeft, ChevronUp, ChevronDown, Trash2, Plus, Pencil, Flame } from "lucide-react";
 import { InfoButton, ConfirmSheet, Sheet } from "../components/ui.jsx";
 import ExercisePicker from "../components/ExercisePicker.jsx";
-import { isCardio, isWarmup, specLine, cardioLibrary, WARMUP_MIN, PROGRAM, allDays, capRest } from "../data/program.js";
+import { isCardio, isWarmup, specLine, cardioLibrary, WARMUP_MIN, PROGRAM, allDays, capRest, isTimed, MAX_TOP } from "../data/program.js";
 import { checkRange } from "../lib/repRange.js";
 
 export default function ProgramEditor({ day, program, back, ops, head = "tank" }) {
@@ -84,13 +84,23 @@ function RenameDay({ name, onSave, onClose }) {
 }
 
 function EditLift({ ex, onChange, onRemove }) {
-  // A range far from what suits this kind of lift gets a note; it's only advice, the range is theirs.
+  // A range far from what suits this kind of lift gets a note (advice only), and no top goes past MAX_TOP.
   const flag = checkRange(ex);
+  // No lift's range tops out past MAX_TOP reps; timed holds are seconds, so they're free.
+  const top = isTimed(ex.n) ? Infinity : MAX_TOP;
   const numField = (key, label, get, put) => (
     <label className="field"><span className="lbl">{label}</span>
-      {/* Keyed by its value, so a change made elsewhere (Use 15–20 below) shows in the field. */}
+      {/* Keyed by its value, so a change made elsewhere (Use 10–16 below) shows in the field. */}
       <input key={get} id={`${ex.n}-${key}`} className="input tn" type="number" inputMode="numeric" defaultValue={get}
-        onBlur={(e) => { const v = parseInt(e.target.value); if (v > 0) onChange(put(v)); else e.target.value = get; }} /></label>
+        onBlur={(e) => {
+          const v = parseInt(e.target.value);
+          if (!(v > 0)) { e.target.value = get; return; }
+          const out = put(v);
+          onChange(out);
+          // Show what was kept when a cap brought it down (20 reps → 16, rest past its max).
+          const kept = key === "min" ? out.reps?.[0] : key === "max" ? out.reps?.[1] : key === "rest" ? out.rest : null;
+          if (kept != null) e.target.value = kept;
+        }} /></label>
   );
   return (
     <div className="prog-edit">
@@ -102,8 +112,8 @@ function EditLift({ ex, onChange, onRemove }) {
       ) : (
         <div className="grid-4">
           {numField("sets", "Sets", ex.sets, (v) => ({ sets: v }))}
-          {numField("min", "Min reps", ex.reps[0], (v) => ({ reps: [v, Math.max(v, ex.reps[1])] }))}
-          {numField("max", "Max reps", ex.reps[1], (v) => ({ reps: [Math.min(v, ex.reps[0]), v] }))}
+          {numField("min", "Min reps", ex.reps[0], (v) => { const m = Math.min(v, top); return { reps: [m, Math.max(m, ex.reps[1])] }; })}
+          {numField("max", "Max reps", ex.reps[1], (v) => { const m = Math.min(v, top); return { reps: [Math.min(m, ex.reps[0]), m] }; })}
           {numField("rest", "Rest (sec)", ex.rest, (v) => ({ rest: capRest(ex.n, Math.max(15, v)) }))}
         </div>
       )}

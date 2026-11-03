@@ -15,7 +15,7 @@ const BASE_PROGRAM = {
     { n: "Seated Cable Row (Close Grip)", sets: 3, reps: [8,12], rest: 90 },
     { n: "Seated Row (Machine)", sets: 3, reps: [10,12], rest: 90 },
     { n: "Straight-Arm Pulldown", sets: 3, reps: [12,15], rest: 60 },
-    { n: "Face Pulls", sets: 3, reps: [15,20], rest: 60 },
+    { n: "Face Pulls", sets: 3, reps: [10,16], rest: 60 },
     { n: "Seated DB Curl", sets: 3, reps: [10,12], rest: 60 },
     { n: "Hammer Curl", sets: 3, reps: [10,12], rest: 60 },
   ]},
@@ -25,12 +25,12 @@ const BASE_PROGRAM = {
     { n: "Bulgarian Split Squat", sets: 3, reps: [8,10], rest: 90 },
     { n: "Leg Extension", sets: 3, reps: [12,15], rest: 60 },
     { n: "Leg Curl", sets: 3, reps: [12,15], rest: 60 },
-    { n: "Leg Adduction", sets: 2, reps: [15,20], rest: 60 },
+    { n: "Leg Adduction", sets: 2, reps: [10,16], rest: 60 },
   ]},
   shoulders: { name: "Shoulders", detail: "Delts + Arms", exercises: [
     { n: "Seated DB Shoulder Press", sets: 4, reps: [8,12], rest: 90 },
-    { n: "Lateral Raise (Cable)", sets: 4, reps: [12,20], rest: 60 },
-    { n: "Rear Delt Fly", sets: 3, reps: [15,20], rest: 60 },
+    { n: "Lateral Raise (Cable)", sets: 4, reps: [10,16], rest: 60 },
+    { n: "Rear Delt Fly", sets: 3, reps: [10,16], rest: 60 },
     { n: "Upright Row (Cable)", sets: 3, reps: [12,15], rest: 60 },
     { n: "Incline DB Curl", sets: 3, reps: [10,12], rest: 60 },
     { n: "Skull Crushers", sets: 3, reps: [10,12], rest: 60 },
@@ -54,8 +54,31 @@ function capRests(program) {
     p.exercises?.some(over) ? { ...p, exercises: p.exercises.map((ex) => (over(ex) ? { ...ex, rest: capRest(ex.n, ex.rest) } : ex)) } : p]));
 }
 
-/** Normalises a saved program: current cues, rests within their max, and the custom day present. */
-export const normalizeProgram = (p) => { const q = capRests(refreshCues(p)); return q[CUSTOM] ? q : { ...q, [CUSTOM]: CUSTOM_DAY }; };
+/* The most reps the top of a lift's range asks for before the weight goes up. Past 16 it's hard to judge
+   how close to failure a set is, and more weight for fewer reps builds the same muscle (see
+   lib/repRange.js). A range over it comes down to a 6-rep spread under it (15–20 → 10–16), so a weight
+   jump still lands in range. The program editor, coach changes and pasted programs all stop here, and a
+   saved program over it is brought down when it loads. Cardio (minutes) and timed holds (seconds) aren't
+   reps, so they're left alone. */
+export const MAX_TOP = 16;
+const TIMED = /plank|hold\b|carry|hang\b|wall sit/i;
+/** Seconds, not reps: planks, holds, carries, hangs. */
+export const isTimed = (name) => TIMED.test(String(name || ""));
+/** A rep range brought within MAX_TOP: [lo, hi] as is when it already is. */
+export const capReps = ([lo, hi]) => (hi > MAX_TOP ? [Math.min(lo, MAX_TOP - 6), MAX_TOP] : [lo, hi]);
+// The top is checked first: the built-in program is read before isCardio's list exists, and never goes over.
+const repsOver = (ex) => ex.reps?.[1] > MAX_TOP && !ex.warmup && ex.kind !== "cardio" && !isTimed(ex.n) && !isCardio(ex.n);
+/** A lift with its range (and its setup style's original range, `base`) within MAX_TOP. */
+export const capRange = (ex) => (!repsOver(ex) ? ex
+  : { ...ex, reps: capReps(ex.reps), ...(ex.base?.reps ? { base: { ...ex.base, reps: capReps(ex.base.reps) } } : {}) });
+function capAllReps(program) {
+  if (!Object.values(program).some((p) => p.exercises?.some(repsOver))) return program;
+  return Object.fromEntries(Object.entries(program).map(([day, p]) => [day,
+    p.exercises?.some(repsOver) ? { ...p, exercises: p.exercises.map(capRange) } : p]));
+}
+
+/** Normalises a saved program: current cues, rests and rep ranges within their max, and the custom day present. */
+export const normalizeProgram = (p) => { const q = capAllReps(capRests(refreshCues(p))); return q[CUSTOM] ? q : { ...q, [CUSTOM]: CUSTOM_DAY }; };
 
 export const PROGRAM = normalizeProgram(BASE_PROGRAM);
 /** The four built-in day slots. A day can be switched off (`off: true`), e.g. a 3-day split. */
@@ -101,7 +124,7 @@ const BASE_LIBRARY = [
   { n: "Cable Crossover", g: "Chest", sets: 3, reps: [12,15], rest: 60 },
   { n: "Chest Press (Machine)", g: "Chest", sets: 3, reps: [8,12], rest: 90 },
   { n: "Dips (Chest Lean)", g: "Chest", sets: 3, reps: [8,12], rest: 90 },
-  { n: "Push-Up", g: "Chest", sets: 3, reps: [12,20], rest: 60 },
+  { n: "Push-Up", g: "Chest", sets: 3, reps: [10,16], rest: 60 },
   // Back
   { n: "Pull-Up", g: "Back", sets: 4, reps: [6,10], rest: 120 },
   { n: "Chin-Up", g: "Back", sets: 3, reps: [6,10], rest: 120 },
@@ -118,10 +141,10 @@ const BASE_LIBRARY = [
   // Shoulders
   { n: "Overhead Press (Barbell)", g: "Shoulders", sets: 4, reps: [6,10], rest: 120 },
   { n: "Arnold Press", g: "Shoulders", sets: 3, reps: [8,12], rest: 90 },
-  { n: "Lateral Raise (DB)", g: "Shoulders", sets: 4, reps: [12,20], rest: 60 },
-  { n: "Lateral Raise (Machine)", g: "Shoulders", sets: 3, reps: [12,20], rest: 60 },
+  { n: "Lateral Raise (DB)", g: "Shoulders", sets: 4, reps: [10,16], rest: 60 },
+  { n: "Lateral Raise (Machine)", g: "Shoulders", sets: 3, reps: [10,16], rest: 60 },
   { n: "Front Raise", g: "Shoulders", sets: 3, reps: [12,15], rest: 60 },
-  { n: "Reverse Pec Dec", g: "Shoulders", sets: 3, reps: [15,20], rest: 60 },
+  { n: "Reverse Pec Dec", g: "Shoulders", sets: 3, reps: [10,16], rest: 60 },
   { n: "Cable Y-Raise", g: "Shoulders", sets: 3, reps: [12,15], rest: 60 },
   // Arms
   { n: "Barbell Curl", g: "Arms", sets: 3, reps: [8,12], rest: 60 },
@@ -134,7 +157,7 @@ const BASE_LIBRARY = [
   { n: "Tricep Pushdown (Bar)", g: "Arms", sets: 3, reps: [10,15], rest: 60 },
   { n: "Single-Arm Cable Extension", g: "Arms", sets: 3, reps: [12,15], rest: 60 },
   { n: "Dips (Upright)", g: "Arms", sets: 3, reps: [8,12], rest: 90 },
-  { n: "Wrist Curl", g: "Arms", sets: 3, reps: [15,20], rest: 45 },
+  { n: "Wrist Curl", g: "Arms", sets: 3, reps: [10,16], rest: 45 },
   // Legs
   { n: "Back Squat", g: "Legs", sets: 4, reps: [6,10], rest: 180 },
   { n: "Front Squat", g: "Legs", sets: 3, reps: [6,10], rest: 150 },
@@ -147,9 +170,9 @@ const BASE_LIBRARY = [
   { n: "Seated Leg Curl", g: "Legs", sets: 3, reps: [12,15], rest: 60 },
   { n: "Lying Leg Curl", g: "Legs", sets: 3, reps: [12,15], rest: 60 },
   { n: "Nordic Curl", g: "Legs", sets: 3, reps: [6,10], rest: 90 },
-  { n: "Leg Abduction", g: "Legs", sets: 3, reps: [15,20], rest: 60 },
-  { n: "Standing Calf Raise", g: "Legs", sets: 4, reps: [12,20], rest: 60 },
-  { n: "Seated Calf Raise", g: "Legs", sets: 3, reps: [15,20], rest: 60 },
+  { n: "Leg Abduction", g: "Legs", sets: 3, reps: [10,16], rest: 60 },
+  { n: "Standing Calf Raise", g: "Legs", sets: 4, reps: [10,16], rest: 60 },
+  { n: "Seated Calf Raise", g: "Legs", sets: 3, reps: [10,16], rest: 60 },
   // Cardio: logged as minutes + miles instead of weight × reps. reps = the minutes target.
   { n: "Treadmill Run", g: "Cardio", kind: "cardio", sets: 1, reps: [20, 30], rest: 0 },
   { n: "Incline Walk", g: "Cardio", kind: "cardio", sets: 1, reps: [20, 30], rest: 0 },
@@ -160,12 +183,12 @@ const BASE_LIBRARY = [
   { n: "Elliptical", g: "Cardio", kind: "cardio", sets: 1, reps: [15, 30], rest: 0 },
   { n: "Jump Rope", g: "Cardio", kind: "cardio", sets: 1, reps: [5, 15], rest: 0 },
   // Core
-  { n: "Cable Crunch", g: "Core", sets: 3, reps: [12,20], rest: 60 },
+  { n: "Cable Crunch", g: "Core", sets: 3, reps: [10,16], rest: 60 },
   { n: "Hanging Leg Raise", g: "Core", sets: 3, reps: [10,15], rest: 60 },
   { n: "Plank", g: "Core", sets: 3, reps: [30,60], rest: 60 },
   { n: "Ab Wheel Rollout", g: "Core", sets: 3, reps: [8,12], rest: 60 },
   { n: "Pallof Press", g: "Core", sets: 3, reps: [12,15], rest: 60 },
-  { n: "Russian Twist", g: "Core", sets: 3, reps: [15,20], rest: 45 },
+  { n: "Russian Twist", g: "Core", sets: 3, reps: [10,16], rest: 45 },
 ];
 export const LIBRARY = BASE_LIBRARY.map((e) => (CUES[e.n] ? { ...e, cue: CUES[e.n] } : e));
 

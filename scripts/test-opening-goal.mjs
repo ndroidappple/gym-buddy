@@ -16,9 +16,10 @@ const press = { n: "Seated DB Shoulder Press", sets: 4, reps: [8, 12] };
 // Fresh today; the latest session came after 6 shoulder sets, the one before it was fresh.
 const history = [S([30, 10], [30, 8], [30, 8], [30, 7]), S([30, 13], [30, 9], [30, 6], [25, 8])];
 const fresh = openingAdvice({ ex: press, history, firstLift: true, fatigue: { k: DEFAULT_K, now: 0, past: [6, 0] } });
-eq("builds on the fresh session", [fresh.w, fresh.r], [30, 12]);
-eq("badge goal matches the first set", fresh.goal, { w: 30, r: 12, sets: 2 });
-eq("line names the sets", fresh.line.endsWith("Beat that: 30 × 12 on 2 sets."), true);
+// 30 × 13, 9, 6 there: set 1 held the top, set 2 fell short of the 11 that earns more weight.
+eq("builds on the fresh session: set 1 at the top", [fresh.w, fresh.r], [30, 12]);
+eq("badge goal is set 2, one more rep", fresh.goal, { w: 30, r: 10, sets: 1, set: 2 });
+eq("line names the set", fresh.line.endsWith("Beat that: 30 × 10 on set 2."), true);
 
 // No fatigue difference: the plain goal from the latest session, same in badge and first set.
 const plain = openingAdvice({ ex: press, history, firstLift: false });
@@ -29,11 +30,12 @@ eq("plain first set", [plain.w, plain.r], [30, 11]);
 const easy = openingAdvice({ ex: press, history, firstLift: false, easy: "Short night." });
 eq("easy: match", easy.goal, { w: 30, r: 10, sets: 1, match: true });
 
-// Every return with numbers carries a goal that agrees with them (walkthrough weight aside).
+// Every return with numbers carries a goal that agrees with them (walkthrough weight aside). A goal on a
+// later set (goal.set) shares the first set's weight; its reps are that set's.
 for (const [name, o] of [["fresh", fresh], ["plain", plain], ["easy", easy],
   ["layoff", openingAdvice({ ex: press, history, firstLift: false, daysSince: 25 })],
   ["long layoff", openingAdvice({ ex: press, history, firstLift: false, daysSince: 50 })]]) {
-  eq(`${name}: goal agrees`, [o.goal?.w, o.goal?.r], [o.w, o.r]);
+  eq(`${name}: goal agrees`, [o.goal?.w, o.goal?.set > 1 ? o.r : o.goal?.r], [o.w, o.r]);
 }
 
 if (failed) { console.error(`\n${failed} failed`); process.exit(1); }

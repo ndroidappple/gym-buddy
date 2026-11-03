@@ -1,4 +1,4 @@
-import { LIBRARY, PROGRAM, isCardio, baseOf } from "../data/program.js";
+import { LIBRARY, PROGRAM, isCardio, isTimed, baseOf, MAX_TOP } from "../data/program.js";
 import { isIsolation } from "./util.js";
 
 /* What rep range suits a lift, so a range far outside it can be flagged. The set coach works inside
@@ -14,20 +14,23 @@ import { isIsolation } from "./util.js";
    - isolation (curls, extensions, flys, leg curls and extensions, shrugs): 8-15. Very low reps
      load the elbows and knees more than the muscle.
    - small muscles that do best light (side and rear delts, face pulls, calves, hip ab/adduction,
-     forearms): 12-20. Heavy sets turn into a swing or a shrug.
-   - core (crunches, leg raises, rollouts): 8-20.
-   A range is flagged only when it misses the band clearly: its top more than 2 reps under the band,
-   or its bottom more than 5 over (high reps are inefficient, not risky, so they get more room). */
+     forearms): 10-16. Very heavy sets turn into a swing or a shrug.
+   - core (crunches, leg raises, rollouts): 8-16.
+   No lift's range tops out above MAX_TOP (16): past that it's hard to judge how close to failure a set
+   is, and a heavier weight for fewer reps builds the same muscle, so progressive overload moves the
+   weight up sooner. A range is flagged when it misses: its top more than 2 reps under the band, or
+   over MAX_TOP. Timed holds and cardio are seconds and minutes, never judged. */
+
+export { MAX_TOP };
 
 const BANDS = {
   heavy: { lo: 3, hi: 10, suggest: [5, 8], kind: "heavy barbell lift" },
   compound: { lo: 5, hi: 12, suggest: [8, 12], kind: "compound lift" },
   isolation: { lo: 8, hi: 15, suggest: [10, 15], kind: "isolation lift" },
-  light: { lo: 12, hi: 20, suggest: [15, 20], kind: "small-muscle lift" },
-  core: { lo: 8, hi: 20, suggest: [10, 15], kind: "core lift" },
+  light: { lo: 10, hi: 16, suggest: [10, 16], kind: "small-muscle lift" },
+  core: { lo: 8, hi: 16, suggest: [10, 15], kind: "core lift" },
 };
 
-const TIMED = /plank|hold\b|carry|hang\b|wall sit/i; // seconds, not reps: no rep range to judge
 const CORE = /crunch|leg raise|knee raise|ab wheel|rollout|pallof|twist|sit-?up|hollow|woodchop|dead ?bug|v-?up|toes to bar/i;
 const LIGHT = /lateral raise|side raise|rear delt|reverse (pec|fly)|face ?pull|y-?raise|calf|calves|adduct|abduct|wrist|forearm|band pull/i;
 // Multi-joint lifts the shared compound test (util.js) doesn't name.
@@ -37,7 +40,7 @@ const HEAVY = /\bdeadlift\b(?!.*(romanian|stiff|single))|^(back |front |barbell 
 /** The kind of lift, judged from its name: heavy | compound | isolation | light | core, or null (cardio, timed). */
 export function liftKind(name) {
   const n = baseOf(String(name || ""));
-  if (!n || isCardio(n) || TIMED.test(n)) return null;
+  if (!n || isCardio(n) || isTimed(n)) return null; // timed: seconds, no rep range to judge
   if (CORE.test(n)) return "core";
   if (LIGHT.test(n)) return "light";
   if (HEAVY.test(n) && !/romanian|\brdl\b|stiff/i.test(n)) return "heavy";
@@ -63,8 +66,8 @@ const WHY = {
   heavy: { low: "singles and doubles test strength more than they build muscle", high: "that many reps with a heavy bar wears out your lower back and breathing before the muscle" },
   compound: { low: "near-max singles and doubles test strength more than they build muscle", high: "the last reps become a cardio test; a bit more weight builds more" },
   isolation: { low: "very heavy isolation sets load the elbows and knees more than the muscle", high: "the last reps become an endurance test; a bit more weight builds more" },
-  light: { low: "heavy sets on a small muscle turn into a swing or shrug and strain the joint", high: "past 25 or so the burn stops you before the muscle does" },
-  core: { low: "very low reps rarely train the core well", high: "past 20 a harder version or added weight works better" },
+  light: { low: "heavy sets on a small muscle turn into a swing or shrug and strain the joint", high: "past 16 the burn stops you before the muscle does, and a bit more weight grows it just as well" },
+  core: { low: "very low reps rarely train the core well", high: "past 16 a harder version or added weight works better" },
 };
 
 /**
@@ -77,7 +80,7 @@ export function checkRange(ex) {
   if (!t) return null;
   const [lo, hi] = ex.reps.map(Number);
   if (!(lo > 0 && hi >= lo)) return null;
-  const dir = hi < t.lo - 2 ? "low" : lo > t.hi + 5 ? "high" : null;
+  const dir = hi < t.lo - 2 ? "low" : hi > MAX_TOP ? "high" : null;
   if (!dir) return null;
   const [sLo, sHi] = t.suggest;
   return {
