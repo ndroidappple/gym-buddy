@@ -62,7 +62,9 @@ tops out above 16 (`MAX_TOP`): past that, judging reps in reserve gets unreliabl
 "lean" style keeps lifts at these ranges and adds a cardio finisher: on a cut, heavy work keeps the muscle.
 Every coach prompt shares one progressive-overload stance (`OVERLOAD` in `api/coach.js`). A range
 that clearly misses its band gets a note in the program editor with a one-tap fix, and the coach
-mentions it before the lift's first set. It never changes a range on its own.
+mentions it before the lift's first set. It never changes a range on its own, with one exception: a top
+over 16 (`MAX_TOP` in `src/data/program.js`) comes down to a 6-rep spread under it (15–20 → 10–16) when a
+saved program loads, in the editor, in coach changes and in pasted programs. Timed holds and cardio are left alone.
 
 **Rest timer**: a dock at the bottom of the workout (tap for a full-screen view) with a chime
 (`src/lib/sound.js`) and, optionally, a lock-screen push (see [Rest alerts](#rest-alerts-optional)).

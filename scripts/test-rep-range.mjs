@@ -2,7 +2,9 @@
    range the app ships with passes, and that ranges clearly off for a lift are flagged.
    Run: npm run test:range   (exits 1 on any failure) */
 import { liftKind, checkRange } from "../src/lib/repRange.js";
-import { LIBRARY, PROGRAM } from "../src/data/program.js";
+import { LIBRARY, PROGRAM, normalizeProgram, warmupOf } from "../src/data/program.js";
+import { applyChanges } from "../src/lib/programChange.js";
+import { parseProgram } from "../src/lib/importProgram.js";
 import { planFor } from "../src/lib/setup.js";
 
 let failed = 0;
@@ -86,6 +88,37 @@ eq("lean adds the finisher", lean.push.exercises.some((e) => e.finisher), true);
 // Redoing setup as lean after an older lean program (more reps, less rest) puts the lifts back.
 const oldLean = { ...PROGRAM, push: { ...PROGRAM.push, exercises: PROGRAM.push.exercises.map((e) => ({ ...e, base: { reps: e.reps, rest: e.rest }, reps: [e.reps[0] + 2, e.reps[1] + 3], rest: e.rest - 15 })) } };
 eq("old lean program goes back to standard", planFor(oldLean, { goals: ["lean"] }).program.push.exercises.filter((e) => !e.finisher).map((e) => e.reps), PROGRAM.push.exercises.map((e) => e.reps));
+
+// A saved program over 16 reps comes down when it loads (this lifter's own, as of Oct 2026); timed holds,
+// cardio and warm-ups are seconds and minutes, never touched; a setup style's original range comes down too.
+const saved = { ...PROGRAM, shoulders: { ...PROGRAM.shoulders, exercises: [
+  { n: "Lateral Raise (Cable)", sets: 4, reps: [12, 20], rest: 60 }, { n: "Rear Delt Fly", sets: 3, reps: [15, 20], rest: 60 },
+  { n: "Face Pulls", sets: 3, reps: [15, 20], rest: 60, base: { reps: [15, 20], rest: 60 } },
+  { n: "Seated DB Shoulder Press", sets: 4, reps: [8, 12], rest: 90 },
+  { n: "Plank", sets: 3, reps: [30, 60], rest: 60 }, { n: "Stair Climber", kind: "cardio", sets: 1, reps: [20, 30], rest: 0 },
+  warmupOf("Stair Climber"), { n: "Push-Up", sets: 3, reps: [8, 25], rest: 60 }, { n: "Wall Sit Hold", sets: 3, reps: [30, 45], rest: 60 },
+] } };
+const loaded = normalizeProgram(saved).shoulders.exercises;
+const R = (n) => loaded.find((e) => e.n === n);
+eq("load: 12–20 becomes 10–16", R("Lateral Raise (Cable)").reps, [10, 16]);
+eq("load: 15–20 becomes 10–16", R("Rear Delt Fly").reps, [10, 16]);
+eq("load: setup style's original comes down too", R("Face Pulls").base.reps, [10, 16]);
+eq("load: a low bottom stays", R("Push-Up").reps, [8, 16]);
+eq("load: in range stays", R("Seated DB Shoulder Press").reps, [8, 12]);
+eq("load: plank seconds stay", R("Plank").reps, [30, 60]);
+eq("load: timed hold stays", R("Wall Sit Hold").reps, [30, 45]);
+eq("load: cardio minutes stay", R("Stair Climber").reps, [20, 30]);
+eq("load: nothing over, same program back", normalizeProgram(PROGRAM).push, PROGRAM.push);
+eq("load: no flags left", loaded.filter((e) => checkRange(e)?.dir === "high").map((e) => e.n), []);
+
+// A coach's change can't go past 16; a pasted-in program comes down too, with a note saying so.
+const coached = applyChanges(PROGRAM, [{ action: "update", day: "shoulders", exercise: "Lateral Raise (Cable)", rep_min: 15, rep_max: 20 }]);
+eq("coach change capped", coached.program.shoulders.exercises.find((e) => e.n === "Lateral Raise (Cable)").reps, [10, 16]);
+const pasted = parseProgram("Shoulders\nLateral Raise (Cable) — 4 × 15–20\nPlank — 3 × 30–60 sec\nOverhead Press (Barbell) — 4 × 6–10");
+const pl = pasted.workouts?.[0]?.exercises || [];
+eq("paste capped", pl.find((e) => e.n === "Lateral Raise (Cable)")?.reps, [10, 16]);
+eq("paste plank stays", pl.find((e) => e.n === "Plank")?.reps, [30, 60]);
+eq("paste notes the cap", (pasted.notes || []).some((x) => /15–20 becomes 10–16/.test(x)), true);
 
 console.log(failed ? `rep range: ${failed} failed` : "rep range: all checks passed");
 process.exit(failed ? 1 : 0);

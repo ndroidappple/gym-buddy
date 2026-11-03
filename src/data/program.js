@@ -54,8 +54,31 @@ function capRests(program) {
     p.exercises?.some(over) ? { ...p, exercises: p.exercises.map((ex) => (over(ex) ? { ...ex, rest: capRest(ex.n, ex.rest) } : ex)) } : p]));
 }
 
-/** Normalises a saved program: current cues, rests within their max, and the custom day present. */
-export const normalizeProgram = (p) => { const q = capRests(refreshCues(p)); return q[CUSTOM] ? q : { ...q, [CUSTOM]: CUSTOM_DAY }; };
+/* The most reps the top of a lift's range asks for before the weight goes up. Past 16 it's hard to judge
+   how close to failure a set is, and more weight for fewer reps builds the same muscle (see
+   lib/repRange.js). A range over it comes down to a 6-rep spread under it (15–20 → 10–16), so a weight
+   jump still lands in range. The program editor, coach changes and pasted programs all stop here, and a
+   saved program over it is brought down when it loads. Cardio (minutes) and timed holds (seconds) aren't
+   reps, so they're left alone. */
+export const MAX_TOP = 16;
+const TIMED = /plank|hold\b|carry|hang\b|wall sit/i;
+/** Seconds, not reps: planks, holds, carries, hangs. */
+export const isTimed = (name) => TIMED.test(String(name || ""));
+/** A rep range brought within MAX_TOP: [lo, hi] as is when it already is. */
+export const capReps = ([lo, hi]) => (hi > MAX_TOP ? [Math.min(lo, MAX_TOP - 6), MAX_TOP] : [lo, hi]);
+// The top is checked first: the built-in program is read before isCardio's list exists, and never goes over.
+const repsOver = (ex) => ex.reps?.[1] > MAX_TOP && !ex.warmup && ex.kind !== "cardio" && !isTimed(ex.n) && !isCardio(ex.n);
+/** A lift with its range (and its setup style's original range, `base`) within MAX_TOP. */
+export const capRange = (ex) => (!repsOver(ex) ? ex
+  : { ...ex, reps: capReps(ex.reps), ...(ex.base?.reps ? { base: { ...ex.base, reps: capReps(ex.base.reps) } } : {}) });
+function capAllReps(program) {
+  if (!Object.values(program).some((p) => p.exercises?.some(repsOver))) return program;
+  return Object.fromEntries(Object.entries(program).map(([day, p]) => [day,
+    p.exercises?.some(repsOver) ? { ...p, exercises: p.exercises.map(capRange) } : p]));
+}
+
+/** Normalises a saved program: current cues, rests and rep ranges within their max, and the custom day present. */
+export const normalizeProgram = (p) => { const q = capAllReps(capRests(refreshCues(p))); return q[CUSTOM] ? q : { ...q, [CUSTOM]: CUSTOM_DAY }; };
 
 export const PROGRAM = normalizeProgram(BASE_PROGRAM);
 /** The four built-in day slots. A day can be switched off (`off: true`), e.g. a 3-day split. */

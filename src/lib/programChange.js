@@ -1,4 +1,4 @@
-import { LIBRARY, isCardio, allDays, activeDays, capRest } from "../data/program.js";
+import { LIBRARY, isCardio, allDays, activeDays, capRest, capRange } from "../data/program.js";
 import { CUES } from "../data/cues.js";
 
 /* Program changes a coach proposes in chat or a workout walkthrough (lifts, sets/reps/rest, the weight
@@ -36,7 +36,8 @@ function withSpec(base, c) {
   let lo = int(c.rep_min, 1, 60) ?? base.reps[0];
   let hi = int(c.rep_max, 1, 60) ?? base.reps[1];
   if (lo > hi) [lo, hi] = [hi, lo];
-  const ex = { ...base, sets: int(c.sets, 1, 10) ?? base.sets, reps: [lo, hi], rest: capRest(base.n, int(c.rest_seconds, 15, 600) ?? base.rest) };
+  // A top over MAX_TOP comes down to it, whatever the coach proposed.
+  const ex = capRange({ ...base, sets: int(c.sets, 1, 10) ?? base.sets, reps: [lo, hi], rest: capRest(base.n, int(c.rest_seconds, 15, 600) ?? base.rest) });
   if (!ex.cue && CUES[ex.n]) ex.cue = CUES[ex.n];
   return ex;
 }

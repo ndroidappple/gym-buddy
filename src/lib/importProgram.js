@@ -1,4 +1,4 @@
-import { DAYS, EXTRA_DAYS, MAX_DAYS, LIBRARY, PROGRAM, isCardio } from "../data/program.js";
+import { DAYS, EXTRA_DAYS, MAX_DAYS, LIBRARY, PROGRAM, isCardio, capRange, MAX_TOP } from "../data/program.js";
 import { CUES } from "../data/cues.js";
 import { COACHES, coachFor } from "../data/coaches.js";
 
@@ -64,6 +64,12 @@ function toExercise({ name, sets, reps, rest, guess }, notes, seen) {
   }
   const ex = { n, sets, reps, rest: rest ?? (known && !isCardio(known.n) ? known.rest : restFor(reps[0])) };
   if (known && isCardio(known.n)) Object.assign(ex, { sets: 1, rest: 0 });
+  // A top over MAX_TOP reps comes down to it, and the notes say so.
+  const capped = capRange(ex);
+  if (capped !== ex) {
+    notes.push(`${n}: ${ex.reps[0]}–${ex.reps[1]} becomes ${capped.reps[0]}–${capped.reps[1]}, since no lift goes past ${MAX_TOP} reps before adding weight`);
+    ex.reps = capped.reps;
+  }
   const cue = CUES[ex.n] || known?.cue;
   if (cue) ex.cue = cue;
   return ex;

@@ -1,4 +1,4 @@
-import { LIBRARY, PROGRAM, isCardio, baseOf } from "../data/program.js";
+import { LIBRARY, PROGRAM, isCardio, isTimed, baseOf, MAX_TOP } from "../data/program.js";
 import { isIsolation } from "./util.js";
 
 /* What rep range suits a lift, so a range far outside it can be flagged. The set coach works inside
@@ -21,8 +21,7 @@ import { isIsolation } from "./util.js";
    weight up sooner. A range is flagged when it misses: its top more than 2 reps under the band, or
    over MAX_TOP. Timed holds and cardio are seconds and minutes, never judged. */
 
-/** The most reps the top of any lift's range should ask for before the weight goes up. */
-export const MAX_TOP = 16;
+export { MAX_TOP };
 
 const BANDS = {
   heavy: { lo: 3, hi: 10, suggest: [5, 8], kind: "heavy barbell lift" },
@@ -32,7 +31,6 @@ const BANDS = {
   core: { lo: 8, hi: 16, suggest: [10, 15], kind: "core lift" },
 };
 
-const TIMED = /plank|hold\b|carry|hang\b|wall sit/i; // seconds, not reps: no rep range to judge
 const CORE = /crunch|leg raise|knee raise|ab wheel|rollout|pallof|twist|sit-?up|hollow|woodchop|dead ?bug|v-?up|toes to bar/i;
 const LIGHT = /lateral raise|side raise|rear delt|reverse (pec|fly)|face ?pull|y-?raise|calf|calves|adduct|abduct|wrist|forearm|band pull/i;
 // Multi-joint lifts the shared compound test (util.js) doesn't name.
@@ -42,7 +40,7 @@ const HEAVY = /\bdeadlift\b(?!.*(romanian|stiff|single))|^(back |front |barbell 
 /** The kind of lift, judged from its name: heavy | compound | isolation | light | core, or null (cardio, timed). */
 export function liftKind(name) {
   const n = baseOf(String(name || ""));
-  if (!n || isCardio(n) || TIMED.test(n)) return null;
+  if (!n || isCardio(n) || isTimed(n)) return null; // timed: seconds, no rep range to judge
   if (CORE.test(n)) return "core";
   if (LIGHT.test(n)) return "light";
   if (HEAVY.test(n) && !/romanian|\brdl\b|stiff/i.test(n)) return "heavy";
