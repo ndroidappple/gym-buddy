@@ -193,7 +193,7 @@ export const isIsolation = (lift) => /straight-arm/i.test(lift) || !COMPOUND.tes
 
    "Holding up" allows the normal set-to-set fatigue drop instead of demanding the top on every set:
    at 1-2 reps in reserve, straight sets lose about 8% of their reps a set (12, 11, 10, 9 on an 8-12 lift;
-   20, 18, 16, 15 on 12-20). Asking for the top on every set means the first sets end 3+ reps short of
+   16, 14, 13, 12 on 10-16). Asking for the top on every set means the first sets end 3+ reps short of
    failure, which the set coach (rightly) never asks for, so the weight would never go up. */
 const BIG_LOWER = /leg press|squat|deadlift|romanian|hip thrust|good morning/i;
 export const weightStep = (lift) => (BIG_LOWER.test(lift) ? 10 : 5);

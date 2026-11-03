@@ -36,24 +36,34 @@ const MINE = [
   ["Leg Adduction", 15, 20], ["Seated DB Shoulder Press", 8, 12], ["Lateral Raise (Cable)", 12, 20], ["Rear Delt Fly", 15, 20],
   ["Upright Row (Cable)", 12, 15], ["Incline DB Curl", 10, 12], ["Skull Crushers", 10, 12],
 ];
-for (const [n, lo, hi] of MINE) eq(`mine: ${n} ${lo}–${hi} passes`, checkRange({ n, reps: [lo, hi] }), null);
+// Tops over 16 reps (MAX_TOP) are flagged with a one-tap fix; the rest of this program passes.
+const OVER = { "Face Pulls": [10, 16], "Leg Adduction": [10, 16], "Lateral Raise (Cable)": [10, 16], "Rear Delt Fly": [10, 16] };
+for (const [n, lo, hi] of MINE) {
+  const c = checkRange({ n, reps: [lo, hi] });
+  eq(`mine: ${n} ${lo}–${hi}`, c && [c.dir, c.suggest], OVER[n] ? ["high", OVER[n]] : null);
+}
+for (const e of shipped) if (!/plank/i.test(e.n) && !e.kind) eq(`${e.n} tops out at 16 or under`, e.reps[1] <= 16, true);
 
 // Reasonable personal choices aren't flagged.
-for (const [n, lo, hi] of [["Lat Pulldown (Wide Grip)", 6, 8], ["Face Pulls", 10, 12], ["Seated DB Curl", 6, 8], ["Deadlift", 1, 3], ["Leg Press (Heavy)", 15, 20], ["Lateral Raise (Cable)", 20, 30], ["Push-Up", 15, 25]]) {
+for (const [n, lo, hi] of [["Lat Pulldown (Wide Grip)", 6, 8], ["Face Pulls", 10, 12], ["Seated DB Curl", 6, 8], ["Deadlift", 1, 3], ["Leg Press (Heavy)", 12, 16], ["Lateral Raise (Cable)", 12, 16], ["Push-Up", 12, 16], ["Leg Extension", 12, 16]]) {
   eq(`${n} ${lo}–${hi} is fine`, checkRange({ n, reps: [lo, hi] }), null);
 }
 
 // Clearly off: flagged, with the suggestion.
 const flag = (n, lo, hi) => { const c = checkRange({ n, reps: [lo, hi] }); return c && [c.dir, c.suggest]; };
-eq("Face Pulls 4–6", flag("Face Pulls", 4, 6), ["low", [12, 20]]);
-eq("Lateral Raise 5–8", flag("Lateral Raise (Cable)", 5, 8), ["low", [12, 20]]);
+eq("Face Pulls 4–6", flag("Face Pulls", 4, 6), ["low", [10, 16]]);
+eq("Lateral Raise 5–7", flag("Lateral Raise (Cable)", 5, 7), ["low", [10, 16]]);
+eq("Lateral Raise 12–20: over 16", flag("Lateral Raise (Cable)", 12, 20), ["high", [10, 16]]);
+eq("Leg Press 15–20: over 16", flag("Leg Press (Heavy)", 15, 20), ["high", [8, 12]]);
+eq("Push-Up 15–25: over 16", flag("Push-Up", 15, 25), ["high", [10, 16]]);
+eq("Calf Raise 12–17: over 16", flag("Standing Calf Raise", 12, 17), ["high", [10, 16]]);
 eq("Leg Extension 3–5", flag("Leg Extension", 3, 5), ["low", [12, 15]]);
 eq("unknown curl 2–4 gets the isolation default", flag("Spider Curl", 2, 4), ["low", [10, 15]]);
 eq("Deadlift 20–25", flag("Deadlift", 20, 25), ["high", [4, 6]]);
 eq("Barbell Curl 25–30", flag("Barbell Curl", 25, 30), ["high", [8, 12]]);
 eq("Lat Pulldown 1–2", flag("Lat Pulldown (Wide Grip)", 1, 2), ["low", [8, 12]]);
 eq("the line reads", checkRange({ n: "Face Pulls", reps: [4, 6] }).line,
-  "4–6 is low for Face Pulls: as a small-muscle lift it usually goes 12–20, because heavy sets on a small muscle turn into a swing or shrug and strain the joint.");
+  "4–6 is low for Face Pulls: as a small-muscle lift it usually goes 10–16, because heavy sets on a small muscle turn into a swing or shrug and strain the joint.");
 eq("an before a vowel", /as an isolation lift/.test(checkRange({ n: "Barbell Curl", reps: [25, 30] }).line), true);
 
 // Not judged.

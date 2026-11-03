@@ -57,7 +57,8 @@ then the same muscle. Or a swap for a lift with the same movement pattern (cable
 warm-ups that open a day and finishers that close it. `src/lib/importProgram.js` reads a program pasted
 from the Notes app ("Lat Pulldown — 3 × 8–12, 90s rest"), and the head coach can review it before it's
 saved. `src/lib/repRange.js` sorts each lift by name into heavy barbell, compound, isolation,
-small-muscle or core, each with the band coaches broadly use (3–10, 5–12, 8–15, 12–20, 8–20). Setup's
+small-muscle or core, each with the band coaches broadly use (3–10, 5–12, 8–15, 10–16, 8–16). No range
+tops out above 16 (`MAX_TOP`): past that, judging reps in reserve gets unreliable and more weight builds the same. Setup's
 "lean" style keeps lifts at these ranges and adds a cardio finisher: on a cut, heavy work keeps the muscle.
 Every coach prompt shares one progressive-overload stance (`OVERLOAD` in `api/coach.js`). A range
 that clearly misses its band gets a note in the program editor with a one-tap fix, and the coach

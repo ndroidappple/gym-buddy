@@ -23,8 +23,8 @@ eq("top: set 1 comes up to 120 × 12", nextGoal(pulldown, top), { w: 120, r: 12,
 /* The weight rule (readyToIncrease): the first set at the top, the rest within the usual fatigue drop
    (about 8% a set), never below the bottom of the range. */
 eq("needs on 8-12", [0, 1, 2, 3].map((k) => repsToEarn(pulldown, k)), [12, 11, 10, 9]);
-const lateral = { n: "Lateral Raise (Cable)", sets: 4, reps: [12, 20] };
-eq("needs on 12-20", [0, 1, 2, 3].map((k) => repsToEarn(lateral, k)), [20, 18, 16, 15]);
+const lateral = { n: "Lateral Raise (Cable)", sets: 4, reps: [10, 16] };
+eq("needs on 10-16", [0, 1, 2, 3].map((k) => repsToEarn(lateral, k)), [16, 14, 13, 12]);
 eq("needs never under the range", repsToEarn({ n: "Leg Press (Heavy)", sets: 8, reps: [10, 12] }, 7), 10);
 const earned = (ex, sets) => readyToIncrease(ex, S(...sets))?.to ?? null;
 eq("12, 11, 10, 9 earns it", earned(pulldown, [[120, 12], [120, 11], [120, 10], [120, 9]]), 125);
@@ -32,7 +32,7 @@ eq("warm-ups don't count against it", earned(pulldown, [[60, 8], [90, 5], [120, 
 eq("first set short of the top: not yet", earned(pulldown, [[120, 11], [120, 11], [120, 11], [120, 11]]), null);
 eq("a set fell off: not yet", earned(pulldown, [[120, 12], [120, 11], [120, 8], [120, 9]]), null);
 eq("a planned set missing: not yet", earned(pulldown, [[120, 12], [120, 11], [120, 10]]), null);
-eq("20, 18, 16, 15 earns it", earned(lateral, [[25, 20], [25, 18], [25, 16], [25, 15]]), 30);
+eq("16, 14, 13, 12 earns it", earned(lateral, [[25, 16], [25, 14], [25, 13], [25, 12]]), 30);
 eq("big leg lifts go up 10", earned({ n: "Leg Press (Heavy)", sets: 4, reps: [8, 12] }, [[300, 12], [300, 11], [300, 10], [300, 9]]), 310);
 eq("bodyweight: by reps, never plates", earned({ n: "Pull-Up", sets: 3, reps: [6, 10] }, [[0, 10], [0, 10], [0, 10]]), null);
 
