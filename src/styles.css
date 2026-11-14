@@ -544,6 +544,15 @@ html[data-typing] :is(.dock, .alert-ask) { opacity: 0; visibility: hidden; trans
 .stat b { font-weight: 800; font-size: 28px; line-height: 1; letter-spacing: -0.02em; }
 .stat span { font-size: 12.5px; color: var(--mute); font-weight: 500; }
 .stat .trend { align-self: flex-start; height: 24px; font-size: 11px; }
+/* KPI cards: the same four rows in every card (number, unit, goal, pill), each held to one line, with the
+   pill pinned to the bottom, so a row of cards lines up however long each label is. Columns follow the card count. */
+.kpis { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); }
+.kpis .stat { gap: 3px; padding: 14px 12px 12px; }
+.kpis .stat > * { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.kpis .stat b small { font-size: 18px; font-weight: 700; color: var(--faint); letter-spacing: 0; }
+.kpis .stat > span:not(.trend):not(.stat-note) { font-weight: 600; }
+.kpis .stat .stat-note { margin: 0 0 10px; }
+.kpis .stat .trend { margin-top: auto; flex: none; }
 .rec { display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: center; min-height: 60px; padding: 8px 10px; border-radius: var(--r); text-align: left; width: 100%; color: inherit; text-decoration: none; }
 .rec:active { background: var(--surface-2); }
 .rec-text { display: flex; flex-direction: column; min-width: 0; }
@@ -1273,6 +1282,7 @@ button.coach-card:active { transform: translateY(3px); box-shadow: 0 2px 0 var(-
 .trend.read > span { font-size: 0.8em; }
 .trend.read.good { color: var(--good); background: color-mix(in srgb, var(--good) 15%, var(--surface)); }
 .trend.read.watch { color: var(--watch); background: color-mix(in srgb, var(--watch) 15%, var(--surface)); }
+.trend.read.neutral { color: var(--mute); background: var(--surface-2); }
 .stat .stat-note { margin-top: 2px; font-size: 12.5px; font-weight: 600; color: var(--faint); line-height: 1.25; }
 .night-line { margin: -4px 4px 0; font-size: 13.5px; font-weight: 500; line-height: 1.4; color: var(--mute); }
 .section-head .section-aside { flex: none; color: var(--faint); }

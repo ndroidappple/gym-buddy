@@ -64,26 +64,26 @@ export default function NutritionTrends({ food, prefs, sessions, weighins }) {
     <>
       {picker}
 
-      {/* The period in three numbers, against the targets. */}
+      {/* The period in three numbers, against the targets. Every card is the same four one-line rows
+          (number, unit, goal, pill) so they line up across the row; see .kpis. */}
       <section className="section">
-        <h2 className="lbl">{shortDate(data.from)} – {shortDate(data.to)}</h2>
-        <div className="stats">
+        <div className="section-head"><h2 className="lbl">{shortDate(data.from)} – {shortDate(data.to)}</h2><span className="lbl section-aside">daily averages</span></div>
+        <div className="stats kpis">
           <div className="stat">
-            <b>{fmt(s.kcal)}</b><span>kcal a day</span>
+            <b>{fmt(s.kcal)}</b><span>kcal</span>
+            <span className="stat-note">goal {fmt(s.targetKcal)}</span>
             {kcalWrong ? <Read tone="watch">{signed(s.kcalDiff)} vs goal</Read>
               : Math.abs(kcalOff) <= KCAL_BAND ? <Read tone="good">On goal</Read> : null}
-            <span className="stat-note">goal {fmt(s.targetKcal)}</span>
           </div>
           <div className="stat">
-            <b>{fmt(s.protein)}</b><span>g protein a day</span>
-            {proteinShare >= 0.8 ? <Read tone="good">{s.proteinHit} of {s.full} days</Read>
-              : proteinShare < 0.5 ? <Read tone="watch">{s.proteinHit} of {s.full} days</Read> : null}
-            <span className="stat-note">goal {fmt(s.targetProtein)}{proteinShare >= 0.5 && proteinShare < 0.8 ? ` · hit ${s.proteinHit} of ${s.full}` : ""}</span>
+            <b>{fmt(s.protein)}</b><span>g protein</span>
+            <span className="stat-note">goal {fmt(s.targetProtein)}</span>
+            <Read tone={proteinShare >= 0.8 ? "good" : proteinShare < 0.5 ? "watch" : "neutral"}>{s.proteinHit}/{s.full} days</Read>
           </div>
           <div className="stat">
-            <b>{s.logged}</b><span>of {s.days} days logged</span>
+            <b>{s.logged}<small>/{s.days}</small></b><span>days logged</span>
+            <span className="stat-note">{s.partial > 0 ? `${s.partial} partly logged` : "\u00a0"}</span>
             {s.logged < s.days * 0.6 && <Read tone="watch">Gaps</Read>}
-            {s.partial > 0 && <span className="stat-note">{s.partial} partly logged</span>}
           </div>
         </div>
         {s.carbs != null && <p className="nt-note">Carbs {fmt(s.carbs)} g a day (goal {fmt(s.targetCarbs)}) · fat {fmt(s.fat)} g (goal {fmt(s.targetFat)})</p>}
@@ -176,15 +176,20 @@ function Working({ out, s, wider, target }) {
   return (
     <section className="section">
       <div className="section-head"><h2 className="lbl">Is it working?</h2>{wider && <span className="lbl section-aside">last 4 weeks</span>}</div>
-      <div className="stats">
+      <div className="stats kpis">
         <div className="stat">
-          <b>{rate == null ? "–" : `${rate > 0 ? "+" : rate < 0 ? "−" : "±"}${Math.abs(rate).toFixed(1)}`}</b><span>lb a week, weight trend</span>
-          {rate != null && (toward ? <Read tone="good">On pace</Read> : <Read tone="watch">Off pace</Read>)}
+          <b>{rate == null ? "–" : `${rate > 0 ? "+" : rate < 0 ? "−" : "±"}${Math.abs(rate).toFixed(1)}`}</b><span>lb a week</span>
           <span className="stat-note">goal {lbWeek(goalRate)}</span>
+          {rate != null && (toward ? <Read tone="good">On pace</Read> : <Read tone="watch">Off pace</Read>)}
         </div>
-        {needs != null
-          ? <div className="stat"><b>{fmt(needs)}</b><span>kcal a day for your pace</span><span className="stat-note">burn ≈ {fmt(burn)}</span></div>
-          : <div className="stat"><b>{fmt(burn ?? estimatedBurn)}</b><span>kcal burn a day</span><span className="stat-note">{burn != null ? "from your log and weigh-ins" : "setup estimate"}</span></div>}
+        <div className="stat">
+          <b>{fmt(burn ?? estimatedBurn)}</b><span>kcal burned</span>
+          <span className="stat-note">{burn == null ? "setup estimate" : estimatedBurn ? `setup ${fmt(estimatedBurn)}` : "from log + scale"}</span>
+        </div>
+        {needs != null && <div className="stat">
+          <b>{fmt(needs)}</b><span>kcal for pace</span>
+          <span className="stat-note">target {fmt(target)}</span>
+        </div>}
       </div>
       <p className="nt-line">{line}</p>
     </section>
