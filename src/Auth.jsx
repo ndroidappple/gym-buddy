@@ -25,7 +25,9 @@ export default function AuthGate({ children }) {
     e?.preventDefault();
     setError("");
     setState("sending");
-    const { error } = await supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: location.origin } });
+    // On the Claude consent screen, the link comes back to it (with its request id), not the home screen.
+    const back = location.pathname === "/oauth/consent" ? location.href : location.origin;
+    const { error } = await supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: back } });
     if (error) { setError(`${error.message}. Check the address and try again.`); setState("idle"); }
     else { setCode(""); setState("sent"); }
   }

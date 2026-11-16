@@ -74,6 +74,31 @@ The weekly review reuses both (it swaps `/api/rest-alert` for `/api/review` in t
 4. Publish the consent screen ("In production"), or refresh tokens expire after 7 days. Until Google
    reviews the app it's limited to 100 people.
 
+## 5. Claude connector (optional)
+
+Lets a lifter add GymBuddy to Claude as a custom connector and ask about their own log (read-only).
+Each person signs in with their own GymBuddy email, and row-level security keeps them to their own rows.
+See [Claude connector](ARCHITECTURE.md#claude-connector-optional).
+
+1. **Supabase → Authentication → OAuth Server:** turn on the OAuth 2.1 server, set the Authorization
+   Path to `/oauth/consent`, and turn on **dynamic client registration** (Claude registers itself).
+2. **Authentication → URL Configuration → Redirect URLs:** add `https://<your app>/oauth/consent**`, so a
+   magic link tapped mid-connect comes back to the consent screen. (Typing the code works without it.)
+3. Deploy. `vercel.json` already serves `/.well-known/oauth-protected-resource` and `/oauth/consent`.
+4. In Claude: **Settings → Connectors → Add custom connector**, name it GymBuddy, URL
+   `https://<your app>/api/mcp`. Claude opens GymBuddy's sign-in, then the consent screen: check the
+   email shown is the right person's, then Allow.
+
+No new environment variables. `PUBLIC_URL` is optional, only if the app sits behind a proxy whose
+address differs from the one Vercel sees.
+
+If you'd rather not allow dynamic registration: **Authentication → OAuth Apps → Add a new client**
+(confidential, redirect URIs `https://claude.ai/api/mcp/auth_callback` and
+`https://claude.com/api/mcp/auth_callback`) and paste its client ID and secret into the connector's
+**Advanced settings** in Claude.
+
+To cut someone off: **Authentication → OAuth Apps** (revoke the client), or remove the connector in Claude.
+
 ## Notes
 
 - The camera (barcode scanning) and push notifications need HTTPS: test them on a Vercel preview, not

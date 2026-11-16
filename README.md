@@ -65,6 +65,8 @@ PR, into what's here.
 - **Google Health** (optional): heart rate from your watch on every workout and set, zone charts,
   sleep and recovery against your own usual (a short night means the workout aims to match last time
   instead of beating it), and bodyweight and food sent back to Google Health.
+- **Claude connector** (optional): add GymBuddy to Claude as a custom connector and ask about your own
+  log. You sign in with your GymBuddy email; it's read-only and row-level security keeps it to your data.
 
 **Everything else:** light and dark themes, a "Focused" mode with less text mid-workout, eight home
 screen icons, CSV/JSON export, and a privacy policy and terms (`public/privacy.html`, `public/terms.html`).
@@ -76,10 +78,11 @@ flowchart TB
   App["React app on the phone<br/>localStorage copy + outbox, service worker"]
   DB[("Supabase Postgres<br/>row-level security")]
   Cron["pg_cron<br/>due rest alerts, weekly reviews"]
-  API["Vercel Functions /api<br/>coach · review · food · google-health · rest-alert"]
+  API["Vercel Functions /api<br/>coach · review · food · google-health · rest-alert · mcp"]
   AI["Vercel AI Gateway<br/>Gemini 2.5 Flash / Flash-Lite"]
   Food["USDA FoodData Central<br/>Open Food Facts"]
   GH["Google Health API"]
+  Claude["Claude<br/>custom connector"]
 
   App <-->|sync| DB
   App -->|coach, food search, health| API
@@ -90,6 +93,7 @@ flowchart TB
   API --> Food
   API <--> GH
   API -.->|web push| App
+  Claude -->|MCP, lifter's own token| API
 ```
 
 A few decisions that shaped it:

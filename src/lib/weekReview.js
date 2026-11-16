@@ -364,7 +364,7 @@ export function factsForAgent(facts) {
 
 /* ── The agent's tools: read-only looks at the lifter's data ── */
 
-const setText = (x) => (x.min != null ? `${num(x.min)} min${x.mi != null ? ` ${num(x.mi)} mi` : ""}` : `${fmtW(x.w)}x${x.r}${x.rir != null ? ` @${x.rir} RIR` : ""}`);
+export const setText = (x) => (x.min != null ? `${num(x.min)} min${x.mi != null ? ` ${num(x.mi)} mi` : ""}` : `${fmtW(x.w)}x${x.r}${x.rir != null ? ` @${x.rir} RIR` : ""}`);
 
 /** A lift's last 12 sessions up to the week's end, or the names of lifts that do exist. */
 export function liftHistory(sessions, lift, upTo) {
