@@ -20,6 +20,7 @@ export function parse(hash) {
     case "settings":
       if (a === "program") return { name: "program", day: b };
       if (a === "export") return { name: "export" };
+      if (a === "ai") return { name: "ai" }; // AI assistants: connecting Claude, ChatGPT or Muse
       return { name: "settings" };
     case "progress": return { name, open: a };
     case "nutrition": return { name, open: a }; // open: "setup" for Tank's targets chat
