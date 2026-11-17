@@ -374,6 +374,10 @@ project owner and reads every row, so it isn't for lifters.
 week in review's helpers (`liftHistory`, `foodDays`, `foodItems`). `runTool` runs one for both doors:
 `/api/mcp` (stateless Streamable HTTP, a plain JSON-RPC answer per POST) and `/api/tools/<tool>`
 (`api/tools.js`; `GET /api/tools` lists them, `/api/tools/openapi.json` describes them).
+**The connector's icon.** Claude's connector list shows the favicon Google has for the server's domain, so
+the site serves `/favicon.ico` (Google picks a new one up on its own schedule). The MCP handshake also
+sends `serverInfo.icons` (the 2025-11-25 spec) for apps that read it, and ChatGPT's setup steps offer
+`/icons/connector-128.png` to upload when it asks for an icon.
 `npm run test:mcp` checks the handshake, every tool, bad arguments, the 401, the REST API, the
 OpenAPI description and key sign-in.
 

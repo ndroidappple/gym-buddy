@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ChevronLeft, Copy, KeyRound, Trash2 } from "lucide-react";
+import { ChevronLeft, Copy, Download, KeyRound, Trash2 } from "lucide-react";
 import { supabase } from "../supabase-client.js";
 import { shortDate } from "../lib/util.js";
 
@@ -98,7 +98,8 @@ export default function AiAssistants({ back, notify }) {
     ],
     chatgpt: [
       <>On <b>chatgpt.com</b> (a paid plan), open <b>Settings → Apps &amp; Connectors → Advanced settings</b> and turn on <b>Developer mode</b>.</>,
-      <>Back in <b>Apps &amp; Connectors</b>, tap <b>Create</b> and name it <b>GymBuddy</b>.</>,
+      <>Back in <b>Apps &amp; Connectors</b>, tap <b>Create</b>, name it <b>GymBuddy</b>, and add the icon if it asks for one.
+        <a className="btn btn-ghost ai-copy" href="/icons/connector-128.png" download="GymBuddy.png"><Download size={17} aria-hidden="true" /> Save GymBuddy icon</a></>,
       <>Paste the server address as the <b>MCP server URL</b>, choose <b>OAuth</b>, tick that you trust it, and tap <b>Create</b>.<CopyButton text={mcp} label="Tap to copy server address" what="Server address" notify={notify} /></>,
       signIn,
       <>In a new chat, turn on <b>GymBuddy</b> from the <b>+</b> menu and ask about your training.</>,
