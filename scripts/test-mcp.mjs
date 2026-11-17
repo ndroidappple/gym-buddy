@@ -34,6 +34,9 @@ const call = async (name, args = {}) => {
 const init = await rpc("initialize", { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "test", version: "1" } });
 assert.equal(init.result.protocolVersion, "2025-06-18", "echoes a supported version");
 assert.ok(init.result.capabilities.tools);
+const withIcon = await handleMessage({ jsonrpc: "2.0", id: 500, method: "initialize", params: {} }, { ...ctx, origin: "https://gym.example" });
+assert.equal(withIcon.result.serverInfo.icons[0].src, "https://gym.example/icons/connector-128.png", "server icon on the app's address");
+assert.equal(init.result.serverInfo.icons, undefined, "no address, no icon");
 assert.equal((await rpc("initialize", { protocolVersion: "1999-01-01" })).result.protocolVersion, PROTOCOL_VERSIONS[0], "unknown version gets the newest");
 assert.equal(await handleMessage({ jsonrpc: "2.0", method: "notifications/initialized" }, ctx), null, "notifications get no reply");
 assert.deepEqual((await rpc("ping")).result, {});

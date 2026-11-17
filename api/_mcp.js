@@ -193,12 +193,18 @@ export const toolList = () => TOOLS.map(({ name, title, description, inputSchema
   annotations: { title, readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
 }));
 
+/** GymBuddy's icon at a few sizes (public/icons, public/favicon.ico). */
+export const serverIcons = (origin) => [
+  { src: `${origin}/icons/connector-128.png`, mimeType: "image/png", sizes: ["128x128"] },
+  { src: `${origin}/icons/icon-512.png`, mimeType: "image/png", sizes: ["512x512"] },
+];
+
 const ok = (id, result) => ({ jsonrpc: "2.0", id, result });
 const fail = (id, code, message) => ({ jsonrpc: "2.0", id: id ?? null, error: { code, message } });
 
 /**
  * Answers one JSON-RPC message. Returns the response object, or null for a notification (no id),
- * which gets no reply. `ctx`: { source, today }.
+ * which gets no reply. `ctx`: { source, today, origin } (origin: the app's address, for the icon).
  */
 export async function handleMessage(msg, ctx) {
   if (!msg || typeof msg !== "object" || msg.jsonrpc !== "2.0" || typeof msg.method !== "string") return fail(msg?.id, -32600, "Invalid request");
@@ -211,7 +217,8 @@ export async function handleMessage(msg, ctx) {
       return ok(id, {
         protocolVersion: PROTOCOL_VERSIONS.includes(asked) ? asked : PROTOCOL_VERSIONS[0],
         capabilities: { tools: { listChanged: false } },
-        serverInfo: SERVER_INFO,
+        // icons: the 2025-11-25 spec's way to show the connector's icon, for apps that read it.
+        serverInfo: ctx.origin ? { ...SERVER_INFO, icons: serverIcons(ctx.origin) } : SERVER_INFO,
         instructions: INSTRUCTIONS,
       });
     }

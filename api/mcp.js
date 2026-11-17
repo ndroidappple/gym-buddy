@@ -40,7 +40,7 @@ export async function POST(request) {
   let body;
   try { body = await request.json(); } catch { return json({ jsonrpc: "2.0", id: null, error: { code: -32700, message: "Parse error" } }, 400); }
   // `today` is the server's (UTC) date; tools take explicit dates when it matters.
-  const ctx = { source, today: today() };
+  const ctx = { source, today: today(), origin: originOf(request) };
   if (Array.isArray(body)) {
     const out = (await Promise.all(body.map((m) => handleMessage(m, ctx)))).filter(Boolean);
     return out.length ? json(out) : new Response(null, { status: 202, headers: CORS });
