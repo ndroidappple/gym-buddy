@@ -2,15 +2,17 @@ import { liftHistory, foodDays, foodItems, setText, reviewKey, REVIEW_PREFIX, WE
 import { PROGRAM, normalizeProgram } from "../src/data/program.js";
 import { addDays, latestWeight } from "../src/lib/nutrition.js";
 
-/* GymBuddy as an MCP server: the protocol and the tools, with no Supabase in sight so the test can
-   drive it with made-up data (scripts/test-mcp.mjs). api/mcp.js does the sign-in and hands this a
-   `source` that reads the signed-in lifter's rows, through row-level security.
+/* GymBuddy for AI apps: the tools, and the MCP protocol around them, with no Supabase in sight so
+   the test can drive it with made-up data (scripts/test-mcp.mjs). Nothing here is tied to one AI
+   provider: MCP is an open standard (Claude, ChatGPT and others speak it), and api/tools.js serves
+   the same tools as a plain REST API with an OpenAPI description for apps that don't. api/_lifter.js
+   does the sign-in and hands this a `source` that reads only that lifter's rows.
 
-   MCP is JSON-RPC over HTTP: Claude POSTs { jsonrpc, id, method, params } and gets { jsonrpc, id,
+   MCP is JSON-RPC over HTTP: the AI app POSTs { jsonrpc, id, method, params } and gets { jsonrpc, id,
    result } back. Four methods matter: initialize (the handshake), tools/list (the menu),
    tools/call (run one tool) and ping. Every tool only reads: there is nothing here that writes.
 
-   A source has: user ({ id, name }), account() (the ironlog-v2 record or null), food(start, end)
+   A source has: user ({ name }), account() (the ironlog-v2 record or null), food(start, end)
    (food_entries rows), review(weekEnd) and latestReviewKey() (saved week reviews). */
 
 export const SERVER_INFO = { name: "gymbuddy", title: "GymBuddy", version: "1.0.0" };
@@ -18,7 +20,7 @@ export const SERVER_INFO = { name: "gymbuddy", title: "GymBuddy", version: "1.0.
 export const PROTOCOL_VERSIONS = ["2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05"];
 
 const INSTRUCTIONS = [
-  "Read-only access to one lifter's GymBuddy log: the person who signed in when this connector was added.",
+  "Read-only access to one lifter's GymBuddy log: the person who signed in (or made the API key) when this was connected.",
   "Call get_overview first: it has their name, program, goals, nutrition targets and what date ranges have data.",
   "Weights are in pounds. Sets read like 135x8 @2 RIR (weight x reps, reps in reserve); BW is bodyweight. e1rm is the estimated one-rep max.",
   "Dates are YYYY-MM-DD. Nothing here can change their log.",
@@ -30,7 +32,7 @@ const dateArg = (what) => ({ type: "string", pattern: "^\\d{4}-\\d{2}-\\d{2}$", 
 const weekdayOf = (d) => WEEKDAYS[new Date(d + "T12:00:00Z").getUTCDay()];
 const r1 = (n) => Math.round(n * 10) / 10;
 
-/** A bad argument: shown to Claude as a tool error it can fix and retry, not a protocol error. */
+/** A bad argument: shown to the AI app as a tool error it can fix and retry, not a protocol error. */
 class ToolInputError extends Error {}
 
 /** start/end from the arguments, defaulting to the `days` up to today, at most `max` days long. */
@@ -162,11 +164,30 @@ export const TOOLS = [
 
 const TOOL_BY_NAME = new Map(TOOLS.map((t) => [t.name, t]));
 
+/**
+ * Runs one tool by name, for MCP's tools/call and the plain REST API (api/tools.js) alike.
+ * Returns { ok: true, data } or { ok: false, status, error }: 400 for an argument to fix (or a
+ * lookup that came back empty, like an unknown lift), 404 for no such tool, 502 when the read failed.
+ */
+export async function runTool(name, args, ctx) {
+  const tool = TOOL_BY_NAME.get(name);
+  if (!tool) return { ok: false, status: 404, error: `Unknown tool: ${name}` };
+  try {
+    const data = await tool.run(args && typeof args === "object" ? args : {}, ctx);
+    return data?.error ? { ok: false, status: 400, error: data.error, data } : { ok: true, data };
+  } catch (e) {
+    // A bad argument is the caller's to fix; anything else (Supabase down) is ours, kept vague.
+    if (e instanceof ToolInputError) return { ok: false, status: 400, error: e.message };
+    console.error("tool failed", name, e?.message ?? e);
+    return { ok: false, status: 502, error: "Couldn't read the log just now. Try again in a minute." };
+  }
+}
+
 function programOf(account) {
   try { return account.program ? normalizeProgram(account.program) : PROGRAM; } catch { return PROGRAM; }
 }
 
-/** The menu Claude sees. Every tool is marked read-only, so clients can skip asking before each call. */
+/** The menu the AI app sees. Every tool is marked read-only, so clients can skip asking before each call. */
 export const toolList = () => TOOLS.map(({ name, title, description, inputSchema }) => ({
   name, title, description, inputSchema,
   annotations: { title, readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
@@ -199,17 +220,11 @@ export async function handleMessage(msg, ctx) {
     case "tools/list":
       return ok(id, { tools: toolList() });
     case "tools/call": {
-      const tool = TOOL_BY_NAME.get(params.name);
-      if (!tool) return fail(id, -32602, `Unknown tool: ${params.name}`);
-      try {
-        const out = await tool.run(params.arguments || {}, ctx);
-        return ok(id, { content: [{ type: "text", text: JSON.stringify(out) }], isError: !!out?.error });
-      } catch (e) {
-        // A bad argument is Claude's to fix; anything else (Supabase down) is ours, kept vague.
-        if (!(e instanceof ToolInputError)) console.error("mcp tool failed", params.name, e?.message ?? e);
-        const text = e instanceof ToolInputError ? e.message : "Couldn't read the log just now. Try again in a minute.";
-        return ok(id, { content: [{ type: "text", text }], isError: true });
-      }
+      if (!TOOL_BY_NAME.has(params.name)) return fail(id, -32602, `Unknown tool: ${params.name}`);
+      const r = await runTool(params.name, params.arguments, ctx);
+      // An answer with an error in it (no such lift) still carries its data: it lists what exists.
+      const text = r.data ? JSON.stringify(r.data) : r.error;
+      return ok(id, { content: [{ type: "text", text }], isError: !r.ok });
     }
     default:
       return fail(id, -32601, `Method not found: ${method}`);

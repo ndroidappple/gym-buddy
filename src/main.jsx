@@ -27,7 +27,7 @@ installKeyboardWatch(); // keeps the rest timer and other bottom bars clear of t
 document.addEventListener("touchstart", () => {}, { passive: true });
 document.addEventListener("touchmove", (e) => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
 
-// /oauth/consent: approving a connection to Claude (api/mcp.js). Sign-in first, then only the consent screen.
+// /oauth/consent: approving a connection from an AI app (api/mcp.js). Sign-in first, then only the consent screen.
 const consent = location.pathname === "/oauth/consent";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
