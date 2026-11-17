@@ -1718,3 +1718,12 @@ button.rest-open:active { opacity: 0.75; }
 .answer-lifts .lib-row { background: var(--surface-2); border: 0; box-shadow: none; min-height: 52px; }
 .lift-reply-input { flex: 1; min-width: 0; border: 0; background: none; padding: 9px 10px; font-size: 16px; color: var(--ink); }
 .lift-reply-input:focus { outline: none; }
+
+/* AI assistants (views/AiAssistants.jsx): steps with a copy button under the text, and the key form
+   stacked, so nothing on the screen is wider than the phone. */
+.ai-screen .step-text { overflow-wrap: anywhere; }
+.ai-copy { min-height: 46px; margin-top: 10px; font-size: 15px; }
+.ai-fresh { display: flex; flex-direction: column; gap: 8px; }
+.ai-fresh .ai-copy { margin-top: 0; }
+.ai-key { display: block; padding: 10px 12px; border-radius: 12px; background: var(--surface-2); color: var(--ink); font: 600 13px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; overflow-wrap: anywhere; user-select: all; }
+.ai-make { display: flex; flex-direction: column; gap: 10px; }

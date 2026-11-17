@@ -348,7 +348,7 @@ A lifter can connect an AI app to their own log and ask about it: "how's my benc
 I eat on days I PR'd". It only reads. Nothing is tied to one AI provider: the tools are served over
 MCP (an open standard: Claude, ChatGPT, Cursor and others speak it) and as a plain REST API with an
 OpenAPI description, and either takes an OAuth sign-in or an API key. **Settings → AI assistants**
-(`src/components/AiAssistants.jsx`) shows the addresses and makes keys.
+(`src/views/AiAssistants.jsx`, `#/settings/ai`) walks through setup for Claude, ChatGPT and Meta Muse step by step and makes keys.
 
 **Sign-in, way 1: OAuth** (MCP apps). Supabase Auth's OAuth 2.1 server does it. The app calls
 `/api/mcp` with no token and gets a 401 pointing at `/.well-known/oauth-protected-resource`

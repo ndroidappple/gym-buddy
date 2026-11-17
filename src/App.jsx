@@ -20,6 +20,7 @@ import Settings from "./views/Settings.jsx";
 import ProgramEditor from "./views/ProgramEditor.jsx";
 import ProgramList from "./views/ProgramList.jsx";
 import Export from "./views/Export.jsx";
+import AiAssistants from "./views/AiAssistants.jsx";
 import Coaches from "./views/Coaches.jsx";
 import Nutrition from "./views/Nutrition.jsx";
 import NutritionSetup from "./components/NutritionSetup.jsx";
@@ -405,6 +406,7 @@ export default function App() {
     case "settings": view = <Settings {...common} thread={thread} onRename={programOps.rename} />; break;
     case "program": view = allDays(program).includes(route.day) ? <ProgramEditor {...common} day={route.day} ops={programOps} /> : <ProgramList {...common} onRename={programOps.rename} />; break;
     case "export": view = <Export {...common} food={nutritionOn ? food : null} />; break;
+    case "ai": view = <AiAssistants {...common} />; break;
     case "nutrition": {
       // Off: Settings is where it's turned on. Setup opens over the tab and returns to it.
       if (!nutritionOn && route.open !== "setup") { view = <Settings {...common} onRename={programOps.rename} />; break; }
