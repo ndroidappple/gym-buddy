@@ -1,13 +1,16 @@
-/* Checks GymBuddy's MCP server (api/_mcp.js, api/mcp.js) on made-up data: npm run test:mcp.
-   The protocol handshake, every tool, bad arguments, and the 401 that starts Claude's sign-in. */
+/* Checks GymBuddy's AI-app endpoints on made-up data: npm run test:mcp. The MCP handshake, every
+   tool, bad arguments, the 401 that starts an app's sign-in, the REST API and its OpenAPI
+   description, and API-key sign-in (api/_mcp.js, api/mcp.js, api/tools.js, api/_lifter.js). */
 import assert from "node:assert/strict";
 import { demoAccount } from "./test-week-review.mjs";
-import { handleMessage, toolList, PROTOCOL_VERSIONS } from "../api/_mcp.js";
+import { handleMessage, toolList, runTool, PROTOCOL_VERSIONS } from "../api/_mcp.js";
 
 process.env.SUPABASE_URL = "https://demo.supabase.co";
 process.env.SUPABASE_ANON_KEY = "demo-publishable-key";
 const { POST, GET } = await import("../api/mcp.js");
 const meta = await import("../api/oauth-protected-resource.js");
+const rest = await import("../api/tools.js");
+const { lifterSource } = await import("../api/_lifter.js");
 
 const WEEK_END = "2026-10-11";
 const a = demoAccount(WEEK_END);
@@ -111,5 +114,53 @@ assert.equal((await GET(req({ method: "GET", headers: { authorization: "Bearer x
 const m = await (await meta.GET(new Request("https://gym.example/.well-known/oauth-protected-resource/api/mcp"))).json();
 assert.equal(m.resource, "https://gym.example/api/mcp");
 assert.deepEqual(m.authorization_servers, ["https://demo.supabase.co/auth/v1"]);
+
+// runTool: the one path MCP and REST share
+assert.deepEqual(Object.keys((await runTool("get_overview", {}, ctx)).data).slice(0, 2), ["name", "today"]);
+assert.equal((await runTool("nope", {}, ctx)).status, 404);
+assert.equal((await runTool("list_workouts", { start: "x" }, ctx)).status, 400);
+const unknownLift = await runTool("lift_history", { lift: "zercher" }, ctx);
+assert.equal(unknownLift.status, 400);
+assert.ok(unknownLift.data.lifts.length > 0, "keeps the list of real lifts");
+
+// REST: the listing and OpenAPI need no key; running a tool does
+const at = (path, init) => new Request(`https://gym.example${path}`, init);
+const list = await (await rest.GET(at("/api/tools"))).json();
+assert.equal(list.tools.length, 7);
+assert.equal(list.openapi, "https://gym.example/api/tools/openapi.json");
+const spec = await (await rest.GET(at("/api/tools?tool=openapi.json"))).json();
+assert.equal(spec.openapi, "3.1.0");
+assert.equal(Object.keys(spec.paths).length, 7);
+assert.equal(spec.paths["/api/tools/lift_history"].post.operationId, "liftHistory");
+assert.deepEqual(spec.paths["/api/tools/lift_history"].post.requestBody.content["application/json"].schema.required, ["lift"]);
+assert.equal((await rest.POST(at("/api/tools?tool=get_overview", { method: "POST" }))).status, 401);
+assert.equal((await rest.POST(at("/api/tools?tool=get_overview", { method: "POST", body: "{nope", headers: { authorization: "Bearer x" } }))).status, 400);
+
+// API-key sign-in: every read goes through the api_* functions, with the key
+const calls = [];
+const fakeDb = (rows) => () => ({
+  rpc(fn, args) {
+    calls.push([fn, args]);
+    const out = fn === "api_whoami" ? (args.p_key.endsWith("0") ? { name: "Sam" } : null)
+      : fn === "api_kv" ? (args.p_kv_key === "ironlog-v2" ? JSON.stringify({ sessions: a.sessions.slice(0, 2) }) : JSON.stringify(review))
+      : fn === "api_latest_review_key" ? `week-review:${WEEK_END}` : rows;
+    const p = Promise.resolve({ data: out, error: null });
+    return Object.assign(p, { range: () => p });
+  },
+  auth: { getUser: async () => ({ data: { user: null } }) },
+});
+const KEY = "gbk_" + "a1".repeat(23) + "00";
+const withKey = (k) => new Request("https://gym.example/api/mcp", { headers: { authorization: `Bearer ${k}` } });
+const ks = await lifterSource(withKey(KEY), fakeDb([{ date: WEEK_END, meal: "lunch", name: "Rice", amount: "1", unit: "cup", kcal: "200", protein: "4", carbs: "45", fat: "0" }]));
+assert.equal(ks.user.name, "Sam");
+assert.equal((await ks.account()).sessions.length, 2);
+assert.equal((await ks.food(WEEK_END, WEEK_END))[0].kcal, 200, "numbers come back as numbers");
+assert.equal((await ks.review(WEEK_END)).story.headline, "Three for four.");
+assert.equal(await ks.latestReviewKey(), `week-review:${WEEK_END}`);
+assert.ok(calls.every(([, args]) => args.p_key === KEY), "every call carries the key");
+assert.deepEqual(calls.find(([fn]) => fn === "api_food")[1], { p_key: KEY, p_start: WEEK_END, p_end: WEEK_END });
+assert.equal(await lifterSource(withKey("gbk_" + "a1".repeat(24)), fakeDb([])), null, "unknown key");
+assert.equal(await lifterSource(withKey("gbk_short"), fakeDb([])), null, "malformed key is tried as a token, and fails");
+assert.equal(await lifterSource(new Request("https://gym.example/api/mcp"), fakeDb([])), null, "no credential");
 
 console.log("mcp: all checks passed");

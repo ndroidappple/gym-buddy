@@ -342,29 +342,40 @@ publish the consent screen ("In production") or refresh tokens expire after 7 da
 test:health` checks the planning, the sealed token, the request order, reading heart rate and the
 intensity numbers.
 
-## Claude connector (optional)
+## AI assistants (optional)
 
-A lifter can add GymBuddy to Claude as a custom connector (`https://<app>/api/mcp`) and ask about
-their own log: "how's my bench trending", "what did I eat on days I PR'd". It only reads.
+A lifter can connect an AI app to their own log and ask about it: "how's my bench trending", "what did
+I eat on days I PR'd". It only reads. Nothing is tied to one AI provider: the tools are served over
+MCP (an open standard: Claude, ChatGPT, Cursor and others speak it) and as a plain REST API with an
+OpenAPI description, and either takes an OAuth sign-in or an API key. **Settings → AI assistants**
+(`src/components/AiAssistants.jsx`) shows the addresses and makes keys.
 
-**Sign-in.** Supabase Auth's OAuth 2.1 server does it. Claude calls `/api/mcp` with no token and gets a
-401 pointing at `/.well-known/oauth-protected-resource` (`api/oauth-protected-resource.js`, through a
-`vercel.json` rewrite), which names the project's Supabase Auth as the sign-in server. Claude registers
-itself there and sends the lifter to `/oauth/consent` (`src/OAuthConsent.jsx`, behind the usual
-`AuthGate` sign-in), which shows the signed-in email and what Claude will see. On Allow, Supabase gives
-Claude an access token for that lifter.
+**Sign-in, way 1: OAuth** (MCP apps). Supabase Auth's OAuth 2.1 server does it. The app calls
+`/api/mcp` with no token and gets a 401 pointing at `/.well-known/oauth-protected-resource`
+(`api/oauth-protected-resource.js`, through a `vercel.json` rewrite), which names the project's Supabase
+Auth as the sign-in server; apps on the older MCP spec find Supabase's own document passed through at
+`/.well-known/oauth-authorization-server`. The app registers itself and sends the lifter to
+`/oauth/consent` (`src/OAuthConsent.jsx`, behind the usual `AuthGate` sign-in), which shows the
+signed-in email and what the app will see. On Allow, Supabase gives the app an access token.
 
-**Why it can only see one person's data.** `api/mcp.js` reads Supabase with the publishable key and
-the lifter's token, never a secret key, so Postgres sees `auth.uid()` as that lifter and the own-rows
-policies on `storage_kv` and `food_entries` apply, exactly as in the app. The queries filter by
-`user_id` as well. The Supabase MCP connector is different: it signs in as the project owner and
-reads every row, so it isn't for lifters.
+**Sign-in, way 2: API keys** (apps that take a fixed header). `create_api_key` makes a `gbk_…` key,
+shown once; `api_keys` stores only its SHA-256, and lifters can list (name, last 4 characters, last
+used) and delete theirs but never read a hash (`supabase/migrations/20261117000000_api_keys.sql`).
+
+**Why it can only see one person's data.** The server only ever holds the publishable key
+(`api/_lifter.js`). With a token, it reads tables as that lifter, so the own-rows policies on
+`storage_kv` and `food_entries` apply, exactly as in the app. With a key, it calls the `api_*` database
+functions, which look up the key's owner and read only that lifter's account record, saved reviews
+and food (nothing else in `storage_kv`). The Supabase MCP connector is different: it signs in as the
+project owner and reads every row, so it isn't for lifters.
 
 **Tools** (`api/_mcp.js`, all read-only): `get_overview` (program, phase, targets, what's logged),
 `list_workouts`, `lift_history`, `food_days`, `food_items`, `bodyweight`, `week_review`. They reuse the
-week in review's helpers (`liftHistory`, `foodDays`, `foodItems`). The server is stateless Streamable
-HTTP: each POST gets a plain JSON-RPC answer. `npm run test:mcp` checks the handshake, every tool,
-bad arguments and the 401.
+week in review's helpers (`liftHistory`, `foodDays`, `foodItems`). `runTool` runs one for both doors:
+`/api/mcp` (stateless Streamable HTTP, a plain JSON-RPC answer per POST) and `/api/tools/<tool>`
+(`api/tools.js`; `GET /api/tools` lists them, `/api/tools/openapi.json` describes them).
+`npm run test:mcp` checks the handshake, every tool, bad arguments, the 401, the REST API, the
+OpenAPI description and key sign-in.
 
 ## When something breaks
 

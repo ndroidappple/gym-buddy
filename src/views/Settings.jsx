@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { ChevronRight, Download, LogOut, Moon, Gauge, Smartphone, Share, SquarePlus, EllipsisVertical, Check, Sparkles, Scale, Vibrate, Bell, BellRing, Users, Utensils, Target, Bookmark, Trash2, Rows3, CalendarClock, History, BellOff, BellPlus, Info, Dumbbell, HeartPulse, RefreshCw, Unlink } from "lucide-react";
+import { ChevronRight, Download, LogOut, Moon, Gauge, Smartphone, Share, SquarePlus, EllipsisVertical, Check, Sparkles, Scale, Vibrate, Bell, BellRing, Users, Utensils, Target, Bookmark, Trash2, Rows3, CalendarClock, History, BellOff, BellPlus, Info, Dumbbell, HeartPulse, RefreshCw, Unlink, Bot } from "lucide-react";
 import { Sheet, InfoButton, ConfirmSheet } from "../components/ui.jsx";
 import { ICONS, iconSrc } from "../lib/icons.js";
 import { VIEWS, applyView } from "../lib/view.js";
@@ -14,6 +14,7 @@ import { DayPicker, HourPicker, PastReviewsSheet } from "../components/WeekRevie
 import { HeadPicker } from "../components/Welcome.jsx";
 import Coach from "../components/Coach.jsx";
 import { COACHES } from "../data/coaches.js";
+import AiAssistantsSheet from "../components/AiAssistants.jsx";
 import { connectGoogleHealth, googleHealthStatus, disconnectGoogleHealth, syncGoogleHealth, connecting, doneConnecting } from "../lib/googleHealth.js";
 
 /**
@@ -25,7 +26,7 @@ export default function Settings({ program, sessions, prefs, setPref, go, notify
   const who = COACHES[head].name;
   const [email, setEmail] = useState("");
   const viewRow = useRef(null); // the detail level picker, held still on screen while the level switches
-  const [sheet, setSheet] = useState(null); // "account" | "icon" | "install" | "redo" | "review-time" | "reviews" | "view" | "head" | "memory" | "clear-chat" | "google-health" | "google-health-off"
+  const [sheet, setSheet] = useState(null); // "account" | "icon" | "install" | "redo" | "review-time" | "reviews" | "view" | "head" | "memory" | "clear-chat" | "google-health" | "google-health-off" | "ai"
   const review = reviewPrefs(prefs);
   const setReview = (patch) => setPref("weekReview", { ...review, intro: true, ...patch });
   const alerts = useAlerts({ review, setReview, notify, onInstall: () => setSheet("install") });
@@ -171,6 +172,11 @@ export default function Settings({ program, sessions, prefs, setPref, go, notify
               <span className="name">Google Health<span className="sub">{gh.sub}</span></span>
               <ChevronRight size={18} aria-hidden="true" className="muted" />
             </button>
+            <button className="list-row" onClick={() => setSheet("ai")}>
+              <Bot size={18} aria-hidden="true" />
+              <span className="name">AI assistants<span className="sub">Let Claude, ChatGPT, Muse or another AI app read your log.</span></span>
+              <ChevronRight size={18} aria-hidden="true" className="muted" />
+            </button>
           </div>
         </section>
 
@@ -272,6 +278,7 @@ export default function Settings({ program, sessions, prefs, setPref, go, notify
       )}
       {sheet === "reviews" && <PastReviewsSheet onClose={() => setSheet(null)} />}
       {sheet === "google-health" && <GoogleHealthSheet gh={gh} onDisconnect={() => setSheet("google-health-off")} onClose={() => setSheet(null)} />}
+      {sheet === "ai" && <AiAssistantsSheet notify={notify} onClose={() => setSheet(null)} />}
       {sheet === "google-health-off" && (
         <ConfirmSheet title="Disconnect Google Health?" body="GymBuddy stops reading heart rate and sleep and sending weight and food. Heart rate comes off your workouts and sleep comes out of GymBuddy; what's already in Google Health stays there."
           confirm="Disconnect" onClose={() => setSheet(null)} onConfirm={gh.disconnect} />

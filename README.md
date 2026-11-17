@@ -65,8 +65,9 @@ PR, into what's here.
 - **Google Health** (optional): heart rate from your watch on every workout and set, zone charts,
   sleep and recovery against your own usual (a short night means the workout aims to match last time
   instead of beating it), and bodyweight and food sent back to Google Health.
-- **Claude connector** (optional): add GymBuddy to Claude as a custom connector and ask about your own
-  log. You sign in with your GymBuddy email; it's read-only and row-level security keeps it to your data.
+- **AI assistants** (optional): connect Claude, ChatGPT, Meta Muse or any other AI app to your log and
+  ask about it. MCP apps sign in with your GymBuddy email; others use an API key from Settings and a
+  REST API with an OpenAPI description. Read-only, and only ever your own data.
 
 **Everything else:** light and dark themes, a "Focused" mode with less text mid-workout, eight home
 screen icons, CSV/JSON export, and a privacy policy and terms (`public/privacy.html`, `public/terms.html`).
@@ -82,7 +83,7 @@ flowchart TB
   AI["Vercel AI Gateway<br/>Gemini 2.5 Flash / Flash-Lite"]
   Food["USDA FoodData Central<br/>Open Food Facts"]
   GH["Google Health API"]
-  Claude["Claude<br/>custom connector"]
+  Claude["AI apps<br/>MCP or REST"]
 
   App <-->|sync| DB
   App -->|coach, food search, health| API
@@ -93,7 +94,7 @@ flowchart TB
   API --> Food
   API <--> GH
   API -.->|web push| App
-  Claude -->|MCP, lifter's own token| API
+  Claude -->|lifter's own token or API key| API
 ```
 
 A few decisions that shaped it:

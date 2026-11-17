@@ -2,9 +2,9 @@ import { useEffect, useState } from "react";
 import { supabase } from "./supabase-client.js";
 import { Boot } from "./components/ui.jsx";
 
-/* The consent screen for connecting GymBuddy to Claude (or another MCP client), at /oauth/consent.
-   Supabase Auth sends the lifter here with ?authorization_id=… after Claude asks to connect;
-   AuthGate has already made sure they're signed in. Approving hands Claude a token for this
+/* The consent screen for connecting GymBuddy to an AI app (Claude, ChatGPT, any MCP app), at
+   /oauth/consent. Supabase Auth sends the lifter here with ?authorization_id=… after the app asks to connect;
+   AuthGate has already made sure they're signed in. Approving hands the app a token for this
    account only, read through api/mcp.js. The signed-in email is front and centre so nobody
    approves on a phone that's signed in as someone else. */
 
@@ -13,13 +13,13 @@ const WHAT = ["Workouts, sets and lift history", "Your program and goals", "Food
 export default function OAuthConsent() {
   const id = new URLSearchParams(location.search).get("authorization_id");
   const [details, setDetails] = useState(null);
-  const [error, setError] = useState(id ? "" : "This link is missing its request. Start connecting again from Claude.");
+  const [error, setError] = useState(id ? "" : "This link is missing its request. Start connecting again from your AI app.");
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     if (!id) return;
     supabase.auth.oauth.getAuthorizationDetails(id).then(({ data, error }) => {
-      if (error) return setError(`${error.message}. Start connecting again from Claude.`);
+      if (error) return setError(`${error.message}. Start connecting again from your AI app.`);
       // Approved before: Supabase sends back the redirect straight away.
       if (data && !("authorization_id" in data) && data.redirect_url) return location.assign(data.redirect_url);
       setDetails(data);
