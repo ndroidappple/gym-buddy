@@ -4,7 +4,8 @@ import { supabase } from "../supabase-client.js";
 import { shortDate } from "../lib/util.js";
 
 /* Settings → AI assistants (#/settings/ai): connect an AI app to this account's log, read-only.
-   Step-by-step setup for Claude, ChatGPT and Meta Muse, and the lifter's API keys.
+   Step-by-step setup for Claude, ChatGPT and Meta Muse. Only Muse needs a key, so keys are made in
+   its first step and listed on its tab.
 
    Claude and ChatGPT add the MCP server and sign in through /oauth/consent: no key. Muse builds its
    own connector from the OpenAPI description and takes a key. A new key shows once; the database
@@ -31,7 +32,7 @@ function Steps({ items }) {
   return (
     <ol className="steps">
       {items.map((s, n) => (
-        <li key={n}><span className="step-n">{n + 1}</span><span className="step-text">{s}</span></li>
+        <li key={n}><span className="step-n">{n + 1}</span><div className="step-text">{s}</div></li>
       ))}
     </ol>
   );
@@ -41,7 +42,6 @@ export default function AiAssistants({ back, notify }) {
   const [app, setApp] = useState("claude");
   const [email, setEmail] = useState("");
   const [keys, setKeys] = useState(null);
-  const [name, setName] = useState("");
   const [fresh, setFresh] = useState(null); // { name, key }: the key just made, shown this once
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -60,11 +60,11 @@ export default function AiAssistants({ back, notify }) {
   async function create(e) {
     e.preventDefault();
     setBusy(true); setError("");
-    const label = name.trim() || (app === "muse" ? "Muse" : "AI assistant");
+    const label = "Muse";
     const { data, error } = await supabase.rpc("create_api_key", { p_name: label });
     setBusy(false);
     if (error) return setError(error.message);
-    setFresh({ name: label, key: data }); setName(""); load();
+    setFresh({ name: label, key: data }); load();
   }
 
   async function remove(k) {
@@ -75,6 +75,18 @@ export default function AiAssistants({ back, notify }) {
     load();
   }
 
+  // Muse's step 1: the key, shown once just made, else the button that makes it.
+  const keyMaker = fresh ? (
+    <span className="ai-fresh">
+      <code className="ai-key">{fresh.key}</code>
+      <span className="muted">It won't be shown again.</span>
+      <CopyButton text={fresh.key} label="Tap to copy key" what="Key" notify={notify} />
+    </span>
+  ) : (
+    <form onSubmit={create} className="ai-make">
+      <button type="submit" className="btn btn-ink ai-copy" disabled={busy}><KeyRound size={17} aria-hidden="true" /> {busy ? "Making…" : "Make a key"}</button>
+    </form>
+  );
   const signIn = <>GymBuddy opens. Sign in as <b>{email || "you"}</b> if asked, check the email shown is yours, and tap <b>Allow</b>.</>;
   const steps = {
     claude: [
@@ -92,7 +104,7 @@ export default function AiAssistants({ back, notify }) {
       <>In a new chat, turn on <b>GymBuddy</b> from the <b>+</b> menu and ask about your training.</>,
     ],
     muse: [
-      <>Make a key for Muse below, and tap to copy it.</>,
+      <>Make a key for Muse, then tap to copy it.{keyMaker}</>,
       <>Start a new chat at <b>muse.ai</b> and paste this message.<CopyButton text={museMessage} label="Tap to copy the message" what="Message" notify={notify} /></>,
       <>When Muse shows a <b>connector card</b>, tap <b>Connect</b> and paste your key.</>,
       <>When Muse offers to <b>save it as a skill</b>, say yes, so GymBuddy is there in every chat.</>,
@@ -118,19 +130,10 @@ export default function AiAssistants({ back, notify }) {
         {app !== "muse" && <p className="note-box">No key needed: you sign in with your GymBuddy email. To disconnect, remove GymBuddy in {app === "claude" ? "Claude's" : "ChatGPT's"} settings.</p>}
         {app === "chatgpt" && <p className="note-box">Can't find Developer mode? OpenAI moves it around: search ChatGPT's help for "developer mode".</p>}
 
-        <section className="section" aria-labelledby="keys-title">
-          <h2 className="lbl" id="keys-title">Your keys</h2>
-          <p className="muted detail">For Muse and other apps that ask for a key instead of a sign-in.</p>
-
-          {fresh && (
-            <div className="note-box ai-fresh" role="status">
-              <b>Your {fresh.name} key.</b> Copy it now: it won't be shown again.
-              <code className="ai-key">{fresh.key}</code>
-              <CopyButton text={fresh.key} label="Tap to copy key" what="Key" notify={notify} />
-            </div>
-          )}
-
-          {keys?.length > 0 && (
+        {app === "muse" && error && <p className="err" role="alert">{error}</p>}
+        {app === "muse" && keys?.length > 0 && (
+          <section className="section" aria-labelledby="keys-title">
+            <h2 className="lbl" id="keys-title">Your keys</h2>
             <div className="list">
               {keys.map((k) => (
                 <div className="list-row" key={k.id}>
@@ -140,16 +143,9 @@ export default function AiAssistants({ back, notify }) {
                 </div>
               ))}
             </div>
-          )}
-
-          <form onSubmit={create} className="ai-make">
-            <label className="field"><span className="lbl">Key name</span>
-              <input className="input" maxLength={60} placeholder={app === "muse" ? "Muse" : "e.g. Muse"} value={name} onChange={(e) => setName(e.target.value)} /></label>
-            <button type="submit" className="btn btn-ink" disabled={busy}><KeyRound size={18} aria-hidden="true" /> {busy ? "Making…" : "Make a key"}</button>
-          </form>
-          {error && <p className="err" role="alert">{error}</p>}
-          <p className="muted detail">Deleting a key cuts off whatever app uses it, right away.</p>
-        </section>
+            <p className="muted">Deleting a key cuts off whatever app uses it, right away.</p>
+          </section>
+        )}
       </div>
     </main>
   );
