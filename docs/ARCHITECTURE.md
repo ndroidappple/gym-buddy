@@ -342,6 +342,30 @@ publish the consent screen ("In production") or refresh tokens expire after 7 da
 test:health` checks the planning, the sealed token, the request order, reading heart rate and the
 intensity numbers.
 
+## Claude connector (optional)
+
+A lifter can add GymBuddy to Claude as a custom connector (`https://<app>/api/mcp`) and ask about
+their own log: "how's my bench trending", "what did I eat on days I PR'd". It only reads.
+
+**Sign-in.** Supabase Auth's OAuth 2.1 server does it. Claude calls `/api/mcp` with no token and gets a
+401 pointing at `/.well-known/oauth-protected-resource` (`api/oauth-protected-resource.js`, through a
+`vercel.json` rewrite), which names the project's Supabase Auth as the sign-in server. Claude registers
+itself there and sends the lifter to `/oauth/consent` (`src/OAuthConsent.jsx`, behind the usual
+`AuthGate` sign-in), which shows the signed-in email and what Claude will see. On Allow, Supabase gives
+Claude an access token for that lifter.
+
+**Why it can only see one person's data.** `api/mcp.js` reads Supabase with the publishable key and
+the lifter's token, never a secret key, so Postgres sees `auth.uid()` as that lifter and the own-rows
+policies on `storage_kv` and `food_entries` apply, exactly as in the app. The queries filter by
+`user_id` as well. The Supabase MCP connector is different: it signs in as the project owner and
+reads every row, so it isn't for lifters.
+
+**Tools** (`api/_mcp.js`, all read-only): `get_overview` (program, phase, targets, what's logged),
+`list_workouts`, `lift_history`, `food_days`, `food_items`, `bodyweight`, `week_review`. They reuse the
+week in review's helpers (`liftHistory`, `foodDays`, `foodItems`). The server is stateless Streamable
+HTTP: each POST gets a plain JSON-RPC answer. `npm run test:mcp` checks the handshake, every tool,
+bad arguments and the 401.
+
 ## When something breaks
 
 `components/ErrorBoundary.jsx` keeps a drawing error from blanking the app. One sits around each screen
