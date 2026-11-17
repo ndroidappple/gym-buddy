@@ -1,3 +1,4 @@
+-- Applied to the ironlog project on 2026-11-17 (migration "api_keys").
 -- API keys: read-only access to one lifter's log for AI apps that can't do the OAuth sign-in
 -- (api/mcp.js, api/tools.js). A lifter makes a key in Settings → AI assistants; the app shows it
 -- once. Only its SHA-256 is stored.
