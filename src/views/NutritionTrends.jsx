@@ -4,7 +4,7 @@ import { shortDate, bodyweightSeries, iso } from "../lib/util.js";
 import { EmptyState, useScrub, ChartTip, Read } from "../components/ui.jsx";
 import { dailyRows, summarize, weekRows, patterns, outcome, topFoods, periodRange, targetsBackfilled, wrongSide, targetsOn, KCAL_BAND, PROTEIN_HIT } from "../lib/nutritionTrends.js";
 
-/* Progress → Nutrition: how what the lifter ate compares with their targets over a period, and whether
+/* Nutrition → Trends: how what the lifter ate compares with their targets over a period, and whether
    it's doing what the goal needs. In order of what matters: the period's averages against the targets,
    calories and protein day by day, the weight trend against the goal's pace (and the burn it implies),
    then where the eating differs, week by week, and the foods that bring the most calories. The rules

@@ -260,6 +260,44 @@ test("today: a workout from yesterday isn't 'done today'", async ({ page }) => {
   check("no recap card", !(await page.getByText("Done today").count()));
 }, account({ sessions: [workout("w1", "push", day(-1), { "Flat DB Press": [[60, 10]] })] }));
 
+test("today: the food card adds to the meal picked in the sheet", async ({ page, backend }) => {
+  const card = page.getByRole("region", { name: "Food today" });
+  await card.waitFor();
+  check("nothing logged yet, with the day's targets", await card.getByText("Nothing logged yet").isVisible() && await card.getByText("2,400 kcal and 180 g protein to go").isVisible());
+  // The button is the meal for the time of day; whichever it is, the sheet offers the others.
+  await card.getByRole("button", { name: /^Add food to / }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByRole("group", { name: "Meal" }).getByRole("button", { name: "Dinner" }).click();
+  await dialog.getByRole("heading", { name: "Add to Dinner" }).waitFor();
+  await dialog.getByRole("button", { name: "Add Banana Berry Smoothie" }).click();
+  await dialog.locator(".food-tray").getByText("1 added · 421 kcal").waitFor();
+  check("the meal can't change once something's in", !(await dialog.getByRole("group", { name: "Meal" }).count()));
+  await dialog.locator(".food-tray").getByRole("button", { name: "Done" }).click();
+  await dialog.waitFor({ state: "detached" });
+  await card.getByText("1,979 kcal left").waitFor();
+  check("protein to go updates", await card.getByText(/g protein to go$/).isVisible());
+  for (let i = 0; i < 20 && !backend.tables.food_entries.length; i++) await page.waitForTimeout(100);
+  check("saved to dinner today", backend.tables.food_entries.length === 1 && backend.tables.food_entries[0].meal === "dinner" && backend.tables.food_entries[0].date === day(0),
+    JSON.stringify(backend.tables.food_entries.map((e) => [e.name, e.meal, e.date])));
+  await card.getByRole("link").click();
+  await page.waitForURL(/#\/nutrition$/);
+});
+
+test("nutrition: trends live on Nutrition, and the old Progress link lands there", async ({ page }) => {
+  await page.goto(new URL("#/progress/nutrition", page.url()).href);
+  await page.waitForURL(/#\/nutrition\/trends$/);
+  check("Trends is picked", await page.getByRole("group", { name: "Nutrition view" }).getByRole("button", { name: "Trends" }).getAttribute("aria-pressed") === "true");
+  await page.getByRole("group", { name: "Nutrition view" }).getByRole("button", { name: "Day" }).click();
+  await page.waitForURL(/#\/nutrition$/);
+  await page.getByRole("link", { name: "See trends" }).click();
+  await page.waitForURL(/#\/nutrition\/trends$/);
+  await page.goto(new URL("#/progress", page.url()).href);
+  const views = page.getByRole("group", { name: "Progress view" });
+  await views.waitFor();
+  check("Progress is lifts only", (await views.getByRole("button").allTextContents()).map((t) => t.replace(/ ·.*/, "")).join(",") === "Trends,Workouts",
+    (await views.getByRole("button").allTextContents()).join(","));
+});
+
 const run = tests.filter((t) => !only || t.name.includes(only));
 const app = await startApp();
 const browser = await launch();

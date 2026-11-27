@@ -388,7 +388,8 @@ export default function App() {
   const buildHead = (day) => headContext({ sessions, program, weighins, profile: prefs.profile, phase: prefs.phase,
     n: nutritionOn ? prefs.nutrition : null, entries: nutritionOn ? food.entries : [], foodDays: nutritionOn ? food.history : {}, notes: thread.notes, day, recovery });
   const coachChat = { thread, buildHead, foodLog: nutritionOn ? food : null, recovery };
-  const common = { sessions, program, drafts, weighins, prefs, setPref, name, go, back, notify, onWeighin: logWeighin, onProgramChange: applyCoachProgram, nutrition, foodToday,
+  // `food`: the food log store while tracking is on (Today's quick add, Nutrition, Export), null while it's off.
+  const common = { sessions, program, drafts, weighins, prefs, setPref, name, go, back, notify, onWeighin: logWeighin, onProgramChange: applyCoachProgram, nutrition, foodToday, food: nutritionOn ? food : null,
     head, coachNotes: thread.notes, recovery, outside, outsideOps };
   let view;
   switch (route.name) {
@@ -430,11 +431,11 @@ export default function App() {
         : <Summary key={s.id} {...common} session={s} past={route.past} coachChat={coachChat} onUpdate={upsertSession} />;
       break;
     }
-    case "progress": view = <Progress key={route.open || "p"} {...common} open={route.open} food={nutritionOn ? food : null} />; break;
+    case "progress": view = <Progress key={route.open || "p"} {...common} open={route.open} />; break;
     case "lift": view = <Lift {...common} name={route.lift} />; break;
     case "settings": view = <Settings {...common} thread={thread} onRename={programOps.rename} />; break;
     case "program": view = allDays(program).includes(route.day) ? <ProgramEditor {...common} day={route.day} ops={programOps} /> : <ProgramList {...common} onRename={programOps.rename} />; break;
-    case "export": view = <Export {...common} food={nutritionOn ? food : null} />; break;
+    case "export": view = <Export {...common} />; break;
     case "ai": view = <AiAssistants {...common} />; break;
     case "nutrition": {
       // Off: Settings is where it's turned on. Setup opens over the tab and returns to it.
@@ -442,7 +443,7 @@ export default function App() {
       const closeSetup = () => go(href("nutrition"), { replace: true });
       view = (
         <>
-          <Nutrition {...common} food={food} coachChat={coachChat} />
+          <Nutrition {...common} food={food} coachChat={coachChat} open={route.open} />
           {route.open === "setup" && (
             <NutritionSetup coach={head} prefs={prefs} program={program} sessions={sessions} weighins={weighins} name={name}
               onWeighin={(bw) => setWeighins((ws) => [...ws.filter((w) => w.date !== today()), { date: today(), bw }])}

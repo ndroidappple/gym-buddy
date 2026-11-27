@@ -1,7 +1,7 @@
 import { totals, byDate, addDays, GOALS } from "./nutrition.js";
 import { today, weekDates, daysBetween } from "./util.js";
 
-/* Nutrition over time, for Progress → Nutrition: how what the lifter ate compares with their targets,
+/* Nutrition over time, for Nutrition → Trends: how what the lifter ate compares with their targets,
    and whether it's doing what the goal needs. The rules match the week in review (weekReview.js) so the
    two never disagree: a day under 45% of the calorie target is most likely only partly logged and is
    left out of every average; calories within 10% of target are on target; protein at 90%+ is a hit.

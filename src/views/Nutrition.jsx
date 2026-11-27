@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { ChevronLeft, ChevronRight, Plus, Copy, CopyPlus, MessageCircle, Pencil, Trash2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Copy, CopyPlus, MessageCircle, Pencil, Trash2, TrendingUp } from "lucide-react";
 import Coach from "../components/Coach.jsx";
 import CoachChat from "../components/CoachChat.jsx";
 import { COACHES } from "../data/coaches.js";
@@ -10,13 +10,18 @@ import { savedFoodFor } from "../lib/food.js";
 import { href } from "../lib/router.js";
 import { today, longDate, plural, vibrate } from "../lib/util.js";
 import Roll from "../components/Roll.jsx";
+import NutritionTrends from "./NutritionTrends.jsx";
 
-/* The Nutrition tab: one day at a time (today by default). Calories left and the three macros
-   against target, then the day's meals with what's in them, then the week so far. */
+/* The Nutrition tab has two views. Day (#/nutrition): one day at a time, today by default. Calories left
+   and the three macros against target, then the day's meals with what's in them, then the week so far.
+   Trends (#/nutrition/trends): eating against targets over weeks and months. It always opens on Day,
+   since logging is the job here; Trends is a tap away, or from the week's See trends. */
 
 const fmt = (n) => Math.round(n).toLocaleString();
 
-export default function Nutrition({ food, prefs, notify, sessions, weighins, program, name, head, coachChat, nutrition, onProgramChange }) {
+export default function Nutrition({ food, prefs, notify, sessions, weighins, program, name, head, coachChat, nutrition, onProgramChange, go, open }) {
+  const trends = open === "trends";
+  const show = (v) => go(v === "trends" ? href("nutrition", "trends") : href("nutrition"), { replace: true });
   const [asking, setAsking] = useState(false);
   const n = prefs.nutrition || {};
   const t = n.targets;
@@ -89,9 +94,14 @@ export default function Nutrition({ food, prefs, notify, sessions, weighins, pro
     <main className="screen has-tabs nut-screen">
       <header className="top">
         <h1 className="page-title">Nutrition</h1><span className="spacer" />
-        <InfoButton screen="nutrition" />
+        <InfoButton screen={trends ? "nutritionTrends" : "nutrition"} />
       </header>
       <div className="body">
+        <div className="segctl" data-help="views" role="group" aria-label="Nutrition view">
+          <button aria-pressed={!trends} onClick={() => show("day")}>Day</button>
+          <button aria-pressed={trends} onClick={() => show("trends")}>Trends</button>
+        </div>
+        {trends ? <NutritionTrends food={food} prefs={prefs} sessions={sessions} weighins={weighins} /> : <>
         <div className="day-switch" data-help="day">
           <button className="icon-btn" onClick={() => setDate(addDays(date, -1))} aria-label="Previous day"><ChevronLeft size={20} /></button>
           <b>{isToday ? "Today" : date === addDays(today(), -1) ? "Yesterday" : longDate(date)}</b>
@@ -138,6 +148,7 @@ export default function Nutrition({ food, prefs, notify, sessions, weighins, pro
 
         <Week week={week} t={t} />
         <p className="small muted detail">Targets: {fmt(t.kcal)} kcal · {t.protein} g protein · {t.carbs} g carbs · {t.fat} g fat. <a href={href("nutrition", "setup")}>Change</a></p>
+        </>}
       </div>
 
       {asking && (
@@ -266,6 +277,7 @@ function Week({ week, t }) {
           {week.rows.map((r) => <span key={r.date} className={r.date === today() ? "now" : ""}>{new Date(r.date + "T12:00:00").toLocaleDateString(undefined, { weekday: "narrow" })}</span>)}
         </div>
       </div>
+      <a className="btn-quiet nut-trends-link" href={href("nutrition", "trends")}><TrendingUp size={15} aria-hidden="true" /> See trends</a>
     </section>
   );
 }

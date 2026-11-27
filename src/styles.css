@@ -1154,7 +1154,8 @@ button.coach-card:active { transform: translateY(3px); box-shadow: 0 2px 0 var(-
 .meal .section-head { align-items: center; }
 .meal-kcal { font-weight: 600; }
 .meal-add { min-height: 34px; }
-.meal-copy { display: inline-flex; align-items: center; gap: 6px; align-self: flex-start; min-height: 40px; font-size: 13.5px; }
+.nut-trends-link { text-decoration: none; }
+.meal-copy, .nut-trends-link { display: inline-flex; align-items: center; gap: 6px; align-self: flex-start; min-height: 40px; font-size: 13.5px; }
 .food-row .name { font-weight: 700; }
 .food-kcal { font-weight: 800; font-variant-numeric: tabular-nums; }
 .nut-week { display: flex; flex-direction: column; gap: 6px; padding: 14px 12px 10px; }
@@ -1212,7 +1213,15 @@ button.coach-card:active { transform: translateY(3px); box-shadow: 0 2px 0 var(-
 .setup-option span { display: flex; flex-direction: column; line-height: 1.2; }
 .setup-option small { font-size: 12.5px; font-weight: 600; opacity: .75; }
 .nut-adjust { margin-top: 4px; }
-.food-line { margin-top: -4px; }
+/* Today's food card: the ring and the numbers open Nutrition; the button adds to the meal that fits the time. */
+.food-card { display: flex; align-items: center; gap: 10px; padding: 10px 10px 10px 12px; }
+.food-card-link { flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px; color: var(--ink); text-decoration: none; }
+.food-card-ring { width: 44px; height: 44px; flex-shrink: 0; }
+.food-card-ring circle { fill: none; stroke-width: 6; stroke-linecap: round; }
+.food-card-text { display: flex; flex-direction: column; min-width: 0; }
+.food-card-text b { font-weight: 800; }
+.food-card-text span { font-size: 13.5px; color: var(--mute); font-weight: 500; }
+.food-card-add { width: auto; min-height: var(--tap); font-size: 15px; padding: 0 14px; border-radius: 16px; gap: 4px; flex-shrink: 0; }
 
 /* Add with Tank */
 /* The head coach in Add food's results, offered with what's typed. Leading when it reads as a meal in
@@ -1639,7 +1648,7 @@ button.rest-open:active { opacity: 0.75; }
 .alert-banner { background: color-mix(in srgb, var(--accent) 14%, var(--surface)); border: 2px solid color-mix(in srgb, var(--accent) 45%, var(--rule)); }
 .alert-banner svg:first-child { color: var(--accent); }
 
-/* ═══════════════ PROGRESS → NUTRITION ═══════════════ */
+/* ═══════════════ NUTRITION → TRENDS ═══════════════ */
 .segctl.small button { min-height: 34px; font-size: 13.5px; }
 .nt-note { margin: -2px 4px 0; font-size: 13.5px; font-weight: 600; color: var(--faint); line-height: 1.4; }
 .nt-line { margin: 0 4px; font-size: 13.5px; font-weight: 500; line-height: 1.45; color: var(--mute); }

@@ -52,7 +52,9 @@ PR, into what's here.
   databases, then a web search, and only estimated as a last resort, with each item marked by where
   its numbers came from.
 - **Barcode scanning** with the back camera, offline-first for anything you've had before.
-- **Bulk and cut phases** with a target pace, and trends of what you ate against your targets.
+- **On Today too.** A card under the workout shows calories left and protein to go, with one tap to log
+  the meal that fits the time of day.
+- **Bulk and cut phases** with a target pace, and trends of what you ate against your targets (Nutrition → Trends).
 
 **Progress and recovery**
 
