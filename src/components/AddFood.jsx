@@ -221,10 +221,15 @@ function Find({ food, entries, head, meal, date, action, onMeal, onRepeat, onPic
   // Earlier meals to log again in one tap: for lunch, last night's dinner (leftovers) and yesterday's lunch.
   const repeats = useMemo(() => recentMeals(entries, { meal, date }), [entries, date, meal]);
 
+  // Whether one of their own foods can take the amount typed. A food saved as a whole meal (one Tank made,
+  // "1 meal") has no piece size, so "5 pieces of bacon" can't be counted out of it. A plain count still
+  // can ("2 smoothies" is two of the usual).
+  const fits = (x) => read.kind !== "amount" || !read.unit || !!portionFor(unitsFor(pickYourFood(x).food.basis), read.amount, read.unit);
+  const typedAmount = read.kind === "amount" && read.unit ? `${fmtAmount(read.amount)} ${read.unit}${read.amount !== 1 && !/s$/.test(read.unit) ? "s" : ""}` : "";
   // An amount typed with the food starts its portion there: "200g chicken breast" opens at 200 g.
   const mineAt = (x) => {
     const p = pickYourFood(x);
-    const at = read.kind === "amount" ? portionFor(unitsFor(p.food.basis), read.amount, read.unit) : null;
+    const at = read.kind === "amount" && fits(x) ? portionFor(unitsFor(p.food.basis), read.amount, read.unit) : null;
     return [p.food, at ? { amount: at.unit ? at.amount : at.amount * (p.unit && p.amount ? p.amount : 1), unit: at.unit || p.unit } : { amount: p.amount, unit: p.unit }];
   };
   const pickMine = (x) => onPick(...mineAt(x));
@@ -263,10 +268,12 @@ function Find({ food, entries, head, meal, date, action, onMeal, onRepeat, onPic
   // steps aside while the box at the top is being typed in.
   const canFollow = answered && (a.status !== "working" || !!a.earlier) && !typing;
   const follow = (text) => { a.follow(text); setReply(""); toAnswer(); };
-  // Return: a description is asked about now; an amount opens the best match; a search just closes the keyboard.
+  // Return: a description is asked about now, and so is an amount none of their foods can take; an amount
+  // opens the best match; a search just closes the keyboard.
   const submit = (e) => {
     e.preventDefault();
     if (describing) { input.current?.blur(); if (pending) askCoach(read.text); return; }
+    if (coachFirst && read.kind === "amount") { input.current?.blur(); return askCoach(read.text); }
     if (read.kind === "amount" && mine[0]) return pickMine(mine[0]);
     if (read.kind === "amount" && results[0]) return pickResult(results[0]);
     input.current?.blur();
@@ -274,8 +281,22 @@ function Find({ food, entries, head, meal, date, action, onMeal, onRepeat, onPic
 
   // "4× · usually breakfast · yesterday": why it's here, so the list's order makes sense.
   const why = (x) => [x.brand, x.count > 1 && `${x.count}×`, x.usual && `usually ${MEAL_WORD[x.usual]}`, x.lastDate ? whenLabel(x.lastDate) : "saved"].filter(Boolean).join(" · ");
+  // An amount none of their own foods can take: the usual portion would be wrong.
+  const usual = (x) => { const p = pickYourFood(x); return `${fmtAmount(p.amount || 1)} ${p.unit || "serving"}`; };
   const shown = all ? mine : mine.slice(0, term ? 5 : TOP);
   const more = mine.length - shown.length;
+
+  // Asking the coach is never last: it goes above the databases (the weakest match for whole foods like
+  // "bacon"), and to the top when none of their own foods can take what was typed as it is.
+  const offerCoach = read.kind !== "empty" && !describing && !answered;
+  const coachFirst = offerCoach && !(mine.length && fits(mine[0]));
+  const coachRow = (
+    <button type="button" className={"tank-row" + (coachFirst ? " lead" : "")} onClick={() => askCoach(read.text)}>
+      <Coach id={head} size={28} still decorative />
+      <span className="tank-row-text"><b>Ask {who} about <q>{read.text}</q></b><small>{who} works out the macros from what you typed.</small></span>
+      <ChevronRight size={18} aria-hidden="true" className="muted" />
+    </button>
+  );
 
   const box = (
     <form className="food-search" role="search" onSubmit={submit}>
@@ -284,7 +305,7 @@ function Find({ food, entries, head, meal, date, action, onMeal, onRepeat, onPic
       <input id="food-q" ref={input} type="search" autoFocus={!touchScreen()} value={q} onChange={(e) => setQ(e.target.value)}
         onFocus={() => setTyping(true)} onBlur={() => setTyping(false)}
         placeholder="Search or describe a meal"
-        enterKeyHint={describing ? "send" : read.kind === "amount" ? "go" : "search"} autoComplete="off" />
+        enterKeyHint={describing || (coachFirst && read.kind === "amount") ? "send" : read.kind === "amount" ? "go" : "search"} autoComplete="off" />
       <button type="button" className="icon-btn food-scan" onClick={onScan} aria-label="Scan a barcode"><ScanBarcode size={20} /></button>
     </form>
   );
@@ -299,6 +320,8 @@ function Find({ food, entries, head, meal, date, action, onMeal, onRepeat, onPic
         <MealAnswer a={a} pending={pending} coach={head} action={action} onAdd={onMeal} onManual={onManual} onFollow={follow}
           items={items.map((it) => ({ amount: it.amount != null ? `${fmtAmount(it.amount)}${it.unit ? ` ${it.unit}` : ""}` : null, label: it.own ? it.own.name : it.food, own: !!it.own }))} />
       )}
+
+      {coachFirst && coachRow}
 
       {(mine.length > 0 || read.kind === "empty") && (
         <section className="section food-group" aria-labelledby="your-foods-lbl">
@@ -315,7 +338,7 @@ function Find({ food, entries, head, meal, date, action, onMeal, onRepeat, onPic
               {shown.map((x) => (
                 <div key={x.key} className="list-row food-row food-row-wrap">
                   <button type="button" className="food-row-main" onClick={() => pickMine(x)}>
-                    <span className="name">{x.name}<span className="sub detail">{why(x)}</span></span>
+                    <span className="name">{x.name}<span className="sub detail">{fits(x) ? why(x) : `Your usual ${usual(x)}, not ${typedAmount}`}</span></span>
                     {x.kcal != null && <span className="food-kcal">{fmt(x.kcal)}<small> kcal</small></span>}
                   </button>
                   <button type="button" className={"icon-btn food-quick" + (ticked === x.key ? " ticked" : "")} onClick={() => quickMine(x)} aria-label={`Add ${x.name}`}>
@@ -334,6 +357,8 @@ function Find({ food, entries, head, meal, date, action, onMeal, onRepeat, onPic
           )}
         </section>
       )}
+
+      {offerCoach && !coachFirst && coachRow}
 
       {describing && !lookUp && term.length >= 2 && (
         <button type="button" className="btn-quiet food-lookup" onClick={() => setLookUp(true)}><Search size={15} aria-hidden="true" /> Search the food database instead</button>
@@ -361,13 +386,6 @@ function Find({ food, entries, head, meal, date, action, onMeal, onRepeat, onPic
         </section>
       )}
 
-      {read.kind !== "empty" && !describing && !answered && (
-        <button type="button" className="tank-row" onClick={() => askCoach(read.text)}>
-          <Coach id={head} size={28} still decorative />
-          <span className="tank-row-text"><b>Ask {who} about <q>{read.text}</q></b><small>{who} works out the macros from a description.</small></span>
-          <ChevronRight size={18} aria-hidden="true" className="muted" />
-        </button>
-      )}
       {<button type="button" className="btn-quiet food-manual" onClick={onManual}><PenLine size={15} aria-hidden="true" /> Enter manually</button>}
 
       {/* What's been added with +, until Done; it steps aside while the answer is being corrected. */}
