@@ -1,6 +1,6 @@
 import React, { useMemo, useRef, useState } from "react";
 import { InfoButton, Sheet } from "../components/ui.jsx";
-import { Scale, ArrowLeftRight, Check, X, Moon, Watch } from "lucide-react";
+import { Scale, ArrowLeftRight, Check, X, Moon, Watch, Plus } from "lucide-react";
 import { outsideStats, whenRecorded, isOutside } from "../lib/outside.js";
 import Effort from "../components/Effort.jsx";
 import { readiness, lowLine } from "../lib/recovery.js";
@@ -11,11 +11,14 @@ import SetupCard from "../components/SetupCard.jsx";
 import { nextCoachToMeet } from "../lib/setup.js";
 import { weighInEvery, phaseStatus, statusLine, PHASE_TYPES } from "../lib/phase.js";
 import Coach from "../components/Coach.jsx";
+import AddFood from "../components/AddFood.jsx";
+import { WellnessLine } from "../components/WellnessSheet.jsx";
+import { MEALS, mealForNow } from "../lib/nutrition.js";
 import { ReviewChip } from "../components/WeekReviewIntro.jsx";
 import { collapse } from "../lib/motion.js";
 import { byDateDesc, bestSet, fmtW, num, shortDate, weekDates, today, nextDayAfter, bodyweightSeries, daysBetween, plural, readyToIncrease, nextGoal, fmtGoal, sessionSetCount, countRecords } from "../lib/util.js";
 
-export default function Today({ name, sessions, program, drafts, weighins, prefs, go, onWeighin, foodToday, review, head, recovery, outside = [], outsideOps }) {
+export default function Today({ name, sessions, program, drafts, weighins, prefs, go, onWeighin, foodToday, food, notify, well, review, head, recovery, outside = [], outsideOps }) {
   const sorted = useMemo(() => [...sessions].sort(byDateDesc), [sessions]);
   const draftDay = [...activeDays(program), CUSTOM].find((d) => drafts[d]);
   const t = today();
@@ -163,6 +166,11 @@ export default function Today({ name, sessions, program, drafts, weighins, prefs
           </div>
         )}
 
+        {/* Food tracking on: where the day stands, and the meal that fits the time one tap away. The full log is on Nutrition. */}
+        {foodToday && food && <FoodCard day={foodToday} food={food} head={head} notify={notify} />}
+        {/* Wellness on: one quiet line that asks, and says what's logged once there's something. */}
+        {well && <WellnessLine well={well} />}
+
         {choosing && (
           <Sheet title="Train something else" sub={draftDay ? `Your ${program[draftDay].name} workout in progress stays saved. Tap it to pick back up.` : "Swap today's workout. Your rotation picks back up after you log it."} onClose={() => setChoosing(false)} labelledBy="swap-title">
             <div className="list">
@@ -221,16 +229,39 @@ export default function Today({ name, sessions, program, drafts, weighins, prefs
             })}
           </div>
         </section>
-
-        {/* Food tracking on: one glance at the day, the detail is on Nutrition. */}
-        {foodToday && (
-          <a className="card phase-line food-line" href={href("nutrition")}>
-            <b>Food today</b>
-            <span>{Math.round(foodToday.sum.kcal).toLocaleString()} of {foodToday.targets.kcal.toLocaleString()} kcal · {Math.round(foodToday.sum.protein)} of {foodToday.targets.protein} g protein</span>
-          </a>
-        )}
       </div>
     </main>
+  );
+}
+
+/** Today's food in one row: calories left (or over) and protein to go, tapped through to Nutrition, and a button
+    for the meal that fits the time of day. Add food opens over Today with that meal picked and the others a tap away. */
+function FoodCard({ day, food, head, notify }) {
+  const [adding, setAdding] = useState(null); // meal id
+  const { sum, targets: t } = day;
+  const left = Math.round(t.kcal - sum.kcal);
+  const protein = Math.round(t.protein - sum.protein);
+  const empty = sum.kcal <= 0;
+  const fmt = (n) => n.toLocaleString();
+  const status = empty ? "Nothing logged yet" : left >= 0 ? `${fmt(left)} kcal left` : `${fmt(-left)} kcal over`;
+  const sub = empty ? `${fmt(t.kcal)} kcal and ${t.protein} g protein to go` : protein > 0 ? `${protein} g protein to go` : "Protein done for today";
+  const meal = mealForNow();
+  const label = MEALS.find((m) => m.id === meal)?.label;
+  const R = 16, C = 2 * Math.PI * R, pct = Math.min(1, Math.max(0, sum.kcal / t.kcal));
+  return (
+    <section className="card food-card" data-help="food" aria-label="Food today">
+      <a className="food-card-link" href={href("nutrition")}>
+        <svg viewBox="0 0 40 40" className="food-card-ring" aria-hidden="true">
+          <circle cx="20" cy="20" r={R} className="ring-bg" />
+          {pct > 0 && <circle cx="20" cy="20" r={R} className={"ring-fg" + (left < 0 ? " over" : "")} strokeDasharray={`${pct * C} ${C}`} transform="rotate(-90 20 20)" />}
+        </svg>
+        <span className="food-card-text"><b>{status}</b><span>{sub}</span></span>
+      </a>
+      <button type="button" className="btn btn-ink food-card-add" onClick={() => setAdding(meal)} aria-label={`Add food to ${label}`}>
+        <Plus size={16} strokeWidth={3} aria-hidden="true" />{label}
+      </button>
+      {adding && <AddFood food={food} head={head} meal={adding} date={today()} targets={t} notify={notify} pickMeal onClose={() => setAdding(null)} />}
+    </section>
   );
 }
 

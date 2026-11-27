@@ -29,7 +29,7 @@ export function placeFor(target) {
  * `plan` (from the recap) offers a step's change: { program, apply(i), undo(i), applied: Set of steps
  * applied on this visit (they can be undone), stale(step) }. Without it, no change is offered.
  */
-export default function Walkthrough({ session, sessions, program, prefs, head = "tank", notes, heart, recovery, sleep = false, day, plan, onSave, onStep, onAsk, onClose }) {
+export default function Walkthrough({ session, sessions, program, prefs, head = "tank", notes, heart, recovery, sleep = false, nightBefore = null, day, plan, onSave, onStep, onAsk, onClose }) {
   const theme = useTheme();
   const [walk, setWalk] = useState(() => freshWalk(session));
   const [status, setStatus] = useState(walk ? "ready" : "writing"); // writing | ready | error
@@ -46,7 +46,7 @@ export default function Walkthrough({ session, sessions, program, prefs, head = 
     asking.current?.abort();
     const ctl = (asking.current = new AbortController());
     setStatus("writing"); setError(null);
-    requestWalk({ coach: head, session, sessions, program, profile: prefs.profile, notes, heart, recovery, sleep, signal: ctl.signal })
+    requestWalk({ coach: head, session, sessions, program, profile: prefs.profile, notes, heart, recovery, sleep, nightBefore, signal: ctl.signal })
       .then((w) => { if (!alive.current || ctl.signal.aborted) return; setWalk(w); setIdx(0); setStatus("ready"); onSave(w); })
       .catch((e) => { if (alive.current && !ctl.signal.aborted) { setError(e.kind || "busy"); setStatus("error"); } });
   };

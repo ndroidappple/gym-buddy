@@ -30,7 +30,7 @@ async function getJSON(url, headers = {}) {
 }
 
 /* ── USDA FoodData Central ── */
-const NUTRIENT = { kcal: [1008, 2047, 2048], protein: [1003], carbs: [1005], fat: [1004] };
+const NUTRIENT = { kcal: [1008, 2047, 2048], protein: [1003], carbs: [1005], fat: [1004], alcohol: [1018] };
 export function fromUsda(f) {
   const val = (ids) => {
     for (const id of ids) {
@@ -57,7 +57,9 @@ export function fromUsda(f) {
   return {
     id: `usda:${f.fdcId}`, source: "usda", ref: String(f.fdcId),
     name: tidy(f.description), brand: clean(f.brandName || f.brandOwner) || null,
-    basis: { per100: { kcal: Math.round(kcal), protein: r1(val(NUTRIENT.protein) || 0), carbs: r1(val(NUTRIENT.carbs) || 0), fat: r1(val(NUTRIENT.fat) || 0) }, portions,
+    basis: { per100: { kcal: Math.round(kcal), protein: r1(val(NUTRIENT.protein) || 0), carbs: r1(val(NUTRIENT.carbs) || 0), fat: r1(val(NUTRIENT.fat) || 0),
+      // Alcohol (ethyl), where USDA lists it: the wellness view counts drinks from it.
+      ...(val(NUTRIENT.alcohol) > 0 ? { alcohol: r1(val(NUTRIENT.alcohol)) } : {}) }, portions,
       ...(f.gtinUpc ? { barcode: String(f.gtinUpc).replace(/\D/g, "") } : {}) },
   };
 }

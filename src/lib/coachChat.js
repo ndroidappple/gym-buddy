@@ -9,6 +9,7 @@ import { fmtSet, liftSeries, trend, num, fmtW, bestSet, bodyweightSeries, byDate
 import { outsideLine } from "./outside.js";
 import { heartLine } from "./heart.js";
 import { nightLine, recoveryLines } from "./recovery.js";
+import { wellnessLines } from "./wellness.js";
 
 const signed = (x, unit = "%") => `${x >= 0 ? "+" : ""}${x.toFixed(1)}${unit}`;
 
@@ -272,7 +273,7 @@ export function headContext(args) {
   }
 }
 
-function headLines({ sessions, program, weighins, profile, phase, n, entries = [], foodDays = {}, notes, day, recovery }, detail) {
+function headLines({ sessions, program, weighins, profile, phase, n, entries = [], foodDays = {}, notes, day, recovery, wellness = null }, detail) {
   const t = today();
   const ago = (d) => daysBetween(d, t);
   const lines = notes?.length ? notesLines(notes, "Your notes on the lifter") : ["Your notes on the lifter: none yet."];
@@ -283,6 +284,8 @@ function headLines({ sessions, program, weighins, profile, phase, n, entries = [
   // Sleep and recovery from their watch, each morning against their own usual (lib/recovery.js).
   const nights = recovery ? recoveryLines(recovery, t, 14) : [];
   if (nights.length) lines.push("Sleep and recovery, last 14 mornings (from their watch; a night is the one that ended that morning):", ...nights);
+  // Drinks and cannabis, when they track them (Settings → Wellness). Facts for the coach to weigh, not to lecture about.
+  if (wellness) lines.push(...wellnessLines({ entries: wellness.entries, wellness: wellness.log, days: HEAD_DAYS, to: t }));
 
   // Training, week by week and workout by workout.
   const recent = sessions.filter((s) => ago(s.date) >= 0 && ago(s.date) < HEAD_DAYS).sort(byDateAsc);

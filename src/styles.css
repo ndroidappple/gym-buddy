@@ -1109,6 +1109,24 @@ button.coach-card:active { transform: translateY(3px); box-shadow: 0 2px 0 var(-
 .cal-dots i { width: 6px; height: 6px; border-radius: 50%; background: var(--day); }
 .cal-day.is-picked .cal-dots i { box-shadow: 0 0 0 1.5px var(--bg); }
 .cal-none { text-align: center; padding: 8px 0; }
+.cal-title .cal-well { margin-top: 1px; text-align: center; text-wrap: balance; }
+.cal-layers { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; padding: 0 2px 10px; }
+.cal-layers .chip { gap: 5px; min-height: 32px; padding: 4px 11px; font-size: 13.5px; }
+.cal-layers .chip .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ink); }
+.cal-layers .chip[aria-pressed="true"] .dot { background: var(--bg); }
+.cal-grid.with-well .cal-day { height: 58px; justify-content: flex-start; padding-top: 3px; }
+.cal-marks { display: flex; gap: 3px; height: 13px; align-items: center; }
+.cal-mark { display: inline-flex; align-items: center; gap: 1px; font-size: 11px; font-weight: 800; line-height: 1; }
+.cal-mark.drinks, .cal-legend .drinks, .well-day-row.drinks .well-badge { color: var(--drink); }
+.cal-mark.weed, .cal-legend .weed, .well-day-row.weed .well-badge { color: var(--weed); }
+.cal-day.is-picked .cal-mark { color: var(--bg); }
+.cal-legend { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 14px; margin: 10px 0 0; font-size: 12.5px; font-weight: 600; color: var(--mute); }
+.cal-legend span { display: inline-flex; align-items: center; gap: 5px; }
+.cal-legend .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--mute); display: inline-block; }
+.well-day { display: flex; flex-direction: column; gap: 10px; padding: 12px 14px; }
+.well-day-row { display: flex; align-items: center; gap: 12px; }
+.well-day-row .name { display: flex; flex-direction: column; font-weight: 700; min-width: 0; }
+.well-badge { width: 36px; height: 36px; border-radius: 12px; display: grid; place-items: center; flex-shrink: 0; background: color-mix(in srgb, currentColor 14%, var(--surface)); }
 
 /* Empty states: a coach, a line about what will appear, and the way there. */
 .empty { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 22px 18px 18px; text-align: center; }
@@ -1154,7 +1172,8 @@ button.coach-card:active { transform: translateY(3px); box-shadow: 0 2px 0 var(-
 .meal .section-head { align-items: center; }
 .meal-kcal { font-weight: 600; }
 .meal-add { min-height: 34px; }
-.meal-copy { display: inline-flex; align-items: center; gap: 6px; align-self: flex-start; min-height: 40px; font-size: 13.5px; }
+.nut-trends-link { text-decoration: none; }
+.meal-copy, .nut-trends-link { display: inline-flex; align-items: center; gap: 6px; align-self: flex-start; min-height: 40px; font-size: 13.5px; }
 .food-row .name { font-weight: 700; }
 .food-kcal { font-weight: 800; font-variant-numeric: tabular-nums; }
 .nut-week { display: flex; flex-direction: column; gap: 6px; padding: 14px 12px 10px; }
@@ -1212,7 +1231,33 @@ button.coach-card:active { transform: translateY(3px); box-shadow: 0 2px 0 var(-
 .setup-option span { display: flex; flex-direction: column; line-height: 1.2; }
 .setup-option small { font-size: 12.5px; font-weight: 600; opacity: .75; }
 .nut-adjust { margin-top: 4px; }
-.food-line { margin-top: -4px; }
+/* Wellness: drinks and cannabis. Their own two hues, never good/bad colours. */
+:root { --drink: #B0478C; --weed: #3F8F4E; }
+:root[data-theme="dark"] { --drink: #E77BC1; --weed: #6CCB7C; }
+.well-line { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0 4px 0 14px; margin-top: -6px; font-size: 15px; color: var(--mute); font-weight: 600; }
+.well-status { color: var(--ink); }
+.well-open { padding: 0 10px; color: var(--ink); font-weight: 800; font-size: 15px; }
+.well-presets { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.well-preset { justify-content: flex-start; text-align: left; min-height: 52px; min-width: 0; gap: 8px; padding: 8px 12px; font-size: 15px; border-radius: 16px; white-space: normal; }
+.well-preset span { display: flex; flex-direction: column; line-height: 1.2; min-width: 0; }
+.well-preset small { font-size: 12.5px; font-weight: 600; color: var(--mute); }
+.well-drink { cursor: default; }
+.well-count { display: flex; align-items: center; justify-content: center; gap: 20px; font-size: 18px; }
+.well-count b { min-width: 96px; text-align: center; }
+.nut-split { font-size: 12.5px; color: var(--mute); font-weight: 600; margin-top: -2px; }
+.nut-split b { color: var(--ink); font-weight: 800; }
+.nut-split b.drinks { color: var(--drink); }
+.food-drink { color: var(--drink); vertical-align: -2px; margin-right: 5px; }
+
+/* Today's food card: the ring and the numbers open Nutrition; the button adds to the meal that fits the time. */
+.food-card { display: flex; align-items: center; gap: 10px; padding: 10px 10px 10px 12px; }
+.food-card-link { flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px; color: var(--ink); text-decoration: none; }
+.food-card-ring { width: 44px; height: 44px; flex-shrink: 0; }
+.food-card-ring circle { fill: none; stroke-width: 6; stroke-linecap: round; }
+.food-card-text { display: flex; flex-direction: column; min-width: 0; }
+.food-card-text b { font-weight: 800; }
+.food-card-text span { font-size: 13.5px; color: var(--mute); font-weight: 500; }
+.food-card-add { width: auto; min-height: var(--tap); font-size: 15px; padding: 0 14px; border-radius: 16px; gap: 4px; flex-shrink: 0; }
 
 /* Add with Tank */
 /* The head coach in Add food's results, offered with what's typed. Leading when it reads as a meal in
@@ -1639,7 +1684,7 @@ button.rest-open:active { opacity: 0.75; }
 .alert-banner { background: color-mix(in srgb, var(--accent) 14%, var(--surface)); border: 2px solid color-mix(in srgb, var(--accent) 45%, var(--rule)); }
 .alert-banner svg:first-child { color: var(--accent); }
 
-/* ═══════════════ PROGRESS → NUTRITION ═══════════════ */
+/* ═══════════════ NUTRITION → TRENDS ═══════════════ */
 .segctl.small button { min-height: 34px; font-size: 13.5px; }
 .nt-note { margin: -2px 4px 0; font-size: 13.5px; font-weight: 600; color: var(--faint); line-height: 1.4; }
 .nt-line { margin: 0 4px; font-size: 13.5px; font-weight: 500; line-height: 1.45; color: var(--mute); }
@@ -1755,3 +1800,4 @@ button.rest-open:active { opacity: 0.75; }
 .effort.effort-card { background: var(--surface); padding: 12px 14px 8px; }
 .effort.effort-card input { accent-color: var(--day, var(--accent)); }
 .outside-remove { align-self: center; display: inline-flex; align-items: center; gap: 6px; }
+.nowrap { white-space: nowrap; }

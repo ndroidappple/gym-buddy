@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { ChevronRight, Download, LogOut, Moon, Gauge, Smartphone, Share, SquarePlus, EllipsisVertical, Check, Sparkles, Scale, Vibrate, Bell, BellRing, Users, Utensils, Target, Bookmark, Trash2, Rows3, CalendarClock, History, BellOff, BellPlus, Info, Dumbbell, HeartPulse, Watch, RefreshCw, Unlink, Bot } from "lucide-react";
+import { ChevronRight, Download, LogOut, Moon, Gauge, Smartphone, Share, SquarePlus, EllipsisVertical, Check, Sparkles, Scale, Vibrate, Bell, BellRing, Users, Utensils, Target, Bookmark, Trash2, Rows3, CalendarClock, History, BellOff, BellPlus, Info, Dumbbell, HeartPulse, Watch, RefreshCw, Unlink, Bot, Wine } from "lucide-react";
 import { Sheet, InfoButton, ConfirmSheet } from "../components/ui.jsx";
 import { ICONS, iconSrc } from "../lib/icons.js";
 import { VIEWS, applyView } from "../lib/view.js";
@@ -136,6 +136,19 @@ export default function Settings({ program, sessions, prefs, setPref, go, notify
                 <ChevronRight size={18} aria-hidden="true" className="muted" />
               </a>
             )}
+          </div>
+        </section>
+
+        <section className="section">
+          <h2 className="lbl">Wellness</h2>
+          <div className="list">
+            {/* Off by default. Turning it off only hides it: drinks stay in the food log, cannabis days stay saved. */}
+            <Toggle help="wellness" Icon={Wine} label="Track drinks & cannabis"
+              sub={prefs.wellness?.on
+                ? `Shows on Today and the calendar, and ${who} takes it into account. Drinks are in your food log; cannabis days aren't sent to Google Health or AI assistants.`
+                : "Log drinks and cannabis days and see them next to your training."}
+              on={!!prefs.wellness?.on}
+              onChange={(v) => setPref("wellness", { ...prefs.wellness, on: v })} />
           </div>
         </section>
 

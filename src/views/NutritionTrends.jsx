@@ -2,9 +2,10 @@ import React, { useMemo, useState } from "react";
 import { href } from "../lib/router.js";
 import { shortDate, bodyweightSeries, iso } from "../lib/util.js";
 import { EmptyState, useScrub, ChartTip, Read } from "../components/ui.jsx";
+import { alcoholTrend } from "../lib/wellness.js";
 import { dailyRows, summarize, weekRows, patterns, outcome, topFoods, periodRange, targetsBackfilled, wrongSide, targetsOn, KCAL_BAND, PROTEIN_HIT } from "../lib/nutritionTrends.js";
 
-/* Progress → Nutrition: how what the lifter ate compares with their targets over a period, and whether
+/* Nutrition → Trends: how what the lifter ate compares with their targets over a period, and whether
    it's doing what the goal needs. In order of what matters: the period's averages against the targets,
    calories and protein day by day, the weight trend against the goal's pace (and the burn it implies),
    then where the eating differs, week by week, and the foods that bring the most calories. The rules
@@ -19,7 +20,7 @@ const fmt = (n) => (n == null ? "–" : Math.round(n).toLocaleString("en-US"));
 const signed = (n, unit = "") => `${n > 0 ? "+" : n < 0 ? "−" : "±"}${fmt(Math.abs(n))}${unit}`;
 const lbWeek = (r) => (r == null ? "–" : `${r > 0 ? "+" : r < 0 ? "−" : "±"}${Math.abs(r).toFixed(1)} lb`);
 
-export default function NutritionTrends({ food, prefs, sessions, weighins }) {
+export default function NutritionTrends({ food, prefs, sessions, weighins, well = null }) {
   const n = prefs.nutrition;
   const entries = food?.entries || [];
   const [days, setDays] = useState(() => { try { return +localStorage.getItem(RANGE_KEY) || 28; } catch { return 28; } });
@@ -35,9 +36,10 @@ export default function NutritionTrends({ food, prefs, sessions, weighins }) {
       from, to, rows, s, weeks: weekRows(rows), patterns: patterns(rows, sessions),
       out: outcome(days >= OUTCOME_DAYS ? rows : dailyRows(entries, n, periodRange(entries, OUTCOME_DAYS).from, to), bodyweightSeries(sessions, weighins), n),
       outcomeWider: days < OUTCOME_DAYS, top: topFoods(entries, rows),
+      alcohol: well ? alcoholTrend(entries, rows) : null,
       backfilled: targetsBackfilled(n, from), side: wrongSide(n, targetsOn(n, to)),
     };
-  }, [entries, n, days, sessions, weighins]);
+  }, [entries, n, days, sessions, weighins, well]);
 
   const picker = (
     <div className="segctl small" role="group" aria-label="Period">
@@ -109,6 +111,8 @@ export default function NutritionTrends({ food, prefs, sessions, weighins }) {
           label={`Protein each day against a goal of ${fmt(t?.protein)} grams`} />
         <p className="nt-key"><span><i className="watch" aria-hidden="true" />Under {Math.round(PROTEIN_HIT * 100)}% of goal</span></p>
       </section>
+
+      {data.alcohol && <Drinks a={data.alcohol} />}
 
       {data.patterns.length > 0 && (
         <section className="section">
@@ -229,5 +233,23 @@ function DayBars({ rows, value, goal, band, wrong, tip, label }) {
       </div>
       <div className="ends"><span style={{ flex: 1 }}>{shortDate(rows[0].date)}</span><span>{shortDate(rows[rows.length - 1].date)}</span></div>
     </div>
+  );
+}
+
+/** Food against alcohol (wellness on, and drinks in the period): how much of the eating is drinks, and
+    whether drinking days bring more food with them. Plain numbers; nothing is colored. */
+function Drinks({ a }) {
+  const diff = a.foodOnDrinkDays != null && a.foodOtherDays != null ? a.foodOnDrinkDays - a.foodOtherDays : null;
+  return (
+    <section className="section" aria-labelledby="nt-drinks">
+      <div className="section-head"><h2 className="lbl" id="nt-drinks">Drinks</h2><span className="lbl section-aside">{a.drinkDays} drinking day{a.drinkDays === 1 ? "" : "s"}</span></div>
+      <div className="stats">
+        <div className="stat"><b>{a.share ?? "–"}{a.share != null && "%"}</b><span>of calories from alcohol</span></div>
+        <div className="stat"><b>{a.perWeek}</b><span>drinks a week</span></div>
+        <div className="stat"><b>{diff == null ? "–" : signed(diff)}</b><span>kcal of food on drinking days</span>
+          {diff != null && <span className="stat-note">{fmt(a.foodOnDrinkDays)} vs {fmt(a.foodOtherDays)} other days</span>}</div>
+      </div>
+      <p className="nt-note">Alcohol is 7 kcal a gram with no protein. Food is everything else logged that day.</p>
+    </section>
   );
 }

@@ -272,7 +272,8 @@ export function InfoButton({ screen }) {
   const show = (e) => { e.stopPropagation(); close(); requestAnimationFrame(() => spotlight(target)); };
   const next = () => (last ? close() : setI(i + 1));
   const back = () => i > 0 && setI(i - 1);
-  // The whole card is the tap target, like stories: tap for next, swipe either way.
+  // The whole card is the tap target, like stories (and the week in review): the left 30% goes back,
+  // the rest goes on, and a swipe works either way. On the first card, with nothing behind it, any tap goes on.
   const onTouchStart = (e) => { swipe.current = { x: e.touches[0].clientX, moved: false }; };
   const onTouchEnd = (e) => {
     const dx = e.changedTouches[0].clientX - (swipe.current?.x ?? 0);
@@ -280,7 +281,11 @@ export function InfoButton({ screen }) {
     swipe.current.moved = true; // the click that follows a swipe isn't a tap
     dx < 0 ? next() : back();
   };
-  const onTap = () => { if (swipe.current?.moved) { swipe.current.moved = false; return; } next(); };
+  const onTap = (e) => {
+    if (swipe.current?.moved) { swipe.current.moved = false; return; }
+    const r = e.currentTarget.getBoundingClientRect();
+    if (i > 0 && e.clientX - r.left < r.width * 0.3) back(); else next();
+  };
   const { Icon } = step;
   return (
     <>
@@ -302,7 +307,7 @@ export function InfoButton({ screen }) {
           <div className="help-dots" aria-hidden="true">
             {steps.map((_, j) => <span key={j} className={j === i ? "on" : ""} />)}
           </div>
-          <p className="help-hint" aria-hidden="true">{last ? "Tap to finish" : "Tap anywhere for next"}</p>
+          <p className="help-hint" aria-hidden="true">{i === 0 ? "Tap anywhere for next" : last ? "Tap to finish, or left to go back" : "Tap for next, or left to go back"}</p>
           </div>
           <div className="btn-row help-nav">
             {i > 0 && <button type="button" className="btn btn-ghost help-back" onClick={back} aria-label="Back"><ChevronLeft size={20} strokeWidth={2.8} /></button>}

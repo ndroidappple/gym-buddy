@@ -52,7 +52,18 @@ PR, into what's here.
   databases, then a web search, and only estimated as a last resort, with each item marked by where
   its numbers came from.
 - **Barcode scanning** with the back camera, offline-first for anything you've had before.
-- **Bulk and cut phases** with a target pace, and trends of what you ate against your targets.
+- **On Today too.** A card under the workout shows calories left and protein to go, with one tap to log
+  the meal that fits the time of day.
+- **Bulk and cut phases** with a target pace, and trends of what you ate against your targets (Nutrition → Trends).
+
+**Wellness** (optional)
+
+- **Drinks and cannabis, next to the training.** Log either from one quiet line on Today (before noon
+  it starts on last night). Drinks are food log entries with their alcohol kept, so calories split
+  into food and alcohol on Nutrition and Trends shows drinks a week and the food that comes with them.
+  The workout calendar marks drinking days (with the count) and cannabis days, and the coaches and the
+  week in review take both into account. Off until it's turned on; cannabis days aren't sent to Google
+  Health or AI assistants.
 
 **Progress and recovery**
 

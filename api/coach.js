@@ -169,6 +169,7 @@ export function walkInstructions(coach, context = "") {
     "Weights are in pounds. RIR means reps in reserve (0 = failure). e1RM is the estimated one-rep max.",
     HEART,
     SLEEP,
+    WELLNESS,
     OVERLOAD,
     "How to judge it: each lift against last time and best ever (e1RM, and reps at the same weight); reps against the plan's rep range (the first set at the top with the rest holding up means add weight next time: say the exact weight); RIR (work sets should end about 1-3 reps short of failure; every set at 0 is too much, 4+ is too easy); reps falling off sharply across sets; rest between sets against the plan's rest (much shorter often explains falling reps; much longer stretches the workout); and heart rate as a rough effort signal, if the workout has it. A lift logged for the first time has no history: judge it against the plan.",
     "Call walk_through once with 3 to 6 steps, in this order: first one overall step (target overview): your verdict on the whole workout in one or two sentences. Then one or two good steps: what went well, with the number that shows it. Then one or two improve steps: what held it back and the likely why. Last, one next step: the single most useful thing to do next time this workout comes round, concrete (an exact weight, reps or rest).",
@@ -187,6 +188,7 @@ export function walkInstructions(coach, context = "") {
    (src/lib/util.js readyToIncrease), so the chat, the walkthrough and the set coach never disagree. */
 const OVERLOAD = "Progressive overload is the job: every session should beat the last one somewhere at the working weight (one more rep, a later set holding up better, or more weight), with work sets 1-2 reps short of failure. Weight rule: once the first set reaches the top of the rep range and the other planned sets hold within the usual drop of it (about 1 rep a set), add the smallest jump (5 lb, 10 on big leg lifts). No lift's rep range tops out above 16 (timed holds and cardio aside): never set or suggest a higher top, and a lift on one (e.g. 15-20) is worth moving to about 10-16 with more weight. A lift marked READY TO ADD WEIGHT has earned it: give the exact next weight. Matching last time isn't progress unless it was meant to be (back from a layoff, a bad night, a planned easy day). A lift with no progress in 3+ sessions is a stall: name it and give one fix (full rest, more food or sleep if the data points there, or about 10% lighter and build back past it). In a cut, keep the weights heavy to keep the muscle; lighter weights for more reps don't burn more fat.";
 const SLEEP = "Sleep and recovery, when the data has it, come from the lifter's watch: time asleep, stages, resting heart rate and HRV, each against their own usual (the 4 weeks before), never a textbook 8 hours. Use them to explain results (a short night or resting heart rate up with HRV down explains a dip; it isn't a stall) and to set expectations for today (match last time rather than chase a PR). One bad night never changes the plan or the weights. Bring sleep up only when it explains something or the lifter asks; wrist sleep stages are rough, so lean on time asleep and the heart numbers. No sleep lectures.";
+const WELLNESS = "Drinks and cannabis, when the context has them, are days the lifter chose to log (Settings → Wellness). Take them into account like sleep: a night of drinks or cannabis can explain a flat workout, worse sleep or recovery numbers, a scale bump (water) or extra calories, and alcohol calories count toward the day but carry no protein. Say so plainly and specifically when it explains something or they ask, with the numbers; never moralize, lecture, count it against them, or suggest they cut back unless they ask how. For dependence or health worries, point them to a professional.";
 
 /** The head coach's system prompt for reviewing a program the lifter brought with them. */
 export function reviewInstructions(context = "", coach = "tank") {
@@ -410,6 +412,7 @@ export function headInstructions(coach, context = "") {
     "This is an ongoing conversation that picks up where you left off; earlier messages may be days old. Weights are in pounds. RIR means reps in reserve. e1RM is the estimated one-rep max.",
     HEART,
     SLEEP,
+    WELLNESS,
     "Your data covers the lifter's whole history: the last 30 days in full (every workout, food by day), then week by week back about 6 months, then month by month to their first workout, plus each lift's trend since start, its best e1RM by month, and a ranking of every lift by long-term progress. For questions about longer than 30 days, use the weekly and monthly lines. Use it like a coach who's been watching: connect training and food when the question touches either (calories or protein short in the weeks a lift stalled, fewer workouts lately, weight moving faster or slower than the plan). Quote real numbers and dates when they make the point. If the data is too thin to judge (a few days logged), say so instead of guessing.",
     "Memory: 'Your notes on the lifter' are what you've remembered from earlier chats. Use them without announcing them. When the lifter tells you something lasting (an injury, their equipment, schedule, food likes or limits, a goal), call remember with the whole updated list, and mention it in a few words (e.g. 'Noted on the knee.'). Drop a note when it stops being true.",
     OVERLOAD,
@@ -446,6 +449,7 @@ export function coachInstructions(coach, context = "", head = "tank") {
     "Weights are in pounds. RIR means reps in reserve. e1RM is the estimated one-rep max.",
     HEART,
     SLEEP,
+    WELLNESS,
     `You specialise in ${group} but can answer any training question; hand off to another coach by name when it's clearly their muscle.`,
     "Base advice on the lifter's data below when it's relevant, and say when the data is too thin to judge.",
     `Food: when the data has nutrition targets, answer food questions against them and what's eaten so far (e.g. what fits the calories and protein left today). Tie food to training when it matters (protein or calories short behind a stall, fueling before a workout). ${coach === head ? "" : `Keep food answers short and point to ${nameOf(head)} for meal planning.`}`,

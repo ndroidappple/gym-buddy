@@ -1,6 +1,6 @@
 import {
   Play, Eye, Bell, ArrowLeftRight, Target, CalendarCheck, Scale, Trophy, TrendingUp, Flag, List, CalendarDays, Pencil,
-  Gauge, LineChart, Pin, Hash, History, Dumbbell, Plus, FileSpreadsheet, Users, MessageCircle, Sparkles, SlidersHorizontal, Download, ClipboardPaste, Utensils, PieChart, Copy, CopyPlus, CircleUser, Timer,
+  Gauge, LineChart, Pin, Hash, History, Dumbbell, Plus, FileSpreadsheet, Users, MessageCircle, Sparkles, SlidersHorizontal, Download, ClipboardPaste, Utensils, PieChart, Copy, CopyPlus, CircleUser, Timer, Wine,
 } from "lucide-react";
 
 /* What each screen is for, shown from the (i) in its header as a short tap-through: one feature per
@@ -18,6 +18,8 @@ export const HELP = {
       { name: "Change", Icon: ArrowLeftRight, spot: "change", text: "Train a different day or a custom workout instead." },
       { name: "Targets", Icon: Target, text: "Each lift aims one rep past last time. [↑] means add weight: set 1 hit the top of the range and the rest held up." },
       { name: "This week", Icon: CalendarCheck, spot: "week", text: "Dots mark the days you trained." },
+      { name: "Food today", Icon: Utensils, spot: "food", text: "With food tracking on: what's left today. The button adds to the meal that fits the time." },
+      { name: "Drinks or cannabis", Icon: Wine, spot: "wellness", text: "With wellness on: log either for today or last night. Before noon it starts on last night." },
       { name: "Weigh-in", Icon: Scale, spot: "weigh", text: "Once a week, for your bodyweight chart. [✕] skips to Sunday." },
       { name: "Week in review", Icon: Sparkles, spot: "review", text: "On your review day, your coaches look back at your week." },
     ],
@@ -36,7 +38,7 @@ export const HELP = {
     title: "Workouts",
     steps: [
       { name: "Workouts", Icon: List, spot: "workout", text: "Sets, total weight and PRs for every workout you've logged." },
-      { name: "Calendar", Icon: CalendarDays, spot: "calendar", text: "A month view. Tap a day to see it." },
+      { name: "Calendar", Icon: CalendarDays, spot: "calendar", text: "A month view. Tap a day to see it. With wellness on, it marks drinks (with the count) and cannabis too." },
       { name: "Edit", Icon: Pencil, spot: "edit", text: "Fix a mistake in a past workout." },
     ],
   },
@@ -52,8 +54,8 @@ export const HELP = {
       { name: "Your lifts", Icon: Dumbbell, spot: "lift", text: "Tap one for its chart and records." },
     ],
   },
-  progressNutrition: {
-    title: "Nutrition over time",
+  nutritionTrends: {
+    title: "Nutrition trends",
     steps: [
       { name: "Averages", Icon: PieChart, text: "What you ate a day against your targets. A day under 45% of your calorie target is probably only partly logged, so it's left out." },
       { name: "On goal", Icon: Target, text: "Calories within 10% of target count as on goal. Protein counts as hit at 90% of target or more." },
@@ -73,6 +75,7 @@ export const HELP = {
   nutrition: {
     title: "Nutrition",
     steps: [
+      { name: "Day", Icon: CalendarDays, spot: "views", text: "One day's food. [Trends] shows how your eating compares with your targets over weeks." },
       { name: "Calories left", Icon: PieChart, spot: "summary", text: "What's left of today's calories, and your protein, carbs and fat." },
       { name: "Add", Icon: Plus, spot: "meal", text: "Log food: describe it to your head coach, pick a recent food, search, or enter it manually." },
       { name: "One-tap add", Icon: Plus, text: "In Add, the [+] on one of your foods logs it at your usual amount. Tap the name to change it." },
@@ -80,7 +83,7 @@ export const HELP = {
       { name: "Copy", Icon: Copy, text: "An empty meal can copy yesterday's in one tap." },
       { name: "Hold", Icon: CopyPlus, text: "Hold a food to edit, duplicate, move or remove it." },
       { name: "Ask", Icon: MessageCircle, spot: "ask", text: "Ask your head coach what to eat, about your macros, or how your week's going. Same chats as on Today." },
-      { name: "This week", Icon: CalendarDays, spot: "week", text: "Each day against your target. The line is your calorie target." },
+      { name: "This week", Icon: CalendarDays, spot: "week", text: "Each day against your target. The line is your calorie target. [See trends] goes further back." },
     ],
   },
   settings: {
@@ -95,6 +98,7 @@ export const HELP = {
       { name: "Reps in reserve", Icon: Gauge, spot: "rir", text: "Rate how many more reps you had in you." },
       { name: "Rest timer", Icon: Timer, spot: "rest", text: "A chime, a buzz, and an alert on your lock screen when rest is over." },
       { name: "Track food & macros", Icon: Utensils, spot: "nutrition", text: "Adds a Nutrition tab with daily calorie and macro targets." },
+      { name: "Track drinks & cannabis", Icon: Wine, spot: "wellness", text: "Log them from Today and see them on the calendar. Your coaches take them into account." },
       { name: "Week in review", Icon: Sparkles, spot: "review", text: "Turn it on or off, pick its release day, and get a notification when it's ready." },
     ],
   },

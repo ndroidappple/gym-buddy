@@ -260,6 +260,130 @@ test("today: a workout from yesterday isn't 'done today'", async ({ page }) => {
   check("no recap card", !(await page.getByText("Done today").count()));
 }, account({ sessions: [workout("w1", "push", day(-1), { "Flat DB Press": [[60, 10]] })] }));
 
+test("today: the food card adds to the meal picked in the sheet", async ({ page, backend }) => {
+  const card = page.getByRole("region", { name: "Food today" });
+  await card.waitFor();
+  check("nothing logged yet, with the day's targets", await card.getByText("Nothing logged yet").isVisible() && await card.getByText("2,400 kcal and 180 g protein to go").isVisible());
+  // The button is the meal for the time of day; whichever it is, the sheet offers the others.
+  await card.getByRole("button", { name: /^Add food to / }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByRole("group", { name: "Meal" }).getByRole("button", { name: "Dinner" }).click();
+  await dialog.getByRole("heading", { name: "Add to Dinner" }).waitFor();
+  await dialog.getByRole("button", { name: "Add Banana Berry Smoothie" }).click();
+  await dialog.locator(".food-tray").getByText("1 added · 421 kcal").waitFor();
+  check("the meal can't change once something's in", !(await dialog.getByRole("group", { name: "Meal" }).count()));
+  await dialog.locator(".food-tray").getByRole("button", { name: "Done" }).click();
+  await dialog.waitFor({ state: "detached" });
+  await card.getByText("1,979 kcal left").waitFor();
+  check("protein to go updates", await card.getByText(/g protein to go$/).isVisible());
+  for (let i = 0; i < 20 && !backend.tables.food_entries.length; i++) await page.waitForTimeout(100);
+  check("saved to dinner today", backend.tables.food_entries.length === 1 && backend.tables.food_entries[0].meal === "dinner" && backend.tables.food_entries[0].date === day(0),
+    JSON.stringify(backend.tables.food_entries.map((e) => [e.name, e.meal, e.date])));
+  await card.getByRole("link").click();
+  await page.waitForURL(/#\/nutrition$/);
+});
+
+test("nutrition: trends live on Nutrition, and the old Progress link lands there", async ({ page }) => {
+  await page.goto(new URL("#/progress/nutrition", page.url()).href);
+  await page.waitForURL(/#\/nutrition\/trends$/);
+  check("Trends is picked", await page.getByRole("group", { name: "Nutrition view" }).getByRole("button", { name: "Trends" }).getAttribute("aria-pressed") === "true");
+  await page.getByRole("group", { name: "Nutrition view" }).getByRole("button", { name: "Day" }).click();
+  await page.waitForURL(/#\/nutrition$/);
+  await page.getByRole("link", { name: "See trends" }).click();
+  await page.waitForURL(/#\/nutrition\/trends$/);
+  await page.goto(new URL("#/progress", page.url()).href);
+  const views = page.getByRole("group", { name: "Progress view" });
+  await views.waitFor();
+  check("Progress is lifts only", (await views.getByRole("button").allTextContents()).map((t) => t.replace(/ ·.*/, "")).join(",") === "Trends,Workouts",
+    (await views.getByRole("button").allTextContents()).join(","));
+});
+
+test("help: a tap on the left goes back a card, anywhere else goes on", async ({ page }) => {
+  await page.getByRole("button", { name: "About Today" }).click();
+  const dialog = page.getByRole("dialog");
+  const tap = dialog.locator(".help-tap");
+  // click() waits for the sheet to finish sliding up before it measures.
+  const at = async (fx) => { const b = await tap.boundingBox(); await tap.click({ position: { x: b.width * fx, y: b.height * 0.8 } }); };
+  await at(0.1); // first card: nothing behind it, so on
+  await dialog.getByText("2 of", { exact: false }).waitFor();
+  await at(0.8);
+  await dialog.getByText("3 of", { exact: false }).waitFor();
+  await at(0.1);
+  await dialog.getByText("2 of", { exact: false }).waitFor();
+});
+
+/* ── Wellness: drinks and cannabis ── */
+const wellOn = { wellness: { on: true } };
+const savedState = (backend) => JSON.parse(backend.tables.storage_kv[0].value);
+
+test("wellness: drinks and cannabis logged on Today show on the calendar", async ({ page, backend }) => {
+  const line = page.locator(".well-line");
+  await line.getByText("Drinks or cannabis?").waitFor();
+  await line.getByRole("button", { name: "Log it" }).click();
+  const dialog = page.getByRole("dialog");
+  // Before noon it starts on last night; either way, log today.
+  await dialog.getByRole("group", { name: "Day" }).getByRole("button", { name: "Today" }).click();
+  await dialog.getByRole("button", { name: "Add a beer" }).click();
+  await dialog.getByRole("button", { name: "Add a beer" }).click();
+  await dialog.getByText("2 drinks · 196 kcal from alcohol").waitFor();
+  await dialog.getByRole("switch", { name: /Used cannabis/ }).click();
+  await dialog.getByRole("button", { name: "Done" }).click();
+  await dialog.waitFor({ state: "detached" });
+  await line.getByText("2 drinks · cannabis today").waitFor();
+
+  for (let i = 0; i < 30 && (backend.tables.food_entries.length < 2 || !savedState(backend).wellness?.[day(0)]); i++) await page.waitForTimeout(100);
+  const beers = backend.tables.food_entries;
+  check("two beers in the food log, each one drink", beers.length === 2 && beers.every((e) => e.name === "Beer" && e.date === day(0) && e.basis?.perServing?.alcohol === 14), JSON.stringify(beers.map((e) => [e.name, e.date, e.basis])));
+  check("cannabis saved on the account", savedState(backend).wellness?.[day(0)]?.cannabis === true, JSON.stringify(savedState(backend).wellness));
+
+  await page.goto(new URL("#/progress/workouts", page.url()).href);
+  await page.getByRole("button", { name: "Show as a calendar" }).click();
+  const cell = page.getByRole("button", { name: new RegExp(`no workout, 2 drinks · cannabis$`) });
+  await cell.click();
+  const detail = page.getByRole("region", { name: "Drinks and cannabis" });
+  await detail.getByText("2 drinks · 196 kcal from alcohol").waitFor();
+  check("cannabis in the day's detail", await detail.getByText("Cannabis", { exact: true }).isVisible());
+  check("the month counts them", await page.getByText("1 drinking day (2 drinks) · 1 cannabis day").isVisible());
+  await page.getByRole("group", { name: "Show on the calendar" }).getByRole("button", { name: "Drinks" }).click();
+  check("hiding drinks takes their marks off the grid", !(await page.locator(".cal-mark.drinks").count()));
+}, account({ sessions: [workout("w1", "push", day(-1), { "Flat DB Press": [[60, 10]] })], prefs: wellOn }));
+
+test("wellness: a drink from Tank splits the day's calories into food and alcohol", async ({ page }) => {
+  await page.goto(new URL("#/nutrition", page.url()).href);
+  const split = page.locator(".nut-split");
+  await split.waitFor();
+  // The beers' own carbs and protein (100 kcal) count as food; only the alcohol is split out.
+  check("food and alcohol, with the drinks", (await split.innerText()).replace(/\s+/g, " ") === "600 food · 196 alcohol (2 drinks)", await split.innerText());
+  check("the drink is marked in its meal", await page.getByRole("img", { name: "Drink" }).count() === 1);
+}, account({ prefs: wellOn, entries: [
+  entry("Chicken Bowl", "lunch", 0),
+  entry("Two Modelos", "dinner", 0, { kcal: 296, protein: 2, carbs: 25, fat: 0, basis: { perServing: { kcal: 296, protein: 2, carbs: 25, fat: 0, alcohol: 28 }, servingLabel: "meal" } }),
+] }));
+
+test("wellness: off, nothing shows", async ({ page }) => {
+  await page.getByRole("region", { name: "Food today" }).waitFor();
+  check("no line on Today", !(await page.locator(".well-line").count()));
+  await page.goto(new URL("#/nutrition", page.url()).href);
+  await page.getByText("Two Modelos").waitFor();
+  check("no split on Nutrition", !(await page.locator(".nut-split").count()));
+}, account({ entries: [entry("Two Modelos", "dinner", 0, { kcal: 296, protein: 2, carbs: 25, fat: 0, basis: { perServing: { kcal: 296, protein: 2, carbs: 25, fat: 0, alcohol: 28 }, servingLabel: "meal" } })] }));
+
+test("wellness: with food tracking off, drinks are a count", async ({ page, backend }) => {
+  await page.locator(".well-line").getByRole("button", { name: "Log it" }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByRole("group", { name: "Day" }).getByRole("button", { name: "Yesterday" }).click();
+  await dialog.getByRole("button", { name: "One more drink" }).click();
+  await dialog.getByRole("button", { name: "One more drink" }).click();
+  await dialog.getByRole("button", { name: "One more drink" }).click();
+  await dialog.getByRole("button", { name: "One fewer drink" }).click();
+  await dialog.locator(".well-count").getByText("2 drinks").waitFor();
+  await dialog.getByRole("button", { name: "Done" }).click();
+  await page.locator(".well-line").getByText("2 drinks yesterday").waitFor();
+  for (let i = 0; i < 30 && !savedState(backend).wellness?.[day(-1)]; i++) await page.waitForTimeout(100);
+  check("the count is saved on the account", savedState(backend).wellness?.[day(-1)]?.drinks === 2, JSON.stringify(savedState(backend).wellness));
+  check("nothing went to a food log", backend.tables.food_entries.length === 0);
+}, account({ prefs: { ...wellOn, nutrition: { on: false } } }));
+
 const run = tests.filter((t) => !only || t.name.includes(only));
 const app = await startApp();
 const browser = await launch();

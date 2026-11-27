@@ -4,8 +4,10 @@ import { reducedMotion } from "./motion.js";
 
 const TABS = ["today", "nutrition", "progress", "settings"];
 
-/** The History tab became Progress → Workouts: rewrite old links in place so the address matches. */
-const upgrade = () => { if (/^#\/?history\/?$/.test(location.hash)) history.replaceState(history.state, "", "#/progress/workouts"); };
+/** Old links, rewritten in place so the address matches: the History tab became Progress → Workouts,
+    and food trends moved from Progress → Nutrition to Nutrition → Trends. */
+const MOVED = [[/^#\/?history\/?$/, "#/progress/workouts"], [/^#\/?progress\/nutrition\/?$/, "#/nutrition/trends"]];
+const upgrade = () => { const m = MOVED.find(([re]) => re.test(location.hash)); if (m) history.replaceState(history.state, "", m[1]); };
 
 export function parse(hash) {
   const parts = hash.replace(/^#\/?/, "").split("/").filter(Boolean).map(decodeURIComponent);
@@ -22,8 +24,8 @@ export function parse(hash) {
       if (a === "export") return { name: "export" };
       if (a === "ai") return { name: "ai" }; // AI assistants: connecting Claude, ChatGPT or Muse
       return { name: "settings" };
-    case "progress": return { name, open: a };
-    case "nutrition": return { name, open: a }; // open: "setup" for Tank's targets chat
+    case "progress": return a === "nutrition" ? { name: "nutrition", open: "trends" } : { name, open: a };
+    case "nutrition": return { name, open: a }; // open: "trends" for the Trends view, "setup" for Tank's targets chat
     // The History tab is now Progress → Workouts; old links still land there.
     case "history": return { name: "progress", open: "workouts" };
     default: return TABS.includes(name) ? { name } : { name: "today" };
@@ -46,7 +48,7 @@ let counter = 0;
 const isTab = (r) => TABS.includes(r.name);
 const screenOf = (r) => {
   if (r.name === "review") return "today"; // the week in review opens over Today
-  if (r.name === "nutrition") return "nutrition"; // #/nutrition/setup is a sheet over it
+  if (r.name === "nutrition") return r.open === "trends" ? "nutrition/trends" : "nutrition"; // #/nutrition/setup is a sheet over Day
   if (r.name === "progress") return r.open === "workouts" ? "progress/workouts" : "progress"; // #/progress/phase is a sheet over Trends
   return [r.name, r.day, r.id, r.lift, r.coach].filter(Boolean).join("/");
 };

@@ -43,8 +43,9 @@ const usualPortion = (f, prior = {}) => {
    search box brings the keyboard. With a real keyboard, search is ready at once. */
 const touchScreen = () => typeof matchMedia === "function" && matchMedia("(pointer: coarse)").matches;
 
-/** `head`: the head coach, who itemizes a described meal. */
-export default function AddFood({ food, head = "tank", meal: meal0, date, targets = null, onClose, notify }) {
+/** `head`: the head coach, who itemizes a described meal. `pickMeal`: the meal was guessed from the time
+    of day (opened from Today), so it's shown as choices to change before anything is added. */
+export default function AddFood({ food, head = "tank", meal: meal0, date, targets = null, onClose, notify, pickMeal = false }) {
   const who = COACHES[head].name;
   const [view, setView] = useState({ step: "find" }); // find (with the coach inside) | portion {food} | scan | manual {barcode?}
   // Find stays mounted under the other steps, so Back returns to what was typed, the coach's answer and
@@ -115,6 +116,8 @@ export default function AddFood({ food, head = "tank", meal: meal0, date, target
       {view.step !== "find" && (
         <button type="button" className="btn-quiet food-back" onClick={() => setView({ step: "find" })}><ChevronLeft size={16} aria-hidden="true" /> Back</button>
       )}
+      {/* Once something's in, the meal stays put: what was added went to the one picked. */}
+      {pickMeal && view.step === "find" && !added.length && <MealChips meal={meal} onMeal={setMeal} />}
       <div ref={findRef} style={{ display: view.step === "find" ? "contents" : "none" }}>
         <Find food={food} entries={entries} head={head} meal={meal} date={date} action={`Add to ${mealLabel}`} onMeal={addMeal} onRepeat={addMany}
           onPick={(f, prior) => leaveFind({ step: "portion", food: f, prior })} onQuick={quick} onScan={() => leaveFind({ step: "scan" })} onManual={() => leaveFind({ step: "manual" })}
