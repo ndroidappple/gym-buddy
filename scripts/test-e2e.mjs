@@ -15,6 +15,7 @@ const check = (what, ok, detail = "") => { if (!ok) throw new Error(`${what}${de
 const apis = (seen) => ({
   "/api/food": (url) => { seen?.push(url.searchParams.get("q")); return { results: /smoothie/i.test(url.searchParams.get("q")) ? [SEARCH_RESULT] : [] }; },
   "/api/review": () => ({}), // no week in review written (the app says to try again later)
+  "/api/rest-alert": () => ({ publicKey: null }), // Settings asks for the push key; no lock screen alerts in tests
 });
 
 /** Nutrition, then Add on a meal: the add-food sheet, open. */
@@ -360,13 +361,36 @@ test("wellness: a drink from Tank splits the day's calories into food and alcoho
   entry("Two Modelos", "dinner", 0, { kcal: 296, protein: 2, carbs: 25, fat: 0, basis: { perServing: { kcal: 296, protein: 2, carbs: 25, fat: 0, alcohol: 28 }, servingLabel: "meal" } }),
 ] }));
 
-test("wellness: off, nothing shows", async ({ page }) => {
+test("wellness: off by default; only the Settings switch turns it on", async ({ page }) => {
+  // A new account: no wellness prefs at all, and a drink plus a cannabis day already in the data.
   await page.getByRole("region", { name: "Food today" }).waitFor();
   check("no line on Today", !(await page.locator(".well-line").count()));
   await page.goto(new URL("#/nutrition", page.url()).href);
   await page.getByText("Two Modelos").waitFor();
   check("no split on Nutrition", !(await page.locator(".nut-split").count()));
-}, account({ entries: [entry("Two Modelos", "dinner", 0, { kcal: 296, protein: 2, carbs: 25, fat: 0, basis: { perServing: { kcal: 296, protein: 2, carbs: 25, fat: 0, alcohol: 28 }, servingLabel: "meal" } })] }));
+  check("no drink marker", !(await page.getByRole("img", { name: "Drink" }).count()));
+  await page.getByRole("group", { name: "Nutrition view" }).getByRole("button", { name: "Trends" }).click();
+  await page.waitForURL(/#\/nutrition\/trends$/);
+  check("no Drinks section in Trends", !(await page.locator("#nt-drinks").count()));
+  await page.goto(new URL("#/progress/workouts", page.url()).href);
+  await page.getByRole("button", { name: "Show as a calendar" }).click();
+  await page.locator(".cal-grid").waitFor();
+  check("no layers, marks or legend on the calendar", !(await page.locator(".cal-layers, .cal-mark, .cal-legend, .cal-well").count()));
+
+  await page.goto(new URL("#/settings", page.url()).href);
+  const sw = page.getByRole("switch", { name: /Track drinks & cannabis/ });
+  check("the switch starts off", (await sw.getAttribute("aria-checked")) === "false");
+  await sw.click();
+  await page.goto(new URL("#/today", page.url()).href);
+  await page.locator(".well-line").getByText("2 drinks · cannabis today").waitFor();
+
+  await page.goto(new URL("#/settings", page.url()).href);
+  await page.getByRole("switch", { name: /Track drinks & cannabis/ }).click();
+  await page.goto(new URL("#/today", page.url()).href);
+  await page.getByRole("region", { name: "Food today" }).waitFor();
+  check("off again: the line is gone", !(await page.locator(".well-line").count()));
+}, account({ sessions: [workout("w1", "push", day(-1), { "Flat DB Press": [[60, 10]] })], wellness: { [day(0)]: { cannabis: true } },
+  entries: [entry("Two Modelos", "dinner", 0, { kcal: 296, protein: 2, carbs: 25, fat: 0, basis: { perServing: { kcal: 296, protein: 2, carbs: 25, fat: 0, alcohol: 28 }, servingLabel: "meal" } })] }));
 
 test("wellness: with food tracking off, drinks are a count", async ({ page, backend }) => {
   await page.locator(".well-line").getByRole("button", { name: "Log it" }).click();
