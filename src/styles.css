@@ -50,6 +50,11 @@
   --tap: 44px;
   --safe-b: env(safe-area-inset-bottom, 0px);
   --safe-t: env(safe-area-inset-top, 0px);
+  /* Where the floating bars sit. On a Face ID iPhone (34px home-indicator inset) the tab bar drops to
+     20px from the bottom and sides, so its 34px corners run concentric with the ~55pt screen corners
+     (34 + 20 ≈ 55) and it still clears the home indicator. Flat-bottomed screens keep 14/16px. */
+  --dock-b: max(14px, calc(var(--safe-b) - 14px));
+  --dock-x: max(16px, calc(var(--safe-b) - 14px));
 
   color-scheme: light;
 }
@@ -179,10 +184,10 @@ html[data-nav="back"]::view-transition-new(root) { animation: vt-fade-in var(--e
 ::view-transition-new(tabbar):only-child { animation: vt-rise var(--glide-ms) var(--glide) both; }
 @keyframes vt-drop { to { transform: translateY(calc(100% + 24px)); } }
 @keyframes vt-rise { from { transform: translateY(calc(100% + 24px)); } }
-.screen.has-tabs { padding-bottom: calc(132px + var(--safe-b)); }
+.screen.has-tabs { padding-bottom: calc(118px + var(--dock-b)); }
 /* The page fades out behind the floating tab bar, so content never meets it at a hard edge. */
-.screen.has-tabs::after { content: ""; position: fixed; left: 0; right: 0; bottom: 0; height: calc(140px + var(--safe-b)); z-index: 19; pointer-events: none;
-  background: linear-gradient(to top, var(--bg) calc(40px + var(--safe-b)), color-mix(in srgb, var(--bg) 0%, transparent)); }
+.screen.has-tabs::after { content: ""; position: fixed; left: 0; right: 0; bottom: 0; height: calc(126px + var(--dock-b)); z-index: 19; pointer-events: none;
+  background: linear-gradient(to top, var(--bg) calc(26px + var(--dock-b)), color-mix(in srgb, var(--bg) 0%, transparent)); }
 .body { padding: 0 16px 32px; display: flex; flex-direction: column; gap: 20px; flex: 1; }
 
 /* ═══════════════ TYPE ═══════════════ */
@@ -213,7 +218,7 @@ html[data-nav="back"]::view-transition-new(root) { animation: vt-fade-in var(--e
 .top-title[data-day]::before { content: ""; width: 12px; height: 12px; border-radius: 50%; background: var(--day); flex-shrink: 0; }
 .spacer { flex: 1; }
 
-.tabbar { position: fixed; bottom: calc(14px + var(--safe-b)); left: 16px; right: 16px; max-width: 528px; margin: 0 auto; z-index: 20; touch-action: none; -webkit-user-select: none; user-select: none; display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; padding: 7px; border-radius: 34px; background: var(--dock); box-shadow: inset 0 0 0 2px var(--dock-rule), 0 6px 0 var(--lip); }
+.tabbar { position: fixed; bottom: var(--dock-b); left: var(--dock-x); right: var(--dock-x); max-width: 528px; margin: 0 auto; z-index: 20; touch-action: none; -webkit-user-select: none; user-select: none; display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; padding: 7px; border-radius: 34px; background: var(--dock); box-shadow: inset 0 0 0 2px var(--dock-rule), 0 6px 0 var(--lip); }
 .tab { position: relative; z-index: 1; display: flex; align-items: center; justify-content: center; gap: 7px; min-width: 0; padding: 0 12px; min-height: 54px; font-size: 13.5px; white-space: nowrap; font-weight: 700; color: var(--dock-mute); text-decoration: none; border-radius: 27px; -webkit-touch-callout: none; transition: color 80ms; }
 .tab[aria-current="page"] { color: var(--on-dock-pill); }
 /* The pill slides between tabs with a little overshoot; while a finger drags it tracks the finger exactly.
@@ -510,7 +515,7 @@ a.hero-text { color: inherit; text-decoration: none; }
 
 /* The bottom dock (rest timer, or Finish once every set is in): slides up from the bottom edge when
    it arrives and back down when it goes. The rest timer's beam sits inside. */
-.dock { position: fixed; left: 12px; right: 12px; bottom: calc(14px + var(--safe-b)); max-width: 536px; margin: 0 auto; z-index: 30; animation: dock-in var(--glide-ms) var(--glide); }
+.dock { position: fixed; left: calc(var(--dock-x) - 4px); right: calc(var(--dock-x) - 4px); bottom: var(--dock-b); max-width: 536px; margin: 0 auto; z-index: 30; animation: dock-in var(--glide-ms) var(--glide); }
 .dock.late { animation-delay: 120ms; animation-fill-mode: both; }
 .dock.leaving, .alert-ask.leaving { animation: dock-out var(--exit-ms) var(--exit) forwards; pointer-events: none; }
 /* Typing (lib/keyboard.js): the rest timer and Finish step aside instead of riding up on the keyboard over the field. */
@@ -798,12 +803,12 @@ html[data-typing] :is(.dock, .alert-ask) { opacity: 0; visibility: hidden; trans
 
 /* A small pill only as wide as its words, centered over the tab bar: a note, not a banner.
    Tap or swipe it away (ui.jsx); Undo is plain text so it doesn't shout over the message. */
-.toast { position: fixed; left: 16px; right: 16px; bottom: calc(100px + var(--safe-b)); width: fit-content; max-width: min(528px, calc(100% - 32px)); margin: 0 auto; z-index: 60; background: var(--ink); color: var(--bg); padding: 2px 4px 2px 16px; border-radius: 22px; display: flex; align-items: center; gap: 4px; min-height: 44px; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.16); touch-action: none; user-select: none; -webkit-user-select: none; cursor: default; animation: rise var(--enter-ms) var(--enter); }
+.toast { position: fixed; left: 16px; right: 16px; bottom: calc(86px + var(--dock-b)); width: fit-content; max-width: min(528px, calc(100% - 32px)); margin: 0 auto; z-index: 60; background: var(--ink); color: var(--bg); padding: 2px 4px 2px 16px; border-radius: 22px; display: flex; align-items: center; gap: 4px; min-height: 44px; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.16); touch-action: none; user-select: none; -webkit-user-select: none; cursor: default; animation: rise var(--enter-ms) var(--enter); }
 .toast .msg { flex: 0 1 auto; font-weight: 600; font-size: 13.5px; line-height: 1.3; padding: 8px 12px 8px 0; }
 .toast button { flex: none; min-height: 40px; padding: 0 12px; border-radius: 0 18px 18px 0; font-weight: 800; font-size: 13.5px; color: var(--bg); border-left: 1px solid color-mix(in srgb, var(--bg) 22%, transparent); }
-.toast.raised { bottom: calc(96px + var(--safe-b)); }
-.sync-note { position: fixed; left: 16px; right: 16px; bottom: calc(18px + var(--safe-b)); max-width: 528px; margin: 0 auto; z-index: 30; padding: 8px 14px; border-radius: 999px; background: var(--surface); border: 2px solid var(--rule); font-size: 12.5px; font-weight: 700; color: var(--mute); text-align: center; pointer-events: none; animation: rise var(--enter-ms) var(--enter); }
-.sync-note.raised { bottom: calc(96px + var(--safe-b)); }
+.toast.raised { bottom: calc(82px + var(--dock-b)); }
+.sync-note { position: fixed; left: var(--dock-x); right: var(--dock-x); bottom: calc(4px + var(--dock-b)); max-width: 528px; margin: 0 auto; z-index: 30; padding: 8px 14px; border-radius: 999px; background: var(--surface); border: 2px solid var(--rule); font-size: 12.5px; font-weight: 700; color: var(--mute); text-align: center; pointer-events: none; animation: rise var(--enter-ms) var(--enter); }
+.sync-note.raised { bottom: calc(82px + var(--dock-b)); }
 
 /* ═══════════════ LOADING / AUTH ═══════════════ */
 .boot { min-height: 100dvh; display: grid; place-items: center; align-content: center; gap: 16px; }
@@ -1360,7 +1365,7 @@ button.rest-open:active { opacity: 0.75; }
 .rest-full-ctrls button:disabled { opacity: 0.4; }
 .rest-full-ctrls .primary { background: var(--ink); color: var(--bg); }
 .rest-full-ctrls button:active:not(:disabled) { transform: scale(0.96); }
-.alert-ask { position: fixed; left: 12px; right: 12px; bottom: calc(108px + var(--safe-b)); max-width: 536px; margin: 0 auto; z-index: 30; animation: rise var(--enter-ms) var(--enter);
+.alert-ask { position: fixed; left: calc(var(--dock-x) - 4px); right: calc(var(--dock-x) - 4px); bottom: calc(94px + var(--dock-b)); max-width: 536px; margin: 0 auto; z-index: 30; animation: rise var(--enter-ms) var(--enter);
   padding: 14px 14px 12px; border-radius: 24px; background: var(--surface); border: 2px solid var(--rule); box-shadow: 0 5px 0 var(--lip); color: var(--ink); }
 .alert-ask p { margin: 0; font-size: 15px; line-height: 1.35; }
 .alert-ask p b { display: block; font-size: 16px; margin-bottom: 2px; }
