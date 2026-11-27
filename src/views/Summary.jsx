@@ -16,6 +16,8 @@ import Walkthrough, { WalkNotes } from "../components/Walkthrough.jsx";
 import { freshWalk, showsHeart, changeDiff, undoDiff, recapLine } from "../lib/walkthrough.js";
 import { applyChanges } from "../lib/programChange.js";
 import { readiness, nightReads, hm } from "../lib/recovery.js";
+import { dayLine } from "../lib/wellness.js";
+import { addDays } from "../lib/nutrition.js";
 import { useTheme } from "../lib/theme.js";
 import { fmtSet, cardioTotals, priorSessions, allTimeBest, bestSet, bestE1rm, e1rm, fmtW, num, compact, longDate, plural, sessionVolume, sessionSetCount, byDateDesc, nextDayAfter, countRecords } from "../lib/util.js";
 
@@ -23,7 +25,7 @@ import { fmtSet, cardioTotals, priorSessions, allTimeBest, bestSet, bestE1rm, e1
  * A workout's summary. Straight after finishing it ("Session logged", Done goes on to Today), or, with
  * `past`, opened from Progress → Workouts: a back button, the date as the title, and back to the list.
  */
-export default function Summary({ session, sessions, program, prefs, go, back, onUpdate, past = false, coachChat, head = "tank", name, weighins, nutrition, onProgramChange, recovery }) {
+export default function Summary({ session, sessions, program, prefs, go, back, onUpdate, past = false, coachChat, head = "tank", name, weighins, nutrition, onProgramChange, recovery, well }) {
   const [note, setNote] = useState(session.note || "");
   const [asking, setAsking] = useState(false);
   // The coach's walkthrough: running, the step on screen (the heart rate chart follows it), and the
@@ -207,7 +209,7 @@ export default function Summary({ session, sessions, program, prefs, go, back, o
       </div>
       {walking && (
         <Walkthrough session={session} sessions={sessions} program={program} prefs={prefs} head={head} notes={coachChat?.thread?.notes} heart={heart} day={session.day}
-          recovery={recovery} sleep={!!night}
+          recovery={recovery} sleep={!!night} nightBefore={well ? dayLine(well.days[addDays(session.date, -1)]) : null}
           plan={plan} onSave={saveWalk} onStep={setWalkStep} onClose={() => setWalking(false)} onAsk={() => { setWalking(false); setAsking(true); }} />
       )}
       {asking && (

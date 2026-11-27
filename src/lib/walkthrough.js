@@ -178,7 +178,8 @@ export const freshWalk = (session) => {
 };
 
 /** What the coach reads: the workout in full, the plan for that day, earlier heart rate, the places. */
-export function walkContext({ session, sessions, program, profile, notes, places, recovery = null }) {
+/** `nightBefore`: with wellness on, what was logged the day before ("3 drinks · cannabis", or "" for nothing). */
+export function walkContext({ session, sessions, program, profile, notes, places, recovery = null, nightBefore = null }) {
   const { walk: _w, ...s } = session;
   const lines = workoutFocus(s, sessions, program, recovery).split("\n").slice(1); // not the chat's opening line
   const plan = program[s.day];
@@ -186,6 +187,7 @@ export function walkContext({ session, sessions, program, profile, notes, places
     lines.push(`Plan for ${plan.name} (day key ${s.day}; sets x rep range, rest between sets): ${plan.exercises.map((e) => `${e.n} ${e.sets}x${e.reps[0]}-${e.reps[1]}${isCardio(e.n) ? " min" : ""}, ${e.rest}s${e.next ? `, already set to start at ${e.next.w} lb next time` : ""}`).join("; ")}.`);
   }
   if (profile?.doneAt) lines.push(goalsLine(profile));
+  if (nightBefore != null) lines.push(`Drinks and cannabis the day before this workout (they track both): ${nightBefore || "none logged"}.`);
   if (notes?.length) lines.push("Your notes on the lifter:", ...notes.map((n) => `- ${n}`));
   if (heartLine(s)) {
     const earlier = priorSessions(sessions, s).filter((p) => p.hr && !p.hr.none).sort(byDateDesc).slice(0, 5);
@@ -199,9 +201,9 @@ export function walkContext({ session, sessions, program, profile, notes, places
  * Asks the head coach for the walkthrough. Resolves to the walk to keep on the workout:
  * { v, basis, coach, at, heart, steps }. Throws like askCoach (kind "empty" when nothing usable came back).
  */
-export async function requestWalk({ coach = "tank", session, sessions, program, profile, notes, heart, recovery = null, sleep = false, signal }) {
+export async function requestWalk({ coach = "tank", session, sessions, program, profile, notes, heart, recovery = null, sleep = false, nightBefore = null, signal }) {
   const places = walkPlaces(session, { heart, sleep });
-  const context = walkContext({ session, sessions, program, profile, notes, places, recovery: sleep ? recovery : null });
+  const context = walkContext({ session, sessions, program, profile, notes, places, recovery: sleep ? recovery : null, nightBefore });
   const ask = () => askCoach({
     coach, mode: "walk", signal, onText: () => {},
     messages: [{ role: "user", content: "Walk me through this workout: what went well and what to improve." }],

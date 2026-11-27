@@ -12,12 +12,13 @@ import { nextCoachToMeet } from "../lib/setup.js";
 import { weighInEvery, phaseStatus, statusLine, PHASE_TYPES } from "../lib/phase.js";
 import Coach from "../components/Coach.jsx";
 import AddFood from "../components/AddFood.jsx";
+import { WellnessLine } from "../components/WellnessSheet.jsx";
 import { MEALS, mealForNow } from "../lib/nutrition.js";
 import { ReviewChip } from "../components/WeekReviewIntro.jsx";
 import { collapse } from "../lib/motion.js";
 import { byDateDesc, bestSet, fmtW, num, shortDate, weekDates, today, nextDayAfter, bodyweightSeries, daysBetween, plural, readyToIncrease, nextGoal, fmtGoal, sessionSetCount, countRecords } from "../lib/util.js";
 
-export default function Today({ name, sessions, program, drafts, weighins, prefs, go, onWeighin, foodToday, food, notify, review, head, recovery, outside = [], outsideOps }) {
+export default function Today({ name, sessions, program, drafts, weighins, prefs, go, onWeighin, foodToday, food, notify, well, review, head, recovery, outside = [], outsideOps }) {
   const sorted = useMemo(() => [...sessions].sort(byDateDesc), [sessions]);
   const draftDay = [...activeDays(program), CUSTOM].find((d) => drafts[d]);
   const t = today();
@@ -167,6 +168,8 @@ export default function Today({ name, sessions, program, drafts, weighins, prefs
 
         {/* Food tracking on: where the day stands, and the meal that fits the time one tap away. The full log is on Nutrition. */}
         {foodToday && food && <FoodCard day={foodToday} food={food} head={head} notify={notify} />}
+        {/* Wellness on: one quiet line that asks, and says what's logged once there's something. */}
+        {well && <WellnessLine well={well} />}
 
         {choosing && (
           <Sheet title="Train something else" sub={draftDay ? `Your ${program[draftDay].name} workout in progress stays saved. Tap it to pick back up.` : "Swap today's workout. Your rotation picks back up after you log it."} onClose={() => setChoosing(false)} labelledBy="swap-title">

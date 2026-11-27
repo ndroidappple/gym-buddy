@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { ChevronLeft, ChevronRight, Plus, Copy, CopyPlus, MessageCircle, Pencil, Trash2, TrendingUp } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Copy, CopyPlus, MessageCircle, Pencil, Trash2, TrendingUp, Wine } from "lucide-react";
+import { alcoholOf, drinksLabel } from "../lib/wellness.js";
 import Coach from "../components/Coach.jsx";
 import CoachChat from "../components/CoachChat.jsx";
 import { COACHES } from "../data/coaches.js";
@@ -19,7 +20,7 @@ import NutritionTrends from "./NutritionTrends.jsx";
 
 const fmt = (n) => Math.round(n).toLocaleString();
 
-export default function Nutrition({ food, prefs, notify, sessions, weighins, program, name, head, coachChat, nutrition, onProgramChange, go, open }) {
+export default function Nutrition({ food, prefs, notify, sessions, weighins, program, name, head, coachChat, nutrition, onProgramChange, go, open, well = null }) {
   const trends = open === "trends";
   const show = (v) => go(v === "trends" ? href("nutrition", "trends") : href("nutrition"), { replace: true });
   const [asking, setAsking] = useState(false);
@@ -101,14 +102,14 @@ export default function Nutrition({ food, prefs, notify, sessions, weighins, pro
           <button aria-pressed={!trends} onClick={() => show("day")}>Day</button>
           <button aria-pressed={trends} onClick={() => show("trends")}>Trends</button>
         </div>
-        {trends ? <NutritionTrends food={food} prefs={prefs} sessions={sessions} weighins={weighins} /> : <>
+        {trends ? <NutritionTrends food={food} prefs={prefs} sessions={sessions} weighins={weighins} well={well} /> : <>
         <div className="day-switch" data-help="day">
           <button className="icon-btn" onClick={() => setDate(addDays(date, -1))} aria-label="Previous day"><ChevronLeft size={20} /></button>
           <b>{isToday ? "Today" : date === addDays(today(), -1) ? "Yesterday" : longDate(date)}</b>
           <button className="icon-btn" onClick={() => setDate(addDays(date, 1))} disabled={isToday} aria-label="Next day"><ChevronRight size={20} /></button>
         </div>
 
-        <Summary sum={sum} t={t} />
+        <Summary sum={sum} t={t} alcohol={well ? well.days[date] : null} />
 
         {/* The head coach answers food questions here, in the same conversation as the Coaches screen. */}
         <div className="ex-coach nut-ask" style={{ "--c": COACHES[head].color }} data-help="ask">
@@ -135,7 +136,7 @@ export default function Nutrition({ food, prefs, notify, sessions, weighins, pro
                 <div className="list">
                   {list.map((e) => (
                     <FoodRow key={e.id} onOpen={() => setEditing(e.id)} onHold={() => setOptions(e.id)}>
-                      <span className="name">{e.name}<span className="sub detail">{[e.brand, e.source === "quick" ? null : amountLabel(e), `P ${Math.round(e.protein)} · C ${Math.round(e.carbs)} · F ${Math.round(e.fat)}`].filter(Boolean).join(" · ")}</span></span>
+                      <span className="name">{well && alcoholOf(e) > 0 && <Wine size={14} strokeWidth={2.6} className="food-drink" role="img" aria-label="Drink" />}{e.name}<span className="sub detail">{[e.brand, e.source === "quick" ? null : amountLabel(e), `P ${Math.round(e.protein)} · C ${Math.round(e.carbs)} · F ${Math.round(e.fat)}`].filter(Boolean).join(" · ")}</span></span>
                       <span className="food-kcal">{fmt(e.kcal)}</span>
                     </FoodRow>
                   ))}
@@ -224,7 +225,7 @@ function FoodRow({ onOpen, onHold, children }) {
 }
 
 /** Calories left (or over) inside a ring, and beside it a bar per macro against its target. */
-function Summary({ sum, t }) {
+function Summary({ sum, t, alcohol = null }) {
   const left = t.kcal - sum.kcal;
   const pct = Math.min(1, sum.kcal / t.kcal);
   const R = 42, C = 2 * Math.PI * R;
@@ -253,6 +254,8 @@ function Summary({ sum, t }) {
       </div>
       <div className="macros">
         <span className="nut-eaten">{fmt(sum.kcal)} eaten of {fmt(t.kcal)}</span>
+        {/* Wellness on and drinks today: the calories split into food and alcohol. */}
+        {alcohol?.alcoholKcal > 0 && <span className="nut-split"><b>{fmt(sum.kcal - alcohol.alcoholKcal)}</b> food · <b className="drinks">{fmt(alcohol.alcoholKcal)}</b> alcohol ({drinksLabel(alcohol.drinks)})</span>}
         {macro("protein", "Protein")}{macro("carbs", "Carbs")}{macro("fat", "Fat")}
       </div>
     </section>

@@ -1,7 +1,8 @@
 import { activeDays, baseOf, isWarmup } from "../data/program.js";
 import { COACHES, COACH_ORDER, coachFor, headCoach } from "../data/coaches.js";
 import { GOALS as TRAIN_GOALS } from "./setup.js";
-import { GOALS as FOOD_GOALS, MEALS, addDays, totals, isAlcoholic } from "./nutrition.js";
+import { GOALS as FOOD_GOALS, MEALS, addDays, totals } from "./nutrition.js";
+import { alcoholOf, wellnessDays, sumDays } from "./wellness.js";
 import { PHASE_TYPES, phaseStatus } from "./phase.js";
 import { weekSleep, sleepPattern, hm } from "./recovery.js";
 import { lifting, volume, bestE1rm, bestSet, cardioTotals, liftSeries, trend, bodyweightSeries, readyToIncrease, byDateAsc, fmtW, num, plural, iso, longTrend } from "./util.js";
@@ -138,7 +139,7 @@ function slope(points) {
  * `food` is the food log (entries) when nutrition tracking is on, covering at least 8 weeks back;
  * `tz` is the lifter's time zone (the server runs in UTC).
  */
-export function buildWeekFacts({ sessions = [], program, weighins = [], prefs = {}, food = null, weekEnd, tz, recovery = null }) {
+export function buildWeekFacts({ sessions = [], program, weighins = [], prefs = {}, food = null, weekEnd, tz, recovery = null, wellness = null }) {
   const w = weekWindow(weekEnd);
   const back = (k) => weekWindow(addDays(weekEnd, -7 * k));
   const dates = Array.from({ length: 7 }, (_, i) => addDays(w.start, i));
@@ -265,7 +266,7 @@ export function buildWeekFacts({ sessions = [], program, weighins = [], prefs = 
     }
     const foodList = Object.values(foods).map((f) => ({ ...f, kcal: Math.round(f.kcal), protein: Math.round(f.protein) }));
     const sum = totals(es);
-    const drinks = es.filter((e) => isAlcoholic(e.name));
+    const drinks = es.filter((e) => alcoholOf(e) > 0);
     const avgKcal = mean(full, "kcal");
     nutrition = {
       targets: { kcal: t.kcal, protein: t.protein, carbs: t.carbs, fat: t.fat, burn: t.burn ?? null },
@@ -315,13 +316,27 @@ export function buildWeekFacts({ sessions = [], program, weighins = [], prefs = 
   const sleepWeek = prefs.googleHealth?.on && recovery ? weekSleep(recovery, w.start, w.end) : null;
   const sleep = sleepWeek && { ...sleepWeek, pattern: sleepPattern(sorted, recovery) };
 
+  /* ── Drinks and cannabis (Settings → Wellness, while on): the week's days and totals, and last
+     week's to compare. Drinks come from the food log, or the day's count with food tracking off. ── */
+  let well = null;
+  if (prefs.wellness?.on && wellness) {
+    const entries = prefs.nutrition?.on ? (food || []) : null;
+    const cur = wellnessDays({ entries, wellness, from: w.start, to: w.end });
+    const prev = wellnessDays({ entries, wellness, from: back(1).start, to: back(1).end });
+    well = {
+      ...sumDays(cur),
+      days: Object.keys(cur).sort().map((d) => ({ date: d, drinks: cur[d].drinks, alcoholKcal: cur[d].alcoholKcal, cannabis: cur[d].cannabis })),
+      lastWeek: sumDays(prev),
+    };
+  }
+
   const goals = {
     training: (prefs.profile?.goals || []).map((g) => TRAIN_GOALS.find((x) => x.id === g)?.label).filter(Boolean),
     days: target, note: prefs.profile?.note ? String(prefs.profile.note).slice(0, 200) : null,
   };
   const facts = {
     // The head coach leads the review and speaks for training days, food and the scale.
-    v: 1, weekEnd, start: w.start, dates, history, goals, training, nutrition, body, sleep, weeks, head: headCoach(prefs),
+    v: 1, weekEnd, start: w.start, dates, history, goals, training, nutrition, body, sleep, wellness: well, weeks, head: headCoach(prefs),
     notes: cur.sessions.filter((s) => s.note).map((s) => ({ date: s.date, note: String(s.note).slice(0, 200) })),
     fingerprint: fingerprint({ sessions: sorted, weighins: weighs, food: foodUpTo }, weekEnd),
   };

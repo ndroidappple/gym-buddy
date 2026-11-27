@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { EmptyState } from "../components/ui.jsx";
-import { Pencil, ChevronLeft, ChevronRight } from "lucide-react";
+import { Pencil, ChevronLeft, ChevronRight, Wine, Cannabis } from "lucide-react";
+import { sumDays, dayLine, drinksLabel, alcoholOf, drinksFor } from "../lib/wellness.js";
 import { allDays, CUSTOM } from "../data/program.js";
 import { href } from "../lib/router.js";
 import { outsideStats, effortWord } from "../lib/outside.js";
@@ -8,7 +9,7 @@ import { fmtSet, bestSet, byDateDesc, longDate, compact, sessionVolume, sessionS
 
 /** Progress → Workouts: every logged workout as a list or a month calendar, filterable by day.
     The list/calendar switch lives in the Progress header (`calendar`). */
-export default function Workouts({ sessions, program, calendar, heart = false }) {
+export default function Workouts({ sessions, program, calendar, heart = false, well = null }) {
   const [filter, setFilter] = useState(null);
   const sorted = useMemo(() => [...sessions].sort(byDateDesc), [sessions]);
   const shown = filter ? sorted.filter((s) => s.day === filter) : sorted;
@@ -48,7 +49,7 @@ export default function Workouts({ sessions, program, calendar, heart = false })
       </div>
 
       {calendar
-        ? <MonthCalendar sessions={shown} program={program} prs={prs} heart={heart} />
+        ? <MonthCalendar sessions={shown} program={program} prs={prs} heart={heart} well={well} />
         : (
           <>
             {shown.length === 0 && <p className="muted">No {filter ? program[filter].name : ""} sessions logged yet.</p>}
@@ -61,8 +62,15 @@ export default function Workouts({ sessions, program, calendar, heart = false })
 }
 
 /* A month grid (Sunday first, like Today's week) with a dot per workout in that day's colour.
-   Tapping a day shows its workouts below, as the same cards the list uses. */
-function MonthCalendar({ sessions, program, prs, heart }) {
+   Tapping a day shows its workouts below, as the same cards the list uses. With wellness on, a row
+   under the dots marks drinks (with the count) and cannabis; chips above the grid hide any layer. */
+const LAYERS_KEY = "ironlog-cal-layers";
+const readLayers = () => { try { return { workouts: true, drinks: true, cannabis: true, ...JSON.parse(localStorage.getItem(LAYERS_KEY)) }; } catch { return { workouts: true, drinks: true, cannabis: true }; } };
+function MonthCalendar({ sessions, program, prs, heart, well }) {
+  const [layers, setLayers] = useState(readLayers);
+  const flip = (k) => { const next = { ...layers, [k]: !layers[k] }; setLayers(next); try { localStorage.setItem(LAYERS_KEY, JSON.stringify(next)); } catch {} };
+  const wd = well?.days || {};
+  const show = { workouts: !well || layers.workouts, drinks: !!well && layers.drinks, cannabis: !!well && layers.cannabis };
   const byDate = useMemo(() => {
     const m = {};
     sessions.forEach((s) => { (m[s.date] ||= []).push(s); });
@@ -80,6 +88,7 @@ function MonthCalendar({ sessions, program, prs, heart }) {
   const shift = (n) => { const d = new Date(y, m - 1 + n, 1, 12); setMonth(iso(d).slice(0, 7)); };
   const t = today();
   const count = cells.filter((d) => d && byDate[d]).length;
+  const monthWell = well ? sumDays(Object.fromEntries(cells.filter((d) => d && wd[d]).map((d) => [d, wd[d]]))) : null;
   const weekdays = Array.from({ length: 7 }, (_, i) => new Date(2023, 11, 31 + i).toLocaleDateString(undefined, { weekday: "narrow" }));
 
   return (
@@ -90,32 +99,76 @@ function MonthCalendar({ sessions, program, prs, heart }) {
           <div className="cal-title">
             <b>{first.toLocaleDateString(undefined, { month: "long", year: "numeric" })}</b>
             <span>{plural(count, "workout day")}</span>
+            {monthWell && <span className="cal-well">{plural(monthWell.drinkDays, "drinking day")}{monthWell.drinks ? <> <span className="nowrap">({drinksLabel(monthWell.drinks)})</span></> : ""} ·{" "}<span className="nowrap">{plural(monthWell.cannabisDays, "cannabis day")}</span></span>}
           </div>
           <button className="icon-btn" onClick={() => shift(1)} aria-label="Next month" disabled={month >= t.slice(0, 7)}><ChevronRight size={20} /></button>
         </div>
-        <div className="cal-grid" role="grid">
+        {well && (
+          <div className="cal-layers" role="group" aria-label="Show on the calendar">
+            <button type="button" className="chip" aria-pressed={layers.workouts} onClick={() => flip("workouts")}><span className="dot" aria-hidden="true" />Workouts</button>
+            <button type="button" className="chip cal-chip-drinks" aria-pressed={layers.drinks} onClick={() => flip("drinks")}><Wine size={14} strokeWidth={2.6} aria-hidden="true" />Drinks</button>
+            <button type="button" className="chip cal-chip-weed" aria-pressed={layers.cannabis} onClick={() => flip("cannabis")}><Cannabis size={14} strokeWidth={2.6} aria-hidden="true" />Cannabis</button>
+          </div>
+        )}
+        <div className={"cal-grid" + (well ? " with-well" : "")} role="grid">
           {weekdays.map((w, i) => <span key={i} className="cal-wd" aria-hidden="true">{w}</span>)}
           {cells.map((d, i) => {
             if (!d) return <span key={`b${i}`} />;
             const day = byDate[d] || [];
-            const label = `${longDate(d)}${day.length ? `: ${day.map((s) => program[s.day].name).join(", ")}` : ", no workout"}`;
+            const w = wd[d];
+            const label = `${longDate(d)}${day.length ? `: ${day.map((s) => program[s.day].name).join(", ")}` : ", no workout"}${w ? `, ${dayLine(w)}` : ""}`;
             return (
               <button key={d} type="button" className={"cal-day" + (d === t ? " is-today" : "") + (d === picked ? " is-picked" : "") + (day.length ? " has" : "")}
                 aria-label={label} aria-pressed={d === picked} disabled={d > t} onClick={() => setPicked(d)}>
                 <span className="cal-num">{Number(d.slice(8))}</span>
                 <span className="cal-dots" aria-hidden="true">
-                  {day.slice(0, 3).map((s) => <i key={s.id} data-day={s.day} />)}
+                  {show.workouts && day.slice(0, 3).map((s) => <i key={s.id} data-day={s.day} />)}
                 </span>
+                {well && (
+                  <span className="cal-marks" aria-hidden="true">
+                    {show.drinks && w?.drinks > 0 && <span className="cal-mark drinks"><Wine size={11} strokeWidth={2.8} />{w.drinks}</span>}
+                    {show.cannabis && w?.cannabis && <span className="cal-mark weed"><Cannabis size={11} strokeWidth={2.8} /></span>}
+                  </span>
+                )}
               </button>
             );
           })}
         </div>
+        {well && (
+          <p className="cal-legend" aria-hidden="true">
+            <span><i className="dot" />Workout</span>
+            <span className="drinks"><Wine size={13} strokeWidth={2.6} />Drinks, with count</span>
+            <span className="weed"><Cannabis size={13} strokeWidth={2.6} />Cannabis</span>
+          </p>
+        )}
       </section>
 
+      {well && wd[picked] && <WellDay day={wd[picked]} foodOn={well.foodOn} />}
       {(byDate[picked] || []).length
         ? byDate[picked].map((s) => <HistCard key={s.id} s={s} program={program} prs={prs} heart={heart} />)
         : <p className="muted cal-none">No workout logged on {longDate(picked)}.</p>}
     </>
+  );
+}
+
+/** The picked day's drinks and cannabis, under the calendar. */
+function WellDay({ day, foodOn }) {
+  return (
+    <section className="card well-day" aria-label="Drinks and cannabis">
+      {day.drinks > 0 && (
+        <div className="well-day-row drinks">
+          <span className="well-badge" aria-hidden="true"><Wine size={18} strokeWidth={2.4} /></span>
+          <span className="name">{drinksLabel(day.drinks)}{foodOn && <> · {day.alcoholKcal.toLocaleString()} kcal from alcohol</>}
+            {day.items.length > 0 && <span className="sub detail">{day.items.map((e) => `${e.name}${drinksFor(alcoholOf(e)) > 1 ? ` (${drinksLabel(drinksFor(alcoholOf(e)))})` : ""}`).join(", ")}</span>}</span>
+        </div>
+      )}
+      {day.cannabis && (
+        <div className="well-day-row weed">
+          <span className="well-badge" aria-hidden="true"><Cannabis size={18} strokeWidth={2.4} /></span>
+          <span className="name">Cannabis</span>
+        </div>
+      )}
+    </section>
   );
 }
 

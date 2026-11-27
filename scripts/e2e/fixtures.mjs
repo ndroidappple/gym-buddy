@@ -44,10 +44,10 @@ export const entry = (name, meal, days, extra = {}) => {
     source: "ai", source_ref: null, basis: null, created_at: `${date}T18:00:0${entryN % 10}Z`, updated_at: `${date}T18:00:00Z`, ...extra };
 };
 
-/** The account; `sessions` are its logged workouts and `entries` its food log (none by default). */
-export const account = ({ sessions = [], entries = [], prefs = {} } = {}) => ({
+/** The account; `sessions` are its logged workouts, `entries` its food log and `wellness` its cannabis days (none by default). */
+export const account = ({ sessions = [], entries = [], prefs = {}, wellness = undefined } = {}) => ({
   tables: {
-    storage_kv: [{ user_id: USER.id, key: "ironlog-v2", value: JSON.stringify({ ...record, sessions, prefs: { ...record.prefs, ...prefs } }), updated_at: "2026-10-01T15:00:00Z" }],
+    storage_kv: [{ user_id: USER.id, key: "ironlog-v2", value: JSON.stringify({ ...record, sessions, prefs: { ...record.prefs, ...prefs }, ...(wellness ? { wellness } : {}) }), updated_at: "2026-10-01T15:00:00Z" }],
     foods: FOODS.map((f) => ({ ...f, user_id: USER.id })),
     food_entries: entries,
   },

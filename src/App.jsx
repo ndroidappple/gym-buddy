@@ -30,6 +30,7 @@ import { useCoachThread } from "./lib/coachThread.js";
 import { withTargetHistory } from "./lib/nutritionTrends.js";
 import { headContext } from "./lib/coachChat.js";
 import { headCoach } from "./data/coaches.js";
+import { wellnessDays, drinkEntry } from "./lib/wellness.js";
 import { coachFoodContext, totals } from "./lib/nutrition.js";
 import NamePrompt from "./components/NamePrompt.jsx";
 import ErrorBoundary from "./components/ErrorBoundary.jsx";
@@ -56,6 +57,8 @@ const fromData = (data) => ({
   prefs: { ...DEFAULT_PREFS, ...data?.prefs },
   // Sleep and recovery from Google Health, a summary per morning (lib/recovery.js).
   recovery: data?.recovery || {},
+  // Cannabis (and drinks with food tracking off), a day at a time (lib/wellness.js).
+  wellness: data?.wellness || {},
 });
 
 export default function App() {
@@ -68,6 +71,7 @@ export default function App() {
   const [weighins, setWeighins] = useState([]);
   const [prefs, setPrefs] = useState(DEFAULT_PREFS);
   const [recovery, setRecovery] = useState({});
+  const [wellness, setWellness] = useState({});
   const [name, setName] = useState(null); // first name from the account, once known
   const [nameSettled, setNameSettled] = useState(false); // the name prompt is done, so the welcome can show
   const onNameSettled = useCallback(() => setNameSettled(true), []);
@@ -91,6 +95,7 @@ export default function App() {
       setWeighins(s.weighins);
       setPrefs(s.prefs);
       setRecovery(s.recovery);
+      setWellness(s.wellness);
       // In the same shape as app state, so a merge only sees real edits (not filled-in defaults).
       saver.current.start({ ...base, data: base.data && fromData(base.data) });
       if (offline) setSync("offline");
@@ -111,13 +116,14 @@ export default function App() {
     setWeighins((cur) => merge3(was.weighins, cur, next.weighins));
     setPrefs((cur) => merge3(was.prefs, cur, next.prefs));
     setRecovery((cur) => merge3(was.recovery, cur, next.recovery));
+    setWellness((cur) => merge3(was.wellness, cur, next.wellness));
   };
   const saver = useRef(null);
   if (!saver.current) saver.current = createSaver(setSync, onRemote, fromData);
 
   useEffect(() => {
-    if (ready) saver.current.save({ sessions, program, drafts, weighins, prefs, recovery });
-  }, [sessions, program, drafts, weighins, prefs, recovery, ready]);
+    if (ready) saver.current.save({ sessions, program, drafts, weighins, prefs, recovery, wellness });
+  }, [sessions, program, drafts, weighins, prefs, recovery, wellness, ready]);
 
   /* The icon choice follows the account, so a fresh Safari sign-in offers the same icon to Add to Home Screen. */
   useEffect(() => { if (ready) applyIcon(prefs.icon); }, [ready, prefs.icon]);
@@ -385,11 +391,31 @@ export default function App() {
   // The head coach reads 30 days of training and food in full, older history summarized, and their own notes, fresh for every message.
   const head = headCoach(prefs);
   // `day`: the date open on the Nutrition tab when the chat was opened there (today otherwise).
+  /* Wellness (Settings → Wellness): drinks from the food log (or the day's count with food tracking off)
+     and cannabis days. Food entries are loaded for the last 120 days, so drinks older than that don't show. */
+  const wellnessOn = !!prefs.wellness?.on;
+  // Plain (not memoized): this is past the early returns above, where hooks can't go. It's one pass over the entries.
+  const wellDays = wellnessOn ? wellnessDays({ entries: nutritionOn ? food.entries : null, wellness }) : null;
+  const setWellDay = (date, patch) => setWellness((w) => {
+    const next = { ...(w[date] || {}), ...patch };
+    Object.keys(next).forEach((k) => { if (!next[k]) delete next[k]; });
+    const out = { ...w };
+    if (Object.keys(next).length) out[date] = next; else delete out[date];
+    return out;
+  });
+  const well = wellnessOn ? {
+    days: wellDays, foodOn: nutritionOn, log: wellness,
+    setCannabis: (date, on) => setWellDay(date, { cannabis: on }),
+    setDrinks: (date, n) => setWellDay(date, { drinks: Math.max(0, n) }), // food tracking off only
+    addDrink: (preset, date) => food.addEntry(drinkEntry(preset, date)),
+    removeDrink: (id) => food.removeEntry(id),
+  } : null;
   const buildHead = (day) => headContext({ sessions, program, weighins, profile: prefs.profile, phase: prefs.phase,
-    n: nutritionOn ? prefs.nutrition : null, entries: nutritionOn ? food.entries : [], foodDays: nutritionOn ? food.history : {}, notes: thread.notes, day, recovery });
+    n: nutritionOn ? prefs.nutrition : null, entries: nutritionOn ? food.entries : [], foodDays: nutritionOn ? food.history : {}, notes: thread.notes, day, recovery,
+    wellness: wellnessOn ? { entries: nutritionOn ? food.entries : null, log: wellness } : null });
   const coachChat = { thread, buildHead, foodLog: nutritionOn ? food : null, recovery };
   // `food`: the food log store while tracking is on (Today's quick add, Nutrition, Export), null while it's off.
-  const common = { sessions, program, drafts, weighins, prefs, setPref, name, go, back, notify, onWeighin: logWeighin, onProgramChange: applyCoachProgram, nutrition, foodToday, food: nutritionOn ? food : null,
+  const common = { sessions, program, drafts, weighins, prefs, setPref, name, go, back, notify, onWeighin: logWeighin, onProgramChange: applyCoachProgram, nutrition, foodToday, food: nutritionOn ? food : null, well,
     head, coachNotes: thread.notes, recovery, outside, outsideOps };
   let view;
   switch (route.name) {
