@@ -339,12 +339,19 @@ ok("knows when workouts are allowed", gh.canReadWorkouts(gh.SCOPES.join(" ")) &&
 const w = (id, start, mins, type = "STRENGTH_TRAINING") => ({ id, start: at(start), end: at(start) + mins * 60_000, date: start.slice(0, 10), type, name: "W", mins });
 const recordedList = [w("yt", "2026-11-27T18:20:00Z", 21), w("gym", "2026-11-26T22:00:00Z", 64), w("walk", "2026-11-26T15:00:00Z", 30, "WALKING"), w("tiny", "2026-11-25T15:00:00Z", 3), w("old", "2026-11-24T15:00:00Z", 40)];
 const logged = [{ id: "g1", day: "push", date: "2026-11-26", startedAt: at("2026-11-26T22:03:00Z"), finishedAt: at("2026-11-26T23:01:00Z"), sets: {} }];
-eq("offers the ones GymBuddy didn't log, newest first", O.pendingOutside(recordedList, logged).map((x) => x.id), ["yt", "old"]);
-eq("not one skipped", O.pendingOutside(recordedList, logged, ["old"]).map((x) => x.id), ["yt"]);
+const NOV = "2026-11-01";
+eq("offers the ones GymBuddy didn't log, newest first", O.pendingOutside(recordedList, logged, [], NOV).map((x) => x.id), ["yt", "old"]);
+eq("not one skipped", O.pendingOutside(recordedList, logged, ["old"], NOV).map((x) => x.id), ["yt"]);
 const counted = O.outsideSession(recordedList[0], "legs", "s1");
 eq("counting saves a session with no sets on that day", [counted.day, counted.date, counted.sets, counted.startedAt, counted.ext.gid, counted.ext.mins], ["legs", "2026-11-27", {}, at("2026-11-27T18:20:00Z"), "yt", 21]);
-eq("not one already counted", O.pendingOutside(recordedList, [...logged, counted]).map((x) => x.id), ["old"]);
+eq("not one already counted", O.pendingOutside(recordedList, [...logged, counted], [], NOV).map((x) => x.id), ["old"]);
 eq("a counted one doesn't hide others it overlaps", O.pendingOutside([recordedList[0], { ...recordedList[0], id: "dup" }], [counted]).map((x) => x.id), ["dup"]);
+// Going forward only: from the day this shipped (that day included), or from connecting if later.
+eq("nothing from before the day it shipped", O.pendingOutside(recordedList, logged).map((x) => x.id), ["yt"]);
+eq("starts the day it shipped", O.outsideSince("2026-10-20"), "2026-11-27");
+eq("or the day they connected, if later", O.outsideSince("2027-01-05"), "2027-01-05");
+eq("never connected: the day it shipped", O.outsideSince(undefined), "2026-11-27");
+eq("connected later: nothing from before", O.pendingOutside(recordedList, logged, [], O.outsideSince("2026-11-28")).map((x) => x.id), []);
 eq("effort in words", [1, 4, 6, 8, 9, 10].map(O.effortWord), ["Very easy", "Easy", "Moderate", "Hard", "Very hard", "All out"]);
 ok("the coaches read it as done outside, with the effort", /done outside GymBuddy.*21 min.*effort 9\/10/.test(O.outsideLine({ ...counted, effort: 9 })));
 

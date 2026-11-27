@@ -6,7 +6,7 @@ import { loadState, createSaver } from "./lib/store.js";
 import { merge3 } from "./lib/merge.js";
 import { DEFAULT_PREFS } from "./lib/prefs.js";
 import { today, uid } from "./lib/util.js";
-import { pendingOutside, outsideSession } from "./lib/outside.js";
+import { pendingOutside, outsideSession, outsideSince } from "./lib/outside.js";
 import { applyIcon } from "./lib/icons.js";
 import { applyTheme } from "./lib/theme.js";
 import { applyView } from "./lib/view.js";
@@ -236,10 +236,12 @@ export default function App() {
     })) });
   // Workouts recorded in Google Health that GymBuddy didn't log (a video workout tracked on the watch):
   // Today offers to count each one as a day (lib/outside.js).
-  const recorded = useRecordedWorkouts({ on: ready && ghOn && prefs.googleHealth.workouts !== false, onGone: ghGone,
+  // Going forward only: nothing from before this shipped, or before they connected (lib/outside.js).
+  const since = outsideSince(prefs.googleHealth?.since);
+  const recorded = useRecordedWorkouts({ on: ready && ghOn && prefs.googleHealth.workouts !== false, since, onGone: ghGone,
     onAllowed: () => setPrefs((p) => (p.googleHealth ? { ...p, googleHealth: { ...p.googleHealth, workouts: false } } : p)) });
   const outsideSkip = prefs.outside?.skip;
-  const outside = useMemo(() => pendingOutside(recorded, sessions, outsideSkip), [recorded, sessions, outsideSkip]);
+  const outside = useMemo(() => pendingOutside(recorded, sessions, outsideSkip, since), [recorded, sessions, outsideSkip, since]);
   const skipOutside = useCallback((gid) => setPrefs((p) => ({ ...p, outside: { ...p.outside, skip: [gid, ...(p.outside?.skip || []).filter((x) => x !== gid)].slice(0, 60) } })), []);
   const unskipOutside = useCallback((gid) => setPrefs((p) => ({ ...p, outside: { ...p.outside, skip: (p.outside?.skip || []).filter((x) => x !== gid) } })), []);
   const outsideOps = {

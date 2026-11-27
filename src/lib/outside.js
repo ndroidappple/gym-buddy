@@ -5,22 +5,28 @@
    (lib/heart.js). What Google knows about it rides along as `ext`; the lifter's own rating of how
    hard it was is `effort` (1-10), since Google doesn't share the watch's. */
 
-export const OUTSIDE_DAYS = 7; // how far back Today looks for workouts to count
+export const OUTSIDE_DAYS = 14; // how far back Today looks for workouts to count (the server's limit)
+// Going forward only: nothing recorded before the day this shipped is offered (that day itself is),
+// nor anything from before the lifter connected Google Health.
+export const OUTSIDE_START = "2026-11-27";
+/** The first date whose workouts can be offered: the later of OUTSIDE_START and when they connected. */
+export const outsideSince = (connected) => (connected && connected > OUTSIDE_START ? connected : OUTSIDE_START);
 const PAD_MS = 5 * 60_000; // the watch's recording of a GymBuddy workout starts or ends a little apart from it
 const MIN_MINS = 5;
 // The watch records walks on its own; offering every one would bury the real workouts.
 const PASSIVE = new Set(["WALKING"]);
 
 /**
- * The recorded workouts still to ask about, newest first: not already counted, not skipped, long
- * enough, not a walk, and not the watch's own recording of a workout logged in GymBuddy (it overlaps one).
+ * The recorded workouts still to ask about, newest first: on or after `since` (YYYY-MM-DD), not already
+ * counted, not skipped, long enough, not a walk, and not the watch's own recording of a workout logged
+ * in GymBuddy (it overlaps one).
  */
-export function pendingOutside(workouts = [], sessions = [], skipped = []) {
+export function pendingOutside(workouts = [], sessions = [], skipped = [], since = OUTSIDE_START) {
   const counted = new Set(sessions.map((s) => s.ext?.gid).filter(Boolean));
   const skip = new Set(skipped);
   const logged = sessions.filter((s) => !s.ext && s.startedAt && s.finishedAt);
   return workouts
-    .filter((w) => !counted.has(w.id) && !skip.has(w.id) && w.mins >= MIN_MINS && !PASSIVE.has(w.type)
+    .filter((w) => w.date >= since && !counted.has(w.id) && !skip.has(w.id) && w.mins >= MIN_MINS && !PASSIVE.has(w.type)
       && !logged.some((s) => w.start < s.finishedAt + PAD_MS && w.end > s.startedAt - PAD_MS))
     .sort((a, b) => b.start - a.start);
 }

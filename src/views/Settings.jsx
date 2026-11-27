@@ -503,7 +503,7 @@ function GoogleHealthSheet({ gh, onDisconnect, onClose }) {
         <div className="list">
           <div className="list-row"><HeartPulse size={18} aria-hidden="true" /><span className="name">Heart rate, read<span className="sub">Only during your workouts in the last 30 days and from now on, to show how hard each workout and set was. Your coaches see the summary.</span></span></div>
           <div className="list-row"><Moon size={18} aria-hidden="true" /><span className="name">Sleep and recovery, read<span className="sub">Each night's sleep, resting heart rate and HRV, from 30 days before you connect, so your coaches can tell a bad night from a stall.</span></span></div>
-          <div className="list-row"><Watch size={18} aria-hidden="true" /><span className="name">Workouts, read<span className="sub">Workouts your watch recorded in the last week that you didn't log in GymBuddy, like a video workout, so you can count them as a day.</span></span></div>
+          <div className="list-row"><Watch size={18} aria-hidden="true" /><span className="name">Workouts, read<span className="sub">Workouts your watch records from now on that you didn't log in GymBuddy, like a video workout, so you can count them as a day.</span></span></div>
           <div className="list-row"><Scale size={18} aria-hidden="true" /><span className="name">Bodyweight, sent<span className="sub">Your weigh-ins, from the day you connect.</span></span></div>
           <div className="list-row"><Utensils size={18} aria-hidden="true" /><span className="name">Food, sent<span className="sub">Each entry's calories, protein, carbs and fat, from the day you connect.</span></span></div>
         </div>

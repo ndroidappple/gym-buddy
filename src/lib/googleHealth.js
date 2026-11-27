@@ -174,12 +174,12 @@ export function useRecovery({ on, sleep, since, recovery, onNights, onAllowed, o
   useEffect(() => { last.current = 0; }, [sleep]);
 }
 /**
- * Workouts recorded in Google Health over the last OUTSIDE_DAYS days (lib/outside.js decides which to
- * offer): asked when the app opens or comes back to the front, at most every 10 minutes. Returns
+ * Workouts recorded in Google Health over the last OUTSIDE_DAYS days, never before `since` (lib/outside.js
+ * decides which to offer): asked when the app opens or comes back to the front, at most every 10 minutes. Returns
  * them, newest first ([] until the first answer). `onAllowed(false)` runs when reading workouts
  * isn't allowed (connected before GymBuddy asked for it, or unticked on Google's page).
  */
-export function useRecordedWorkouts({ on, onAllowed, onGone }) {
+export function useRecordedWorkouts({ on, since, onAllowed, onGone }) {
   const [list, setList] = useState([]);
   const latest = useRef({ onAllowed, onGone });
   latest.current = { onAllowed, onGone };
@@ -193,7 +193,8 @@ export function useRecordedWorkouts({ on, onAllowed, onGone }) {
       busy.current = true;
       try {
         const to = localDate(new Date());
-        const r = await ask("workouts", { from: addDaysIso(to, -(OUTSIDE_DAYS - 1)), to });
+        const back = addDaysIso(to, -(OUTSIDE_DAYS - 1));
+        const r = await ask("workouts", { from: since && since > back ? (since > to ? to : since) : back, to });
         last.current = Date.now();
         if (stop) return;
         if (!r.connected) { latest.current.onGone?.(); return; }
@@ -205,7 +206,7 @@ export function useRecordedWorkouts({ on, onAllowed, onGone }) {
     const onVis = () => { if (document.visibilityState === "visible") run(); };
     document.addEventListener("visibilitychange", onVis);
     return () => { stop = true; clearTimeout(t); document.removeEventListener("visibilitychange", onVis); };
-  }, [on]);
+  }, [on, since]);
   return list;
 }
 
