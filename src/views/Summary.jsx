@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { ChevronLeft, ChevronRight, MessageCircle } from "lucide-react";
+import { ChevronLeft, ChevronRight, MessageCircle, Trash2 } from "lucide-react";
+import Effort from "../components/Effort.jsx";
 import { isCardio } from "../data/program.js";
 import { href } from "../lib/router.js";
 import Coach from "../components/Coach.jsx";
@@ -211,6 +212,75 @@ export default function Summary({ session, sessions, program, prefs, go, back, o
       )}
       {asking && (
         <CoachChat coach={head} head={head} name={name} topic="workout" workout={walk ? session : { ...session, walk: undefined }} day={session.date} {...coachChat}
+          sessions={sessions} program={program} weighins={weighins} profile={prefs.profile} phase={prefs.phase}
+          nutrition={nutrition} onProgramChange={onProgramChange} onClose={() => setAsking(false)} />
+      )}
+    </main>
+  );
+}
+
+/**
+ * A workout done outside GymBuddy and counted from Google Health (lib/outside.js): what the watch
+ * recorded, how hard it felt, its heart rate like any workout's, a note, and a way to take it back
+ * out. No sets, so none of the lift recap.
+ */
+export function OutsideSummary({ session, sessions, program, prefs, go, back, onUpdate, onRemove, past = false, coachChat, head = "tank", name, weighins, nutrition, onProgramChange }) {
+  const x = session.ext;
+  const [note, setNote] = useState(session.note || "");
+  const [asking, setAsking] = useState(false);
+  const latest = useRef(session);
+  latest.current = session;
+  const day = program[session.day];
+  const title = session.day === "custom" || !day ? x.name : day.name;
+  const saveNote = () => { if ((latest.current.note || "") !== note.trim()) onUpdate({ ...latest.current, note: note.trim() || null }); };
+  const leave = () => { saveNote(); past ? back(href("progress", "workouts")) : go("#/today", { replace: true }); };
+  const usualAvg = useMemo(() => {
+    const avgs = priorSessions(sessions, session).filter((s) => s.day === session.day && s.hr?.avg && !s.hr.none)
+      .sort(byDateDesc).slice(0, 5).map((s) => s.hr.avg).sort((a, b) => a - b);
+    return avgs.length >= 2 ? Math.round(avgs.length % 2 ? avgs[avgs.length >> 1] : (avgs[avgs.length / 2 - 1] + avgs[avgs.length / 2]) / 2) : null;
+  }, [sessions, session]);
+  const heartWait = prefs.googleHealth?.on && prefs.googleHealth.heart !== false && (!session.hr || (session.hr.none && Date.now() - session.finishedAt < 24 * 3600_000));
+  return (
+    <main className="screen summary" data-day={session.day}>
+      <div className="body" style={{ paddingTop: "calc(24px + var(--safe-t))" }}>
+        <header className="summary-head">
+          <div className="summary-meta">
+            <button className="icon-btn boxed" onClick={leave} aria-label={past ? "Back to workouts" : "Back to Today"}><ChevronLeft size={20} /></button>
+            <Headline text={longDate(session.date)} />
+            <InfoButton screen="summary" />
+          </div>
+          <p className="summary-sub"><span className="dot" aria-hidden="true" />{title}{title !== x.name ? ` · ${x.name}` : ""} · from Google Health</p>
+          {coachChat?.thread && (
+            <div className="summary-ask" style={{ "--c": COACHES[head].color }}>
+              <Coach id={head} mood="proud" size={64} />
+              <p className="coach-bubble">Done outside GymBuddy, so there are no sets for me to read. It still counts{session.day !== "custom" && day ? ` as your ${day.name} day` : ""}.</p>
+              <button className="ask-btn compact" onClick={() => setAsking(true)} aria-label={`Ask ${COACHES[head].name}, your head coach, about this workout`}><MessageCircle size={18} strokeWidth={2.6} aria-hidden="true" /><span>Ask</span></button>
+            </div>
+          )}
+        </header>
+
+        <div className="stats">
+          <div className="stat"><b>{x.mins}</b><span>min</span></div>
+          <div className="stat"><b>{x.kcal ? x.kcal.toLocaleString() : "—"}</b><span>kcal</span></div>
+          <div className="stat"><b>{(session.hr && !session.hr.none && session.hr.avg) || x.hrAvg || "—"}</b><span>avg bpm</span></div>
+        </div>
+        <Effort className="effort effort-card card" value={session.effort} onSave={(n) => onUpdate({ ...latest.current, effort: n })} />
+
+        {!prefs.googleHealth?.on ? null : session.hr && !session.hr.none
+          ? <ErrorBoundary quiet="heart rate"><Heart session={session} usualAvg={usualAvg} head={head} /></ErrorBoundary>
+          : heartWait && <p className="note-box hr-wait">Heart rate from your watch shows up here once it syncs to Google Health, usually within the hour.</p>}
+
+        <label className="field">
+          <span className="lbl">Note</span>
+          <textarea id="summary-note" className="textarea" value={note} onChange={(e) => setNote(e.target.value)} onBlur={saveNote}
+            placeholder="What was it? A video, a class, how it went." />
+        </label>
+
+        <button className="btn btn-ink summary-done" onClick={leave}>{past ? "Back to workouts" : "Done"}</button>
+        <button type="button" className="btn-quiet danger outside-remove" onClick={() => onRemove(session)}><Trash2 size={15} aria-hidden="true" /> Remove from GymBuddy</button>
+      </div>
+      {asking && (
+        <CoachChat coach={head} head={head} name={name} topic="workout" workout={session} day={session.date} {...coachChat}
           sessions={sessions} program={program} weighins={weighins} profile={prefs.profile} phase={prefs.phase}
           nutrition={nutrition} onProgramChange={onProgramChange} onClose={() => setAsking(false)} />
       )}

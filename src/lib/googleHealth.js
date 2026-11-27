@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { OUTSIDE_DAYS } from "./outside.js";
 import { supabase } from "../supabase-client.js";
 import { wanting, cacheCurve, cachedCurve } from "./heart.js";
 
@@ -38,7 +39,7 @@ export async function connectGoogleHealth() {
   try { localStorage.setItem(PENDING, String(Date.now())); } catch {}
   location.href = url;
 }
-/** { connected, since, syncedAt, error, allowed: { workouts, weight, food } } */
+/** { connected, since, syncedAt, error, allowed: { weight, food, heart, sleep, workouts } } */
 export const googleHealthStatus = () => ask("status");
 export const disconnectGoogleHealth = () => ask("disconnect");
 
@@ -172,6 +173,42 @@ export function useRecovery({ on, sleep, since, recovery, onNights, onAllowed, o
   // Sleep just allowed (connected again): ask now, not in 2 hours. The whole range, not only the last days.
   useEffect(() => { last.current = 0; }, [sleep]);
 }
+/**
+ * Workouts recorded in Google Health over the last OUTSIDE_DAYS days (lib/outside.js decides which to
+ * offer): asked when the app opens or comes back to the front, at most every 10 minutes. Returns
+ * them, newest first ([] until the first answer). `onAllowed(false)` runs when reading workouts
+ * isn't allowed (connected before GymBuddy asked for it, or unticked on Google's page).
+ */
+export function useRecordedWorkouts({ on, onAllowed, onGone }) {
+  const [list, setList] = useState([]);
+  const latest = useRef({ onAllowed, onGone });
+  latest.current = { onAllowed, onGone };
+  const busy = useRef(false);
+  const last = useRef(0);
+  useEffect(() => {
+    if (!on) { setList([]); return; }
+    let stop = false;
+    const run = async () => {
+      if (busy.current || stop || document.visibilityState !== "visible" || Date.now() - last.current < 10 * 60_000) return;
+      busy.current = true;
+      try {
+        const to = localDate(new Date());
+        const r = await ask("workouts", { from: addDaysIso(to, -(OUTSIDE_DAYS - 1)), to });
+        last.current = Date.now();
+        if (stop) return;
+        if (!r.connected) { latest.current.onGone?.(); return; }
+        if (!r.allowed) { latest.current.onAllowed?.(false); return; }
+        setList(r.workouts || []);
+      } catch {} finally { busy.current = false; }
+    };
+    const t = setTimeout(run, 2500);
+    const onVis = () => { if (document.visibilityState === "visible") run(); };
+    document.addEventListener("visibilitychange", onVis);
+    return () => { stop = true; clearTimeout(t); document.removeEventListener("visibilitychange", onVis); };
+  }, [on]);
+  return list;
+}
+
 const localDate = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 const addDaysIso = (date, n) => { const d = new Date(`${date}T12:00:00`); d.setDate(d.getDate() + n); return localDate(d); };
 

@@ -45,9 +45,9 @@ export const entry = (name, meal, days, extra = {}) => {
 };
 
 /** The account; `sessions` are its logged workouts and `entries` its food log (none by default). */
-export const account = ({ sessions = [], entries = [] } = {}) => ({
+export const account = ({ sessions = [], entries = [], prefs = {} } = {}) => ({
   tables: {
-    storage_kv: [{ user_id: USER.id, key: "ironlog-v2", value: JSON.stringify({ ...record, sessions }), updated_at: "2026-10-01T15:00:00Z" }],
+    storage_kv: [{ user_id: USER.id, key: "ironlog-v2", value: JSON.stringify({ ...record, sessions, prefs: { ...record.prefs, ...prefs } }), updated_at: "2026-10-01T15:00:00Z" }],
     foods: FOODS.map((f) => ({ ...f, user_id: USER.id })),
     food_entries: entries,
   },

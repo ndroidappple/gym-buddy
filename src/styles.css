@@ -413,6 +413,24 @@ a.hero-text { color: inherit; text-decoration: none; }
 .hero-cta { background: #FFFFFF; color: var(--day-lip); box-shadow: 0 5px 0 color-mix(in srgb, var(--day-lip) 80%, #000); font-size: 20px; min-height: 60px; border-radius: 22px; }
 .hero-cta:active:not(:disabled) { box-shadow: 0 2px 0 color-mix(in srgb, var(--day-lip) 80%, #000); }
 /* Trained today: the next workout, one quiet row under the recap. */
+/* A workout from Google Health to count (Today): what was recorded, the guess as the one big button,
+   the other choices quiet under it. */
+.outside-card { display: flex; flex-direction: column; gap: 10px; padding: 14px 14px 8px; border-color: color-mix(in srgb, var(--day) 55%, var(--rule)); }
+.outside-src { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 700; color: var(--mute); }
+.outside-what { display: flex; flex-direction: column; gap: 2px; }
+.outside-what b { font-size: 20px; font-weight: 800; letter-spacing: -0.01em; }
+.outside-what span { font-size: 13.5px; font-weight: 600; color: var(--mute); }
+.outside-ask { font-size: 15px; font-weight: 600; line-height: 1.35; }
+.outside-count { min-height: 52px; font-size: 18px; }
+.outside-quiet { display: flex; justify-content: space-between; }
+.outside-quiet .btn-quiet { min-height: var(--tap); padding: 0 4px; font-size: 13.5px; font-weight: 700; color: var(--mute); }
+/* How hard it felt, 1-10, on the done card: Google Health's own question, asked again since Google keeps the answer. */
+.effort { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px 6px; border-radius: 18px; background: color-mix(in srgb, #FFFFFF 18%, transparent); }
+.effort-q { font-size: 15px; font-weight: 700; }
+.effort-q b { font-weight: 800; font-size: 18px; }
+.effort input { width: 100%; height: 32px; accent-color: #FFFFFF; }
+.effort input[data-unset] { opacity: 0.55; }
+
 .up-next { display: flex; align-items: center; gap: 10px; padding: 12px 12px 12px 14px; }
 .up-next .name { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; font-weight: 800; font-size: 15px; }
 .up-next .sub { font-size: 13.5px; color: var(--mute); font-weight: 500; }
@@ -1732,3 +1750,8 @@ button.rest-open:active { opacity: 0.75; }
 .ai-fresh .ai-copy { margin-top: 0; }
 .ai-key { display: block; padding: 10px 12px; border-radius: 12px; background: var(--surface-2); color: var(--ink); font: 600 13px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; overflow-wrap: anywhere; user-select: all; }
 .ai-make { display: flex; flex-direction: column; gap: 10px; }
+
+/* The effort slider on an outside workout's summary: a card on the page's ground, not on the day colour. */
+.effort.effort-card { background: var(--surface); padding: 12px 14px 8px; }
+.effort.effort-card input { accent-color: var(--day, var(--accent)); }
+.outside-remove { align-self: center; display: inline-flex; align-items: center; gap: 6px; }

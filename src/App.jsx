@@ -1,11 +1,12 @@
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { PROGRAM, allDays, CUSTOM, normalizeProgram, warmupOf, baseOf } from "./data/program.js";
 import { useRoute, href } from "./lib/router.js";
 import { Toast, TabBar, Boot, LoadError, SyncNote, SHEET_OPEN } from "./components/ui.jsx";
 import { loadState, createSaver } from "./lib/store.js";
 import { merge3 } from "./lib/merge.js";
 import { DEFAULT_PREFS } from "./lib/prefs.js";
-import { today } from "./lib/util.js";
+import { today, uid } from "./lib/util.js";
+import { pendingOutside, outsideSession } from "./lib/outside.js";
 import { applyIcon } from "./lib/icons.js";
 import { applyTheme } from "./lib/theme.js";
 import { applyView } from "./lib/view.js";
@@ -13,7 +14,7 @@ import { setHaptics } from "./lib/util.js";
 import { setSound } from "./lib/sound.js";
 import Today from "./views/Today.jsx";
 import Session from "./views/Session.jsx";
-import Summary from "./views/Summary.jsx";
+import Summary, { OutsideSummary } from "./views/Summary.jsx";
 import Progress from "./views/Progress.jsx";
 import Lift from "./views/Lift.jsx";
 import Settings from "./views/Settings.jsx";
@@ -38,7 +39,7 @@ import WeekReviewIntro from "./components/WeekReviewIntro.jsx";
 import { reviewState, reviewPrefs, fingerprint, latestReview } from "./lib/weekReview.js";
 import { cachedReview, loadReview, requestReview, syncSchedule } from "./lib/reviews.js";
 import { phoneState, ensureSubscribed } from "./lib/push.js";
-import { useGoogleHealthSync, useHeartRate, useRecovery } from "./lib/googleHealth.js";
+import { useGoogleHealthSync, useHeartRate, useRecovery, useRecordedWorkouts } from "./lib/googleHealth.js";
 import { mergeRecovery } from "./lib/recovery.js";
 import { summarize, withHeart, maxHrFor, estimatedBounds, hasHeart, withoutHeart, clearCurves } from "./lib/heart.js";
 import { useTabFade } from "./lib/tabFade.js";
@@ -233,6 +234,30 @@ export default function App() {
         return s;
       }
     })) });
+  // Workouts recorded in Google Health that GymBuddy didn't log (a video workout tracked on the watch):
+  // Today offers to count each one as a day (lib/outside.js).
+  const recorded = useRecordedWorkouts({ on: ready && ghOn && prefs.googleHealth.workouts !== false, onGone: ghGone,
+    onAllowed: () => setPrefs((p) => (p.googleHealth ? { ...p, googleHealth: { ...p.googleHealth, workouts: false } } : p)) });
+  const outsideSkip = prefs.outside?.skip;
+  const outside = useMemo(() => pendingOutside(recorded, sessions, outsideSkip), [recorded, sessions, outsideSkip]);
+  const skipOutside = useCallback((gid) => setPrefs((p) => ({ ...p, outside: { ...p.outside, skip: [gid, ...(p.outside?.skip || []).filter((x) => x !== gid)].slice(0, 60) } })), []);
+  const unskipOutside = useCallback((gid) => setPrefs((p) => ({ ...p, outside: { ...p.outside, skip: (p.outside?.skip || []).filter((x) => x !== gid) } })), []);
+  const outsideOps = {
+    count: (w, day) => {
+      const s = outsideSession(w, day, uid());
+      upsertSession(s);
+      notify(`Counted as ${day === CUSTOM ? "a workout" : program[day]?.name || "a workout"}`, () => setSessions((p) => p.filter((x) => x.id !== s.id)));
+    },
+    skip: (w) => { skipOutside(w.id); notify("Skipped", () => unskipOutside(w.id)); },
+    // Taken back out: it stays skipped, so Today doesn't offer it again.
+    remove: (s) => {
+      setSessions((p) => p.filter((x) => x.id !== s.id));
+      if (s.ext?.gid) skipOutside(s.ext.gid);
+      notify("Workout removed", () => { upsertSession(s); if (s.ext?.gid) unskipOutside(s.ext.gid); });
+      go(href("today"), { replace: true });
+    },
+    effort: (s, effort) => upsertSession({ ...s, effort }),
+  };
   // Opening this week's review stops the glow; the button stays for the rest of the day.
   const opening = route.name === "review" && review?.glow && route.id === reviewWeek;
   useEffect(() => {
@@ -362,7 +387,7 @@ export default function App() {
     n: nutritionOn ? prefs.nutrition : null, entries: nutritionOn ? food.entries : [], foodDays: nutritionOn ? food.history : {}, notes: thread.notes, day, recovery });
   const coachChat = { thread, buildHead, foodLog: nutritionOn ? food : null, recovery };
   const common = { sessions, program, drafts, weighins, prefs, setPref, name, go, back, notify, onWeighin: logWeighin, onProgramChange: applyCoachProgram, nutrition, foodToday,
-    head, coachNotes: thread.notes, recovery };
+    head, coachNotes: thread.notes, recovery, outside, outsideOps };
   let view;
   switch (route.name) {
     case "session": {
@@ -398,7 +423,9 @@ export default function App() {
     }
     case "summary": {
       const s = sessions.find((x) => x.id === route.id);
-      view = s ? <Summary key={s.id} {...common} session={s} past={route.past} coachChat={coachChat} onUpdate={upsertSession} /> : <Today {...common} />;
+      view = !s ? <Today {...common} />
+        : s.ext ? <OutsideSummary key={s.id} {...common} session={s} past={route.past} coachChat={coachChat} onUpdate={upsertSession} onRemove={outsideOps.remove} />
+        : <Summary key={s.id} {...common} session={s} past={route.past} coachChat={coachChat} onUpdate={upsertSession} />;
       break;
     }
     case "progress": view = <Progress key={route.open || "p"} {...common} open={route.open} food={nutritionOn ? food : null} />; break;

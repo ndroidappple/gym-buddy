@@ -188,6 +188,50 @@ test("add food: an amount your food can take keeps it first", async ({ page }) =
   check("your food leads, Ask Tank below it", (await mine.boundingBox()).y < (await ask.boundingBox()).y);
 });
 
+// Google Health connected (workouts only, so no heart rate or sleep calls), with a 21-minute video
+// workout from two hours ago recorded on the watch and not logged in GymBuddy. Pull and Push are done,
+// so Legs is up next.
+const yt = { id: "yt-1", start: Date.now() - 2 * 3600_000, end: Date.now() - 2 * 3600_000 + 23 * 60_000, date: day(0), type: "STRENGTH_TRAINING", name: "Strength training", mins: 21, kcal: 180, hrAvg: 142 };
+const watchWorkout = {
+  ...account({
+    sessions: [workout("w1", "push", day(-3), { "Flat DB Press": [[60, 10]] }), workout("w2", "pull", day(-2), { "Lat Pulldown (Wide Grip)": [[140, 10]] })],
+    prefs: { googleHealth: { on: true, since: day(-30), heart: false, sleep: false, recovery: false } },
+  }),
+  api: { "/api/google-health": (url, body) => (body?.action === "workouts" ? { connected: true, allowed: true, workouts: [yt] } : { connected: true, sent: 0, removed: 0 }) },
+};
+const savedSessions = async (backend) => JSON.parse(backend.tables.storage_kv[0].value).sessions;
+const until = async (fn, ms = 6000) => { const end = Date.now() + ms; while (Date.now() < end) { if (await fn()) return true; await new Promise((r) => setTimeout(r, 150)); } return false; };
+
+test("today: a workout from the watch counts as the day up next in one tap", async ({ page, backend }) => {
+  const card = page.getByRole("region", { name: "Strength training from Google Health" });
+  await card.waitFor();
+  check("it says what the watch recorded", await card.getByText("21 min · 180 kcal · avg 142 bpm").isVisible());
+  check("it guesses the day up next", await card.getByText("Count it as your Legs day?", { exact: false }).isVisible());
+  await card.getByRole("button", { name: "Count as Legs" }).click();
+  await page.getByRole("region", { name: "Legs done today" }).waitFor();
+  const headline = await page.getByRole("heading", { level: 1 }).innerText();
+  check("Today recaps it", /^Legs done.*Rest up\.$/.test(headline), `got "${headline}"`);
+  check("the rotation moved on", !(await page.getByText("Up next: Legs").count()) && await page.getByText(/^Up next: /).isVisible());
+  check("the card is gone", !(await card.count()));
+  const slider = page.getByRole("slider", { name: "How hard was it, 1 to 10" });
+  check("how hard is asked, not assumed", await page.getByText("How hard was it?").isVisible());
+  await slider.focus();
+  for (let i = 0; i < 4; i++) await slider.press("ArrowRight");
+  check("the rating reads back", await page.getByText("Very hard").isVisible());
+  check("saved to the account as Legs, with what Google recorded and the rating",
+    await until(async () => (await savedSessions(backend)).some((s) => s.day === "legs" && s.ext?.gid === "yt-1" && s.ext.mins === 21 && s.effort === 9 && !Object.keys(s.sets).length)));
+}, watchWorkout);
+
+test("today: skipping a watch workout leaves the rotation alone", async ({ page, backend }) => {
+  const card = page.getByRole("region", { name: "Strength training from Google Health" });
+  await card.waitFor();
+  await card.getByRole("button", { name: "Skip" }).click();
+  await until(async () => !(await card.count()));
+  check("the card is gone", !(await card.count()));
+  check("Legs is still up next", (await page.getByRole("heading", { level: 1 }).innerText()).startsWith("Legs day"));
+  check("remembered on the account, so other phones don't ask", await until(async () => (JSON.parse(backend.tables.storage_kv[0].value).prefs.outside?.skip || []).includes("yt-1")));
+}, watchWorkout);
+
 test("today: after a workout, Today recaps it instead of the next one", async ({ page }) => {
   await page.getByRole("heading", { level: 1 }).waitFor();
   const headline = await page.getByRole("heading", { level: 1 }).innerText();
@@ -222,11 +266,11 @@ const browser = await launch();
 let failed = 0;
 for (const t of run) {
   const seen = [];
-  const { page, backend, errors, context } = await openApp(browser, app.url, { ...t.seed, api: apis(seen) });
+  const { page, backend, errors, context } = await openApp(browser, app.url, { ...t.seed, api: { ...apis(seen), ...t.seed.api } });
   page.setDefaultTimeout(5000);
   try {
     await t.fn({ page, backend }, seen);
-    check("no errors on the page", !errors.length, [...errors, ...backend.requests.filter((r) => r.path.startsWith("/api/") && !(r.path in apis())).map((r) => `unfaked: ${r.method} ${r.path}${r.search}`)].join("\n    "));
+    check("no errors on the page", !errors.length, [...errors, ...backend.requests.filter((r) => r.path.startsWith("/api/") && !(r.path in apis()) && !(r.path in (t.seed.api || {}))).map((r) => `unfaked: ${r.method} ${r.path}${r.search}`)].join("\n    "));
     console.log(`✓ ${t.name}`);
   } catch (e) {
     failed++;

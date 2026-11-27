@@ -67,8 +67,9 @@ The weekly review reuses both (it swaps `/api/rest-alert` for `/api/review` in t
 1. In a Google Cloud project, turn on the Google Health API and create an OAuth client (Web application)
    with the redirect URI `https://<your domain>/api/google-health-callback`.
 2. Add the scopes `googlehealth.health_metrics_and_measurements.readonly` (heart rate, resting heart rate,
-   HRV), `googlehealth.sleep.readonly`, `googlehealth.health_metrics_and_measurements.writeonly` (weight) and
-   `googlehealth.nutrition.writeonly`.
+   HRV), `googlehealth.sleep.readonly`, `googlehealth.activity_and_fitness.readonly` (workouts recorded on the
+   watch, to count ones done outside GymBuddy), `googlehealth.health_metrics_and_measurements.writeonly`
+   (weight) and `googlehealth.nutrition.writeonly`.
 3. Set `GOOGLE_HEALTH_CLIENT_ID` and `GOOGLE_HEALTH_CLIENT_SECRET` in Vercel (Production), alongside
    `REST_ALERT_SECRET`.
 4. Publish the consent screen ("In production"), or refresh tokens expire after 7 days. Until Google

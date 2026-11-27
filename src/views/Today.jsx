@@ -1,6 +1,8 @@
 import React, { useMemo, useRef, useState } from "react";
 import { InfoButton, Sheet } from "../components/ui.jsx";
-import { Scale, ArrowLeftRight, Check, X, Moon } from "lucide-react";
+import { Scale, ArrowLeftRight, Check, X, Moon, Watch } from "lucide-react";
+import { outsideStats, whenRecorded, isOutside } from "../lib/outside.js";
+import Effort from "../components/Effort.jsx";
 import { readiness, lowLine } from "../lib/recovery.js";
 import { DAYS, CUSTOM, activeDays } from "../data/program.js";
 import { href } from "../lib/router.js";
@@ -13,7 +15,7 @@ import { ReviewChip } from "../components/WeekReviewIntro.jsx";
 import { collapse } from "../lib/motion.js";
 import { byDateDesc, bestSet, fmtW, num, shortDate, weekDates, today, nextDayAfter, bodyweightSeries, daysBetween, plural, readyToIncrease, nextGoal, fmtGoal, sessionSetCount, countRecords } from "../lib/util.js";
 
-export default function Today({ name, sessions, program, drafts, weighins, prefs, go, onWeighin, foodToday, review, head, recovery }) {
+export default function Today({ name, sessions, program, drafts, weighins, prefs, go, onWeighin, foodToday, review, head, recovery, outside = [], outsideOps }) {
   const sorted = useMemo(() => [...sessions].sort(byDateDesc), [sessions]);
   const draftDay = [...activeDays(program), CUSTOM].find((d) => drafts[d]);
   const t = today();
@@ -89,7 +91,7 @@ export default function Today({ name, sessions, program, drafts, weighins, prefs
   // always in the hello when a workout's in progress, since that headline has no name).
   const nameInTitle = !draft && Math.floor(new Date(t + "T12:00:00").getTime() / 864e5) % 2 === 1;
   const to = name && nameInTitle ? `, ${name}` : "";
-  const doneName = done && (done.day === CUSTOM ? "Workout" : program[done.day]?.name || "Workout");
+  const doneName = done && (done.day === CUSTOM ? (done.ext?.name || "Workout") : program[done.day]?.name || "Workout");
   const headline = draft ? "Pick up where you left off."
     : done ? (doneToday.length > 1 ? `${doneToday.length} workouts done${to}. Rest up.` : `${doneName} done${to}. Rest up.`)
     : daysOff != null && daysOff >= 5 ? `${daysOff} days off${to}. Back to it.` : `${p.name} day${to}. Let's lift.`;
@@ -117,7 +119,12 @@ export default function Today({ name, sessions, program, drafts, weighins, prefs
 
       <div className="body" data-day={done ? done.day : day}>
         {sessions.length === 0 && <SetupCard prefs={prefs} glow />}
-        {done ? <DoneCard session={done} sessions={sessions} name={doneName} detail={done.day === CUSTOM ? null : program[done.day]?.detail} /> : (
+        {/* A workout recorded on the watch that GymBuddy didn't log: one tap counts it as the day it most
+            likely was (the one up next), so the rotation moves on. Newest first, one at a time. */}
+        {outside[0] && outsideOps && <OutsideCard key={outside[0].id} w={outside[0]} more={outside.length - 1} guess={suggested} program={program} ops={outsideOps} />}
+        {done ? (isOutside(done)
+          ? <OutsideDoneCard session={done} name={doneName} detail={done.day === CUSTOM ? null : program[done.day]?.detail} onEffort={(n) => outsideOps?.effort(done, n)} />
+          : <DoneCard session={done} sessions={sessions} name={doneName} detail={done.day === CUSTOM ? null : program[done.day]?.detail} />) : (
         <section className={"hero-card" + (canPreview ? " can-preview" : "")} aria-label={draft ? `${p.name} in progress` : `Up next: ${p.name}`} onClick={openPreview}>
           <div className="hero-top">
             <span className="pill day-lbl">{draft ? `In progress · ${plural(setsLogged, "set")} logged` : day === CUSTOM ? "Today · Custom workout" : `${picked ? "Today" : "Up next"} · Day ${activeDays(program).indexOf(day) + 1}`}</span>
@@ -247,6 +254,69 @@ function DoneCard({ session, sessions, name, detail }) {
         {mins && <span className="pill">{mins} min</span>}
         {prs > 0 && <span className="pill">{plural(prs, "PR")}</span>}
       </div>
+      <a className="btn hero-cta" href={href("summary", session.id)}>See summary</a>
+    </section>
+  );
+}
+
+/** A workout from Google Health to count: what the watch recorded, a guess at the day with one tap to
+    take it, and quieter ways to pick another day or leave it out. */
+function OutsideCard({ w, more, guess, program, ops }) {
+  const [choosing, setChoosing] = useState(false);
+  const [leaving, setLeaving] = useState(false);
+  const card = useRef(null);
+  // Counted or skipped, the card folds away so what's below slides up (the next one, if any, takes its place).
+  const fold = async (then) => { if (leaving) return; setLeaving(true); setChoosing(false); await collapse(card.current); then(); };
+  const g = program[guess];
+  return (
+    <section ref={card} className="card outside-card" data-day={guess} aria-label={`${w.name} from Google Health`} inert={leaving ? "" : undefined}>
+      <span className="outside-src"><Watch size={14} strokeWidth={2.6} aria-hidden="true" />From Google Health · {whenRecorded(w.start)}{more > 0 ? ` · ${more} more` : ""}</span>
+      <div className="outside-what">
+        <b>{w.name}</b>
+        <span>{outsideStats(w)}</span>
+      </div>
+      <p className="outside-ask">Not logged in GymBuddy. Count it as your {g.name} day?</p>
+      <button type="button" className="btn btn-day outside-count" onClick={() => fold(() => ops.count(w, guess))}>Count as {g.name}</button>
+      <div className="outside-quiet">
+        <button type="button" className="btn-quiet" onClick={() => setChoosing(true)} aria-haspopup="dialog">Different day</button>
+        <button type="button" className="btn-quiet" onClick={() => fold(() => ops.skip(w))}>Skip</button>
+      </div>
+      {choosing && (
+        <Sheet title={`Count ${w.name} as`} sub="It moves your rotation on like a logged workout. Other counts it without using up a day." onClose={() => setChoosing(false)} labelledBy="outside-title">
+          <div className="list">
+            {[...activeDays(program), CUSTOM].map((d) => (
+              <button key={d} type="button" className="list-row" data-day={d} onClick={() => fold(() => ops.count(w, d))}>
+                <span className="dot" aria-hidden="true" />
+                <span className="name">{d === CUSTOM ? "Other" : program[d].name}{d === guess ? " · up next" : ""}
+                  <span className="sub detail">{d === CUSTOM ? "Counts as a workout, doesn't use up a day" : program[d].detail}</span></span>
+              </button>
+            ))}
+          </div>
+        </Sheet>
+      )}
+    </section>
+  );
+}
+
+/** Today's counted outside workout: what the watch recorded, and how hard it felt (Google doesn't share
+    its own rating, so it's asked here). The rating is optional and can be changed. */
+function OutsideDoneCard({ session, name, detail, onEffort }) {
+  const x = session.ext;
+  return (
+    <section className="hero-card" aria-label={`${name} done today`}>
+      <div className="hero-top">
+        <span className="pill day-lbl"><Check size={14} strokeWidth={3} aria-hidden="true" />Done today</span>
+      </div>
+      <a className="hero-text" href={href("summary", session.id)}>
+        <span className={"hero-day" + (name.length > 6 ? " long" : "")}>{name}</span>
+        <span className="hero-meta">{[x.name !== name && x.name, detail].filter(Boolean).join(" · ") || "From Google Health"}</span>
+      </a>
+      <div className="hero-pills">
+        <span className="pill">{x.mins} min</span>
+        {x.kcal && <span className="pill">{x.kcal.toLocaleString()} kcal</span>}
+        {(session.hr?.avg || x.hrAvg) && <span className="pill">avg {session.hr?.avg || x.hrAvg} bpm</span>}
+      </div>
+      <Effort value={session.effort} onSave={onEffort} />
       <a className="btn hero-cta" href={href("summary", session.id)}>See summary</a>
     </section>
   );

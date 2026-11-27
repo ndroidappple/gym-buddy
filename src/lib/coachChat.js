@@ -6,6 +6,7 @@ import { GOALS } from "./setup.js";
 import { cleanMeal, todayFood, totals, addDays } from "./nutrition.js";
 import { PHASE_TYPES, phaseStatus, statusLine } from "./phase.js";
 import { fmtSet, liftSeries, trend, num, fmtW, bestSet, bodyweightSeries, byDateAsc, byDateDesc, daysBetween, today, nextDayAfter, readyToIncrease, compact, lifting, volume, longTrend, iso, longDate, mmss, bestE1rm, priorSessions, isCardioSet } from "./util.js";
+import { outsideLine } from "./outside.js";
 import { heartLine } from "./heart.js";
 import { nightLine, recoveryLines } from "./recovery.js";
 
@@ -56,7 +57,7 @@ function workoutLine(s, program) {
     return b ? `${n} ${fmtW(b.w)}x${b.r} (${lifting(v).length} sets${peaks})` : `${n} ${v.map(fmtSet).join(" + ")}`;
   });
   const hr = heartLine(s);
-  return `- ${s.date} ${program[s.day]?.name || s.day}: ${done.join(", ") || "nothing logged"}${hr ? `. ${hr}` : ""}`;
+  return `- ${s.date} ${program[s.day]?.name || s.day}: ${s.ext ? outsideLine(s) : done.join(", ") || "nothing logged"}${hr ? `. ${hr}` : ""}`;
 }
 function phaseLine(phase, sessions, weighins) {
   const s = phaseStatus(phase, sessions, weighins);
@@ -225,6 +226,7 @@ export function workoutFocus(s, sessions, program, recovery = null) {
     "The lifter opened this chat from the recap of one workout. Their questions are about this workout unless they say otherwise; use the rest of the data below to compare it with earlier ones.",
     `This workout: ${program[s.day]?.name || s.day} on ${longDate(s.date)} (${s.date})${s.startedAt && s.finishedAt ? `, ${clock(s.startedAt)} to ${clock(s.finishedAt)}` : ""}${mins ? `, ${mins} min` : ""}.${s.bw != null ? ` Bodyweight ${num(s.bw)} lb.` : ""}${s.note ? ` Their note: "${s.note}"` : ""}`,
   ];
+  if (s.ext) lines.push(`${outsideLine(s)}. It counts as their ${program[s.day]?.name || "workout"} day in the rotation.`);
   const hr = heartLine(s);
   if (hr) lines.push(`Heart rate (from their watch): ${hr}.`);
   const night = recovery && nightLine(recovery, s.date);

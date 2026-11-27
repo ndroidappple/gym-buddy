@@ -13,8 +13,9 @@ import { bodyweightSeries, num } from "../src/lib/util.js";
    everything works the same way). Workouts aren't written: the lifter records them in Google
    Health from their watch, and a second copy would double them.
 
-   It reads one thing: heart rate during a workout, which the app turns into the workout's
-   intensity (src/lib/heart.js).
+   It reads heart rate during a workout, which the app turns into the workout's intensity
+   (src/lib/heart.js), sleep and recovery, and the workouts recorded in Google Health (a timed video
+   workout tracked on the watch), so one done outside GymBuddy can still count.
 
    Needs GOOGLE_HEALTH_CLIENT_ID and GOOGLE_HEALTH_CLIENT_SECRET (Google Cloud, OAuth client), and
    REST_ALERT_SECRET for the database functions that hold the link. */
@@ -33,7 +34,8 @@ export const KINDS = {
 };
 export const HEART_SCOPE = `${SCOPE}health_metrics_and_measurements.readonly`; // also resting heart rate and HRV
 export const SLEEP_SCOPE = `${SCOPE}sleep.readonly`;
-export const SCOPES = [...Object.values(KINDS).map((k) => k.scope), HEART_SCOPE, SLEEP_SCOPE];
+export const ACTIVITY_SCOPE = `${SCOPE}activity_and_fitness.readonly`; // workouts (exercise sessions)
+export const SCOPES = [...Object.values(KINDS).map((k) => k.scope), HEART_SCOPE, SLEEP_SCOPE, ACTIVITY_SCOPE];
 
 export const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
 export const SUPABASE_KEY = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
@@ -132,6 +134,8 @@ export const grantedKinds = (scopes) => Object.entries(KINDS).filter(([, k]) => 
 export const canReadHeart = (scopes) => String(scopes || "").split(" ").includes(HEART_SCOPE);
 /** Whether a granted scope list allows reading sleep. */
 export const canReadSleep = (scopes) => String(scopes || "").split(" ").includes(SLEEP_SCOPE);
+/** Whether a granted scope list allows reading workouts. */
+export const canReadWorkouts = (scopes) => String(scopes || "").split(" ").includes(ACTIVITY_SCOPE);
 
 async function get(access, path, params) {
   const res = await fetch(`${API}/${path}?${new URLSearchParams(params)}`, { headers: { authorization: `Bearer ${access}` }, signal: AbortSignal.timeout(15_000) });
@@ -149,7 +153,7 @@ export async function canUse(access, scopes) {
   const kind = grantedKinds(scopes)[0];
   return kind
     ? get(access, `${KINDS[kind].type}/dataPoints`, { pageSize: "1", dataSourceFamily: "users/me/dataSourceFamilies/self-sources" })
-    : get(access, canReadHeart(scopes) ? "heart-rate/dataPoints" : "sleep/dataPoints", { pageSize: "1" });
+    : get(access, canReadHeart(scopes) ? "heart-rate/dataPoints" : canReadSleep(scopes) ? "sleep/dataPoints" : "exercise/dataPoints", { pageSize: "1" });
 }
 
 /**
@@ -265,6 +269,57 @@ export async function dailyValues(access, type, from, to) {
     if (d && v > 0) out[d] = Math.round(v * 10) / 10;
   }
   return out;
+}
+
+/* ── workouts ── */
+
+const seconds = (d) => { const m = /^(-?\d+(?:\.\d+)?)s$/.exec(String(d || "")); return m ? Number(m[1]) : null; };
+/** "STRENGTH_TRAINING" -> "Strength training", for a workout Google gave no name. */
+const typeName = (t) => { const w = String(t || "Workout").toLowerCase().replace(/_/g, " "); return w[0].toUpperCase() + w.slice(1); };
+
+/**
+ * One workout as GymBuddy keeps it: Google's id for it, when (and the lifter's calendar date, from
+ * its own UTC offset or else their time zone), what kind, minutes moving, and calories and average
+ * heart rate when the watch had them. Null for one without a usable interval.
+ */
+export function workoutOf(p, tz = "UTC") {
+  const x = p?.exercise;
+  if (!x?.interval) return null;
+  const start = Date.parse(x.interval.startTime), end = Date.parse(x.interval.endTime);
+  if (!start || !end || end <= start) return null;
+  const id = String(p.name || "").split("/").pop().slice(0, 100);
+  if (!id) return null;
+  const off = seconds(x.interval.startUtcOffset) ?? offsetSeconds(tz, start);
+  const active = seconds(x.activeDuration);
+  const m = x.metricsSummary || {};
+  const kcal = Number(m.caloriesKcal), hr = Number(m.averageHeartRateBeatsPerMinute);
+  return {
+    id, start, end,
+    date: new Date(start + off * 1000).toISOString().slice(0, 10),
+    type: String(x.exerciseType || "OTHER"),
+    name: String(x.displayName || typeName(x.exerciseType)).slice(0, 60),
+    mins: Math.max(1, Math.round((active > 0 ? active : (end - start) / 1000) / 60)),
+    ...(kcal > 0 ? { kcal: Math.round(kcal) } : {}),
+    ...(hr > 0 ? { hrAvg: Math.round(hr) } : {}),
+  };
+}
+
+/**
+ * Workouts that started on dates from..to (YYYY-MM-DD, the lifter's calendar; Google only filters
+ * workouts by their local start). Resolves { ok, workouts } or { ok: false, status, message }.
+ */
+export async function workouts(access, from, to, tz) {
+  const f = "exercise.interval.civil_start_time";
+  const params = { pageSize: "25", filter: `${f} >= "${from}" AND ${f} < "${nextDay(to)}"` };
+  const out = [];
+  for (let page = 0; page < 4; page++) {
+    const r = await get(access, "exercise/dataPoints", params);
+    if (!r.ok) return r;
+    for (const p of r.body.dataPoints || []) { const w = workoutOf(p, tz); if (w) out.push(w); }
+    if (!r.body.nextPageToken) break;
+    params.pageToken = r.body.nextPageToken;
+  }
+  return { ok: true, workouts: out.sort((a, b) => b.start - a.start) };
 }
 
 /* ── time ── */
