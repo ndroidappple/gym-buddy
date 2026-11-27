@@ -298,6 +298,20 @@ test("nutrition: trends live on Nutrition, and the old Progress link lands there
     (await views.getByRole("button").allTextContents()).join(","));
 });
 
+test("help: a tap on the left goes back a card, anywhere else goes on", async ({ page }) => {
+  await page.getByRole("button", { name: "About Today" }).click();
+  const dialog = page.getByRole("dialog");
+  const tap = dialog.locator(".help-tap");
+  // click() waits for the sheet to finish sliding up before it measures.
+  const at = async (fx) => { const b = await tap.boundingBox(); await tap.click({ position: { x: b.width * fx, y: b.height * 0.8 } }); };
+  await at(0.1); // first card: nothing behind it, so on
+  await dialog.getByText("2 of", { exact: false }).waitFor();
+  await at(0.8);
+  await dialog.getByText("3 of", { exact: false }).waitFor();
+  await at(0.1);
+  await dialog.getByText("2 of", { exact: false }).waitFor();
+});
+
 const run = tests.filter((t) => !only || t.name.includes(only));
 const app = await startApp();
 const browser = await launch();
