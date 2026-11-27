@@ -2,6 +2,7 @@ import React, { useMemo, useState } from "react";
 import { EmptyState } from "../components/ui.jsx";
 import { Pencil, ChevronLeft, ChevronRight, Wine, Cannabis } from "lucide-react";
 import { sumDays, dayLine, drinksLabel, alcoholOf, drinksFor } from "../lib/wellness.js";
+import WellnessSheet from "../components/WellnessSheet.jsx";
 import { allDays, CUSTOM } from "../data/program.js";
 import { href } from "../lib/router.js";
 import { outsideStats, effortWord } from "../lib/outside.js";
@@ -68,6 +69,7 @@ const LAYERS_KEY = "ironlog-cal-layers";
 const readLayers = () => { try { return { workouts: true, drinks: true, cannabis: true, ...JSON.parse(localStorage.getItem(LAYERS_KEY)) }; } catch { return { workouts: true, drinks: true, cannabis: true }; } };
 function MonthCalendar({ sessions, program, prs, heart, well }) {
   const [layers, setLayers] = useState(readLayers);
+  const [logging, setLogging] = useState(false); // the log sheet, for the picked day
   const flip = (k) => { const next = { ...layers, [k]: !layers[k] }; setLayers(next); try { localStorage.setItem(LAYERS_KEY, JSON.stringify(next)); } catch {} };
   const wd = well?.days || {};
   const show = { workouts: !well || layers.workouts, drinks: !!well && layers.drinks, cannabis: !!well && layers.cannabis };
@@ -144,6 +146,13 @@ function MonthCalendar({ sessions, program, prs, heart, well }) {
       </section>
 
       {well && wd[picked] && <WellDay day={wd[picked]} foodOn={well.foodOn} />}
+      {/* Any day can be logged or fixed from here, however far back: Today's sheet offers only the last week. */}
+      {well && picked <= t && (
+        <button type="button" className="btn-quiet cal-log" onClick={() => setLogging(true)} aria-haspopup="dialog">
+          <Wine size={16} strokeWidth={2.6} aria-hidden="true" />{wd[picked] ? "Edit" : "Log"} alcohol or cannabis for {longDate(picked)}
+        </button>
+      )}
+      {logging && <WellnessSheet well={well} start={picked} onClose={() => setLogging(false)} />}
       {(byDate[picked] || []).length
         ? byDate[picked].map((s) => <HistCard key={s.id} s={s} program={program} prs={prs} heart={heart} />)
         : <p className="muted cal-none">No workout logged on {longDate(picked)}.</p>}

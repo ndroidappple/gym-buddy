@@ -24,11 +24,14 @@ export const DRINK_PRESETS = [
   { id: "cocktail", name: "Cocktail", sub: "Mixed", per: { kcal: 200, protein: 0, carbs: 25, fat: 0, alcohol: 14 } },
 ];
 
-/** A food log row for one preset drink on `date`. Last night's drinks go to dinner; today's, to the meal for now. */
+/** Where a drink logged for `date` goes: today's to the meal for now, an earlier day's to dinner. */
+export const drinkMeal = (date) => (date === today() ? mealForNow() : "dinner");
+
+/** A food log row for one preset drink on `date`. */
 export function drinkEntry(preset, date) {
   const p = preset.per;
   return {
-    date, meal: date === today() ? mealForNow() : "dinner",
+    date, meal: drinkMeal(date),
     name: preset.name, amount: 1, unit: "drink",
     kcal: p.kcal, protein: p.protein, carbs: p.carbs, fat: p.fat,
     source: "custom", basis: { perServing: p, servingLabel: "drink" },
@@ -93,6 +96,51 @@ export function wellnessDays({ entries = null, wellness = {}, from = "0000-00-00
 
 /** The day a log is for, by default: before noon it's most likely last night. */
 export const defaultLogDay = (h = new Date().getHours()) => (h < 12 ? addDays(today(), -1) : today());
+
+/** The days the log sheet offers: the last `n`, today first. */
+export const recentDays = (n = 7, to = today()) => Array.from({ length: n }, (_, i) => addDays(to, -i));
+
+/**
+ * A food that's a drink, not a meal with a drink in it (a piña colada, not "Steak & two beers"). Drinks
+ * get a stepper in the log sheet; a meal with beer in it is listed as it is.
+ */
+export function isDrinkLike(e) {
+  const g = alcoholOf(e);
+  if (!(g > 0)) return false;
+  const share = (g * ALCOHOL_KCAL_PER_G) / Math.max(1, +e.kcal || 0);
+  // Mostly alcohol; or next to no protein and a real share of alcohol (a cocktail with a sweet mixer).
+  // Not the name: "Rum cake" and "Beer-battered fish" are food. A dessert with a splash of rum stays under 15%.
+  return share >= 0.5 || ((+e.protein || 0) < 10 && share >= 0.15);
+}
+
+/** The key that groups the same drink across days: its name, ignoring case and spacing. */
+export const drinkKey = (name) => String(name || "").trim().toLowerCase().replace(/\s+/g, " ");
+
+/**
+ * The lifter's own drinks, most logged first (the most recent breaks a tie): what they actually drink,
+ * with the numbers they logged it with. Each is { key, name, template } where template is the latest
+ * entry, to copy for another one.
+ */
+export function yourDrinks(entries, limit = 3) {
+  const m = new Map();
+  for (const e of entries) {
+    if (!isDrinkLike(e)) continue;
+    const k = drinkKey(e.name);
+    const x = m.get(k) || { key: k, name: e.name.trim(), n: 0, template: e };
+    x.n++;
+    if (`${e.date}${e.created_at || ""}` > `${x.template.date}${x.template.created_at || ""}`) { x.template = e; x.name = e.name.trim(); }
+    m.set(k, x);
+  }
+  return [...m.values()]
+    .sort((a, b) => b.n - a.n || `${b.template.date}${b.template.created_at || ""}`.localeCompare(`${a.template.date}${a.template.created_at || ""}`))
+    .slice(0, limit).map(({ key, name, template }) => ({ key, name, template }));
+}
+
+/** Another one of a logged drink, on `date`: the same food and amount, a new row. */
+export function againEntry(e, date) {
+  const { id, created_at, updated_at, user_id, ...rest } = e; // eslint-disable-line no-unused-vars
+  return { ...rest, date, meal: drinkMeal(date) };
+}
 
 /** What happened that day, in a few words: "3 drinks · cannabis". */
 export function dayLine(x) {

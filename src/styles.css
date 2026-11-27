@@ -1234,14 +1234,24 @@ button.coach-card:active { transform: translateY(3px); box-shadow: 0 2px 0 var(-
 /* Wellness: drinks and cannabis. Their own two hues, never good/bad colours. */
 :root { --drink: #B0478C; --weed: #3F8F4E; }
 :root[data-theme="dark"] { --drink: #E77BC1; --weed: #6CCB7C; }
-.well-line { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0 4px 0 14px; margin-top: -6px; font-size: 15px; color: var(--mute); font-weight: 600; }
+.well-line { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 2px 4px 2px 14px; font-size: 15px; color: var(--mute); font-weight: 600; }
+.well-line.in-card { border-top: 1px solid var(--rule); padding: 2px 4px 2px 12px; }
 .well-status { color: var(--ink); }
 .well-open { padding: 0 10px; color: var(--ink); font-weight: 800; font-size: 15px; }
-.well-presets { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-.well-preset { justify-content: flex-start; text-align: left; min-height: 52px; min-width: 0; gap: 8px; padding: 8px 12px; font-size: 15px; border-radius: 16px; white-space: normal; }
-.well-preset span { display: flex; flex-direction: column; line-height: 1.2; min-width: 0; }
-.well-preset small { font-size: 12.5px; font-weight: 600; color: var(--mute); }
-.well-drink { cursor: default; }
+.well-days { display: flex; flex-shrink: 0; gap: 6px; overflow-x: auto; scrollbar-width: none; margin: 0 -4px; padding: 0 4px 2px; }
+.well-days::-webkit-scrollbar { display: none; }
+.well-days .chip { flex-shrink: 0; min-height: 38px; padding: 6px 14px; position: relative; }
+.well-days .chip[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
+.well-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--drink); display: inline-block; margin-left: 2px; }
+.well-step { cursor: default; gap: 10px; padding-top: 8px; padding-bottom: 8px; }
+.well-step .name { min-width: 0; }
+.well-stepper { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+.well-stepper b { min-width: 22px; text-align: center; font-size: 18px; font-weight: 800; color: var(--faint); }
+.well-step.has .well-stepper b { color: var(--drink); }
+.well-stepper .icon-btn:disabled { opacity: .3; }
+.well-other { display: inline-flex; align-items: center; gap: 6px; align-self: flex-start; padding: 0 4px; color: var(--ink); }
+.cal-log { display: inline-flex; align-items: center; gap: 6px; align-self: center; padding: 0 8px; font-size: 13.5px; }
+.wd-marks { display: flex; gap: 2px; height: 13px; align-items: center; justify-content: center; }
 .well-count { display: flex; align-items: center; justify-content: center; gap: 20px; font-size: 18px; }
 .well-count b { min-width: 96px; text-align: center; }
 .nut-split { font-size: 12.5px; color: var(--mute); font-weight: 600; margin-top: -2px; }
@@ -1250,7 +1260,8 @@ button.coach-card:active { transform: translateY(3px); box-shadow: 0 2px 0 var(-
 .food-drink { color: var(--drink); vertical-align: -2px; margin-right: 5px; }
 
 /* Today's food card: the ring and the numbers open Nutrition; the button adds to the meal that fits the time. */
-.food-card { display: flex; align-items: center; gap: 10px; padding: 10px 10px 10px 12px; }
+.food-card { display: flex; flex-direction: column; padding: 0; }
+.food-card-main { display: flex; align-items: center; gap: 10px; padding: 10px 10px 10px 12px; }
 .food-card-link { flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px; color: var(--ink); text-decoration: none; }
 .food-card-ring { width: 44px; height: 44px; flex-shrink: 0; }
 .food-card-ring circle { fill: none; stroke-width: 6; stroke-linecap: round; }

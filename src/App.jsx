@@ -30,7 +30,7 @@ import { useCoachThread } from "./lib/coachThread.js";
 import { withTargetHistory } from "./lib/nutritionTrends.js";
 import { headContext } from "./lib/coachChat.js";
 import { headCoach } from "./data/coaches.js";
-import { wellnessDays, drinkEntry } from "./lib/wellness.js";
+import { wellnessDays, drinkEntry, againEntry } from "./lib/wellness.js";
 import { coachFoodContext, totals } from "./lib/nutrition.js";
 import NamePrompt from "./components/NamePrompt.jsx";
 import ErrorBoundary from "./components/ErrorBoundary.jsx";
@@ -408,7 +408,10 @@ export default function App() {
     setCannabis: (date, on) => setWellDay(date, { cannabis: on }),
     setDrinks: (date, n) => setWellDay(date, { drinks: Math.max(0, n) }), // food tracking off only
     addDrink: (preset, date) => food.addEntry(drinkEntry(preset, date)),
+    addAgain: (entry, date) => food.addEntry(againEntry(entry, date)), // another of a drink you've logged before
     removeDrink: (id) => food.removeEntry(id),
+    // For the sheet's "Something else": Add food, with Tank, over it.
+    food: nutritionOn ? food : null, head, notify, targets: nutritionOn ? prefs.nutrition?.targets || null : null,
   } : null;
   const buildHead = (day) => headContext({ sessions, program, weighins, profile: prefs.profile, phase: prefs.phase,
     n: nutritionOn ? prefs.nutrition : null, entries: nutritionOn ? food.entries : [], foodDays: nutritionOn ? food.history : {}, notes: thread.notes, day, recovery,
