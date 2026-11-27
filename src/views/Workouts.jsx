@@ -3,6 +3,7 @@ import { EmptyState } from "../components/ui.jsx";
 import { Pencil, ChevronLeft, ChevronRight } from "lucide-react";
 import { allDays, CUSTOM } from "../data/program.js";
 import { href } from "../lib/router.js";
+import { outsideStats, effortWord } from "../lib/outside.js";
 import { fmtSet, bestSet, byDateDesc, longDate, compact, sessionVolume, sessionSetCount, plural, priorSessions, allTimeBest, bestE1rm, e1rm, num, today, iso } from "../lib/util.js";
 
 /** Progress → Workouts: every logged workout as a list or a month calendar, filterable by day.
@@ -124,6 +125,7 @@ function HistCard({ s, program, prs, heart }) {
   const n = Object.keys(hits).length;
   // Each lift shows its top set (the record set on a PR); every set is one tap away.
   const [all, setAll] = useState(false);
+  if (s.ext) return <OutsideHistCard s={s} program={program} heart={heart} />;
   return (
     <article className="hist" data-help="workout" data-day={s.day}>
       <div className="hist-head">
@@ -157,6 +159,23 @@ function HistCard({ s, program, prs, heart }) {
         })}
       </div>
       <button className="btn-quiet hist-more" onClick={() => setAll(!all)} aria-expanded={all}>{all ? "Show top sets" : "Show all sets"}</button>
+    </article>
+  );
+}
+
+/** A workout done outside GymBuddy and counted from Google Health: what the watch recorded, no sets. */
+function OutsideHistCard({ s, program, heart }) {
+  const day = program[s.day]?.name || "Workout";
+  return (
+    <article className="hist" data-day={s.day}>
+      <div className="hist-head">
+        <a className="hist-open" href={href("summary", s.id, "view")} aria-label={`Open ${s.ext.name} on ${longDate(s.date)}`}>
+          <h2 className="hist-date">{longDate(s.date)}<ChevronRight size={18} strokeWidth={2.6} aria-hidden="true" className="hist-chev" /></h2>
+          <div className="hist-meta">{s.day === CUSTOM ? s.ext.name : `${day} · ${s.ext.name}`} · from Google Health</div>
+          <div className="hist-meta">{outsideStats({ ...s.ext, hrAvg: (heart && s.hr && !s.hr.none && s.hr.avg) || s.ext.hrAvg })}{s.effort ? ` · effort ${s.effort}/10, ${effortWord(s.effort).toLowerCase()}` : ""}</div>
+        </a>
+      </div>
+      {s.note && <p className="hist-note">{s.note}</p>}
     </article>
   );
 }

@@ -189,12 +189,14 @@ export function buildWeekFacts({ sessions = [], program, weighins = [], prefs = 
       if (was && now < was * 0.95) downs.push({ lift: n, date: s.date, e1rm: r1(now), was: r1(was), pct: pct(now, was), coach: coachFor(baseOf(n)) });
     }
     const swapped = new Set(Object.keys(s.swaps || {}));
-    const skipped = (program[s.day]?.exercises || []).map((e) => e.n).filter((n) => !isWarmup(n) && !s.sets?.[n]?.length && !swapped.has(n));
+    // A workout done outside GymBuddy (counted from Google Health) has no sets, so nothing in it was skipped.
+    const skipped = s.ext ? [] : (program[s.day]?.exercises || []).map((e) => e.n).filter((n) => !isWarmup(n) && !s.sets?.[n]?.length && !swapped.has(n));
     skipped.forEach((n) => { skippedCount[n] = (skippedCount[n] || 0) + 1; });
     return {
       date: s.date, weekday: WEEKDAYS[weekday(s.date)], day: s.day, name: program[s.day]?.name || (s.day === "custom" ? "Custom" : s.day),
       mins: sessionMins(s), startHour: s.startedAt ? hourIn(s.startedAt, tz) : null, sets: lifts.reduce((a, n) => a + lifting(s.sets[n]).length, 0),
       volume: Math.round(lifts.reduce((a, n) => a + volume(s.sets[n]), 0)), records, skipped,
+      ...(s.ext ? { outside: { what: s.ext.name, from: "Google Health", mins: s.ext.mins, kcal: s.ext.kcal ?? null, effort: s.effort ?? null } } : {}),
     };
   });
 

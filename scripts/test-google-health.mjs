@@ -93,7 +93,7 @@ ok("nothing from before connecting", !future.send.some((s) => s.item === "bw:202
 ok("nothing dated tomorrow", !future.send.some((s) => s.item === "f:tomorrow"));
 
 // Scopes: weight and food written, heart rate read; workouts never asked for.
-eq("scopes asked for", gh.SCOPES.map((x) => x.split(".").slice(-2).join(".")), ["health_metrics_and_measurements.writeonly", "nutrition.writeonly", "health_metrics_and_measurements.readonly", "sleep.readonly"]);
+eq("scopes asked for", gh.SCOPES.map((x) => x.split(".").slice(-2).join(".")), ["health_metrics_and_measurements.writeonly", "nutrition.writeonly", "health_metrics_and_measurements.readonly", "sleep.readonly", "activity_and_fitness.readonly"]);
 ok("sleep is its own permission", gh.canReadSleep(gh.SLEEP_SCOPE) && !gh.canReadSleep(gh.HEART_SCOPE) && !gh.canReadHeart(gh.SLEEP_SCOPE));
 eq("granted kinds", gh.grantedKinds(gh.SCOPES.join(" ")), ["bw", "f"]);
 ok("heart rate allowed", gh.canReadHeart(gh.SCOPES.join(" ")) && !gh.canReadHeart(gh.SCOPES.slice(0, 2).join(" ")));
@@ -319,6 +319,41 @@ for (let i = 0; i < 16; i++) {
 const pat = R.sleepPattern(ses, recP);
 ok("pattern: lifts lower after short nights", pat && pat.short.n >= 3 && pat.rest.n >= 3 && pat.diff > 0, JSON.stringify(pat));
 eq("pattern needs 3 of each", R.sleepPattern(ses.slice(0, 6), recP), null);
+
+// Workouts recorded in Google Health (a video workout on the watch), and which ones Today offers.
+const O = await import("../src/lib/outside.js");
+const point = (id, start, end, extra = {}) => ({ name: `users/me/dataTypes/exercise/dataPoints/${id}`,
+  exercise: { interval: { startTime: start, endTime: end, startUtcOffset: "-18000s" }, exerciseType: "STRENGTH_TRAINING", displayName: "Strength training",
+    activeDuration: "1260s", metricsSummary: { caloriesKcal: 180.4, averageHeartRateBeatsPerMinute: "142" }, ...extra } });
+const yt = gh.workoutOf(point("yt1", "2026-11-27T18:20:00Z", "2026-11-27T18:43:00Z"), TZ);
+eq("a recorded workout as GymBuddy keeps it", yt, { id: "yt1", start: at("2026-11-27T18:20:00Z"), end: at("2026-11-27T18:43:00Z"), date: "2026-11-27", type: "STRENGTH_TRAINING", name: "Strength training", mins: 21, kcal: 180, hrAvg: 142 });
+// 11 pm in New York is the next day in UTC: the date is the lifter's own.
+eq("its date is the lifter's calendar", gh.workoutOf(point("late", "2026-11-28T04:00:00Z", "2026-11-28T04:30:00Z"), TZ).date, "2026-11-27");
+eq("no offset: from their time zone", gh.workoutOf(point("tz", "2026-11-28T04:00:00Z", "2026-11-28T04:30:00Z", { interval: { startTime: "2026-11-28T04:00:00Z", endTime: "2026-11-28T04:30:00Z" } }), TZ).date, "2026-11-27");
+const bare = gh.workoutOf({ name: "x/b1", exercise: { interval: { startTime: "2026-11-27T12:00:00Z", endTime: "2026-11-27T12:30:00Z" }, exerciseType: "HIIT" } }, TZ);
+eq("no name, no metrics: named from its type, minutes from its times", [bare.name, bare.mins, "kcal" in bare, "hrAvg" in bare], ["Hiit", 30, false, false]);
+eq("no interval, nothing", gh.workoutOf({ name: "x/c", exercise: {} }), null);
+ok("asks for workouts when connecting", gh.SCOPES.includes("https://www.googleapis.com/auth/googlehealth.activity_and_fitness.readonly"));
+ok("knows when workouts are allowed", gh.canReadWorkouts(gh.SCOPES.join(" ")) && !gh.canReadWorkouts(gh.HEART_SCOPE));
+
+const w = (id, start, mins, type = "STRENGTH_TRAINING") => ({ id, start: at(start), end: at(start) + mins * 60_000, date: start.slice(0, 10), type, name: "W", mins });
+const recordedList = [w("yt", "2026-11-27T18:20:00Z", 21), w("gym", "2026-11-26T22:00:00Z", 64), w("walk", "2026-11-26T15:00:00Z", 30, "WALKING"), w("tiny", "2026-11-25T15:00:00Z", 3), w("old", "2026-11-24T15:00:00Z", 40)];
+const logged = [{ id: "g1", day: "push", date: "2026-11-26", startedAt: at("2026-11-26T22:03:00Z"), finishedAt: at("2026-11-26T23:01:00Z"), sets: {} }];
+const NOV = "2026-11-01";
+eq("offers the ones GymBuddy didn't log, newest first", O.pendingOutside(recordedList, logged, [], NOV).map((x) => x.id), ["yt", "old"]);
+eq("not one skipped", O.pendingOutside(recordedList, logged, ["old"], NOV).map((x) => x.id), ["yt"]);
+const counted = O.outsideSession(recordedList[0], "legs", "s1");
+eq("counting saves a session with no sets on that day", [counted.day, counted.date, counted.sets, counted.startedAt, counted.ext.gid, counted.ext.mins], ["legs", "2026-11-27", {}, at("2026-11-27T18:20:00Z"), "yt", 21]);
+eq("not one already counted", O.pendingOutside(recordedList, [...logged, counted], [], NOV).map((x) => x.id), ["old"]);
+eq("a counted one doesn't hide others it overlaps", O.pendingOutside([recordedList[0], { ...recordedList[0], id: "dup" }], [counted]).map((x) => x.id), ["dup"]);
+// Going forward only: from the day this shipped (that day included), or from connecting if later.
+eq("nothing from before the day it shipped", O.pendingOutside(recordedList, logged).map((x) => x.id), ["yt"]);
+eq("starts the day it shipped", O.outsideSince("2026-10-20"), "2026-11-27");
+eq("or the day they connected, if later", O.outsideSince("2027-01-05"), "2027-01-05");
+eq("never connected: the day it shipped", O.outsideSince(undefined), "2026-11-27");
+eq("connected later: nothing from before", O.pendingOutside(recordedList, logged, [], O.outsideSince("2026-11-28")).map((x) => x.id), []);
+eq("effort in words", [1, 4, 6, 8, 9, 10].map(O.effortWord), ["Very easy", "Easy", "Moderate", "Hard", "Very hard", "All out"]);
+ok("the coaches read it as done outside, with the effort", /done outside GymBuddy.*21 min.*effort 9\/10/.test(O.outsideLine({ ...counted, effort: 9 })));
 
 if (failed) { console.error(`\n${failed} failed`); process.exit(1); }
 console.log("google health: all passed");

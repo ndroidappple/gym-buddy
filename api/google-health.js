@@ -1,14 +1,14 @@
 import { createClient } from "@supabase/supabase-js";
 import {
   ghReady, signState, authUrl, openToken, accessToken, revoke, plan, carryOut, localToday, validTz,
-  links, redirectUri, grantedKinds, canReadHeart, canReadSleep, heartRate, heartZones, sleepNights, dailyValues, SUPABASE_URL, SUPABASE_KEY, LINK_SECRET,
+  links, redirectUri, grantedKinds, canReadHeart, canReadSleep, canReadWorkouts, heartRate, heartZones, sleepNights, dailyValues, workouts, SUPABASE_URL, SUPABASE_KEY, LINK_SECRET,
 } from "./_googleHealth.js";
 
 /* Google Health sync: the app's side. POST /api/google-health with the lifter's sign-in and
    { action }:
      connect    { tz }  -> { url }: Google's page asking them to allow GymBuddy. Google then sends
                            them to api/google-health-callback.js, which saves the connection.
-     status            -> { connected, since, syncedAt, error, allowed: { weight, food, heart, sleep } }
+     status            -> { connected, since, syncedAt, error, allowed: { weight, food, heart, sleep, workouts } }
      sync       { tz }  -> { connected, sent, removed, more }: sends weight and food that's new or
                            changed since the last sync, up to 30 data points (call again while `more`).
      heart      { workouts: [{ id, start, end, date }] } (up to 4, ms) -> { connected, allowed,
@@ -21,6 +21,10 @@ import {
                            rhr: { date: bpm }, hrv: { date: ms } }: each night's sleep and the daily
                            resting heart rate and heart rate variability. The app keeps a summary per
                            night (src/lib/recovery.js); nothing is kept here.
+     workouts   { from, to, tz } (dates, up to 14 days) -> { connected, allowed, workouts: [{ id, start,
+                           end, date, type, name, mins, kcal?, hrAvg? }] }: workouts recorded in Google
+                           Health, newest first, for the app to offer as ones done outside GymBuddy.
+                           Nothing is kept here.
      disconnect        -> { connected: false }: takes GymBuddy's access back from Google.
    The link (Google's refresh token, encrypted) is read and written through database functions
    that need the rest alerts' shared secret (REST_ALERT_SECRET); what was sent is the lifter's own
@@ -31,7 +35,7 @@ const ACCOUNT_KEY = "ironlog-v2"; // STORE_KEY in src/lib/store.js
 const json = (body, status = 200) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json", "cache-control": "no-store" } });
 const noSession = { auth: { persistSession: false, autoRefreshToken: false } };
 
-const allowed = (scopes) => { const g = grantedKinds(scopes); return { weight: g.includes("bw"), food: g.includes("f"), heart: canReadHeart(scopes), sleep: canReadSleep(scopes) }; };
+const allowed = (scopes) => { const g = grantedKinds(scopes); return { weight: g.includes("bw"), food: g.includes("f"), heart: canReadHeart(scopes), sleep: canReadSleep(scopes), workouts: canReadWorkouts(scopes) }; };
 
 export async function POST(request) {
   if (!SUPABASE_URL || !SUPABASE_KEY || !LINK_SECRET || !ghReady()) return json({ error: "Google Health isn't set up on the server yet." }, 503);
@@ -68,6 +72,7 @@ export async function POST(request) {
       case "sync": return json(await sync(sb, db, user.id, tz));
       case "heart": return json(await heart(db, user.id, body.workouts));
       case "recovery": return json(await recovery(db, user.id, body.from, body.to));
+      case "workouts": return json(await recorded(db, user.id, body.from, body.to, tz));
       default: return json({ error: "Unknown action." }, 400);
     }
   } catch (e) {
@@ -136,6 +141,19 @@ async function recovery(db, userId, from, to) {
     ? await Promise.all([dailyValues(access, "daily-resting-heart-rate", from, to), dailyValues(access, "daily-heart-rate-variability", from, to)])
     : [{}, {}];
   return { connected: true, allowed: can, nights, rhr, hrv };
+}
+
+async function recorded(db, userId, from, to, tz) {
+  if (!DATE.test(from || "") || !DATE.test(to || "") || from > to || Date.parse(to) - Date.parse(from) > 14 * DAY_MS) return { error: "Bad dates." };
+  const { link, access, gone } = await open(db, userId);
+  if (gone) return gone;
+  if (!canReadWorkouts(link.scopes)) return { connected: true, allowed: false, workouts: [] };
+  const r = await workouts(access, from, to, tz);
+  if (!r.ok) {
+    if (r.status === 403) return { connected: true, allowed: false, workouts: [] };
+    throw new Error(r.message);
+  }
+  return { connected: true, allowed: true, workouts: r.workouts };
 }
 
 async function sync(sb, db, userId, tz) {

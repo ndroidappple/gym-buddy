@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { ChevronRight, Download, LogOut, Moon, Gauge, Smartphone, Share, SquarePlus, EllipsisVertical, Check, Sparkles, Scale, Vibrate, Bell, BellRing, Users, Utensils, Target, Bookmark, Trash2, Rows3, CalendarClock, History, BellOff, BellPlus, Info, Dumbbell, HeartPulse, RefreshCw, Unlink, Bot } from "lucide-react";
+import { ChevronRight, Download, LogOut, Moon, Gauge, Smartphone, Share, SquarePlus, EllipsisVertical, Check, Sparkles, Scale, Vibrate, Bell, BellRing, Users, Utensils, Target, Bookmark, Trash2, Rows3, CalendarClock, History, BellOff, BellPlus, Info, Dumbbell, HeartPulse, Watch, RefreshCw, Unlink, Bot } from "lucide-react";
 import { Sheet, InfoButton, ConfirmSheet } from "../components/ui.jsx";
 import { ICONS, iconSrc } from "../lib/icons.js";
 import { VIEWS, applyView } from "../lib/view.js";
@@ -278,7 +278,7 @@ export default function Settings({ program, sessions, prefs, setPref, go, notify
       {sheet === "reviews" && <PastReviewsSheet onClose={() => setSheet(null)} />}
       {sheet === "google-health" && <GoogleHealthSheet gh={gh} onDisconnect={() => setSheet("google-health-off")} onClose={() => setSheet(null)} />}
       {sheet === "google-health-off" && (
-        <ConfirmSheet title="Disconnect Google Health?" body="GymBuddy stops reading heart rate and sleep and sending weight and food. Heart rate comes off your workouts and sleep comes out of GymBuddy; what's already in Google Health stays there."
+        <ConfirmSheet title="Disconnect Google Health?" body="GymBuddy stops reading heart rate, sleep and workouts and sending weight and food. Heart rate comes off your workouts and sleep comes out of GymBuddy; what's already in Google Health stays there."
           confirm="Disconnect" onClose={() => setSheet(null)} onConfirm={gh.disconnect} />
       )}
     </main>
@@ -441,8 +441,8 @@ function useGoogleHealth({ prefs, setPref, notify }) {
     try {
       const s = await googleHealthStatus();
       setStatus(s);
-      if (s.connected && (!on || prefs.googleHealth.heart !== !!s.allowed?.heart || prefs.googleHealth.sleep !== !!s.allowed?.sleep)) {
-        setPref("googleHealth", { on: true, since: s.since, heart: !!s.allowed?.heart, sleep: !!s.allowed?.sleep });
+      if (s.connected && (!on || prefs.googleHealth.heart !== !!s.allowed?.heart || prefs.googleHealth.sleep !== !!s.allowed?.sleep || prefs.googleHealth.workouts !== !!s.allowed?.workouts)) {
+        setPref("googleHealth", { on: true, since: s.since, heart: !!s.allowed?.heart, sleep: !!s.allowed?.sleep, workouts: !!s.allowed?.workouts });
         if (!on && connecting()) notify?.("Google Health connected");
       }
       if (!s.connected && on) setPref("googleHealth", null);
@@ -469,7 +469,7 @@ function useGoogleHealth({ prefs, setPref, notify }) {
     on, status, busy,
     since,
     lastLabel,
-    sub: !on ? "Heart rate and sleep in, for how hard you worked and how recovered you are. Weight and food out."
+    sub: !on ? "Heart rate, sleep and workouts in, for how hard you worked, how recovered you are and workouts done elsewhere. Weight and food out."
       : status?.error ? "Some items didn't go through. They'll be tried again."
       : `On since ${since ? shortDate(since) : "today"}${lastLabel ? ` · last synced ${lastLabel}` : ""}`,
     connect: () => run(connectGoogleHealth),
@@ -493,14 +493,17 @@ function useGoogleHealth({ prefs, setPref, notify }) {
 function GoogleHealthSheet({ gh, onDisconnect, onClose }) {
   const allowed = gh.status?.allowed;
   const missing = allowed ? [["heart", "heart rate"], ["weight", "weight"], ["food", "food"]].filter(([k]) => !allowed[k]).map(([, l]) => l) : [];
-  // Connected before GymBuddy read sleep: one tap back through Google's page adds it.
+  // Connected before GymBuddy read sleep or workouts: one tap back through Google's page adds them
+  // (Google's page asks for everything GymBuddy uses, so one trip covers both).
   const noSleep = allowed && !allowed.sleep;
+  const noWorkouts = allowed && !allowed.workouts;
   if (!gh.on) {
     return (
       <Sheet title="Google Health" sub="Bring your watch's heart rate and sleep into GymBuddy, and keep your weight and food in Google Health." onClose={onClose} labelledBy="google-health-title">
         <div className="list">
           <div className="list-row"><HeartPulse size={18} aria-hidden="true" /><span className="name">Heart rate, read<span className="sub">Only during your workouts in the last 30 days and from now on, to show how hard each workout and set was. Your coaches see the summary.</span></span></div>
           <div className="list-row"><Moon size={18} aria-hidden="true" /><span className="name">Sleep and recovery, read<span className="sub">Each night's sleep, resting heart rate and HRV, from 30 days before you connect, so your coaches can tell a bad night from a stall.</span></span></div>
+          <div className="list-row"><Watch size={18} aria-hidden="true" /><span className="name">Workouts, read<span className="sub">Workouts your watch records from now on that you didn't log in GymBuddy, like a video workout, so you can count them as a day.</span></span></div>
           <div className="list-row"><Scale size={18} aria-hidden="true" /><span className="name">Bodyweight, sent<span className="sub">Your weigh-ins, from the day you connect.</span></span></div>
           <div className="list-row"><Utensils size={18} aria-hidden="true" /><span className="name">Food, sent<span className="sub">Each entry's calories, protein, carbs and fat, from the day you connect.</span></span></div>
         </div>
@@ -523,6 +526,14 @@ function GoogleHealthSheet({ gh, onDisconnect, onClose }) {
           </button>
         ) : allowed?.sleep && (
           <div className="list-row"><Moon size={18} aria-hidden="true" /><span className="name">Sleep and recovery<span className="sub">Each night's sleep, resting heart rate and HRV. GymBuddy only speaks up when a night is off for you.</span></span></div>
+        )}
+        {noWorkouts ? (
+          <button type="button" className="list-row" disabled={gh.busy} onClick={gh.connect}>
+            <Watch size={18} aria-hidden="true" />
+            <span className="name">{gh.busy ? "Opening Google…" : "Add workouts"}<span className="sub">Workouts your watch recorded that you didn't log here, like a video workout, show on Today to count as a day. Google asks you to allow it.</span></span>
+          </button>
+        ) : allowed?.workouts && (
+          <div className="list-row"><Watch size={18} aria-hidden="true" /><span className="name">Workouts from your watch<span className="sub">One you didn't log in GymBuddy shows on Today, to count as a day.</span></span></div>
         )}
         <div className="list-row"><Check size={18} aria-hidden="true" /><span className="name">{gh.lastLabel ? `Weight and food last sent ${gh.lastLabel}` : "No weight or food sent yet"}<span className="sub">New weigh-ins and food go a few seconds after they're saved. Edits and deletes follow.</span></span></div>
         {missing.length > 0 && (
