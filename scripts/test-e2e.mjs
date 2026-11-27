@@ -319,7 +319,7 @@ const savedState = (backend) => JSON.parse(backend.tables.storage_kv[0].value);
 
 test("wellness: drinks and cannabis logged on Today show on the calendar", async ({ page, backend }) => {
   const line = page.locator(".well-line");
-  await line.getByText("Drinks or cannabis?").waitFor();
+  await line.getByText("Alcohol or cannabis?").waitFor();
   await line.getByRole("button", { name: "Log it" }).click();
   const dialog = page.getByRole("dialog");
   // Before noon it starts on last night; either way, log today.
@@ -341,12 +341,12 @@ test("wellness: drinks and cannabis logged on Today show on the calendar", async
   await page.getByRole("button", { name: "Show as a calendar" }).click();
   const cell = page.getByRole("button", { name: new RegExp(`no workout, 2 drinks · cannabis$`) });
   await cell.click();
-  const detail = page.getByRole("region", { name: "Drinks and cannabis" });
+  const detail = page.getByRole("region", { name: "Alcohol and cannabis" });
   await detail.getByText("2 drinks · 196 kcal from alcohol").waitFor();
   check("cannabis in the day's detail", await detail.getByText("Cannabis", { exact: true }).isVisible());
   check("the month counts them", await page.getByText("1 drinking day (2 drinks) · 1 cannabis day").isVisible());
-  await page.getByRole("group", { name: "Show on the calendar" }).getByRole("button", { name: "Drinks" }).click();
-  check("hiding drinks takes their marks off the grid", !(await page.locator(".cal-mark.drinks").count()));
+  await page.getByRole("group", { name: "Show on the calendar" }).getByRole("button", { name: "Alcohol" }).click();
+  check("hiding alcohol takes their marks off the grid", !(await page.locator(".cal-mark.drinks").count()));
 }, account({ sessions: [workout("w1", "push", day(-1), { "Flat DB Press": [[60, 10]] })], prefs: wellOn }));
 
 test("wellness: a drink from Tank splits the day's calories into food and alcohol", async ({ page }) => {
@@ -355,7 +355,7 @@ test("wellness: a drink from Tank splits the day's calories into food and alcoho
   await split.waitFor();
   // The beers' own carbs and protein (100 kcal) count as food; only the alcohol is split out.
   check("food and alcohol, with the drinks", (await split.innerText()).replace(/\s+/g, " ") === "600 food · 196 alcohol (2 drinks)", await split.innerText());
-  check("the drink is marked in its meal", await page.getByRole("img", { name: "Drink" }).count() === 1);
+  check("the drink is marked in its meal", await page.getByRole("img", { name: "Has alcohol" }).count() === 1);
 }, account({ prefs: wellOn, entries: [
   entry("Chicken Bowl", "lunch", 0),
   entry("Two Modelos", "dinner", 0, { kcal: 296, protein: 2, carbs: 25, fat: 0, basis: { perServing: { kcal: 296, protein: 2, carbs: 25, fat: 0, alcohol: 28 }, servingLabel: "meal" } }),
@@ -368,24 +368,24 @@ test("wellness: off by default; only the Settings switch turns it on", async ({ 
   await page.goto(new URL("#/nutrition", page.url()).href);
   await page.getByText("Two Modelos").waitFor();
   check("no split on Nutrition", !(await page.locator(".nut-split").count()));
-  check("no drink marker", !(await page.getByRole("img", { name: "Drink" }).count()));
+  check("no drink marker", !(await page.getByRole("img", { name: "Has alcohol" }).count()));
   await page.getByRole("group", { name: "Nutrition view" }).getByRole("button", { name: "Trends" }).click();
   await page.waitForURL(/#\/nutrition\/trends$/);
-  check("no Drinks section in Trends", !(await page.locator("#nt-drinks").count()));
+  check("no Alcohol section in Trends", !(await page.locator("#nt-drinks").count()));
   await page.goto(new URL("#/progress/workouts", page.url()).href);
   await page.getByRole("button", { name: "Show as a calendar" }).click();
   await page.locator(".cal-grid").waitFor();
   check("no layers, marks or legend on the calendar", !(await page.locator(".cal-layers, .cal-mark, .cal-legend, .cal-well").count()));
 
   await page.goto(new URL("#/settings", page.url()).href);
-  const sw = page.getByRole("switch", { name: /Track drinks & cannabis/ });
+  const sw = page.getByRole("switch", { name: /Track alcohol & cannabis/ });
   check("the switch starts off", (await sw.getAttribute("aria-checked")) === "false");
   await sw.click();
   await page.goto(new URL("#/today", page.url()).href);
   await page.locator(".well-line").getByText("2 drinks · cannabis today").waitFor();
 
   await page.goto(new URL("#/settings", page.url()).href);
-  await page.getByRole("switch", { name: /Track drinks & cannabis/ }).click();
+  await page.getByRole("switch", { name: /Track alcohol & cannabis/ }).click();
   await page.goto(new URL("#/today", page.url()).href);
   await page.getByRole("region", { name: "Food today" }).waitFor();
   check("off again: the line is gone", !(await page.locator(".well-line").count()));

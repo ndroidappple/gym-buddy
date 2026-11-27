@@ -391,7 +391,7 @@ export default function App() {
   // The head coach reads 30 days of training and food in full, older history summarized, and their own notes, fresh for every message.
   const head = headCoach(prefs);
   // `day`: the date open on the Nutrition tab when the chat was opened there (today otherwise).
-  /* Wellness (Settings → Wellness): drinks from the food log (or the day's count with food tracking off)
+  /* Wellness (Settings → Nutrition & Wellness): drinks from the food log (or the day's count with food tracking off)
      and cannabis days. Food entries are loaded for the last 120 days, so drinks older than that don't show. */
   const wellnessOn = !!prefs.wellness?.on;
   // Plain (not memoized): this is past the early returns above, where hooks can't go. It's one pass over the entries.

@@ -1,8 +1,8 @@
 import { isAlcoholic, addDays, mealForNow } from "./nutrition.js";
 import { today } from "./util.js";
 
-/* Wellness: drinks and cannabis, alongside the training and food. Off until it's turned on in
-   Settings (prefs.wellness.on).
+/* Wellness: alcohol and cannabis, alongside the training and food. Off until it's turned on in
+   Settings → Nutrition & Wellness (prefs.wellness.on).
 
    Drinks live in the food log, because they have calories. A drink's alcohol is already kept in
    its entry's basis (Tank's meals carry alcohol grams per serving; the presets below do too), so
@@ -119,10 +119,10 @@ export function wellnessLines({ entries = null, wellness = {}, days = 30, to = t
   const from = addDays(to, -(days - 1));
   const w = wellnessDays({ entries, wellness, from, to });
   const dates = Object.keys(w).sort();
-  if (!dates.length) return [`Drinks and cannabis (they track both): none logged in the last ${days} days.`];
+  if (!dates.length) return [`Alcohol and cannabis (they track both): none logged in the last ${days} days.`];
   const s = sumDays(w);
   return [
-    `Drinks and cannabis, last ${days} days (they track both; a day not listed had neither): ${drinksLabel(s.drinks)} on ${s.drinkDays} days (${s.alcoholKcal.toLocaleString()} kcal from alcohol), cannabis on ${s.cannabisDays} days.`,
+    `Alcohol and cannabis, last ${days} days (they track both; a day not listed had neither): ${drinksLabel(s.drinks)} on ${s.drinkDays} days (${s.alcoholKcal.toLocaleString()} kcal from alcohol), cannabis on ${s.cannabisDays} days.`,
     ...dates.map((d) => `- ${d}: ${dayLine(w[d])}${w[d].alcoholKcal ? ` (${w[d].alcoholKcal} kcal from alcohol)` : ""}`),
   ];
 }

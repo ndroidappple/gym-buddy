@@ -284,7 +284,7 @@ export function buildWeekFacts({ sessions = [], program, weighins = [], prefs = 
       }),
       topByKcal: [...foodList].sort((a, b) => b.kcal - a.kcal).slice(0, 5),
       topByProtein: [...foodList].sort((a, b) => b.protein - a.protein).slice(0, 5),
-      // Drinks are substance tracking: only while the lifter has opted in (Settings → Wellness).
+      // Drinks are substance tracking: only while the lifter has opted in (Settings → Nutrition & Wellness).
       drinks: prefs.wellness?.on && drinks.length ? { entries: drinks.length, kcal: Math.round(totals(drinks).kcal) } : null,
       prevAvgKcal: weeks[6].avgKcal, prevAvgProtein: weeks[6].avgProtein, prevLogged: weeks[6].logged,
       // What the logged food alone predicts for the scale (1 lb ≈ 3,500 kcal), to hold against the weigh-ins.
@@ -317,7 +317,7 @@ export function buildWeekFacts({ sessions = [], program, weighins = [], prefs = 
   const sleepWeek = prefs.googleHealth?.on && recovery ? weekSleep(recovery, w.start, w.end) : null;
   const sleep = sleepWeek && { ...sleepWeek, pattern: sleepPattern(sorted, recovery) };
 
-  /* ── Drinks and cannabis (Settings → Wellness, while on): the week's days and totals, and last
+  /* ── Drinks and cannabis (Settings → Nutrition & Wellness, while on): the week's days and totals, and last
      week's to compare. Drinks come from the food log, or the day's count with food tracking off. ── */
   let well = null;
   if (prefs.wellness?.on && wellness) {

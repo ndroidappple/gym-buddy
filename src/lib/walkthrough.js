@@ -187,7 +187,7 @@ export function walkContext({ session, sessions, program, profile, notes, places
     lines.push(`Plan for ${plan.name} (day key ${s.day}; sets x rep range, rest between sets): ${plan.exercises.map((e) => `${e.n} ${e.sets}x${e.reps[0]}-${e.reps[1]}${isCardio(e.n) ? " min" : ""}, ${e.rest}s${e.next ? `, already set to start at ${e.next.w} lb next time` : ""}`).join("; ")}.`);
   }
   if (profile?.doneAt) lines.push(goalsLine(profile));
-  if (nightBefore != null) lines.push(`Drinks and cannabis the day before this workout (they track both): ${nightBefore || "none logged"}.`);
+  if (nightBefore != null) lines.push(`Alcohol and cannabis the day before this workout (they track both): ${nightBefore || "none logged"}.`);
   if (notes?.length) lines.push("Your notes on the lifter:", ...notes.map((n) => `- ${n}`));
   if (heartLine(s)) {
     const earlier = priorSessions(sessions, s).filter((p) => p.hr && !p.hr.none).sort(byDateDesc).slice(0, 5);

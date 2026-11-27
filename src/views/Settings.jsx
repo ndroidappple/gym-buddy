@@ -122,7 +122,7 @@ export default function Settings({ program, sessions, prefs, setPref, go, notify
         </section>
 
         <section className="section">
-          <h2 className="lbl">Nutrition</h2>
+          <h2 className="lbl">Nutrition & Wellness</h2>
           <div className="list">
             {/* Turning it off only hides it: the food log and targets stay saved. */}
             <Toggle help="nutrition" Icon={Utensils} label="Track food & macros"
@@ -136,17 +136,12 @@ export default function Settings({ program, sessions, prefs, setPref, go, notify
                 <ChevronRight size={18} aria-hidden="true" className="muted" />
               </a>
             )}
-          </div>
-        </section>
-
-        <section className="section">
-          <h2 className="lbl">Wellness</h2>
-          <div className="list">
-            {/* Off by default. Turning it off only hides it: drinks stay in the food log, cannabis days stay saved. */}
-            <Toggle help="wellness" Icon={Wine} label="Track drinks & cannabis"
+            {/* Wellness: off by default, and works with food tracking on or off. Turning it off only hides
+                it: alcohol stays in the food log, cannabis days stay saved. */}
+            <Toggle help="wellness" Icon={Wine} label="Track alcohol & cannabis"
               sub={prefs.wellness?.on
-                ? `Shows on Today and the calendar, and ${who} takes it into account. Drinks are in your food log; cannabis days aren't sent to Google Health or AI assistants.`
-                : "Log drinks and cannabis days and see them next to your training."}
+                ? `Shows on Today and the calendar, and ${who} takes it into account. Alcohol is in your food log; cannabis days aren't sent to Google Health or AI assistants.`
+                : "Log alcohol and cannabis days and see them next to your training."}
               on={!!prefs.wellness?.on}
               onChange={(v) => setPref("wellness", { ...prefs.wellness, on: v })} />
           </div>

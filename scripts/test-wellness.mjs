@@ -45,7 +45,7 @@ const row = W.drinkEntry(W.DRINK_PRESETS[1], "2000-01-01");
 eq("a preset drink row", [row.meal, row.name, row.kcal, row.source, row.basis.perServing.alcohol, W.alcoholOf(row)], ["dinner", "Wine", 120, "custom", 14, 14]);
 
 // Coach lines: facts only, and a clear "none" when there's nothing.
-eq("coach: nothing logged", W.wellnessLines({ entries: [], wellness: {}, days: 30, to: "2026-11-27" }), ["Drinks and cannabis (they track both): none logged in the last 30 days."]);
+eq("coach: nothing logged", W.wellnessLines({ entries: [], wellness: {}, days: 30, to: "2026-11-27" }), ["Alcohol and cannabis (they track both): none logged in the last 30 days."]);
 eq("coach: days listed", W.wellnessLines({ entries, wellness: log, days: 30, to: "2026-11-27" }).slice(1), ["- 2026-11-20: 2 drinks · cannabis (196 kcal from alcohol)", "- 2026-11-22: cannabis"]);
 
 // Food against alcohol over a period: only full days count toward the calories.

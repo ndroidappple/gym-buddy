@@ -5,7 +5,7 @@ import { addDays } from "../lib/nutrition.js";
 import { today, vibrate } from "../lib/util.js";
 import { DRINK_PRESETS, alcoholOf, drinksFor, drinksLabel, defaultLogDay, dayLine } from "../lib/wellness.js";
 
-/* Drinks and cannabis for a day: yesterday or today. Every tap saves at once (there's no Save to
+/* Alcohol and cannabis for a day: yesterday or today. Every tap saves at once (there's no Save to
    forget); Done just closes. With food tracking on, a drink is a food log entry with its calories,
    so it shows on Nutrition and counts toward the day; with it off, the sheet keeps a plain count.
    `well` is App's wellness bundle: { days, foodOn, log, setCannabis, setDrinks, addDrink, removeDrink }. */
@@ -20,7 +20,7 @@ export function WellnessLine({ well }) {
       <div className="well-line" data-help="wellness">
         {shown
           ? <span className="well-status">{dayLine(well.days[shown])} {shown === t ? "today" : "yesterday"}</span>
-          : <span>Drinks or cannabis?</span>}
+          : <span>Alcohol or cannabis?</span>}
         <button type="button" className="btn-quiet well-open" onClick={() => setOpen(true)} aria-haspopup="dialog">{shown ? "Edit" : "Log it"}</button>
       </div>
       {open && <WellnessSheet well={well} start={shown} onClose={() => setOpen(false)} />}
@@ -39,7 +39,7 @@ export default function WellnessSheet({ well, start = null, onClose }) {
   const add = (p) => { well.addDrink(p, date); vibrate(10); };
 
   return (
-    <Sheet title="Drinks & cannabis" sub={date === guess && !start && date === y ? "It's morning, so this is for yesterday." : null}
+    <Sheet title="Alcohol & cannabis" sub={date === guess && !start && date === y ? "It's morning, so this is for yesterday." : null}
       onClose={onClose} labelledBy="wellness-title" focusField={false}>
       <div className="segctl" role="group" aria-label="Day">
         <button aria-pressed={date === y} onClick={() => setDate(y)}>Yesterday</button>
@@ -48,7 +48,7 @@ export default function WellnessSheet({ well, start = null, onClose }) {
 
       <section className="section" aria-labelledby="well-drinks">
         <div className="section-head">
-          <h3 className="lbl" id="well-drinks">Drinks</h3>
+          <h3 className="lbl" id="well-drinks">Alcohol</h3>
           <span className="lbl section-aside">{day?.drinks ? `${drinksLabel(day.drinks)}${well.foodOn ? ` · ${day.alcoholKcal.toLocaleString()} kcal from alcohol` : ""}` : "None"}</span>
         </div>
         {well.foodOn ? (

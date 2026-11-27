@@ -63,7 +63,7 @@ export default function Workouts({ sessions, program, calendar, heart = false, w
 
 /* A month grid (Sunday first, like Today's week) with a dot per workout in that day's colour.
    Tapping a day shows its workouts below, as the same cards the list uses. With wellness on, a row
-   under the dots marks drinks (with the count) and cannabis; chips above the grid hide any layer. */
+   under the dots marks alcohol (with the drink count) and cannabis; chips above the grid hide any layer. */
 const LAYERS_KEY = "ironlog-cal-layers";
 const readLayers = () => { try { return { workouts: true, drinks: true, cannabis: true, ...JSON.parse(localStorage.getItem(LAYERS_KEY)) }; } catch { return { workouts: true, drinks: true, cannabis: true }; } };
 function MonthCalendar({ sessions, program, prs, heart, well }) {
@@ -106,7 +106,7 @@ function MonthCalendar({ sessions, program, prs, heart, well }) {
         {well && (
           <div className="cal-layers" role="group" aria-label="Show on the calendar">
             <button type="button" className="chip" aria-pressed={layers.workouts} onClick={() => flip("workouts")}><span className="dot" aria-hidden="true" />Workouts</button>
-            <button type="button" className="chip cal-chip-drinks" aria-pressed={layers.drinks} onClick={() => flip("drinks")}><Wine size={14} strokeWidth={2.6} aria-hidden="true" />Drinks</button>
+            <button type="button" className="chip cal-chip-drinks" aria-pressed={layers.drinks} onClick={() => flip("drinks")}><Wine size={14} strokeWidth={2.6} aria-hidden="true" />Alcohol</button>
             <button type="button" className="chip cal-chip-weed" aria-pressed={layers.cannabis} onClick={() => flip("cannabis")}><Cannabis size={14} strokeWidth={2.6} aria-hidden="true" />Cannabis</button>
           </div>
         )}
@@ -137,7 +137,7 @@ function MonthCalendar({ sessions, program, prs, heart, well }) {
         {well && (
           <p className="cal-legend" aria-hidden="true">
             <span><i className="dot" />Workout</span>
-            <span className="drinks"><Wine size={13} strokeWidth={2.6} />Drinks, with count</span>
+            <span className="drinks"><Wine size={13} strokeWidth={2.6} />Alcohol, with drink count</span>
             <span className="weed"><Cannabis size={13} strokeWidth={2.6} />Cannabis</span>
           </p>
         )}
@@ -151,10 +151,10 @@ function MonthCalendar({ sessions, program, prs, heart, well }) {
   );
 }
 
-/** The picked day's drinks and cannabis, under the calendar. */
+/** The picked day's alcohol and cannabis, under the calendar. */
 function WellDay({ day, foodOn }) {
   return (
-    <section className="card well-day" aria-label="Drinks and cannabis">
+    <section className="card well-day" aria-label="Alcohol and cannabis">
       {day.drinks > 0 && (
         <div className="well-day-row drinks">
           <span className="well-badge" aria-hidden="true"><Wine size={18} strokeWidth={2.4} /></span>
