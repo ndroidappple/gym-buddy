@@ -66,7 +66,14 @@ if (isMain) {
   assert.ok(f.nutrition.logged >= 6);
   assert.ok(f.nutrition.weekend.kcal > f.nutrition.weekdays.kcal, "weekends run higher");
   assert.ok(f.nutrition.trainingDays.protein > f.nutrition.restDays.protein, "rest days run lower on protein");
-  assert.ok(f.nutrition.drinks?.entries >= 1, "drinks are counted");
+  // Drinks are substance tracking: counted only with Settings → Wellness on, and so are cannabis days.
+  assert.equal(f.nutrition.drinks, null, "wellness off: drinks aren't counted");
+  assert.equal(f.wellness, null, "wellness off: no drinks or cannabis in the facts");
+  const fw = buildWeekFacts({ ...a, prefs: { ...a.prefs, wellness: { on: true } }, wellness: { [f.dates[2]]: { cannabis: true } }, weekEnd: WEEK_END, tz: "America/New_York" });
+  assert.ok(fw.nutrition.drinks?.entries >= 1, "wellness on: drinks are counted");
+  assert.ok(fw.wellness.drinkDays >= 1 && fw.wellness.cannabisDays === 1, "wellness on: the week's drinking and cannabis days");
+  const fx = buildWeekFacts({ ...a, wellness: { [f.dates[2]]: { cannabis: true } }, weekEnd: WEEK_END, tz: "America/New_York" });
+  assert.equal(fx.wellness, null, "wellness off: saved cannabis days stay out of the facts");
   assert.ok(f.body.phase && f.body.rate4 < 0, "the cut is moving the scale down");
   assert.equal(f.weeks.length, 8);
   assert.ok(f.highs.length && f.lows.length);

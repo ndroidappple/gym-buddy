@@ -284,7 +284,8 @@ export function buildWeekFacts({ sessions = [], program, weighins = [], prefs = 
       }),
       topByKcal: [...foodList].sort((a, b) => b.kcal - a.kcal).slice(0, 5),
       topByProtein: [...foodList].sort((a, b) => b.protein - a.protein).slice(0, 5),
-      drinks: drinks.length ? { entries: drinks.length, kcal: Math.round(totals(drinks).kcal) } : null,
+      // Drinks are substance tracking: only while the lifter has opted in (Settings → Wellness).
+      drinks: prefs.wellness?.on && drinks.length ? { entries: drinks.length, kcal: Math.round(totals(drinks).kcal) } : null,
       prevAvgKcal: weeks[6].avgKcal, prevAvgProtein: weeks[6].avgProtein, prevLogged: weeks[6].logged,
       // What the logged food alone predicts for the scale (1 lb ≈ 3,500 kcal), to hold against the weigh-ins.
       impliedRate: avgKcal != null && full.length >= 4 && t.burn ? r1(((avgKcal - t.burn) * 7) / 3500) : null,
