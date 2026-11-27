@@ -169,6 +169,25 @@ const trainedToday = account({ sessions: [
   workout("w3", "push", day(0), { "Incline Barbell / Smith Press": [[145, 8], [145, 7]], "Flat DB Press": [[60, 9]] }),
 ] });
 
+test("add food: an amount your saved meal can't take puts Ask Tank first", async ({ page }) => {
+  await openAddFood(page);
+  await page.getByRole("searchbox", { name: /search foods/i }).fill("3 cups of banana berry smoothie");
+  const ask = page.getByRole("button", { name: /^Ask Tank about/ });
+  await ask.waitFor();
+  const mine = page.getByRole("button", { name: /^Banana Berry Smoothie/ });
+  check("Ask Tank leads, above your foods", (await ask.boundingBox()).y < (await mine.boundingBox()).y);
+  check("your food says it logs the usual, not what was typed", await mine.getByText(/^Your usual 1 \w+, not 3 cups$/).count() === 1);
+});
+
+test("add food: an amount your food can take keeps it first", async ({ page }) => {
+  await openAddFood(page);
+  await page.getByRole("searchbox", { name: /search foods/i }).fill("2 banana berry smoothie");
+  const mine = page.getByRole("button", { name: /^Banana Berry Smoothie/ });
+  await mine.waitFor();
+  const ask = page.getByRole("button", { name: /^Ask Tank about/ });
+  check("your food leads, Ask Tank below it", (await mine.boundingBox()).y < (await ask.boundingBox()).y);
+});
+
 test("today: after a workout, Today recaps it instead of the next one", async ({ page }) => {
   await page.getByRole("heading", { level: 1 }).waitFor();
   const headline = await page.getByRole("heading", { level: 1 }).innerText();
