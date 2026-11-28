@@ -404,8 +404,12 @@ button.chip { min-height: 38px; padding: 0 14px; border: 2px solid var(--rule); 
 .hero-card::before, .hero-card::after { content: ""; position: absolute; border-radius: 50%; background: var(--hero-glow, rgba(255, 255, 255, 0.18)); pointer-events: none; }
 /* Light plates need a stronger highlight to show. */
 :is([data-day="legs"], [data-day="day5"], [data-day="day6"]) .hero-card { --hero-glow: rgba(255, 255, 255, 0.26); }
-.hero-card::before { width: 170px; height: 170px; right: -40px; top: -50px; }
-.hero-card::after { width: 52px; height: 52px; right: 42px; top: 86px; }
+.hero-card::before { width: 170px; height: 170px; right: -40px; top: -50px; animation: hero-drift-big 18s ease-in-out infinite alternate; }
+.hero-card::after { width: 52px; height: 52px; right: 42px; top: 86px; animation: hero-drift-small 13s ease-in-out -5s infinite alternate; }
+/* The two highlights drift a few pixels, very slowly and out of step, so the card feels alive without
+   anything to watch. Transform only (cheap on the GPU); off with reduced motion like every animation. */
+@keyframes hero-drift-big { from { transform: translate(0, 0) scale(1); } to { transform: translate(-14px, 10px) scale(1.05); } }
+@keyframes hero-drift-small { from { transform: translate(0, 0); } to { transform: translate(12px, -14px); } }
 .hero-card > * { position: relative; }
 .hero-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 /* The card opens a preview of the day's lifts: a tap anywhere but its buttons. */
