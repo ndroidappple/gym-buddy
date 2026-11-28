@@ -586,16 +586,10 @@ export default function Session({ day, existing, draft, preview, sessions, progr
       {/* Every set in: Finish takes the dock's place, so it's one tap away instead of a scroll.
           Each slides off the bottom as it goes; Finish rises as the rest timer leaves. */}
       {finishShown && <FinishDock sets={finishShown} onFinish={finish} leaving={finishLeaving} after={restLeaving} />}
-      {askShown && (
-        <div className={"alert-ask" + (askLeaving ? " leaving" : "")} role="dialog" aria-labelledby="alert-ask-title" inert={askLeaving ? "" : undefined}>
-          <p id="alert-ask-title"><b>Rest alerts</b> Get a heads-up when rest is over, even with your phone locked.</p>
-          <div className="alert-ask-actions">
-            <button className="btn-quiet" onClick={skipAlerts}>Not now</button>
-            <button className="btn btn-ink" onClick={turnOnAlerts}>Turn on</button>
-          </div>
-        </div>
-      )}
-      {restShown && <RestDock timer={restShown} setTimer={setTimer} alertSet={alertSet} leaving={restLeaving} onOpen={() => setRestOpen(true)} />}
+      {/* The one-time "lock-screen alerts?" ask is a row inside the rest bar: it used to float over the set
+          card and cover the next Log set (audit 2026-11-28, P-05). */}
+      {restShown && <RestDock timer={restShown} setTimer={setTimer} alertSet={alertSet} leaving={restLeaving} onOpen={() => setRestOpen(true)}
+        ask={askShown && !askLeaving ? { yes: turnOnAlerts, no: skipAlerts } : null} />}
       {restOpen && timer && !allDone && (
         <RestFull day={day} timer={timer} setTimer={setTimer} ex={restEx} row={restRows[restIdx]} idx={restIdx}
           first={!restRows.some((r) => r.done)} last={restEx ? lastFor(restEx.n)?.sets[restEx.n]?.[restIdx] : null}
@@ -1030,7 +1024,7 @@ function revealActiveSet(smooth) {
   if (Math.abs(dy) > 2) scrollTo({ top: scrollY + dy, behavior: smooth ? "smooth" : "auto" });
 }
 
-function RestDock({ timer, setTimer, alertSet, leaving, onOpen }) {
+function RestDock({ timer, setTimer, alertSet, leaving, onOpen, ask = null }) {
   const [now, setNow] = useState(Date.now());
   const alerted = useRef(false);
   const handedOff = useRef(false);
@@ -1059,7 +1053,15 @@ function RestDock({ timer, setTimer, alertSet, leaving, onOpen }) {
     <div className={"dock" + (leaving ? " leaving" : "")} inert={leaving ? "" : undefined}>
     {/* Line beam runs only while resting (a 60–120 s wait); the line type ignores reduced motion, so gate it here. */}
     <BorderBeam size="line" theme={theme} active={!over && !reduced} className="rest-beam">
-      <div className={"rest" + (over ? " over" : "")} role="timer" aria-label="Rest timer">
+      <div className={"rest" + (over ? " over" : "") + (ask && !over ? " asking" : "")} role="timer" aria-label="Rest timer">
+        {ask && !over && (
+          <div className="rest-ask" role="group" aria-labelledby="rest-ask-q">
+            <Bell size={16} strokeWidth={2.6} aria-hidden="true" />
+            <span id="rest-ask-q">Lock-screen alert when rest ends?</span>
+            <button type="button" className="rest-ask-no" onClick={ask.no}>Not now</button>
+            <button type="button" className="rest-ask-yes" onClick={ask.yes}>Turn on</button>
+          </div>
+        )}
         <Face className="rest-open" {...(over ? {} : { type: "button", onClick: onOpen })}>
         <Coach id={timer.coach || "tank"} mood={over ? "focused" : "resting"} size={46} decorative />
         <div className="rest-text">

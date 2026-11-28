@@ -549,12 +549,12 @@ a.hero-text { color: inherit; text-decoration: none; }
    it arrives and back down when it goes. The rest timer's beam sits inside. */
 .dock { position: fixed; left: calc(var(--dock-x) - 4px); right: calc(var(--dock-x) - 4px); bottom: var(--dock-b); max-width: 536px; margin: 0 auto; z-index: 30; animation: dock-in var(--glide-ms) var(--glide); }
 .dock.late { animation-delay: 120ms; animation-fill-mode: both; }
-.dock.leaving, .alert-ask.leaving { animation: dock-out var(--exit-ms) var(--exit) forwards; pointer-events: none; }
+.dock.leaving { animation: dock-out var(--exit-ms) var(--exit) forwards; pointer-events: none; }
 /* Typing (lib/keyboard.js): the rest timer and Finish step aside instead of riding up on the keyboard over the field. */
-.dock, .alert-ask { transition: opacity 180ms ease; }
-html[data-typing] :is(.dock, .alert-ask) { opacity: 0; visibility: hidden; transition: opacity 120ms ease, visibility 0s 120ms; }
+.dock { transition: opacity 180ms ease; }
+html[data-typing] .dock { opacity: 0; visibility: hidden; transition: opacity 120ms ease, visibility 0s 120ms; }
 /* Keyboard gone but iOS still holding the viewport short (lib/keyboard.js): the bottom bars go back down to the real bottom edge. */
-:is(.tabbar, .dock, .alert-ask, .toast, .sync-note) { translate: 0 var(--kb-stuck, 0px); }
+:is(.tabbar, .dock, .toast, .sync-note) { translate: 0 var(--kb-stuck, 0px); }
 .rest-beam { border-radius: 30px; box-shadow: 0 6px 0 var(--lip); }
 .rest { display: flex; align-items: center; gap: 10px; padding: 10px 10px 10px 12px; border-radius: 30px; background: var(--dock); color: var(--on-dock); box-shadow: inset 0 0 0 2px var(--dock-rule); }
 .rest-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
@@ -1480,7 +1480,15 @@ html.walking .summary .body { padding-bottom: calc(var(--walk-h, 220px) + 40px);
 .walk-note .walk-change { margin: -4px 12px 12px; width: auto; }
 @media (prefers-reduced-motion: reduce) { .walk-on, .walk-card, .walk-body { animation: none; } }
 
-/* Rest alerts: the bell in the rest dock (set / couldn't be set), and the one-time "turn on?" card above it. */
+/* Rest alerts: the bell in the rest dock (set / couldn't be set), and the one-time "turn on?" row inside it. */
+.rest.asking { flex-wrap: wrap; row-gap: 8px; }
+.rest-ask { flex: 1 1 100%; display: flex; align-items: center; gap: 8px; padding: 2px 2px 10px 4px; border-bottom: 2px solid color-mix(in srgb, var(--on-dock) 10%, transparent); font-size: 13.5px; font-weight: 600; color: var(--on-dock); }
+.rest-ask svg { flex: none; color: var(--dock-mute); }
+.rest-ask span { flex: 1; min-width: 0; line-height: 1.3; }
+.rest-ask button { flex: none; position: relative; height: 36px; font-size: 13.5px; }
+.rest-ask button::after { content: ""; position: absolute; inset: -4px 0; }
+.rest-ask-no { padding: 0 6px; font-weight: 700; color: var(--dock-mute); }
+.rest-ask-yes { padding: 0 14px; border-radius: 14px; font-weight: 800; background: var(--dock-pill); color: var(--on-dock-pill); }
 .rest-bell { display: inline-block; vertical-align: -1px; margin-right: 5px; }
 /* The coach and clock in the rest dock open the full-screen timer. */
 .rest-open { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; text-align: left; color: inherit; border-radius: 22px; }
@@ -1509,13 +1517,6 @@ button.rest-open:active { opacity: 0.75; }
 .rest-full-ctrls button:disabled { opacity: 0.4; }
 .rest-full-ctrls .primary { background: var(--ink); color: var(--bg); }
 .rest-full-ctrls button:active:not(:disabled) { transform: scale(0.96); }
-.alert-ask { position: fixed; left: calc(var(--dock-x) - 4px); right: calc(var(--dock-x) - 4px); bottom: calc(94px + var(--dock-b)); max-width: 536px; margin: 0 auto; z-index: 30; animation: rise var(--enter-ms) var(--enter);
-  padding: 14px 14px 12px; border-radius: 24px; background: var(--surface); border: 2px solid var(--rule); box-shadow: 0 5px 0 var(--lip); color: var(--ink); }
-.alert-ask p { margin: 0; font-size: 15px; line-height: 1.35; }
-.alert-ask p b { display: block; font-size: 16px; margin-bottom: 2px; }
-.alert-ask-actions { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
-.alert-ask-actions .btn-quiet { padding: 0 12px; }
-.alert-ask-actions .btn { flex: 1; min-height: 48px; font-size: 16px; }
 /* A logged set vs the same set last time: ink when up, muted when same or down (color stays for the day). */
 .chg { font-size: 12.5px; font-weight: 800; color: var(--mute); white-space: nowrap; }
 .chg.up { color: var(--ink); }
@@ -1944,4 +1945,9 @@ button.rest-open:active { opacity: 0.75; }
   .title-switch { column-gap: 14px; }
   .title-switch button { font-size: 24px; }
   .title-switch .title-count { display: none; } /* "Trends  Workouts" on one line at 320; the count is on 360+ */
+}
+@media (max-width: 359px) {
+  .rest-ask { flex-wrap: wrap; row-gap: 4px; }
+  .rest-ask span { flex-basis: calc(100% - 30px); }
+  .rest-ask-no { margin-left: auto; } /* the answers drop under the question, to the right */
 }
