@@ -64,6 +64,7 @@ saturated plate colours and a dark-first gym palette from the second.
 | Rule broken | What we do instead | Why |
 |---|---|---|
 | "Neutral content colours" | each workout day has its own saturated plate hue | lets you tell days apart across the calendar and history; always paired with the day's name |
+| "Plate colours mean the day only" | macro bars keep the coaches' green / yellow / orange | Nick's call (2026-11-28): familiar colours; the labels and numbers carry the meaning |
 | "Soft shadows" | hard flat offset "lip" instead of blurred shadows | the tough/plate signature. Earned only: hero card, primary buttons, tab bar, rest bar, floating elements. Cards and lists are flat (2026-11-28) |
 | "Text can be enlarged" (WCAG 1.4.4) | pinch-zoom blocked, like native iPhone apps; px type | Nick's call (2026-11-28). Known accessibility gap: the fix is type that follows the iPhone text size (P-11) |
 | Text on plate colours | always Iron ink (`--on-<day>`), never white | white measured 2.3–3.4:1 on the plates (audit 2026-11-28) |
