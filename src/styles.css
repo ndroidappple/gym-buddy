@@ -7,7 +7,7 @@
   --surface-2: #EFEAE3;
   --ink: #1C1A22;
   --mute: #66616C;
-  --faint: #726D78;
+  --faint: #6B6671;
   --rule: #E4DED4;
   --rule-2: #D2CBC0;
   --lip: #D9D1C4;          /* the flat drop shadow under cards and buttons */
@@ -21,23 +21,30 @@
   --dock-pill: #1C1A22;     /* the current tab, and the rest timer's main button */
   --on-dock-pill: #FFFFFF;
 
-  --push: #FF5E57;  --on-push: #FFFFFF;  --push-ink: #B42D26;  --push-lip: #D9433D;
-  --pull: #4C8DFF;  --on-pull: #FFFFFF;  --pull-ink: #2563D9;  --pull-lip: #2F6FE0;
+  /* Text on a plate is Iron (dark ink) on every day: white on these fills measured 2.3–3.4:1, under
+     WCAG AA's 4.5:1 for text (audit 2026-11-28). Legs and days 5–6 already worked this way. */
+  --push: #FF5E57;  --on-push: #1C1A22;  --push-ink: #B42D26;  --push-lip: #D9433D;
+  --pull: #4C8DFF;  --on-pull: #1C1A22;  --pull-ink: #2563D9;  --pull-lip: #2F6FE0;
   --legs: #FFC53D;  --on-legs: #1C1A22;  --legs-ink: #8A6400;  --legs-lip: #D9A21F;
-  --shoulders: #2EC27E; --on-shoulders: #FFFFFF; --shoulders-ink: #15744A; --shoulders-lip: #1F9C63;
-  --custom: #8C7BF2; --on-custom: #FFFFFF; --custom-ink: #5F4ED0; --custom-lip: #6554D8;
+  --shoulders: #2EC27E; --on-shoulders: #1C1A22; --shoulders-ink: #15744A; --shoulders-lip: #1F9C63;
+  --custom: #8C7BF2; --on-custom: #1C1A22; --custom-ink: #5F4ED0; --custom-lip: #6554D8;
   /* Extra days 5-7, only used by a pasted-in program with more than four workouts. */
   --day5: #FF8A3D; --on-day5: #1C1A22; --day5-ink: #A04E0C; --day5-lip: #D96F24;
   --day6: #2CC6DA; --on-day6: #10232A; --day6-ink: #0E7482; --day6-lip: #1CA0B2;
-  --day7: #F05BA8; --on-day7: #FFFFFF; --day7-ink: #B02C72; --day7-lip: #CC3F88;
+  --day7: #F05BA8; --on-day7: #1C1A22; --day7-ink: #B02C72; --day7-lip: #CC3F88;
+  /* Each day's dark ink for text on white chips over its plate (hero pills, Start lifting): the same in
+     both themes, since the chip is white in both. All ≥5.3:1 on white. */
+  --push-deep: #B42D26; --pull-deep: #2563D9; --legs-deep: #8A6400; --shoulders-deep: #15744A; --custom-deep: #5F4ED0;
+  --day5-deep: #A04E0C; --day6-deep: #0E7482; --day7-deep: #B02C72;
   --stamp: #8A6400;
   --stamp-bg: #FFF1C2;
-  --danger: #D63A31;
+  --danger: #C93229;
   --good: #15744A;     /* a recap number better than the lifter's usual */
   --watch: #B4530A;    /* ... or worse than it */
   --pr: #FFB23E;       /* PR gold: rims, glows, highlights */
   --pr-ink: #9A5B00;   /* PR text on light surfaces */
   --accent: #7B61FF;  --accent-lip: #5A42D6;  /* bodyweight: not a day, so not a plate color */
+  --accent-fill: #6A4FF0; /* accent as a surface under white text (bodyweight card, Save): 5.3:1, where --accent is 4.2:1 */
 
   --display: "Lexend", "Helvetica Neue", Arial, sans-serif;
   --body: "Lexend", "Helvetica Neue", Arial, sans-serif;
@@ -64,7 +71,7 @@
   --surface-2: #26242D;
   --ink: #F3F0EA;
   --mute: #A7A2AE;
-  --faint: #7F7A87;
+  --faint: #918C99;   /* ≥4.5:1 on surface-2 too (was #7F7A87, 3.7:1) */
   --rule: #2C2A33;
   --rule-2: #3A3842;
   --lip: #08070B;
@@ -73,7 +80,7 @@
   --glass: rgba(28, 27, 34, 0.88);
   --dock: #26242D;
   --on-dock: #F3F0EA;
-  --dock-mute: #8C8794;
+  --dock-mute: #9A95A2;  /* inactive tab labels: 5.2:1 on the dock */
   --dock-rule: transparent;
   --dock-pill: #121117;
   --on-dock-pill: #F3F0EA;
@@ -93,14 +100,14 @@
   color-scheme: dark;
 }
 
-[data-day="push"] { --day: var(--push); --on-day: var(--on-push); --day-ink: var(--push-ink); --day-lip: var(--push-lip); }
-[data-day="pull"] { --day: var(--pull); --on-day: var(--on-pull); --day-ink: var(--pull-ink); --day-lip: var(--pull-lip); }
-[data-day="legs"] { --day: var(--legs); --on-day: var(--on-legs); --day-ink: var(--legs-ink); --day-lip: var(--legs-lip); }
-[data-day="shoulders"] { --day: var(--shoulders); --on-day: var(--on-shoulders); --day-ink: var(--shoulders-ink); --day-lip: var(--shoulders-lip); }
-[data-day="day5"] { --day: var(--day5); --on-day: var(--on-day5); --day-ink: var(--day5-ink); --day-lip: var(--day5-lip); }
-[data-day="day6"] { --day: var(--day6); --on-day: var(--on-day6); --day-ink: var(--day6-ink); --day-lip: var(--day6-lip); }
-[data-day="day7"] { --day: var(--day7); --on-day: var(--on-day7); --day-ink: var(--day7-ink); --day-lip: var(--day7-lip); }
-[data-day="custom"] { --day: var(--custom); --on-day: var(--on-custom); --day-ink: var(--custom-ink); --day-lip: var(--custom-lip); }
+[data-day="push"] { --day: var(--push); --on-day: var(--on-push); --day-ink: var(--push-ink); --day-lip: var(--push-lip); --day-deep: var(--push-deep); }
+[data-day="pull"] { --day: var(--pull); --on-day: var(--on-pull); --day-ink: var(--pull-ink); --day-lip: var(--pull-lip); --day-deep: var(--pull-deep); }
+[data-day="legs"] { --day: var(--legs); --on-day: var(--on-legs); --day-ink: var(--legs-ink); --day-lip: var(--legs-lip); --day-deep: var(--legs-deep); }
+[data-day="shoulders"] { --day: var(--shoulders); --on-day: var(--on-shoulders); --day-ink: var(--shoulders-ink); --day-lip: var(--shoulders-lip); --day-deep: var(--shoulders-deep); }
+[data-day="day5"] { --day: var(--day5); --on-day: var(--on-day5); --day-ink: var(--day5-ink); --day-lip: var(--day5-lip); --day-deep: var(--day5-deep); }
+[data-day="day6"] { --day: var(--day6); --on-day: var(--on-day6); --day-ink: var(--day6-ink); --day-lip: var(--day6-lip); --day-deep: var(--day6-deep); }
+[data-day="day7"] { --day: var(--day7); --on-day: var(--on-day7); --day-ink: var(--day7-ink); --day-lip: var(--day7-lip); --day-deep: var(--day7-deep); }
+[data-day="custom"] { --day: var(--custom); --on-day: var(--on-custom); --day-ink: var(--custom-ink); --day-lip: var(--custom-lip); --day-deep: var(--custom-deep); }
 
 /* ═══════════════ BASE ═══════════════ */
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -392,8 +399,8 @@ button.chip { min-height: 38px; padding: 0 14px; border: 2px solid var(--rule); 
 .today-top .info-btn { width: 36px; height: 36px; margin-right: -6px; color: var(--faint); }
 .today-top .info-btn svg { width: 18px; height: 18px; }
 .hero-card { position: relative; overflow: hidden; display: flex; flex-direction: column; gap: 14px; padding: 20px; border-radius: var(--r-xl); background: var(--day); color: var(--on-day); box-shadow: 0 7px 0 var(--day-lip); }
-.hero-card::before, .hero-card::after { content: ""; position: absolute; border-radius: 50%; background: var(--hero-glow, color-mix(in srgb, var(--on-day) 13%, transparent)); pointer-events: none; }
-/* Days with dark text would get dark circles; they get the same light highlights as the rest. */
+.hero-card::before, .hero-card::after { content: ""; position: absolute; border-radius: 50%; background: var(--hero-glow, rgba(255, 255, 255, 0.18)); pointer-events: none; }
+/* Light plates need a stronger highlight to show. */
 :is([data-day="legs"], [data-day="day5"], [data-day="day6"]) .hero-card { --hero-glow: rgba(255, 255, 255, 0.26); }
 .hero-card::before { width: 170px; height: 170px; right: -40px; top: -50px; }
 .hero-card::after { width: 52px; height: 52px; right: 42px; top: 86px; }
@@ -402,15 +409,15 @@ button.chip { min-height: 38px; padding: 0 14px; border: 2px solid var(--rule); 
 /* The card opens a preview of the day's lifts: a tap anywhere but its buttons. */
 .hero-card.can-preview { cursor: pointer; }
 a.hero-text { color: inherit; text-decoration: none; }
-.hero-card .day-lbl { align-self: flex-start; background: color-mix(in srgb, var(--on-day) 20%, transparent); color: var(--on-day); }
+.hero-card .day-lbl { align-self: flex-start; background: rgba(255, 255, 255, 0.32); color: var(--on-day); }
 .hero-day { font-weight: 800; font-size: 64px; line-height: 0.95; letter-spacing: -0.03em; }
 .hero-day.long { font-size: 48px; }
 .hero-meta { font-size: 15px; font-weight: 600; opacity: 0.92; }
 .hero-pills { display: flex; gap: 6px; flex-wrap: wrap; }
-.hero-pills .pill { background: #FFFFFF; color: var(--day-lip); }
+.hero-pills .pill { background: #FFFFFF; color: var(--day-deep, var(--day-lip)); }
 .hero-coaches { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 13.5px; }
 .coach-chip { width: 44px; height: 44px; border-radius: 50%; background: #FFFFFF; display: grid; place-items: center; }
-.hero-cta { background: #FFFFFF; color: var(--day-lip); box-shadow: 0 5px 0 color-mix(in srgb, var(--day-lip) 80%, #000); font-size: 20px; min-height: 60px; border-radius: 22px; }
+.hero-cta { background: #FFFFFF; color: var(--day-deep, var(--day-lip)); box-shadow: 0 5px 0 color-mix(in srgb, var(--day-lip) 80%, #000); font-size: 20px; min-height: 60px; border-radius: 22px; }
 .hero-cta:active:not(:disabled) { box-shadow: 0 2px 0 color-mix(in srgb, var(--day-lip) 80%, #000); }
 /* Trained today: the next workout, one quiet row under the recap. */
 /* A workout from Google Health to count (Today): what was recorded, the guess as the one big button,
@@ -447,16 +454,17 @@ a.hero-text { color: inherit; text-decoration: none; }
 .wd i.on { background: var(--day); box-shadow: 0 3px 0 var(--day-lip); }
 .wd.now { color: var(--ink); font-weight: 800; }
 .wd.now i:not(.on) { background: none; border: 3px dashed var(--day); }
-.weigh { display: flex; align-items: center; gap: 10px; padding: 12px 12px 12px 14px; }
+.weigh { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 12px 12px 12px 14px; }
 .weigh-icon { width: 44px; height: 44px; border-radius: 16px; display: grid; place-items: center; background: color-mix(in srgb, var(--accent) 16%, var(--surface)); color: var(--accent); flex-shrink: 0; }
-.weigh-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.weigh-text { flex: 1 1 150px; min-width: 0; display: flex; flex-direction: column; } /* under ~150px the field and Save wrap below */
+.weigh-field { margin-left: auto; }
 .weigh-text b { font-weight: 800; }
 .weigh-field { display: flex; align-items: baseline; gap: 3px; height: var(--tap); padding: 0 10px; border-radius: 16px; background: var(--bg); border: 2px solid var(--rule); }
 .weigh-field input { width: 58px; height: 100%; border: 0; background: none; text-align: right; font-weight: 700; font-size: 18px; }
 .weigh-field input:focus { outline: none; }
 .weigh-field:focus-within { outline: 3px solid var(--ink); outline-offset: -2px; }
 .weigh-field .u { font-size: 12.5px; font-weight: 700; color: var(--mute); }
-.weigh-save { width: auto; min-height: var(--tap); font-size: 15px; padding: 0 14px; border-radius: 16px; background: var(--accent); color: #FFFFFF; box-shadow: 0 4px 0 var(--accent-lip); }
+.weigh-save { width: auto; min-height: var(--tap); font-size: 15px; padding: 0 14px; border-radius: 16px; background: var(--accent-fill); color: #FFFFFF; box-shadow: 0 4px 0 var(--accent-lip); }
 
 /* ═══════════════ SESSION ═══════════════ */
 .sticky { position: sticky; top: 0; z-index: 10; background: color-mix(in srgb, var(--bg) 90%, transparent); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); }
@@ -551,9 +559,18 @@ html[data-typing] :is(.dock, .alert-ask) { opacity: 0; visibility: hidden; trans
 .ring-val { fill: none; stroke: var(--on-dock); stroke-width: 6; stroke-linecap: round; transition: stroke-dashoffset 250ms linear; }
 .rest .rb { height: var(--tap); padding: 0 12px; border-radius: 16px; font-weight: 800; font-size: 13.5px; background: color-mix(in srgb, var(--on-dock) 12%, transparent); color: var(--on-dock); }
 .rest .rb.primary { background: var(--dock-pill); color: var(--on-dock-pill); }
+.rest .clock { white-space: nowrap; }
+/* Narrow phones: tighter buttons and a smaller coach, so −15 never lands on the countdown. */
+@media (max-width: 359px) {
+  .rest { gap: 6px; padding-left: 8px; }
+  .rest-open { gap: 6px; }
+  .rest-open > :first-child { width: 36px; height: 36px; }
+  .rest .rb { padding: 0 9px; }
+  .rest .clock { font-size: 28px; }
+}
 .rest.over { background: var(--day); color: var(--on-day); box-shadow: none; }
 .rest.over .rest-line { color: inherit; opacity: 0.85; }
-.rest.over .rb.primary { background: var(--on-day); color: var(--day-lip); }
+.rest.over .rb.primary { background: var(--on-day); color: var(--day); }
 
 /* ═══════════════ SUMMARY ═══════════════ */
 .summary { position: relative; overflow-x: hidden; }
@@ -566,7 +583,7 @@ html[data-typing] :is(.dock, .alert-ask) { opacity: 0; visibility: hidden; trans
 .stat { padding: 12px; display: flex; flex-direction: column; gap: 4px; min-width: 0; border-radius: 22px; }
 .stat b { font-weight: 800; font-size: 28px; line-height: 1; letter-spacing: -0.02em; }
 .stat span { font-size: 12.5px; color: var(--mute); font-weight: 500; }
-.stat .trend { align-self: flex-start; height: 24px; font-size: 11px; }
+.stat .trend { align-self: flex-start; max-width: 100%; height: auto; min-height: 24px; padding-block: 4px; white-space: normal; line-height: 1.2; font-size: 11px; } /* wraps inside a narrow tile instead of running into the next one */
 .rec { display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: center; min-height: 60px; padding: 8px 10px; border-radius: var(--r); text-align: left; width: 100%; color: inherit; text-decoration: none; }
 .rec:active { background: var(--surface-2); }
 .rec-text { display: flex; flex-direction: column; min-width: 0; }
@@ -659,9 +676,9 @@ html[data-typing] :is(.dock, .alert-ask) { opacity: 0; visibility: hidden; trans
 .summary-done .next { display: inline-flex; align-items: center; gap: 6px; font-size: 13.5px; font-weight: 600; opacity: 0.75; }
 
 /* ═══════════════ PROGRESS / LIFT ═══════════════ */
-.bw-card { --card-bg: var(--accent); --lip: var(--accent-lip); display: flex; flex-direction: column; gap: 10px; padding: 16px; border-radius: var(--r-xl); background: var(--card-bg); color: #FFFFFF; box-shadow: 0 7px 0 var(--lip); text-decoration: none; }
+.bw-card { --card-bg: var(--accent-fill); --lip: var(--accent-lip); display: flex; flex-direction: column; gap: 10px; padding: 16px; border-radius: var(--r-xl); background: var(--card-bg); color: #FFFFFF; box-shadow: 0 7px 0 var(--lip); text-decoration: none; }
 /* A lift's page in the top card wears its day's plate color (bodyweight's purple when it's off program). */
-.lift-card { --card-bg: var(--day, var(--accent)); --lip: var(--day-lip, var(--accent-lip)); color: var(--on-day, #FFFFFF); cursor: pointer; }
+.lift-card { --card-bg: var(--day, var(--accent-fill)); --lip: var(--day-lip, var(--accent-lip)); color: var(--on-day, #FFFFFF); cursor: pointer; }
 .lift-card-head { display: flex; flex-direction: column; flex: 1; min-width: 0; }
 .lift-card-head .lbl { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .bw-card .top-row { display: flex; align-items: flex-start; gap: 10px; }
@@ -674,7 +691,7 @@ html[data-typing] :is(.dock, .alert-ask) { opacity: 0; visibility: hidden; trans
 .bw-empty { display: flex; align-items: center; gap: 12px; padding: 14px 16px; }
 .lift-row { display: grid; grid-template-columns: 1fr 56px auto; gap: 10px; align-items: center; min-height: 60px; padding: 6px 8px; border-radius: var(--r); text-align: left; width: 100%; color: inherit; text-decoration: none; }
 .lift-row:active { background: var(--surface-2); }
-.lift-row .name { font-weight: 700; line-height: 1.25; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lift-row .name { font-weight: 700; line-height: 1.25; min-width: 0; overflow-wrap: anywhere; } /* the whole name, on two lines if needed: "Lat Pulldown (W…" hid which lift */
 .lift-row .sub { display: block; font-size: 12.5px; color: var(--mute); font-weight: 500; margin-top: 2px; }
 .lift-row.unlogged { grid-template-columns: 1fr; opacity: 0.65; }
 .spark { width: 56px; height: 26px; display: block; overflow: visible; }
@@ -695,7 +712,7 @@ html[data-typing] :is(.dock, .alert-ask) { opacity: 0; visibility: hidden; trans
   font-size: 12.5px; font-weight: 600; line-height: 1.25; background: var(--ink); color: var(--bg); padding: 6px 11px; border-radius: 12px; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25); }
 .chart-tip b { font-size: 15px; font-weight: 800; }
 .chart-tip span { opacity: 0.75; }
-.bw-card .chart-tip { background: #FFFFFF; color: var(--lip); }
+.bw-card .chart-tip { background: #FFFFFF; color: var(--day-deep, var(--lip)); }
 /* The top card's pages: a sideways snap scroller, edge to edge so a page slides in from the screen's edge. */
 .pager { display: flex; flex-direction: column; gap: 6px; }
 .pager-track { display: flex; gap: 12px; margin: 0 -16px; padding: 0 16px 8px; scroll-padding: 0 16px; overflow-x: auto; overscroll-behavior-x: contain;
@@ -859,7 +876,7 @@ html[data-typing] :is(.dock, .alert-ask) { opacity: 0; visibility: hidden; trans
 .sheet-chat .sheet-grab { max-height: 5px; }
 .sheet-chat .sheet-sub { max-height: 2.6em; }
 .chat-coach { max-height: 110px; }
-.chat-note { max-height: 3em; }
+.chat-note { max-height: 5em; } /* room for a third line on narrow phones, so "Not medical advice." isn't cut off */
 .sheet-wrap[data-kb] .sheet-chat:not(.sheet-convo) .sheet-grab { max-height: 0; margin-top: 4px; margin-bottom: 0; opacity: 0; }
 .sheet-wrap[data-kb] .sheet-chat:not(.sheet-convo) .sheet-sub { max-height: 0; margin-top: 0; opacity: 0; }
 .sheet-wrap[data-kb] .sheet-chat:not(.sheet-convo) .sheet-head { padding-bottom: 6px; }
@@ -934,7 +951,7 @@ button.coach-card:active { transform: translateY(3px); box-shadow: 0 2px 0 var(-
 
 /* Today: swap which day you are training. */
 .hero-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.hero-card .hero-switch { background: #FFFFFF; color: var(--day-lip); font-family: inherit; cursor: pointer; }
+.hero-card .hero-switch { background: #FFFFFF; color: var(--day-deep, var(--day-lip)); font-family: inherit; cursor: pointer; }
 .hero-card .hero-switch:active { transform: scale(0.95); }
 .weigh, .phase-prompt { position: relative; }
 .weigh-skip { position: absolute; top: -8px; right: -8px; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; background: var(--surface-2); color: var(--mute); border: 2px solid var(--bg); cursor: pointer; }
@@ -1087,6 +1104,7 @@ button.coach-card:active { transform: translateY(3px); box-shadow: 0 2px 0 var(-
 
 /* Today: the coach says hi from the date row; the tail points at the coach button. */
 .today-coach { display: flex; align-items: center; gap: 6px; min-width: 0; margin-left: auto; }
+@media (max-width: 359px) { .coach-hello { display: none; } } /* decorative hello: dropped rather than cut to "Eveni…" */
 .coach-hello { position: relative; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 5px 11px; border-radius: 14px 4px 14px 14px; background: color-mix(in srgb, var(--c, #5BD68A) 14%, var(--surface)); color: var(--ink); font-size: 13.5px; font-weight: 700; text-decoration: none; transform-origin: 100% 0; animation: hello-in var(--pop-ms) var(--pop) 250ms both; }
 @keyframes hello-in { from { transform: scale(.3); opacity: 0; } }
 
@@ -1843,3 +1861,9 @@ button.rest-open:active { opacity: 0.75; }
 .effort.effort-card input { accent-color: var(--day, var(--accent)); }
 .outside-remove { align-self: center; display: inline-flex; align-items: center; gap: 6px; }
 .nowrap { white-space: nowrap; }
+
+/* Lift page: pin to the Progress chart, a labelled pill (audit 2026-11-28). The ::after grows the tap area to 44px. */
+.pin-btn { position: relative; height: 36px; background: var(--surface-2); color: var(--ink); }
+.pin-btn::after { content: ""; position: absolute; inset: -4px 0; }
+/* Session: Discard sits further from Finish, so a sweaty miss lands on neither (it has Undo too). */
+.btn-day + .btn-quiet.danger, .btn-day + p + .btn-quiet.danger { margin-top: 18px; }

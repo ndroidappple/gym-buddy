@@ -222,7 +222,7 @@ function Bodyweight({ series, phase, onLog }) {
         return <><b>{num(series[i].bw)} lb</b><span>{shortDate(series[i].date)}{d != null && ` · ${Math.abs(d) < 0.05 ? "±0" : `${d > 0 ? "▲" : "▼"} ${num(Math.abs(d))}`}`}</span></>;
       }}>
         <polyline points={pts.map((p) => p.join(",")).join(" ")} fill="none" stroke="#FFFFFF" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
-        {pts.slice(0, -1).map(([x, y], i) => <circle key={i} cx={x} cy={y} r="4" fill="var(--accent)" stroke="#FFFFFF" strokeWidth="2.5" />)}
+        {pts.slice(0, -1).map(([x, y], i) => <circle key={i} cx={x} cy={y} r="4" fill="var(--card-bg)" stroke="#FFFFFF" strokeWidth="2.5" />)}
         <circle cx={pts[pts.length - 1][0]} cy={pts[pts.length - 1][1]} r="7" fill="#FFFFFF" />
       </BwScrub>
       <div className="ends"><span style={{ flex: 1 }}>{shortDate(first.date)}</span><span>{shortDate(last.date)}</span></div>
