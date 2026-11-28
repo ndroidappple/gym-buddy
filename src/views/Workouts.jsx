@@ -168,7 +168,7 @@ function MonthCalendar({ sessions, program, prs, heart, well }) {
       {/* With food tracking on, only within the days of food the app has loaded (lib/food.js): further back
           it can't show what's there, and a drink added would drop out at the next sync. */}
       {well && picked <= t && (!well.foodOn || daysBetween(picked, t) < WINDOW_DAYS) && (
-        <button type="button" className="btn-quiet cal-log" onClick={() => setLogging(true)} aria-haspopup="dialog">
+        <button type="button" className="btn btn-ghost cal-log" onClick={() => setLogging(true)} aria-haspopup="dialog">
           {tr.alcohol ? <Wine size={16} strokeWidth={2.6} aria-hidden="true" /> : <CircleDot size={16} strokeWidth={2.6} aria-hidden="true" />}{wd[picked] ? "Edit" : "Log"} {logWhat(tr)} for {longDate(picked)}
         </button>
       )}

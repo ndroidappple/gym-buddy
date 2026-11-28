@@ -1275,10 +1275,13 @@ button.coach-card:active { transform: scale(0.98); }
 /* Wellness: drinks and cannabis. Their own two hues, never good/bad colours. */
 :root { --drink: #B0478C; --weed: #3F8F4E; }
 :root[data-theme="dark"] { --drink: #E77BC1; --weed: #6CCB7C; }
-.well-line { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 2px 4px 2px 14px; font-size: 15px; color: var(--mute); font-weight: 600; }
-.well-line.in-card { border-top: 1px solid var(--rule); padding: 2px 4px 2px 12px; }
+.well-line { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 56px; padding: 8px 10px 8px 14px; font-size: 15px; color: var(--mute); font-weight: 600; }
+.well-line.in-card { border-top: 1px solid var(--rule); padding: 8px 10px 8px 12px; }
 .well-status { color: var(--ink); }
-.well-open { padding: 0 10px; color: var(--ink); font-weight: 800; font-size: 15px; }
+/* A real button, not a word: outlined, so it reads as tappable in the food card's footer and on its own. */
+.well-open { position: relative; flex: none; min-height: 36px; padding: 0 14px; border-radius: 999px; border: 2px solid var(--rule-2); background: var(--surface); color: var(--ink); font-weight: 800; font-size: 13.5px; }
+.well-open::after { content: ""; position: absolute; inset: -4px 0; }
+.well-open:active { transform: scale(0.96); }
 .well-days { display: flex; flex-shrink: 0; gap: 6px; overflow-x: auto; scrollbar-width: none; margin: 0 -4px; padding: 0 4px 2px; }
 .well-days::-webkit-scrollbar { display: none; }
 .well-days .chip { flex-shrink: 0; min-height: 38px; padding: 6px 14px; position: relative; }
@@ -1291,7 +1294,7 @@ button.coach-card:active { transform: scale(0.98); }
 .well-step.has .well-stepper b { color: var(--drink); }
 .well-stepper .icon-btn:disabled { opacity: .3; }
 .well-other { display: inline-flex; align-items: center; gap: 6px; align-self: flex-start; padding: 0 4px; color: var(--ink); }
-.cal-log { display: inline-flex; align-items: center; gap: 6px; align-self: center; padding: 0 8px; font-size: 13.5px; }
+.cal-log { gap: 8px; font-size: 15px; }
 /* The sheet's two characters (WellBuddy.jsx): each heads its section with what's logged in a bubble. */
 .well-head { display: flex; align-items: center; gap: 12px; padding: 0 2px; }
 .well-bubble { position: relative; flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; padding: 8px 12px; border-radius: 16px; background: var(--surface); border: 2px solid var(--rule); }
@@ -1951,3 +1954,27 @@ button.rest-open:active { opacity: 0.75; }
   .rest-ask span { flex-basis: calc(100% - 30px); }
   .rest-ask-no { margin-left: auto; } /* the answers drop under the question, to the right */
 }
+
+/* Substances sheet (WellnessSheet.jsx): each substance its own card. A tinted icon (filled once the day
+   has it), the name, where the day stands, and its one control. No mascots: this is a log, not a moment. */
+.subs { display: flex; flex-direction: column; gap: 10px; }
+.sub-card { display: flex; align-items: center; gap: 12px; width: 100%; padding: 12px 12px 12px 14px; border-radius: var(--r-lg); background: var(--surface); border: 2px solid var(--rule); text-align: left; color: var(--ink); }
+.sub-tap { min-height: 68px; }
+.sub-tap:active { transform: scale(0.98); }
+.sub-icon { flex: none; width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; background: color-mix(in srgb, currentColor 14%, var(--surface)); }
+.sub-icon.weed { color: var(--weed); }
+.sub-icon.drinks { color: var(--drink); }
+.sub-icon.own { color: var(--mute); }
+.sub-card.on .sub-icon { background: currentColor; }
+.sub-card.on .sub-icon svg { color: var(--surface); }
+.sub-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.sub-text b { font-size: 16px; font-weight: 800; }
+.sub-text > span { font-size: 13.5px; font-weight: 600; color: var(--mute); }
+.sub-card.on .sub-text > span { color: var(--ink); }
+.sub-group { flex-direction: column; align-items: stretch; gap: 4px; padding-bottom: 6px; }
+.sub-head { display: flex; align-items: center; gap: 12px; padding-bottom: 6px; }
+.sub-group .well-steps { display: flex; flex-direction: column; }
+.sub-group .well-step { min-height: 52px; padding: 4px 0 4px 52px; border-top: 1px solid var(--rule); border-radius: 0; background: none; }
+.sub-group .well-other { min-height: var(--tap); margin-left: 46px; }
+.sub-note { margin: 0 0 6px 52px; font-size: 12.5px; font-weight: 500; line-height: 1.4; color: var(--mute); }
+:root[data-view="focused"] .sub-note { display: none; }

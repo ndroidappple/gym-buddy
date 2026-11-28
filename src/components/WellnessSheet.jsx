@@ -1,9 +1,8 @@
 import React, { useMemo, useState } from "react";
-import { Plus, Minus } from "lucide-react";
+import { Plus, Minus, Wine, Cannabis, CircleDot, ChevronRight } from "lucide-react";
 import { Sheet } from "./ui.jsx";
 import AddFood from "./AddFood.jsx";
 import { COACHES } from "../data/coaches.js";
-import WellBuddy from "./WellBuddy.jsx";
 import { addDays, MEALS, nutritionFor } from "../lib/nutrition.js";
 import { today, vibrate, shortDate } from "../lib/util.js";
 import { DRINK_PRESETS, alcoholOf, drinksFor, drinksLabel, defaultLogDay, dayLine, recentDays, isDrinkLike, drinkKey, drinkName, yourDrinks, drinkMeal, againEntry, drinkUnits, scaledEntry, sheetTitle, trackedPhrase } from "../lib/wellness.js";
@@ -67,15 +66,16 @@ export default function WellnessSheet({ well, start = null, guessed = false, onC
   const x = well.days[date];
   const count = well.log[date]?.drinks || 0; // food tracking off
   const cannabis = !!well.log[date]?.cannabis;
-  // The last change, for the mascots to react to: { kind, type: "add" | "remove" | "on" | "off", n }.
-  const [beat, setBeat] = useState({ kind: null, type: null, n: 0 });
-  const react = (kind, type) => setBeat((b) => ({ kind, type, n: b.n + 1 }));
   const dayWord = date === t ? "today" : date === addDays(t, -1) ? "yesterday" : dayName(date, t);
+  const tr = well.track;
 
+  /* Each substance is its own card (audit 2026-11-28: one long list read as a laundry list): a tinted
+     icon, its name, where the day stands, and the one control that fits it. The quick ones (cannabis,
+     your own) come first so they stay in reach above a long drink list. */
   return (
     <>
-      <Sheet title={sheetTitle(well.track)} sub={guessed && date === start ? "It's morning, so this is for last night." : null}
-        onClose={onClose} labelledBy="wellness-title" focusField={false}>
+      <Sheet title={sheetTitle(tr)} sub={guessed && date === start ? "It's morning, so this is for last night." : null}
+        onClose={onClose} labelledBy="wellness-title" focusField={false} className="subs-sheet">
         <div className="well-days" role="group" aria-label="Day">
           {days.map((d) => (
             <button key={d} type="button" className="chip" aria-pressed={d === date} onClick={() => setDate(d)}>
@@ -84,68 +84,55 @@ export default function WellnessSheet({ well, start = null, guessed = false, onC
           ))}
         </div>
 
-        {/* Cannabis first: one switch, so it stays in reach however long a busy day's drink list gets. */}
-        {well.track.cannabis && <section className="section" aria-labelledby="well-cannabis">
-          <div className="well-head">
-            <WellBuddy kind="cannabis" react={beat.kind === "cannabis" ? beat.type : null} nonce={beat.kind === "cannabis" ? beat.n : 0} />
-            <div className="well-bubble">
-              <h3 id="well-cannabis">Cannabis</h3>
-              <span>{cannabis ? "Logged" : "Not logged"} for {dayWord}</span>
-            </div>
-          </div>
-          <div className="list">
-            <button className="list-row" role="switch" aria-checked={cannabis} onClick={() => { well.setCannabis(date, !cannabis); react("cannabis", cannabis ? "off" : "on"); }}>
-              <span className="name">Used cannabis<span className="sub detail">{dayName(date, t)}, any amount</span></span>
+        <div className="subs">
+          {tr.cannabis && (
+            // The whole card is the switch: one tap for "yes, that day".
+            <button type="button" className={"sub-card sub-tap" + (cannabis ? " on" : "")} role="switch" aria-checked={cannabis}
+              aria-label={`Used cannabis ${dayWord}`} onClick={() => { well.setCannabis(date, !cannabis); vibrate(10); }}>
+              <span className="sub-icon weed" aria-hidden="true"><Cannabis size={20} strokeWidth={2.4} /></span>
+              <span className="sub-text"><b>Cannabis</b><span>{cannabis ? `Used ${dayWord}` : `Not logged for ${dayWord}`}</span></span>
               <span className="switch" aria-hidden="true" />
             </button>
-          </div>
-        </section>}
+          )}
 
-        {/* The lifter's own: one tap logs it, then − / + for more (most days "yes" is all that matters). */}
-        {well.track.custom.length > 0 && (
-          <section className="section" aria-labelledby="well-own">
-            {(well.track.alcohol || well.track.cannabis) && <h3 id="well-own" className="lbl">Your own</h3>}
-            {!(well.track.alcohol || well.track.cannabis) && <h3 id="well-own" className="sr-only">Your substances</h3>}
-            <div className="list">
-              {well.track.custom.map((c) => {
-                const n = well.log[date]?.other?.[c.id] || 0;
-                return (
-                  <div key={c.id} className={"list-row well-step" + (n ? " has" : "")}>
-                    <span className="name">{c.name}<span className="sub detail">{n ? `Logged for ${dayWord}` : `Not logged for ${dayWord}`}</span></span>
-                    {n ? (
-                      <span className="well-stepper" role="group" aria-label={c.name}>
-                        <button type="button" className="icon-btn" onClick={() => well.setOther(date, c.id, n - 1)} aria-label={`One fewer ${c.name}`}><Minus size={18} /></button>
-                        <b aria-live="polite">{n}</b>
-                        <button type="button" className="icon-btn" onClick={() => { well.setOther(date, c.id, n + 1); vibrate(10); }} aria-label={`One more ${c.name}`}><Plus size={18} /></button>
-                      </span>
-                    ) : (
-                      <button type="button" className="pill well-log" onClick={() => { well.setOther(date, c.id, 1); vibrate(10); }} aria-label={`Log ${c.name} for ${dayWord}`}>Log</button>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </section>
-        )}
+          {/* The lifter's own: one tap logs it, then − / + for more (most days "yes" is all that matters). */}
+          {tr.custom.map((c) => {
+            const n = well.log[date]?.other?.[c.id] || 0;
+            return (
+              <section key={c.id} className={"sub-card" + (n ? " on" : "")} aria-label={c.name}>
+                <span className="sub-icon own" aria-hidden="true"><CircleDot size={20} strokeWidth={2.4} /></span>
+                <span className="sub-text"><b>{c.name}</b><span>{n ? (n > 1 ? `${n} times ${dayWord}` : `Logged for ${dayWord}`) : `Not logged for ${dayWord}`}</span></span>
+                {n ? (
+                  <span className="well-stepper" role="group" aria-label={`${c.name} count`}>
+                    <button type="button" className="icon-btn" onClick={() => well.setOther(date, c.id, n - 1)} aria-label={`One fewer ${c.name}`}><Minus size={18} /></button>
+                    <b aria-live="polite">{n}</b>
+                    <button type="button" className="icon-btn" onClick={() => { well.setOther(date, c.id, n + 1); vibrate(10); }} aria-label={`One more ${c.name}`}><Plus size={18} /></button>
+                  </span>
+                ) : (
+                  <button type="button" className="pill well-log" onClick={() => { well.setOther(date, c.id, 1); vibrate(10); }} aria-label={`Log ${c.name} for ${dayWord}`}>Log</button>
+                )}
+              </section>
+            );
+          })}
 
-        {well.track.alcohol && <section className="section" aria-labelledby="well-drinks">
-          <div className="well-head">
-            <WellBuddy kind="alcohol" react={beat.kind === "alcohol" ? beat.type : null} nonce={beat.kind === "alcohol" ? beat.n : 0} />
-            <div className="well-bubble">
-              <h3 id="well-drinks">Alcohol</h3>
-              <span>{x?.drinks ? `${drinksLabel(x.drinks)}${well.foodOn ? ` · ${x.alcoholKcal.toLocaleString()} kcal from alcohol` : ""}` : `None logged for ${dayWord}`}</span>
-            </div>
-          </div>
-          {well.foodOn
-            ? <DrinkSteps well={well} date={date} onOther={() => setAdding(true)} onStep={(type) => react("alcohol", type)} />
-            : (
-              <div className="well-count">
-                <button type="button" className="icon-btn" onClick={() => { well.setDrinks(date, count - 1); react("alcohol", "remove"); }} disabled={!count} aria-label="One fewer drink"><Minus size={20} /></button>
-                <b aria-live="polite">{drinksLabel(count)}</b>
-                <button type="button" className="icon-btn" onClick={() => { well.setDrinks(date, count + 1); react("alcohol", "add"); }} aria-label="One more drink"><Plus size={20} /></button>
+          {tr.alcohol && (
+            <section className={"sub-card sub-group" + (x?.drinks ? " on" : "")} aria-labelledby="well-drinks">
+              <div className="sub-head">
+                <span className="sub-icon drinks" aria-hidden="true"><Wine size={20} strokeWidth={2.4} /></span>
+                <span className="sub-text"><b id="well-drinks">Alcohol</b>
+                  <span>{x?.drinks ? `${drinksLabel(x.drinks)}${well.foodOn ? ` · ${x.alcoholKcal.toLocaleString()} kcal from alcohol` : ""}` : `None logged for ${dayWord}`}</span></span>
+                {!well.foodOn && (
+                  <span className="well-stepper" role="group" aria-label="Drinks">
+                    <button type="button" className="icon-btn" onClick={() => well.setDrinks(date, count - 1)} disabled={!count} aria-label="One fewer drink"><Minus size={18} /></button>
+                    <b aria-live="polite">{count}</b>
+                    <button type="button" className="icon-btn" onClick={() => { well.setDrinks(date, count + 1); vibrate(10); }} aria-label="One more drink"><Plus size={18} /></button>
+                  </span>
+                )}
               </div>
-            )}
-        </section>}
+              {well.foodOn && <DrinkSteps well={well} date={date} onOther={() => setAdding(true)} />}
+            </section>
+          )}
+        </div>
 
         <button type="button" className="btn btn-ink" onClick={onClose}>Done</button>
       </Sheet>
@@ -201,7 +188,7 @@ function DrinkSteps({ well, date, onOther, onStep }) {
 
   return (
     <>
-      <div className="list well-steps">
+      <div className="well-steps">
         {rows.map((r) => {
           const n = countOf(r.key);
           return (
@@ -222,7 +209,7 @@ function DrinkSteps({ well, date, onOther, onStep }) {
         ))}
       </div>
       <button type="button" className="btn-quiet well-other" onClick={onOther}><Plus size={16} strokeWidth={2.8} aria-hidden="true" /> Something else</button>
-      <p className="small muted">Beer, wine, a shot and a cocktail are one standard drink each. For anything else, describe it and {COACHES[well.head]?.name || "your coach"} works out the alcohol.</p>
+      <p className="sub-note">Beer, wine, a shot and a cocktail are one standard drink each. For anything else, describe it and {COACHES[well.head]?.name || "your coach"} works out the alcohol.</p>
     </>
   );
 }

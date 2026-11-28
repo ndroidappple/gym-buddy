@@ -505,20 +505,6 @@ test("wellness: Vodka Sodas and Vodka Soda are one row, counted in drinks, one a
   check("the calendar groups them too", await page.getByRole("region", { name: "Alcohol and cannabis" }).getByText("Vodka Soda × 2", { exact: true }).isVisible());
 }, account({ prefs: wellOn, sessions: [workout("w1", "push", day(-1), { "Flat DB Press": [[60, 10]] })], entries: [vodka("2 Vodka Sodas", 0, 2), vodka("Vodka Soda", -3, 1), vodka("Vodka Sodas", -6, 2)] }));
 
-test("wellness: the mascots react to the tap, the same way either direction", async ({ page }) => {
-  await page.locator(".well-line").getByRole("button", { name: "Log it" }).click();
-  const dialog = page.getByRole("dialog", { name: "Alcohol & cannabis" });
-  check("both mascots are there", await dialog.locator("svg.buddy").count() === 2);
-  await dialog.getByRole("switch", { name: /Used cannabis/ }).click();
-  await dialog.locator(".bd-cannabis-on").waitFor({ state: "attached" });
-  await dialog.getByText(/^Logged for /).waitFor();
-  await dialog.getByRole("switch", { name: /Used cannabis/ }).click();
-  await dialog.locator(".bd-cannabis-off").waitFor({ state: "attached" });
-  await dialog.getByRole("button", { name: "One more Beer" }).click();
-  await dialog.locator(".bd-alcohol-add").waitFor({ state: "attached" });
-  check("no mood words in the bubbles", !(await dialog.locator(".well-bubble").filter({ hasText: /great|nice|good job|careful|uh oh|oops/i }).count()));
-}, account({ prefs: wellOn }));
-
 test("wellness: a drink from Tank splits the day's calories into food and alcohol", async ({ page }) => {
   await page.goto(new URL("#/nutrition", page.url()).href);
   const split = page.locator(".nut-split");
@@ -605,7 +591,7 @@ test("wellness: with food tracking off, drinks are a count", async ({ page, back
   await dialog.getByRole("button", { name: "One more drink" }).click();
   await dialog.getByRole("button", { name: "One more drink" }).click();
   await dialog.getByRole("button", { name: "One fewer drink" }).click();
-  await dialog.locator(".well-count").getByText("2 drinks").waitFor();
+  await dialog.getByRole("region", { name: "Alcohol" }).getByText("2 drinks", { exact: true }).waitFor();
   await dialog.getByRole("button", { name: "Done" }).click();
   await line.getByText(`2 drinks ${when()}`).waitFor();
   for (let i = 0; i < 30 && !savedState(backend).wellness?.[target()]; i++) await page.waitForTimeout(100);
