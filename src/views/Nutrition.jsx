@@ -136,7 +136,7 @@ export default function Nutrition({ food, prefs, notify, sessions, weighins, pro
                 <div className="list">
                   {list.map((e) => (
                     <FoodRow key={e.id} onOpen={() => setEditing(e.id)} onHold={() => setOptions(e.id)}>
-                      <span className="name">{well && alcoholOf(e) > 0 && <Wine size={14} strokeWidth={2.6} className="food-drink" role="img" aria-label="Drink" />}{e.name}<span className="sub detail">{[e.brand, e.source === "quick" ? null : amountLabel(e), `P ${Math.round(e.protein)} · C ${Math.round(e.carbs)} · F ${Math.round(e.fat)}`].filter(Boolean).join(" · ")}</span></span>
+                      <span className="name">{well && alcoholOf(e) > 0 && <Wine size={14} strokeWidth={2.6} className="food-drink" role="img" aria-label="Has alcohol" />}{e.name}<span className="sub detail">{[e.brand, e.source === "quick" ? null : amountLabel(e), `P ${Math.round(e.protein)} · C ${Math.round(e.carbs)} · F ${Math.round(e.fat)}`].filter(Boolean).join(" · ")}</span></span>
                       <span className="food-kcal">{fmt(e.kcal)}</span>
                     </FoodRow>
                   ))}

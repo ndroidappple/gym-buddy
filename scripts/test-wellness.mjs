@@ -44,8 +44,32 @@ eq("totals", W.sumDays(days), { drinks: 2, drinkDays: 1, cannabisDays: 2, alcoho
 const row = W.drinkEntry(W.DRINK_PRESETS[1], "2000-01-01");
 eq("a preset drink row", [row.meal, row.name, row.kcal, row.source, row.basis.perServing.alcohol, W.alcoholOf(row)], ["dinner", "Wine", 120, "custom", 14, 14]);
 
+// Drinks vs meals with a drink in them: only drinks get a stepper.
+const steak = food("Steak & Two Beers", "d", { kcal: 1100, protein: 70, basis: { perServing: { alcohol: 28 } } });
+const colada = food("Pina colada", "d", { kcal: 490, protein: 1, carbs: 60, fat: 15, basis: { perServing: { alcohol: 14 } } });
+const modelo = (date, created_at = "") => food("Modelo", date, { kcal: 144, protein: 1, carbs: 13, fat: 0, unit: "bottle", created_at, basis: { perServing: { alcohol: 14 } } });
+const rumCake = food("Rum cake", "d", { kcal: 420, protein: 5, carbs: 55, fat: 18, basis: { perServing: { alcohol: 3 } } });
+eq("drink-like", [W.isDrinkLike(modelo("d")), W.isDrinkLike(colada), W.isDrinkLike(steak), W.isDrinkLike(rumCake), W.isDrinkLike(food("Chicken bowl", "d"))], [true, true, false, false, false]);
+
+const fries = food("Fries & Two Beers", "d", { kcal: 600, protein: 6, carbs: 70, fat: 15, basis: { perServing: { alcohol: 28 }, items: [
+  { food: "Fries", kcal: 404, protein: 4, fat: 15, alcohol: 0 }, { food: "Beer", kcal: 196, protein: 2, fat: 0, alcohol: 28 }] } });
+const rumCoke = food("Rum & Coke", "d", { kcal: 240, protein: 0, carbs: 39, fat: 0, basis: { perServing: { alcohol: 14 }, items: [
+  { food: "Rum", kcal: 97, protein: 0, fat: 0, alcohol: 14 }, { food: "Coke", kcal: 140, protein: 0, fat: 0, alcohol: 0 }] } });
+eq("itemized: real food makes it a meal, a mixer doesn't", [W.isDrinkLike(fries), W.isDrinkLike(rumCoke)], [false, true]);
+eq("the day to log: before noon last night, from noon today", [W.defaultLogDay(0) < W.defaultLogDay(12), W.defaultLogDay(11) === W.defaultLogDay(0), W.defaultLogDay(12) === W.defaultLogDay(23)], [true, true, true]);
+
+// Your drinks: most logged first, the latest as the one to copy; meals with a drink aren't drinks.
+const history = [modelo("2026-11-01"), modelo("2026-11-08"), modelo("2026-11-15", "2026-11-15T23:00:00Z"),
+  food("Wine", "2026-11-20", { kcal: 120, protein: 0, carbs: 4, fat: 0, basis: { perServing: { alcohol: 14 } } }), steak, food("chicken bowl", "2026-11-20")];
+const mine = W.yourDrinks(history, 3);
+eq("your drinks", mine.map((d) => [d.name, d.template.date]), [["Modelo", "2026-11-15"], ["Wine", "2026-11-20"]]);
+const again = W.againEntry({ ...mine[0].template, id: "x", created_at: "c", updated_at: "u", user_id: "me" }, "2000-01-01");
+eq("another one: same food, new row, on the day", [again.id, again.created_at, again.user_id, again.name, again.unit, again.kcal, again.date, again.meal], [undefined, undefined, undefined, "Modelo", "bottle", 144, "2000-01-01", "dinner"]);
+eq("the same drink whatever the case or spacing", W.drinkKey("  Modelo  Especial "), "modelo especial");
+eq("the last week, today first", W.recentDays(3, "2026-11-27"), ["2026-11-27", "2026-11-26", "2026-11-25"]);
+
 // Coach lines: facts only, and a clear "none" when there's nothing.
-eq("coach: nothing logged", W.wellnessLines({ entries: [], wellness: {}, days: 30, to: "2026-11-27" }), ["Drinks and cannabis (they track both): none logged in the last 30 days."]);
+eq("coach: nothing logged", W.wellnessLines({ entries: [], wellness: {}, days: 30, to: "2026-11-27" }), ["Alcohol and cannabis (they track both): none logged in the last 30 days."]);
 eq("coach: days listed", W.wellnessLines({ entries, wellness: log, days: 30, to: "2026-11-27" }).slice(1), ["- 2026-11-20: 2 drinks · cannabis (196 kcal from alcohol)", "- 2026-11-22: cannabis"]);
 
 // Food against alcohol over a period: only full days count toward the calories.

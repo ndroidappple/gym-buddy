@@ -284,7 +284,7 @@ function headLines({ sessions, program, weighins, profile, phase, n, entries = [
   // Sleep and recovery from their watch, each morning against their own usual (lib/recovery.js).
   const nights = recovery ? recoveryLines(recovery, t, 14) : [];
   if (nights.length) lines.push("Sleep and recovery, last 14 mornings (from their watch; a night is the one that ended that morning):", ...nights);
-  // Drinks and cannabis, when they track them (Settings → Wellness). Facts for the coach to weigh, not to lecture about.
+  // Drinks and cannabis, when they track them (Settings → Nutrition & Wellness). Facts for the coach to weigh, not to lecture about.
   if (wellness) lines.push(...wellnessLines({ entries: wellness.entries, wellness: wellness.log, days: HEAD_DAYS, to: t }));
 
   // Training, week by week and workout by workout.

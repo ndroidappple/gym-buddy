@@ -202,6 +202,10 @@ export const SHEET_OPEN = "gymbuddy-sheet-open";
     before the close button. `focusField`: false
     keeps the keyboard down on open (a chat you open to read), instead of focusing the first field.
     `dragFromHead`: closes by dragging the grab bar or header only, not the content (chats). */
+/* Open sheets, newest last. Sheets can stack (Add food over the alcohol sheet, renaming a saved food
+   inside Add food): only the top one answers Escape, and the page behind stays locked until the last closes. */
+const openSheets = [];
+
 export function Sheet({ title, sub, lead, actions, onClose, children, labelledBy = "sheet-title", className = "", focusField = true, dragFromHead = false }) {
   const ref = useRef(null);
   const wrap = useRef(null);
@@ -214,11 +218,18 @@ export function Sheet({ title, sub, lead, actions, onClose, children, labelledBy
     const prev = document.activeElement;
     const first = focusField ? ref.current?.querySelector("input, textarea") : null;
     (first || ref.current)?.focus();
-    const onKey = (e) => { if (e.key === "Escape") close.current(); };
+    const me = {};
+    openSheets.push(me);
+    const onKey = (e) => { if (e.key === "Escape" && openSheets[openSheets.length - 1] === me) close.current(); };
     addEventListener("keydown", onKey);
     document.body.style.overflow = "hidden";
     dispatchEvent(new Event(SHEET_OPEN));
-    return () => { removeEventListener("keydown", onKey); document.body.style.overflow = ""; prev?.focus?.(); };
+    return () => {
+      removeEventListener("keydown", onKey);
+      openSheets.splice(openSheets.indexOf(me), 1);
+      if (!openSheets.length) document.body.style.overflow = "";
+      prev?.focus?.();
+    };
   }, []);
   // Portalled to <body>: a sheet opened from a sticky header would otherwise sit under the tab bar.
   return createPortal((

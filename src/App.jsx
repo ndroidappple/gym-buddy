@@ -30,7 +30,7 @@ import { useCoachThread } from "./lib/coachThread.js";
 import { withTargetHistory } from "./lib/nutritionTrends.js";
 import { headContext } from "./lib/coachChat.js";
 import { headCoach } from "./data/coaches.js";
-import { wellnessDays, drinkEntry } from "./lib/wellness.js";
+import { wellnessDays, drinkEntry, againEntry } from "./lib/wellness.js";
 import { coachFoodContext, totals } from "./lib/nutrition.js";
 import NamePrompt from "./components/NamePrompt.jsx";
 import ErrorBoundary from "./components/ErrorBoundary.jsx";
@@ -391,7 +391,7 @@ export default function App() {
   // The head coach reads 30 days of training and food in full, older history summarized, and their own notes, fresh for every message.
   const head = headCoach(prefs);
   // `day`: the date open on the Nutrition tab when the chat was opened there (today otherwise).
-  /* Wellness (Settings → Wellness): drinks from the food log (or the day's count with food tracking off)
+  /* Wellness (Settings → Nutrition & Wellness): drinks from the food log (or the day's count with food tracking off)
      and cannabis days. Food entries are loaded for the last 120 days, so drinks older than that don't show. */
   const wellnessOn = !!prefs.wellness?.on;
   // Plain (not memoized): this is past the early returns above, where hooks can't go. It's one pass over the entries.
@@ -408,7 +408,11 @@ export default function App() {
     setCannabis: (date, on) => setWellDay(date, { cannabis: on }),
     setDrinks: (date, n) => setWellDay(date, { drinks: Math.max(0, n) }), // food tracking off only
     addDrink: (preset, date) => food.addEntry(drinkEntry(preset, date)),
+    addAgain: (entry, date) => food.addEntry(againEntry(entry, date)), // another of a drink you've logged before
     removeDrink: (id) => food.removeEntry(id),
+    updateDrink: (id, patch) => food.updateEntry(id, patch), // one fewer of an entry logged as several
+    // For the sheet's "Something else": Add food, with Tank, over it.
+    food: nutritionOn ? food : null, head, notify, targets: nutritionOn ? prefs.nutrition?.targets || null : null,
   } : null;
   const buildHead = (day) => headContext({ sessions, program, weighins, profile: prefs.profile, phase: prefs.phase,
     n: nutritionOn ? prefs.nutrition : null, entries: nutritionOn ? food.entries : [], foodDays: nutritionOn ? food.history : {}, notes: thread.notes, day, recovery,

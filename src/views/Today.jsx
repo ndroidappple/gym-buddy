@@ -1,6 +1,6 @@
 import React, { useMemo, useRef, useState } from "react";
 import { InfoButton, Sheet } from "../components/ui.jsx";
-import { Scale, ArrowLeftRight, Check, X, Moon, Watch, Plus } from "lucide-react";
+import { Scale, ArrowLeftRight, Check, X, Moon, Watch, Plus, Wine, Cannabis } from "lucide-react";
 import { outsideStats, whenRecorded, isOutside } from "../lib/outside.js";
 import Effort from "../components/Effort.jsx";
 import { readiness, lowLine } from "../lib/recovery.js";
@@ -13,6 +13,7 @@ import { weighInEvery, phaseStatus, statusLine, PHASE_TYPES } from "../lib/phase
 import Coach from "../components/Coach.jsx";
 import AddFood from "../components/AddFood.jsx";
 import { WellnessLine } from "../components/WellnessSheet.jsx";
+import { dayLine } from "../lib/wellness.js";
 import { MEALS, mealForNow } from "../lib/nutrition.js";
 import { ReviewChip } from "../components/WeekReviewIntro.jsx";
 import { collapse } from "../lib/motion.js";
@@ -167,9 +168,10 @@ export default function Today({ name, sessions, program, drafts, weighins, prefs
         )}
 
         {/* Food tracking on: where the day stands, and the meal that fits the time one tap away. The full log is on Nutrition. */}
-        {foodToday && food && <FoodCard day={foodToday} food={food} head={head} notify={notify} />}
-        {/* Wellness on: one quiet line that asks, and says what's logged once there's something. */}
-        {well && <WellnessLine well={well} />}
+        {/* Alcohol and cannabis on: one quiet line that asks about last night (before noon) or today, and says
+            what's logged once there's something. The food card's second row, or on its own with food tracking off. */}
+        {foodToday && food && <FoodCard day={foodToday} food={food} head={head} notify={notify} footer={well ? <WellnessLine well={well} inCard /> : null} />}
+        {well && !(foodToday && food) && <WellnessLine well={well} />}
 
         {choosing && (
           <Sheet title="Train something else" sub={draftDay ? `Your ${program[draftDay].name} workout in progress stays saved. Tap it to pick back up.` : "Swap today's workout. Your rotation picks back up after you log it."} onClose={() => setChoosing(false)} labelledBy="swap-title">
@@ -220,10 +222,17 @@ export default function Today({ name, sessions, program, drafts, weighins, prefs
             {week.map((d) => {
               const dd = byDate[d];
               const label = new Date(d + "T12:00:00").toLocaleDateString(undefined, { weekday: "narrow" });
+              const w = well?.days[d]; // alcohol and cannabis on: marked under the day
               return (
                 <div key={d} className={"wd" + (d === t ? " now" : "")} data-day={dd || undefined}
-                  aria-label={`${new Date(d + "T12:00:00").toLocaleDateString(undefined, { weekday: "long" })}: ${dd ? program[dd].name : "rest"}`}>
+                  aria-label={`${new Date(d + "T12:00:00").toLocaleDateString(undefined, { weekday: "long" })}: ${dd ? program[dd].name : "rest"}${w ? `, ${dayLine(w)}` : ""}`}>
                   <i className={dd ? "on" : ""} />{label}
+                  {well && (
+                    <span className="wd-marks" aria-hidden="true">
+                      {w?.drinks > 0 && <span className="cal-mark drinks"><Wine size={11} strokeWidth={2.8} />{w.drinks}</span>}
+                      {w?.cannabis && <span className="cal-mark weed"><Cannabis size={11} strokeWidth={2.8} /></span>}
+                    </span>
+                  )}
                 </div>
               );
             })}
@@ -236,7 +245,7 @@ export default function Today({ name, sessions, program, drafts, weighins, prefs
 
 /** Today's food in one row: calories left (or over) and protein to go, tapped through to Nutrition, and a button
     for the meal that fits the time of day. Add food opens over Today with that meal picked and the others a tap away. */
-function FoodCard({ day, food, head, notify }) {
+function FoodCard({ day, food, head, notify, footer = null }) {
   const [adding, setAdding] = useState(null); // meal id
   const { sum, targets: t } = day;
   const left = Math.round(t.kcal - sum.kcal);
@@ -250,6 +259,7 @@ function FoodCard({ day, food, head, notify }) {
   const R = 16, C = 2 * Math.PI * R, pct = Math.min(1, Math.max(0, sum.kcal / t.kcal));
   return (
     <section className="card food-card" data-help="food" aria-label="Food today">
+      <div className="food-card-main">
       <a className="food-card-link" href={href("nutrition")}>
         <svg viewBox="0 0 40 40" className="food-card-ring" aria-hidden="true">
           <circle cx="20" cy="20" r={R} className="ring-bg" />
@@ -260,6 +270,8 @@ function FoodCard({ day, food, head, notify }) {
       <button type="button" className="btn btn-ink food-card-add" onClick={() => setAdding(meal)} aria-label={`Add food to ${label}`}>
         <Plus size={16} strokeWidth={3} aria-hidden="true" />{label}
       </button>
+      </div>
+      {footer}
       {adding && <AddFood food={food} head={head} meal={adding} date={today()} targets={t} notify={notify} pickMeal onClose={() => setAdding(null)} />}
     </section>
   );

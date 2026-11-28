@@ -242,7 +242,7 @@ function Drinks({ a }) {
   const diff = a.foodOnDrinkDays != null && a.foodOtherDays != null ? a.foodOnDrinkDays - a.foodOtherDays : null;
   return (
     <section className="section" aria-labelledby="nt-drinks">
-      <div className="section-head"><h2 className="lbl" id="nt-drinks">Drinks</h2><span className="lbl section-aside">{a.drinkDays} drinking day{a.drinkDays === 1 ? "" : "s"}</span></div>
+      <div className="section-head"><h2 className="lbl" id="nt-drinks">Alcohol</h2><span className="lbl section-aside">{a.drinkDays} drinking day{a.drinkDays === 1 ? "" : "s"}</span></div>
       <div className="stats">
         <div className="stat"><b>{a.share ?? "–"}{a.share != null && "%"}</b><span>of calories from alcohol</span></div>
         <div className="stat"><b>{a.perWeek}</b><span>drinks a week</span></div>
