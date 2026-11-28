@@ -80,6 +80,10 @@ export const DRINK_PRESETS = [
   { id: "cocktail", name: "Cocktail", sub: "Mixed", per: { kcal: 200, protein: 0, carbs: 25, fat: 0, alcohol: 14 } },
 ];
 
+/* A drink with no more said than "I drank": one US standard drink with middling calories, for the calendar's
+   one-tap yes when there's no usual drink to copy. The toast says that's what was logged. */
+export const STANDARD_DRINK = { id: "drink", name: "Drink", sub: "1 standard drink", per: { kcal: 130, protein: 0.5, carbs: 8, fat: 0, alcohol: 14 } };
+
 /** Where a drink logged for `date` goes: today's to the meal for now, an earlier day's to dinner. */
 export const drinkMeal = (date) => (date === today() ? mealForNow() : "dinner");
 

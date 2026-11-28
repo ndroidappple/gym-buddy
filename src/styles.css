@@ -2018,3 +2018,20 @@ button.rest-open:active { opacity: 0.75; }
 .well-none::after { content: ""; position: absolute; inset: -4px 0; }
 .well-none:active { transform: scale(0.96); }
 .well-line > span:first-child { flex: 1; min-width: 0; }
+
+/* Calendar: the picked day's substances, one tap each (Workouts.jsx DayLog). Lit (tinted, ✓) when the day has it. */
+.day-log { display: flex; flex-direction: column; gap: 10px; padding: 14px 14px 6px; }
+.day-log .lbl { margin: 0 2px; }
+.day-log-btns { display: flex; flex-wrap: wrap; gap: 8px; }
+.day-log-btn { display: inline-flex; align-items: center; gap: 6px; min-height: 48px; padding: 0 16px 0 14px; border-radius: 16px; background: var(--surface); border: 2px solid var(--rule); font-size: 16px; font-weight: 700; color: var(--ink); }
+.day-log-btn.drinks svg { color: var(--drink); }
+.day-log-btn.weed svg { color: var(--weed); }
+.day-log-btn.own svg { color: var(--mute); }
+.day-log-btn:active:not(:disabled) { transform: scale(0.96); }
+.day-log-btn:disabled { opacity: 0.4; }
+.day-log-btn[aria-pressed="true"].drinks { border-color: var(--drink); background: color-mix(in srgb, var(--drink) 12%, var(--surface)); }
+.day-log-btn[aria-pressed="true"].weed { border-color: var(--weed); background: color-mix(in srgb, var(--weed) 12%, var(--surface)); }
+.day-log-btn[aria-pressed="true"].own { border-color: var(--ink); background: var(--surface-2); }
+.day-log-btn[aria-pressed="true"] { font-weight: 800; }
+.day-log-detail { margin: 0 2px; font-size: 13.5px; font-weight: 600; color: var(--mute); }
+.day-log-more { align-self: flex-start; display: inline-flex; align-items: center; gap: 4px; min-height: var(--tap); padding: 0 2px; font-size: 13.5px; font-weight: 800; color: var(--ink); }

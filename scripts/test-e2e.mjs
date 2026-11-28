@@ -354,10 +354,10 @@ test("wellness: alcohol and cannabis logged on Today show on the week strip and 
   await page.goto(new URL("#/progress/workouts", page.url()).href);
   await page.getByRole("button", { name: "Show as a calendar" }).click();
   await page.getByRole("button", { name: /2 drinks · cannabis$/ }).click();
-  const detail = page.getByRole("region", { name: "Alcohol and cannabis" });
-  await detail.getByText("2 drinks · 196 kcal from alcohol").waitFor();
-  check("the same drink is grouped", await detail.getByText("Beer × 2", { exact: true }).isVisible());
-  check("cannabis in the day's detail", await detail.getByText("Cannabis", { exact: true }).isVisible());
+  const detail = page.getByRole("region", { name: /^Substances on / });
+  await detail.getByText("Beer × 2 · 196 kcal from alcohol").waitFor();
+  check("alcohol lit with its count", (await detail.getByRole("button", { name: /^Alcohol: 2 drinks/ }).getAttribute("aria-pressed")) === "true");
+  check("cannabis lit", (await detail.getByRole("button", { name: "Cannabis", exact: true }).getAttribute("aria-pressed")) === "true");
   check("the month counts them", await page.getByText("1 drinking day (2 drinks) · 1 cannabis day").isVisible());
   await page.getByRole("group", { name: "Show on the calendar" }).getByRole("button", { name: "Alcohol" }).click();
   check("hiding alcohol takes its marks off the grid", !(await page.locator(".cal-mark.drinks").count()));
@@ -403,7 +403,7 @@ test("wellness: any day of the last week from Today, and further back from the c
   // The calendar opens on the latest workout, ten days back: log that day from there.
   await page.goto(new URL("#/progress/workouts", page.url()).href);
   await page.getByRole("button", { name: "Show as a calendar" }).click();
-  await page.getByRole("button", { name: /^Log alcohol or cannabis for / }).click();
+  await page.getByRole("region", { name: /^Substances on / }).getByRole("button", { name: "Amounts and more" }).click();
   const sheet = page.getByRole("dialog", { name: "Alcohol & cannabis" });
   await sheet.locator(".subs-day").click();
   const days = sheet.getByRole("group", { name: "Day" });
@@ -412,11 +412,32 @@ test("wellness: any day of the last week from Today, and further back from the c
   await sheet.locator(".subs-day").click();
   await sheet.getByRole("button", { name: "Add a Wine" }).click();
   await sheet.getByRole("button", { name: "Done" }).click();
-  await page.getByRole("button", { name: /^Edit alcohol or cannabis for / }).waitFor();
+  await page.getByRole("button", { name: /^Alcohol: 1 drink/ }).waitFor();
   for (let i = 0; i < 20 && !backend.tables.food_entries.length; i++) await page.waitForTimeout(100);
   check("the wine went on that day", backend.tables.food_entries.length === 1 && backend.tables.food_entries[0].date === day(-10) && backend.tables.food_entries[0].meal === "dinner",
     JSON.stringify(backend.tables.food_entries.map((e) => [e.name, e.date, e.meal])));
 }, account({ sessions: [workout("w1", "push", day(-10), { "Flat DB Press": [[60, 10]] })], prefs: wellOn }));
+
+test("substances: on the calendar, pick a day and tap to say yes", async ({ page, backend }) => {
+  await page.goto(new URL("#/progress/workouts", page.url()).href);
+  await page.getByRole("button", { name: "Show as a calendar" }).click();
+  const panel = page.getByRole("region", { name: /^Substances on / });
+  await panel.getByRole("button", { name: "Cannabis", exact: true }).click();
+  for (let i = 0; i < 20 && !savedState(backend).wellness?.[day(-4)]?.cannabis; i++) await page.waitForTimeout(100);
+  check("cannabis yes on the picked day", savedState(backend).wellness?.[day(-4)]?.cannabis === true, JSON.stringify(savedState(backend).wellness));
+  await panel.getByRole("button", { name: "Alcohol: log a drink" }).click();
+  await page.locator(".toast", { hasText: "Logged a Modelo (your usual)" }).waitFor();
+  for (let i = 0; i < 20 && !backend.tables.food_entries.some((e) => e.date === day(-4)); i++) await page.waitForTimeout(100);
+  check("your usual drink, on that day", backend.tables.food_entries.filter((e) => e.date === day(-4)).map((e) => e.name).join() === "Modelo",
+    JSON.stringify(backend.tables.food_entries.map((e) => [e.name, e.date])));
+  check("the day is marked on the grid", await page.locator(".cal-day.is-picked .cal-mark.drinks").count() === 1 && await page.locator(".cal-day.is-picked .cal-mark.weed").count() === 1);
+  await page.locator(".toast").getByRole("button", { name: "Undo" }).click();
+  for (let i = 0; i < 20 && backend.tables.food_entries.some((e) => e.date === day(-4)); i++) await page.waitForTimeout(100);
+  check("Undo takes the drink back", !backend.tables.food_entries.some((e) => e.date === day(-4)));
+  await panel.getByRole("button", { name: "Cannabis", exact: true }).click();
+  for (let i = 0; i < 20 && savedState(backend).wellness?.[day(-4)]; i++) await page.waitForTimeout(100);
+  check("a second tap takes the yes back", !savedState(backend).wellness?.[day(-4)]?.cannabis, JSON.stringify(savedState(backend).wellness));
+}, account({ sessions: [workout("w1", "push", day(-4), { "Flat DB Press": [[60, 10]] })], prefs: wellOn, entries: [modelo(-8), modelo(-12)] }));
 
 test("wellness: Something else opens Add food over the sheet, and closing it comes back", async ({ page }) => {
   await page.locator(".well-line").getByRole("button", { name: "Log it" }).click();
@@ -518,7 +539,7 @@ test("wellness: Vodka Sodas and Vodka Soda are one row, counted in drinks, one a
   await page.goto(new URL("#/progress/workouts", page.url()).href);
   await page.getByRole("button", { name: "Show as a calendar" }).click();
   await page.getByRole("button", { name: /2 drinks$/ }).first().click();
-  check("the calendar groups them too", await page.getByRole("region", { name: "Alcohol and cannabis" }).getByText("Vodka Soda × 2", { exact: true }).isVisible());
+  check("the calendar groups them too", await page.getByRole("region", { name: /^Substances on / }).getByText(/^Vodka Soda × 2/).isVisible());
 }, account({ prefs: wellOn, sessions: [workout("w1", "push", day(-1), { "Flat DB Press": [[60, 10]] })], entries: [vodka("2 Vodka Sodas", 0, 2), vodka("Vodka Soda", -3, 1), vodka("Vodka Sodas", -6, 2)] }));
 
 test("wellness: a drink from Tank splits the day's calories into food and alcohol", async ({ page }) => {

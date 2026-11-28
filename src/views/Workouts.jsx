@@ -1,8 +1,8 @@
 import React, { useMemo, useState } from "react";
 import { EmptyState } from "../components/ui.jsx";
-import { Pencil, ChevronLeft, ChevronRight, ChevronDown, Wine, Cannabis, CircleDot } from "lucide-react";
-import { sumDays, dayLine, drinksLabel, alcoholOf, drinksFor, drinkKey, drinkName, drinkUnits, trackedPhrase } from "../lib/wellness.js";
-import WellnessSheet, { logWhat } from "../components/WellnessSheet.jsx";
+import { Pencil, ChevronLeft, ChevronRight, ChevronDown, Wine, Cannabis, CircleDot, Check } from "lucide-react";
+import { sumDays, dayLine, drinksLabel, alcoholOf, drinksFor, drinkKey, drinkName, drinkUnits, trackedPhrase, yourDrinks, STANDARD_DRINK } from "../lib/wellness.js";
+import WellnessSheet from "../components/WellnessSheet.jsx";
 import { WINDOW_DAYS } from "../lib/food.js";
 import { allDays, CUSTOM } from "../data/program.js";
 import { href } from "../lib/router.js";
@@ -163,15 +163,11 @@ function MonthCalendar({ sessions, program, prs, heart, well }) {
         )}
       </section>
 
-      {well && wd[picked] && <WellDay day={wd[picked]} foodOn={well.foodOn} track={tr} />}
-      {/* Any day can be logged or fixed from here, however far back: Today's sheet offers only the last week. */}
-      {/* With food tracking on, only within the days of food the app has loaded (lib/food.js): further back
-          it can't show what's there, and a drink added would drop out at the next sync. */}
-      {well && picked <= t && (!well.foodOn || daysBetween(picked, t) < WINDOW_DAYS) && (
-        <button type="button" className="btn btn-ghost cal-log" onClick={() => setLogging(true)} aria-haspopup="dialog">
-          {tr.alcohol ? <Wine size={16} strokeWidth={2.6} aria-hidden="true" /> : <CircleDot size={16} strokeWidth={2.6} aria-hidden="true" />}{wd[picked] ? "Edit" : "Log"} {logWhat(tr)} for {longDate(picked)}
-        </button>
-      )}
+      {/* The picked day's substances: one tap each to say yes (audit 2026-11-28). Any day can be logged here,
+          however far back; drinks only within the days of food the app has loaded (lib/food.js) while food
+          tracking is on, since a drink added further back would drop out at the next sync. */}
+      {well && picked <= t && <DayLog well={well} date={picked} day={wd[picked]} onDetails={() => setLogging(true)}
+        canDrink={!well.foodOn || daysBetween(picked, t) < WINDOW_DAYS} />}
       {logging && <WellnessSheet well={well} start={picked} onClose={() => setLogging(false)} />}
       {(byDate[picked] || []).length
         ? byDate[picked].map((s) => <HistCard key={s.id} s={s} program={program} prs={prs} heart={heart} defaultOpen />)
@@ -195,29 +191,59 @@ function itemsLine(items) {
   }).join(", ");
 }
 
-/** The picked day's substances, under the calendar. */
-function WellDay({ day, foodOn, track }) {
+/**
+ * The picked day's substances, under the calendar: one button each, lit when the day has it. A tap says yes
+ * for the day, and a tap on a lit one takes it back. Alcohol's yes is a drink, since a drink has calories:
+ * one of your usual (or a standard drink), said in the toast with Undo, never logged silently. A lit
+ * Alcohol opens the amounts instead. "Amounts and more" opens the full sheet on the day.
+ */
+function DayLog({ well, date, day, onDetails, canDrink }) {
+  const tr = well.track, log = well.log[date] || {};
+  const when = longDate(date);
+  const drinks = day?.drinks || 0;
+  const usual = useMemo(() => (well.foodOn ? yourDrinks(well.food.entries, 1)[0] || null : null), [well.foodOn, well.food]);
+  const yesDrink = () => {
+    if (!well.foodOn) {
+      const was = log.drinks || 0;
+      well.setDrinks(date, was + 1);
+      return well.notify(`1 drink logged for ${when}`, () => well.setDrinks(date, was));
+    }
+    const id = usual ? well.addAgain(usual.template, date) : well.addDrink(STANDARD_DRINK, date);
+    well.notify(usual ? `Logged a ${usual.name} (your usual) for ${when}` : `Logged 1 standard drink for ${when}`, () => well.removeDrink(id));
+  };
+  const setOwn = (c, n) => {
+    const was = log.other?.[c.id] || 0;
+    well.setOther(date, c.id, n);
+    if (!n && was > 1) well.notify(`${c.name} cleared for ${when}`, () => well.setOther(date, c.id, was));
+  };
   return (
-    <section className="card well-day" aria-label={trackedPhrase(track, " and ") || "Substances"}>
-      {day.drinks > 0 && (
-        <div className="well-day-row drinks">
-          <span className="well-badge" aria-hidden="true"><Wine size={18} strokeWidth={2.4} /></span>
-          <span className="name">{drinksLabel(day.drinks)}{foodOn && <> · {day.alcoholKcal.toLocaleString()} kcal from alcohol</>}
-            {day.items.length > 0 && <span className="sub detail">{itemsLine(day.items)}</span>}</span>
-        </div>
-      )}
-      {day.cannabis && (
-        <div className="well-day-row weed">
-          <span className="well-badge" aria-hidden="true"><Cannabis size={18} strokeWidth={2.4} /></span>
-          <span className="name">Cannabis</span>
-        </div>
-      )}
-      {day.other.map((o) => (
-        <div key={o.id} className="well-day-row own">
-          <span className="well-badge" aria-hidden="true"><CircleDot size={18} strokeWidth={2.4} /></span>
-          <span className="name">{o.name}{o.n > 1 ? ` × ${o.n}` : ""}</span>
-        </div>
-      ))}
+    <section className="card day-log" aria-label={`Substances on ${when}`}>
+      <h3 className="lbl">{when}</h3>
+      <div className="day-log-btns">
+        {tr.alcohol && (
+          <button type="button" className="day-log-btn drinks" aria-pressed={drinks > 0} disabled={!drinks && !canDrink}
+            onClick={drinks ? onDetails : yesDrink} aria-label={drinks ? `Alcohol: ${drinksLabel(drinks)}. Change the amounts` : "Alcohol: log a drink"}>
+            {drinks ? <Check size={16} strokeWidth={3} aria-hidden="true" /> : <Wine size={16} strokeWidth={2.6} aria-hidden="true" />}
+            {drinks ? drinksLabel(drinks) : "Alcohol"}{drinks > 0 && <ChevronRight size={15} strokeWidth={2.8} aria-hidden="true" />}
+          </button>
+        )}
+        {tr.cannabis && (
+          <button type="button" className="day-log-btn weed" aria-pressed={!!log.cannabis} onClick={() => well.setCannabis(date, !log.cannabis)} aria-label="Cannabis">
+            {log.cannabis ? <Check size={16} strokeWidth={3} aria-hidden="true" /> : <Cannabis size={16} strokeWidth={2.6} aria-hidden="true" />}Cannabis
+          </button>
+        )}
+        {tr.custom.map((c) => {
+          const n = log.other?.[c.id] || 0;
+          return (
+            <button key={c.id} type="button" className="day-log-btn own" aria-pressed={n > 0} onClick={() => setOwn(c, n ? 0 : 1)} aria-label={c.name}>
+              {n ? <Check size={16} strokeWidth={3} aria-hidden="true" /> : <CircleDot size={16} strokeWidth={2.6} aria-hidden="true" />}{c.name}{n > 1 ? ` ×${n}` : ""}
+            </button>
+          );
+        })}
+      </div>
+      {day?.items?.length > 0 && <p className="day-log-detail">{itemsLine(day.items)}{well.foodOn ? ` · ${day.alcoholKcal.toLocaleString()} kcal from alcohol` : ""}</p>}
+      {!canDrink && tr.alcohol && !drinks && <p className="day-log-detail">Drinks this far back go in from Nutrition, on the day.</p>}
+      <button type="button" className="btn-quiet day-log-more" onClick={onDetails} aria-haspopup="dialog">Amounts and more<ChevronRight size={16} strokeWidth={2.8} aria-hidden="true" /></button>
     </section>
   );
 }
