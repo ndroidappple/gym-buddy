@@ -57,10 +57,11 @@ export const HELP = {
   nutritionTrends: {
     title: "Nutrition trends",
     steps: [
+      { name: "Scorecard", Icon: PieChart, text: "The period at a glance: calories, protein, your weight trend and how much you logged. Tap any tile for the day-by-day chart and the breakdowns." },
       { name: "Averages", Icon: PieChart, text: "What you ate a day against your targets. A day under 45% of your calorie target is probably only partly logged, so it's left out." },
       { name: "On goal", Icon: Target, text: "Calories within 10% of target count as on goal. Protein counts as hit at 90% of target or more." },
       { name: "Is it working?", Icon: Scale, text: "Your weight trend against your goal's pace. With 10+ logged days and a few weigh-ins, your log and the scale show what you really burn, and what to eat for your pace." },
-      { name: "Charts", Icon: LineChart, text: "One bar a day, the line is your target. Orange bars work against your goal. Hold a chart to read a day." },
+      { name: "Charts", Icon: LineChart, text: "One bar a day, the dashed line is your target. Orange bars work against your goal. In a tile's detail, hold the chart to read a day." },
     ],
   },
   lift: {

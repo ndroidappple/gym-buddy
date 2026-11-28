@@ -487,7 +487,7 @@ export default function App() {
       const closeSetup = () => go(href("nutrition"), { replace: true });
       view = (
         <>
-          <Nutrition {...common} food={food} coachChat={coachChat} open={route.open} />
+          <Nutrition {...common} food={food} coachChat={coachChat} open={route.open} detail={route.detail} />
           {route.open === "setup" && (
             <NutritionSetup coach={head} prefs={prefs} program={program} sessions={sessions} weighins={weighins} name={name}
               onWeighin={(bw) => setWeighins((ws) => [...ws.filter((w) => w.date !== today()), { date: today(), bw }])}

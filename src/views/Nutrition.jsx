@@ -12,7 +12,7 @@ import { savedFoodFor } from "../lib/food.js";
 import { href } from "../lib/router.js";
 import { today, longDate, plural, vibrate } from "../lib/util.js";
 import Roll from "../components/Roll.jsx";
-import NutritionTrends from "./NutritionTrends.jsx";
+import NutritionTrends, { TrendsDetail, TREND_DETAILS } from "./NutritionTrends.jsx";
 
 /* The Nutrition tab with food tracking off: the pitch for turning it on. It sells how little it asks
    (say what you ate, the coach does the math) with one example, three short reasons and one button.
@@ -60,7 +60,7 @@ export function NutritionOff({ prefs, setPref, go, head }) {
 
 const fmt = (n) => Math.round(n).toLocaleString();
 
-export default function Nutrition({ food, prefs, notify, sessions, weighins, program, name, head, coachChat, nutrition, onProgramChange, go, open, well = null }) {
+export default function Nutrition({ food, prefs, notify, sessions, weighins, program, name, head, coachChat, nutrition, onProgramChange, go, back, open, detail, well = null }) {
   const trends = open === "trends";
   const show = (v) => go(v === "trends" ? href("nutrition", "trends") : href("nutrition"), { replace: true });
   const [asking, setAsking] = useState(false);
@@ -95,6 +95,22 @@ export default function Nutrition({ food, prefs, notify, sessions, weighins, pro
           <EmptyState coach={head} title="Set your targets first" action={`Set up with ${COACHES[head].name}`} href={href("nutrition", "setup")}>
             {COACHES[head].name} works out your daily calories and protein, carbs and fat from your body, training and goal. About a minute.
           </EmptyState>
+        </div>
+      </main>
+    );
+  }
+
+  // A scorecard tile, drilled into: its own screen, back to the scorecard.
+  if (trends && TREND_DETAILS[detail]) {
+    return (
+      <main className="screen has-tabs nut-screen">
+        <header className="top">
+          <button className="icon-btn boxed" onClick={() => back(href("nutrition", "trends"))} aria-label="Back to trends"><ChevronLeft size={20} /></button>
+          <span className="spacer" />
+          <InfoButton screen="nutritionTrends" />
+        </header>
+        <div className="body">
+          <TrendsDetail which={detail} food={food} prefs={prefs} sessions={sessions} weighins={weighins} well={well} />
         </div>
       </main>
     );

@@ -553,6 +553,11 @@ a.hero-text { color: inherit; text-decoration: none; }
 /* Typing (lib/keyboard.js): the rest timer and Finish step aside instead of riding up on the keyboard over the field. */
 .dock { transition: opacity 180ms ease; }
 html[data-typing] .dock { opacity: 0; visibility: hidden; transition: opacity 120ms ease, visibility 0s 120ms; }
+/* Edge swipe back (lib/edgeBack.js): the screen in your hand, a shade darker behind it, and the bars
+   pinned inside it out of the way while it moves (a moving screen would carry them off their edge). */
+.screen.edge-moving { position: relative; z-index: 2; background: var(--bg); box-shadow: -10px 0 30px rgb(0 0 0 / 0.18); will-change: translate; }
+.edge-under { position: fixed; inset: 0; z-index: 1; background: color-mix(in srgb, var(--bg) 82%, #000); pointer-events: none; transition: opacity 220ms ease; }
+html[data-edge-drag] :is(.dock, .walk-card), .screen.edge-moving::after { opacity: 0; transition: opacity 100ms ease; }
 /* Keyboard gone but iOS still holding the viewport short (lib/keyboard.js): the bottom bars go back down to the real bottom edge. */
 :is(.tabbar, .dock, .toast, .sync-note) { translate: 0 var(--kb-stuck, 0px); }
 .rest-beam { border-radius: 30px; box-shadow: 0 6px 0 var(--lip); }
@@ -1146,7 +1151,12 @@ button.coach-card:active { transform: scale(0.98); }
 .cal-dots { display: flex; gap: 3px; height: 6px; }
 .cal-dots i { width: 6px; height: 6px; border-radius: 50%; background: var(--day); }
 .cal-day.is-picked .cal-dots i { box-shadow: 0 0 0 1.5px var(--bg); }
-.cal-none { text-align: center; padding: 8px 0; }
+.cal-day-panel { gap: 8px; }
+.cal-none { margin: 0 4px; font-size: 15px; font-weight: 600; color: var(--mute); }
+.hist-date .dot { display: inline-block; margin-right: 8px; vertical-align: 2px; }
+/* An outside workout: the whole card opens its recap. */
+a.hist-open { color: inherit; text-decoration: none; -webkit-tap-highlight-color: transparent; }
+a.hist-open:active { opacity: 0.6; }
 .cal-title .cal-well { margin-top: 1px; text-align: center; text-wrap: balance; }
 .cal-layers { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; padding: 0 2px 10px; }
 .cal-layers .chip { gap: 5px; min-height: 32px; padding: 4px 11px; font-size: 13.5px; }
@@ -1791,6 +1801,46 @@ button.rest-open:active { opacity: 0.75; }
 .nt-key i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
 .nt-key i.watch { background: var(--watch); }
 .nt-key i.faint { background: color-mix(in srgb, var(--ink) 18%, var(--surface)); }
+/* Trends scorecard: four equal tiles, each the same five rows (label, number, goal, small chart, status),
+   so they line up whatever the numbers say; then slim full-width rows for carbs/fat and alcohol. Every
+   tile is a link into its detail screen. */
+.sc-period { margin-bottom: -4px; } /* the picker's 44pt tap area is taller than the pill it draws */
+.sc-why { margin: 0 4px; }
+.sc-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.sc-tile, .sc-row { color: inherit; text-decoration: none; -webkit-tap-highlight-color: transparent; transition: background 120ms, transform var(--pop-ms) var(--pop); }
+.sc-tile:active, .sc-row:active { background: var(--surface-2); transform: scale(0.98); }
+.sc-tile { display: flex; flex-direction: column; min-width: 0; padding: 12px 12px 10px 14px; }
+.sc-top { display: flex; align-items: center; justify-content: space-between; font-size: 13.5px; font-weight: 700; color: var(--mute); }
+.sc-chev { color: var(--faint); flex: none; }
+.sc-val { display: flex; align-items: baseline; gap: 3px; margin-top: 6px; min-width: 0; }
+.sc-val b { font-weight: 800; font-size: 30px; line-height: 1; letter-spacing: -0.02em; white-space: nowrap; }
+.sc-val small { font-size: 13.5px; font-weight: 700; color: var(--mute); white-space: nowrap; }
+.sc-sub { margin-top: 3px; font-size: 12.5px; font-weight: 600; color: var(--faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sc-viz { display: flex; align-items: flex-end; height: 40px; margin: 10px 0 8px; }
+.sc-svg { display: block; width: 100%; height: 40px; overflow: visible; }
+.sc-goal { stroke-width: 1.5; stroke-dasharray: 3 3; }
+.sc-empty { width: 100%; height: 40px; display: grid; place-items: center; border-radius: 10px; background: var(--surface-2); font-size: 12.5px; font-weight: 700; color: var(--faint); }
+.sc-line { fill: none; stroke: var(--ink); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.sc-dot { fill: var(--surface); stroke: var(--ink); stroke-width: 1.5; }
+.sc-dot.on { fill: var(--ink); }
+.nt-none { fill: var(--rule-2); }
+.sc-status { display: flex; align-items: center; min-height: 24px; min-width: 0; }
+.sc-status .trend { height: 24px; font-size: 12.5px; gap: 4px; }
+.sc-plain { font-size: 12.5px; font-weight: 700; color: var(--mute); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sc-row { display: flex; align-items: center; gap: 16px; min-height: 60px; padding: 10px 12px 10px 14px; }
+.sc-macro { flex: 1; }
+.sc-row-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.sc-row-main b { font-weight: 800; }
+.sc-row-main span { font-size: 13.5px; font-weight: 500; color: var(--mute); }
+/* A detail screen's lead: the tile's number, large. */
+.sc-lead { display: flex; flex-direction: column; gap: 2px; margin: 0 4px; }
+.sc-lead .sc-val { margin: 0; }
+.sc-lead .sc-val b { font-size: 44px; }
+.sc-lead .sc-val small { font-size: 15px; }
+.sc-lead .sc-sub { font-size: 13.5px; white-space: normal; }
+.sc-lead .sc-status { margin-top: 6px; }
+.nt-key i.line { width: 16px; height: 3px; border-radius: 2px; background: var(--ink); }
+.nt-key i.dash { width: 16px; height: 2px; border-radius: 0; background: repeating-linear-gradient(90deg, var(--ink) 0 3px, transparent 3px 6px); }
 .nt-row { display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 8px 10px; }
 .nt-row-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .nt-row-main b { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -1941,8 +1991,11 @@ button.rest-open:active { opacity: 0.75; }
 .filters-row .filters { flex: 1; min-width: 0; }
 /* Nutrition → Trends: the period as a chip on the date line instead of a row of its own. */
 .range-pick { position: relative; display: inline-flex; align-items: center; gap: 4px; min-height: var(--tap); }
-.range-pick select { appearance: none; -webkit-appearance: none; height: 34px; padding: 0 30px 0 12px; border-radius: 999px; border: 2px solid var(--rule); background: var(--surface); color: var(--ink); font-weight: 800; font-size: 13.5px; }
-.range-pick svg { position: absolute; right: 10px; pointer-events: none; color: var(--mute); }
+/* The select fills the 44pt tap area; the 34pt pill is drawn behind it (T-03). */
+.range-pick::before { content: ""; position: absolute; inset: 5px 0; border-radius: 999px; border: 2px solid var(--rule); background: var(--surface); pointer-events: none; }
+.range-pick select { position: relative; appearance: none; -webkit-appearance: none; height: 44px; padding: 0 30px 0 14px; border-radius: 999px; border: 0; background: transparent; color: var(--ink); font-weight: 800; font-size: 13.5px; }
+.range-pick select:focus-visible { outline: 2px solid var(--ink); outline-offset: -3px; }
+.range-pick svg { position: absolute; right: 10px; pointer-events: none; z-index: 1; color: var(--mute); }
 .range-pick select:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
 @media (max-width: 359px) {
   .title-switch { column-gap: 14px; }
@@ -2021,7 +2074,7 @@ button.rest-open:active { opacity: 0.75; }
 
 /* Calendar: the picked day's substances, one tap each (Workouts.jsx DayLog). Lit (tinted, ✓) when the day has it. */
 .day-log { display: flex; flex-direction: column; gap: 10px; padding: 14px 14px 6px; }
-.day-log .lbl { margin: 0 2px; }
+.day-log-ask { margin: 0 2px; font-size: 15px; font-weight: 600; color: var(--mute); }
 .day-log-btns { display: flex; flex-wrap: wrap; gap: 8px; }
 .day-log-btn { display: inline-flex; align-items: center; gap: 6px; min-height: 48px; padding: 0 16px 0 14px; border-radius: 16px; background: var(--surface); border: 2px solid var(--rule); font-size: 16px; font-weight: 700; color: var(--ink); }
 .day-log-btn.drinks svg { color: var(--drink); }

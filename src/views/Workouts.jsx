@@ -163,15 +163,20 @@ function MonthCalendar({ sessions, program, prs, heart, well }) {
         )}
       </section>
 
-      {/* The picked day's substances: one tap each to say yes (audit 2026-11-28). Any day can be logged here,
-          however far back; drinks only within the days of food the app has loaded (lib/food.js) while food
-          tracking is on, since a drink added further back would drop out at the next sync. */}
-      {well && picked <= t && <DayLog well={well} date={picked} day={wd[picked]} onDetails={() => setLogging(true)}
-        canDrink={!well.foodOn || daysBetween(picked, t) < WINDOW_DAYS} />}
+      {/* The picked day, named once: its workouts (titled by what they were, since the date is the heading),
+          then its substances. */}
+      <section className="section cal-day-panel" aria-labelledby="cal-day-head">
+        <h2 className="lbl" id="cal-day-head">{longDate(picked)}</h2>
+        {(byDate[picked] || []).length
+          ? byDate[picked].map((s) => <HistCard key={s.id} s={s} program={program} prs={prs} heart={heart} defaultOpen inDay />)
+          : <p className="cal-none">No workout this day.</p>}
+        {/* Substances: one tap each to say yes (audit 2026-11-28). Any day can be logged here, however far
+            back; drinks only within the days of food the app has loaded (lib/food.js) while food tracking is
+            on, since a drink added further back would drop out at the next sync. */}
+        {well && picked <= t && <DayLog well={well} date={picked} day={wd[picked]} onDetails={() => setLogging(true)}
+          canDrink={!well.foodOn || daysBetween(picked, t) < WINDOW_DAYS} />}
+      </section>
       {logging && <WellnessSheet well={well} start={picked} onClose={() => setLogging(false)} />}
-      {(byDate[picked] || []).length
-        ? byDate[picked].map((s) => <HistCard key={s.id} s={s} program={program} prs={prs} heart={heart} defaultOpen />)
-        : <p className="muted cal-none">No workout logged on {longDate(picked)}.</p>}
     </>
   );
 }
@@ -216,9 +221,11 @@ function DayLog({ well, date, day, onDetails, canDrink }) {
     well.setOther(date, c.id, n);
     if (!n && was > 1) well.notify(`${c.name} cleared for ${when}`, () => well.setOther(date, c.id, was));
   };
+  const any = drinks > 0 || !!log.cannabis || tr.custom.some((c) => log.other?.[c.id] > 0);
+  const what = trackedPhrase(tr, " or ");
   return (
     <section className="card day-log" aria-label={`Substances on ${when}`}>
-      <h3 className="lbl">{when}</h3>
+      <p className="day-log-ask">{any ? "Logged this day. Tap one to change it." : `${what ? `Any ${what.toLowerCase()}` : "Anything to log"}? Tap to log it.`}</p>
       <div className="day-log-btns">
         {tr.alcohol && (
           <button type="button" className="day-log-btn drinks" aria-pressed={drinks > 0} disabled={!drinks && !canDrink}
@@ -243,7 +250,7 @@ function DayLog({ well, date, day, onDetails, canDrink }) {
       </div>
       {day?.items?.length > 0 && <p className="day-log-detail">{itemsLine(day.items)}{well.foodOn ? ` · ${day.alcoholKcal.toLocaleString()} kcal from alcohol` : ""}</p>}
       {!canDrink && tr.alcohol && !drinks && <p className="day-log-detail">Drinks this far back go in from Nutrition, on the day.</p>}
-      <button type="button" className="btn-quiet day-log-more" onClick={onDetails} aria-haspopup="dialog">Amounts and more<ChevronRight size={16} strokeWidth={2.8} aria-hidden="true" /></button>
+      <button type="button" className="btn-quiet day-log-more" onClick={onDetails} aria-haspopup="dialog">{any ? "Change amounts" : "Log with amounts"}<ChevronRight size={16} strokeWidth={2.8} aria-hidden="true" /></button>
     </section>
   );
 }
@@ -270,13 +277,13 @@ function byWeek(list) {
 
 /* One workout: a row (date, day, sets, PRs) that opens in place to every lift's top set. Collapsed by
    default so a long history scrolls as a list, not page after page of sets (audit 2026-11-28, P-03). */
-function HistCard({ s, program, prs, heart, defaultOpen = false }) {
+function HistCard({ s, program, prs, heart, defaultOpen = false, inDay = false }) {
   const hits = prs[s.id] || {};
   const n = Object.keys(hits).length;
   const [open, setOpen] = useState(defaultOpen);
   // Each lift shows its top set (the record set on a PR); every set is one tap away.
   const [all, setAll] = useState(false);
-  if (s.ext) return <OutsideHistCard s={s} program={program} heart={heart} />;
+  if (s.ext) return <OutsideHistCard s={s} program={program} heart={heart} inDay={inDay} />;
   const name = program[s.day].name;
   return (
     <article className={"hist" + (open ? " open" : "")} data-help="workout" data-day={s.day}>
@@ -284,9 +291,9 @@ function HistCard({ s, program, prs, heart, defaultOpen = false }) {
         <h3 className="hist-h">
           <button type="button" className="hist-toggle" aria-expanded={open} onClick={() => setOpen(!open)}
             aria-label={`${name} workout on ${longDate(s.date)}${n ? `, ${plural(n, "PR")}` : ""}`}>
-            <span className="hist-date">{longDate(s.date)}</span>
+            <span className="hist-date">{inDay ? <><span className="dot" aria-hidden="true" />{name}</> : longDate(s.date)}</span>
             <span className="hist-meta hist-sum">
-              <span className="dot" aria-hidden="true" />{name} · {plural(sessionSetCount(s), "set")}{sessionVolume(s) > 0 && ` · ${compact(sessionVolume(s))} lb`}{s.bw != null && open && ` · ${s.bw} lb bodyweight`}
+              {!inDay && <><span className="dot" aria-hidden="true" />{name} · </>}{plural(sessionSetCount(s), "set")}{sessionVolume(s) > 0 && ` · ${compact(sessionVolume(s))} lb`}{s.bw != null && open && ` · ${s.bw} lb bodyweight`}
             </span>
             {open && heart && s.hr && !s.hr.none && <span className="hist-meta">Heart rate avg {s.hr.avg} · peak {s.hr.max} bpm{s.hr.hard != null && ` · ${num(s.hr.hard)} min vigorous+`}</span>}
           </button>
@@ -326,17 +333,20 @@ function HistCard({ s, program, prs, heart, defaultOpen = false }) {
 }
 
 /** A workout done outside GymBuddy and counted from Google Health: what the watch recorded, no sets. */
-function OutsideHistCard({ s, program, heart }) {
+function OutsideHistCard({ s, program, heart, inDay = false }) {
   const day = program[s.day]?.name || "Workout";
+  const what = s.day === CUSTOM ? s.ext.name : `${day} · ${s.ext.name}`;
+  const stats = `${outsideStats({ ...s.ext, hrAvg: (heart && s.hr && !s.hr.none && s.hr.avg) || s.ext.hrAvg })}${s.effort ? ` · effort ${s.effort}/10, ${effortWord(s.effort).toLowerCase()}` : ""}`;
   return (
     <article className="hist" data-day={s.day}>
-      <div className="hist-head">
-        <a className="hist-open" href={href("summary", s.id, "view")} aria-label={`Open ${s.ext.name} on ${longDate(s.date)}`}>
-          <h2 className="hist-date">{longDate(s.date)}<ChevronRight size={18} strokeWidth={2.6} aria-hidden="true" className="hist-chev" /></h2>
-          <div className="hist-meta">{s.day === CUSTOM ? s.ext.name : `${day} · ${s.ext.name}`} · from Google Health</div>
-          <div className="hist-meta">{outsideStats({ ...s.ext, hrAvg: (heart && s.hr && !s.hr.none && s.hr.avg) || s.ext.hrAvg })}{s.effort ? ` · effort ${s.effort}/10, ${effortWord(s.effort).toLowerCase()}` : ""}</div>
-        </a>
-      </div>
+      <a className="hist-head hist-open" href={href("summary", s.id, "view")} aria-label={`Open the ${s.ext.name} recap for ${longDate(s.date)}`}>
+        <span className="hist-toggle">
+          <span className="hist-date">{inDay ? <><span className="dot" aria-hidden="true" />{what}</> : longDate(s.date)}</span>
+          <span className="hist-meta hist-sum">{inDay ? stats : <><span className="dot" aria-hidden="true" />{what}</>}</span>
+          <span className="hist-meta">{inDay ? "From Google Health" : `${stats} · from Google Health`}</span>
+        </span>
+        <ChevronRight size={20} strokeWidth={2.6} aria-hidden="true" className="hist-chev" />
+      </a>
       {s.note && <p className="hist-note">{s.note}</p>}
     </article>
   );
