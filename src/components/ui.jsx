@@ -6,66 +6,88 @@ import { vibrate } from "../lib/util.js";
 import { reducedMotion, usePresence, EXIT_MS, EXIT_EASE, MS, EASE } from "../lib/motion.js";
 import Coach from "./Coach.jsx";
 
-/* iOS lays the keyboard over the page instead of resizing it. The sheet follows the visible
-   viewport instead, so the keyboard pushes it up rather than covering it. */
-/* Keeps a sheet inside the part of the screen the keyboard leaves visible. iOS Safari reports the
-   keyboard only once its slide-up has finished (one visualViewport resize at the end), so waiting for
-   that makes the sheet lag a beat behind and then catch up. Instead the keyboard's height is
-   remembered: the moment a text field is focused, the sheet starts moving to where the keyboard will
-   end, in step with it, and the real resize only confirms it (or corrects a first guess). Closing is
-   predicted the same way. The top follows iOS's own scroll of the page immediately, never animated:
-   iOS has already moved the page, so animating it too would be a second, lagging move. */
-const KB_KEY = "ironlog-kb-h";
-const kbFor = () => { try { return JSON.parse(sessionStorage.getItem(KB_KEY) || "{}")[orientation()] || 0; } catch { return 0; } };
-const orientation = () => (window.innerWidth > window.innerHeight ? "land" : "port");
-function rememberKb(h) {
-  try { const m = JSON.parse(sessionStorage.getItem(KB_KEY) || "{}"); m[orientation()] = Math.round(h); sessionStorage.setItem(KB_KEY, JSON.stringify(m)); } catch {}
+/* Keeps a sheet inside the part of the screen the keyboard leaves visible, moving once, with the
+   keyboard, on one curve.
+
+   Two things used to move: iOS slid the whole page to bring the field into view (on its own animation)
+   while the sheet jumped to make up for it, so the sheet dropped and climbed back on the way up, and
+   jumped and fell on the way down (Nick's recording, 2026-11-28). Now iOS doesn't slide the page for a
+   field in a sheet at all (lib/keyboard.js, installNoPan), so the sheet is the only thing that moves.
+
+   iOS reports the keyboard only once its slide has finished, so waiting for that would make the sheet
+   lag a beat behind and then catch up. Instead the keyboard's height is remembered (per orientation and
+   width, across launches): the moment a field is tapped, the sheet heads to where the keyboard will end,
+   in step with it, and the real resize only confirms it. Closing heads straight back to the full height.
+
+   The keyboard's height is measured against the full viewport we've seen without one, not innerHeight:
+   newer iOS shrinks innerHeight along with the keyboard, so that gap is always ~0 there. And with no
+   field focused the sheet always takes the full height, which also rides out iOS 26 leaving the viewport
+   short after the keyboard goes (WebKit bug 297779) and the stale resizes mid-slide. */
+const KB_KEY = "ironlog-kb";
+const shape = () => `${window.innerWidth > window.innerHeight ? "land" : "port"}-${window.innerWidth}`;
+const readKb = () => { try { return JSON.parse(localStorage.getItem(KB_KEY) || "{}"); } catch { return {}; } };
+function remember(k, v) {
+  try { const m = readKb(); const key = `${k}:${shape()}`; if (Math.abs((m[key] || 0) - v) < 2) return; m[key] = Math.round(v); localStorage.setItem(KB_KEY, JSON.stringify(m)); } catch {}
 }
+const recall = (k) => readKb()[`${k}:${shape()}`] || 0;
+const KB_MIN = 120; // anything shorter than this off the bottom isn't a keyboard (the URL bar, a bar of predictions)
+
 function useVisibleViewport(wrap) {
   // Before the first paint, so the sheet opens at the right height instead of easing into it while it slides up.
   useLayoutEffect(() => {
     const vv = window.visualViewport;
     const el = wrap.current;
     if (!vv || !el) return;
-    // Newer iOS shrinks innerHeight along with the visual viewport, so the height gap alone can
-    // miss the keyboard. On touch screens a focused text field inside the sheet means it's up.
     const touch = window.matchMedia("(pointer: coarse)").matches;
     const isField = (n) => !!n && /^(INPUT|TEXTAREA)$/.test(n.tagName) && !/^(checkbox|radio|button|submit|range|file)$/.test(n.type);
     const typing = () => touch && el.contains(document.activeElement) && isField(document.activeElement);
+    let width = window.innerWidth;
+    // The viewport with no keyboard: the tallest seen in this shape, remembered across sheets and launches.
+    let full = Math.max(vv.height, recall("full"));
+    let predicted = 0; // until when a predicted keyboard height stands, waiting for iOS to report the real one
     const set = (top, h, kb) => {
       el.style.setProperty("--vv-top", `${top}px`);
-      el.style.setProperty("--vv-h", `${h}px`);
+      el.style.setProperty("--vv-h", `${Math.round(h)}px`);
       el.toggleAttribute("data-kb", kb);
     };
     const fit = () => {
-      const gap = window.innerHeight - vv.height;
-      if (gap > 120) rememberKb(gap);
-      set(vv.offsetTop, vv.height, gap > 120 || typing());
+      if (window.innerWidth !== width) { width = window.innerWidth; full = Math.max(vv.height, recall("full")); predicted = 0; }
+      const h = vv.height;
+      if (!typing()) {
+        // No field: full height, always. A short viewport now is the keyboard still leaving, or stuck.
+        if (h > full) { full = h; remember("full", h); }
+        if (!full) full = h;
+        set(vv.offsetTop, full, false);
+        return;
+      }
+      const kb = full - h;
+      if (kb >= KB_MIN) { remember("kb", kb); predicted = 0; set(vv.offsetTop, h, true); return; }
+      // Typing, but iOS hasn't reported the keyboard yet: keep the prediction while it slides.
+      if (predicted && Date.now() < predicted) return;
+      set(vv.offsetTop, h, false); // a field with no keyboard (a hardware keyboard, or focus from code)
     };
-    // A field just got focus from a tap: go where the keyboard will end, now, instead of after it
-    // lands. Only after a tap: iOS focuses a field from code without showing the keyboard at all.
+    // A field just got focus from a tap: go where the keyboard will end, now, instead of after it lands.
+    // Only after a tap: iOS focuses a field from code without showing the keyboard at all.
     let tapped = 0;
     const tap = (e) => { if (isField(e.target)) tapped = Date.now(); };
     const focusin = (e) => {
-      const h = kbFor();
-      if (touch && isField(e.target) && h && Date.now() - tapped < 800 && window.innerHeight - vv.height < 120) set(0, window.innerHeight - h, true);
-      else fit();
+      const kb = recall("kb");
+      if (touch && isField(e.target) && kb && Date.now() - tapped < 800 && full - vv.height < KB_MIN) {
+        predicted = Date.now() + 900;
+        set(0, full - kb, true);
+      } else fit();
     };
-    // Focus left the fields (not just moved between them): the keyboard is going down.
-    const focusout = () => setTimeout(() => {
-      if (typing()) return;
-      if (touch && window.innerHeight - vv.height > 120) set(0, window.innerHeight, false);
-      else fit();
-    }, 0);
+    // Focus left the fields (not just moved between them): the keyboard is going down. Straight to full.
+    const focusout = () => setTimeout(() => { predicted = 0; if (!typing()) set(0, full, false); }, 0);
     fit();
     vv.addEventListener("resize", fit);
     vv.addEventListener("scroll", fit);
-    el.addEventListener("touchend", tap, { passive: true });
+    el.addEventListener("touchend", tap, { passive: true, capture: true });
     el.addEventListener("focusin", focusin);
     el.addEventListener("focusout", focusout);
     return () => {
       vv.removeEventListener("resize", fit); vv.removeEventListener("scroll", fit);
-      el.removeEventListener("touchend", tap);
+      el.removeEventListener("touchend", tap, { capture: true });
       el.removeEventListener("focusin", focusin); el.removeEventListener("focusout", focusout);
     };
   }, [wrap]);
