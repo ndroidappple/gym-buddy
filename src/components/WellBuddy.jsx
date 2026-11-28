@@ -3,10 +3,12 @@ import React, { useEffect, useId, useState } from "react";
 /* The two characters on the alcohol & cannabis sheet, drawn like the coaches (flat body in its shadow
    colour with the lit body nudged up-left and clipped, white eyes, lids in the body colour, ink features).
 
-   Proof: a big vodka handle, deliberately generic (no brand's label, colours or name). Sly: one brow up,
-   a heavier lid, a smirk. Hops and sloshes when a drink goes on; tips back when one comes off.
-   Haze: a round sprout with a leaf crown. Mellow: half-lidded, drifting, the crown swaying. Switching
-   cannabis on gets a slow eyes-closed exhale and a little puff; off, a small tilt.
+   Proof: a big liquor handle in gold glass, deliberately generic (no brand's label, colours or name).
+   Sly: one brow up, a heavier lid, a smirk. Hops and sloshes when a drink goes on; tips back when one
+   comes off.
+   Haze: a leaf, the face on its broad middle leaflet, six narrower ones fanned behind and a short stem.
+   Mellow: half-lidded, drifting, the outer leaflets swaying. Switching cannabis on gets a slow
+   eyes-closed exhale and a little puff; off, a small tilt.
 
    Neither cheers nor frowns at anything: no smile that grows, no frown, no colour change. They react to
    the tap, not to what it means. `react` is the last change ("add" | "remove" | "on" | "off") and `nonce`
@@ -15,8 +17,8 @@ import React, { useEffect, useId, useState } from "react";
 const INK = "#1C1A22";
 
 const LOOK = {
-  alcohol: { color: "#C4E6F7", shade: "#93C6E2", lids: [0.36, 0.14], tilt: [10, 0] },
-  cannabis: { color: "#9AD6A8", shade: "#71B883", lids: [0.5, 0.5], tilt: [0, 0] },
+  alcohol: { color: "#F5C451", shade: "#D99A2B", lids: [0.36, 0.14], tilt: [10, 0] },
+  cannabis: { color: "#8CCF98", shade: "#62AE72", back: "#4E9A5E", vein: "#6DB97C", lids: [0.5, 0.5], tilt: [0, 0] },
 };
 
 // How long each reaction runs (styles.css has the matching keyframes).
@@ -34,18 +36,18 @@ export default function WellBuddy({ kind = "alcohol", size = 72, react = null, n
   }, [nonce]); // eslint-disable-line react-hooks/exhaustive-deps
   // Haze's exhale closes both eyes for a beat; everything else keeps the resting lids.
   const lids = playing === "on" && kind === "cannabis" ? [1, 1] : L.lids;
-  const eyes = kind === "alcohol" ? { x: [40, 60], y: 50, rx: 7, ry: 7.8 } : { x: [38.5, 61.5], y: 68, rx: 7, ry: 7.6 };
+  const eyes = kind === "alcohol" ? { x: [40, 60], y: 50, rx: 7, ry: 7.8 } : { x: [41, 59], y: 63, rx: 6.4, ry: 7 };
 
   return (
     <svg viewBox="-6 -8 112 118" width={size} height={Math.round((size * 118) / 112)} className={`buddy buddy-${kind}`} aria-hidden="true">
       <defs>
-        <clipPath id={`${uid}b`}>{kind === "alcohol" ? <path d={BOTTLE} /> : <ellipse cx="50" cy="70" rx="32" ry="29" />}</clipPath>
+        <clipPath id={`${uid}b`}><path d={kind === "alcohol" ? BOTTLE : LEAF} /></clipPath>
         {eyes.x.map((x, i) => <clipPath key={i} id={`${uid}e${i}`}><ellipse cx={x} cy={eyes.y} rx={eyes.rx} ry={eyes.ry} /></clipPath>)}
       </defs>
       <ellipse cx="50" cy="105" rx="26" ry="3.6" fill={INK} opacity=".12" />
       <g className={`bd-idle bd-idle-${kind}`}>
         <g key={nonce} className={playing ? `bd-react bd-${kind}-${playing}` : "bd-react"}>
-          {kind === "alcohol" ? <Bottle uid={uid} L={L} /> : <Sprout uid={uid} L={L} />}
+          {kind === "alcohol" ? <Bottle uid={uid} L={L} /> : <Leaf uid={uid} L={L} />}
           {/* Eyes: white, pupils, a lid in the body colour that drops to `lids`, and a blink on its own clock. */}
           {eyes.x.map((x, i) => (
             <g key={x} clipPath={`url(#${uid}e${i})`}>
@@ -83,7 +85,7 @@ function Bottle({ uid, L }) {
         <path d={BOTTLE} fill={L.color} transform="translate(-3 -4)" />
         {/* The level: a lighter fill with a surface that sloshes. */}
         <g className="bd-liquid">
-          <path d="M14 55 Q32 51 50 55 T86 55 V106 H14 Z" fill="#fff" opacity=".42" />
+          <path d="M14 55 Q32 51 50 55 T86 55 V106 H14 Z" fill="#FFE9A8" opacity=".38" />
         </g>
         <rect x="24.5" y="38" width="4.5" height="48" rx="2.2" fill="#fff" opacity=".55" />
       </g>
@@ -91,7 +93,7 @@ function Bottle({ uid, L }) {
       <rect x="38.5" y="5" width="23" height="13" rx="3.5" fill="#2E2C36" />
       <rect x="41" y="7.5" width="7" height="3" rx="1.5" fill="#fff" opacity=".25" />
       <rect x="27" y="68" width="46" height="25" rx="4" fill="#F4EEE3" />
-      <rect x="27" y="72" width="46" height="3.2" fill="#B0478C" />
+      <rect x="27" y="72" width="46" height="3.2" fill="#8A4B12" />
       <rect x="36" y="80" width="28" height="4" rx="2" fill={INK} opacity=".72" />
       <rect x="41" y="87" width="18" height="2.6" rx="1.3" fill={INK} opacity=".35" />
     </>
@@ -107,24 +109,27 @@ function ProofFace() {
   );
 }
 
-/* A round sprout with a five-leaf crown. */
-const LEAVES = [[-64, 15], [-32, 21], [0, 25], [32, 21], [64, 15]];
-function Sprout({ uid, L }) {
+/* A leaf: a broad middle leaflet as the body (the face goes on it), six narrower leaflets fanned out
+   behind from the stem, longest at the top, each with a vein. */
+const LEAF = "M50 12 C63 28 73 48 71 68 C69 86 60 96 50 96 C40 96 31 86 29 68 C27 48 37 28 50 12 Z";
+const SIDE = [[-33, 66, 11], [-62, 54, 10], [-94, 38, 8], [33, 66, 11], [62, 54, 10], [94, 38, 8]]; // angle, length, half-width
+function Leaf({ uid, L }) {
   return (
     <>
-      <g className="bd-crown">
-        <path d="M50 46 L50 38" stroke="#3F8F4E" strokeWidth="3.4" strokeLinecap="round" />
-        {LEAVES.map(([a, len]) => (
-          <g key={a} transform={`translate(50 40) rotate(${a})`}>
-            <path d={`M0 0 Q5.5 ${-len * 0.5} 0 ${-len} Q-5.5 ${-len * 0.5} 0 0 Z`} fill="#3F8F4E" />
-            <path d={`M0 -2 L0 ${-len + 3}`} stroke="#58A866" strokeWidth="1.2" strokeLinecap="round" />
+      <g className="bd-fan">
+        {SIDE.map(([a, len, w]) => (
+          <g key={a} transform={`translate(50 90) rotate(${a})`}>
+            <path d={`M0 0 Q${w} ${-len * 0.45} 0 ${-len} Q${-w} ${-len * 0.45} 0 0 Z`} fill={L.back} />
+            <path d={`M0 -4 L0 ${-len + 6}`} stroke={L.vein} strokeWidth="1.4" strokeLinecap="round" />
           </g>
         ))}
       </g>
-      <ellipse cx="50" cy="70" rx="32" ry="29" fill={L.shade} />
+      <path d="M50 94 Q51 100 47 106" fill="none" stroke={L.back} strokeWidth="4" strokeLinecap="round" />
+      <path d={LEAF} fill={L.shade} />
       <g clipPath={`url(#${uid}b)`}>
-        <ellipse cx="50" cy="70" rx="32" ry="29" fill={L.color} transform="translate(-3 -4)" />
-        <ellipse cx="34" cy="52" rx="9" ry="5" fill="#fff" opacity=".28" transform="rotate(-30 34 52)" />
+        <path d={LEAF} fill={L.color} transform="translate(-3 -4)" />
+        <path d="M50 22 L50 46" stroke={L.vein} strokeWidth="1.6" strokeLinecap="round" opacity=".8" />
+        <ellipse cx="38" cy="42" rx="5" ry="9" fill="#fff" opacity=".26" transform="rotate(-22 38 42)" />
       </g>
     </>
   );
@@ -132,9 +137,9 @@ function Sprout({ uid, L }) {
 function HazeFace() {
   return (
     <g fill="none" stroke={INK} strokeLinecap="round">
-      <path d="M31 57.5 Q38 55.5 45 57.5" strokeWidth="2.8" />
-      <path d="M55 57.5 Q62 55.5 69 57.5" strokeWidth="2.8" />
-      <path d="M45 82 Q50 84.5 55 82" strokeWidth="2.8" />
+      <path d="M34.5 53 Q41 51 47 53" strokeWidth="2.6" />
+      <path d="M53 53 Q59 51 65.5 53" strokeWidth="2.6" />
+      <path d="M45.5 76 Q50 78.5 54.5 76" strokeWidth="2.6" />
     </g>
   );
 }
