@@ -306,6 +306,13 @@ export default function Session({ day, existing, draft, preview, sessions, progr
     setAskAlerts(false);
   };
   const skipAlerts = () => { declineRestAlerts(); setAlerts("off"); setAskAlerts(false); };
+  // Escape answers "Not now", like closing any other dialog (a sheet open over it answers Escape first).
+  useEffect(() => {
+    if (!askAlerts) return;
+    const onKey = (e) => { if (e.key === "Escape" && !document.querySelector(".sheet-wrap")) skipAlerts(); };
+    addEventListener("keydown", onKey);
+    return () => removeEventListener("keydown", onKey);
+  }, [askAlerts]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /* ── keep the screen awake while training ── */
   useEffect(() => {
@@ -830,8 +837,16 @@ function CardioSet({ i, ex, row, last, canRemove, onEdit, onLog, onRemove }) {
   );
 }
 
+/* Logged from the keyboard (Enter on Log set, or Enter in Reps): the next set's Log set takes focus when it
+   mounts, so the next set is one keypress instead of a dozen Tabs from the top (audit 2026-11-28). A tap
+   leaves focus alone, so touch users get no ring and no scroll jump. */
+let refocusLog = false;
+
 function ActiveSet({ i, ex, showRir, row, last, canRemove, onEdit, onLog, onRemove }) {
   const step = weightStep(ex.n);
+  const logBtn = useRef(null);
+  useEffect(() => { if (refocusLog) { refocusLog = false; logBtn.current?.focus(); } }, []);
+  const logFromKeys = () => { refocusLog = true; onLog(); };
   const bump = (field, step) => {
     const cur = parseFloat(row[field]) || 0;
     const next = Math.max(0, Math.round((cur + step) * 10) / 10);
@@ -849,7 +864,8 @@ function ActiveSet({ i, ex, showRir, row, last, canRemove, onEdit, onLog, onRemo
         <Stepper id={`w-${i}`} label="Weight" unit={row.w === "0" ? "bodyweight" : "lb"} value={row.w} mode="decimal"
           onChange={(v) => onEdit({ w: v })} onDec={() => bump("w", -step)} onInc={() => bump("w", step)} step={`${step} pounds`} stepText={step} />
         <Stepper id={`r-${i}`} label="Reps" unit="reps" value={row.r} mode="numeric" placeholder={`${ex.reps[0]}–${ex.reps[1]}`}
-          onChange={(v) => onEdit({ r: v })} onDec={() => bump("r", -1)} onInc={() => bump("r", 1)} step="1 rep" />
+          onChange={(v) => onEdit({ r: v })} onDec={() => bump("r", -1)} onInc={() => bump("r", 1)} step="1 rep"
+          onEnter={() => { if (ready) logFromKeys(); }} />
       </div>
       {showRir && (
         <div className="rir" role="group" aria-label="Reps in reserve (optional)">
@@ -859,12 +875,13 @@ function ActiveSet({ i, ex, showRir, row, last, canRemove, onEdit, onLog, onRemo
           ))}
         </div>
       )}
-      <button className="btn btn-day" onClick={onLog} disabled={!ready}>{ready ? "Log set" : "Enter weight and reps"}</button>
+      <button ref={logBtn} className="btn btn-day" onClick={(e) => (e.detail === 0 ? logFromKeys() : onLog())} disabled={!ready}>{ready ? "Log set" : "Enter weight and reps"}</button>
     </div>
   );
 }
 
-function Stepper({ id, label, unit, value, mode, placeholder, onChange, onDec, onInc, step, stepText }) {
+const UNIT_WORD = { lb: "pounds", min: "minutes" };
+function Stepper({ id, label, unit, value, mode, placeholder, onChange, onDec, onInc, step, stepText, onEnter }) {
   // Stepped with − / + (or filled in for the next set), the number rolls to its new value. Typed, it doesn't.
   const field = useRef(null);
   const shown = useRef(value);
@@ -878,9 +895,13 @@ function Stepper({ id, label, unit, value, mode, placeholder, onChange, onDec, o
     <div className="stepper">
       <label htmlFor={id}>
         <span className="sr-only">{label}</span>
+        {/* Named once ("Weight, pounds", "Reps"), not "Reps reps" from the label plus the unit. */}
         <input ref={field} id={id} type="number" inputMode={mode} value={value} placeholder={placeholder}
+          aria-label={unit.toLowerCase() === label.toLowerCase() ? label : `${label}, ${UNIT_WORD[unit] || unit}`}
+          enterKeyHint={onEnter ? "done" : undefined}
+          onKeyDown={onEnter ? (e) => { if (e.key === "Enter") { e.preventDefault(); onEnter(); } } : undefined}
           onChange={(e) => onChange(e.target.value)} onFocus={(e) => e.target.select()} />
-        <span className="u">{unit}</span>
+        <span className="u" aria-hidden="true">{unit}</span>
       </label>
       <div className="stepper-btns">
         {/* A weight step is spelled out (−10 / +10) since it differs from lift to lift. */}

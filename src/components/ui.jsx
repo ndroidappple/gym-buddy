@@ -220,7 +220,19 @@ export function Sheet({ title, sub, lead, actions, onClose, children, labelledBy
     (first || ref.current)?.focus();
     const me = {};
     openSheets.push(me);
-    const onKey = (e) => { if (e.key === "Escape" && openSheets[openSheets.length - 1] === me) close.current(); };
+    const onKey = (e) => {
+      if (openSheets[openSheets.length - 1] !== me) return;
+      if (e.key === "Escape") { close.current(); return; }
+      // aria-modal says the page behind is out of reach; Tab keeps to that too, wrapping at either end.
+      if (e.key === "Tab" && ref.current) {
+        const all = [...ref.current.querySelectorAll('button, [href], input, textarea, select, [tabindex]:not([tabindex="-1"])')]
+          .filter((el) => !el.disabled && el.offsetParent !== null);
+        if (!all.length) { e.preventDefault(); ref.current.focus(); return; }
+        const first = all[0], last = all[all.length - 1], at = document.activeElement;
+        if (e.shiftKey && (at === first || !ref.current.contains(at))) { e.preventDefault(); last.focus(); }
+        else if (!e.shiftKey && (at === last || !ref.current.contains(at))) { e.preventDefault(); first.focus(); }
+      }
+    };
     addEventListener("keydown", onKey);
     document.body.style.overflow = "hidden";
     dispatchEvent(new Event(SHEET_OPEN));
