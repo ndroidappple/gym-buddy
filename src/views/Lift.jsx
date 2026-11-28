@@ -164,9 +164,10 @@ function ChartPin({ name, sessions, prefs, setPref, notify }) {
     notify(on ? "Removed from your Progress chart" : "Pinned to your Progress chart", () => setPref("chartLifts", before));
   };
   return (
-    <button className="icon-btn" data-help="pin" onClick={toggle} aria-pressed={on}
-      aria-label={on ? "Remove from the Progress chart" : "Pin to the Progress chart"}>
-      <Pin size={20} strokeWidth={2.4} fill={on ? "currentColor" : "none"} />
+    // Visible words, not a bare pin: a filled pin alone could read as "pinned" or as "pin this".
+    <button className="pill pin-btn" data-help="pin" onClick={toggle}
+      aria-label={on ? "Unpin from the Progress chart" : "Pin to the Progress chart"}>
+      <Pin size={16} strokeWidth={2.4} fill={on ? "currentColor" : "none"} aria-hidden="true" />{on ? "Unpin" : "Pin"}
     </button>
   );
 }

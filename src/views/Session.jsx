@@ -306,6 +306,13 @@ export default function Session({ day, existing, draft, preview, sessions, progr
     setAskAlerts(false);
   };
   const skipAlerts = () => { declineRestAlerts(); setAlerts("off"); setAskAlerts(false); };
+  // Escape answers "Not now", like closing any other dialog (a sheet open over it answers Escape first).
+  useEffect(() => {
+    if (!askAlerts) return;
+    const onKey = (e) => { if (e.key === "Escape" && !document.querySelector(".sheet-wrap")) skipAlerts(); };
+    addEventListener("keydown", onKey);
+    return () => removeEventListener("keydown", onKey);
+  }, [askAlerts]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /* ── keep the screen awake while training ── */
   useEffect(() => {
@@ -579,16 +586,10 @@ export default function Session({ day, existing, draft, preview, sessions, progr
       {/* Every set in: Finish takes the dock's place, so it's one tap away instead of a scroll.
           Each slides off the bottom as it goes; Finish rises as the rest timer leaves. */}
       {finishShown && <FinishDock sets={finishShown} onFinish={finish} leaving={finishLeaving} after={restLeaving} />}
-      {askShown && (
-        <div className={"alert-ask" + (askLeaving ? " leaving" : "")} role="dialog" aria-labelledby="alert-ask-title" inert={askLeaving ? "" : undefined}>
-          <p id="alert-ask-title"><b>Rest alerts</b> Get a heads-up when rest is over, even with your phone locked.</p>
-          <div className="alert-ask-actions">
-            <button className="btn-quiet" onClick={skipAlerts}>Not now</button>
-            <button className="btn btn-ink" onClick={turnOnAlerts}>Turn on</button>
-          </div>
-        </div>
-      )}
-      {restShown && <RestDock timer={restShown} setTimer={setTimer} alertSet={alertSet} leaving={restLeaving} onOpen={() => setRestOpen(true)} />}
+      {/* The one-time "lock-screen alerts?" ask is a row inside the rest bar: it used to float over the set
+          card and cover the next Log set (audit 2026-11-28, P-05). */}
+      {restShown && <RestDock timer={restShown} setTimer={setTimer} alertSet={alertSet} leaving={restLeaving} onOpen={() => setRestOpen(true)}
+        ask={askShown && !askLeaving ? { yes: turnOnAlerts, no: skipAlerts } : null} />}
       {restOpen && timer && !allDone && (
         <RestFull day={day} timer={timer} setTimer={setTimer} ex={restEx} row={restRows[restIdx]} idx={restIdx}
           first={!restRows.some((r) => r.done)} last={restEx ? lastFor(restEx.n)?.sets[restEx.n]?.[restIdx] : null}
@@ -830,8 +831,17 @@ function CardioSet({ i, ex, row, last, canRemove, onEdit, onLog, onRemove }) {
   );
 }
 
+/* Logged from the keyboard (Enter on Log set, or Enter in Reps): the next set's Log set takes focus when it
+   mounts, so the next set is one keypress instead of a dozen Tabs from the top (audit 2026-11-28). A tap
+   leaves focus alone, so touch users get no ring and no scroll jump. */
+let refocusLog = false;
+
 function ActiveSet({ i, ex, showRir, row, last, canRemove, onEdit, onLog, onRemove }) {
   const step = weightStep(ex.n);
+  const logBtn = useRef(null);
+  useEffect(() => { if (refocusLog) { refocusLog = false; logBtn.current?.focus(); } }, []);
+  // The flag only lasts the moment it takes the next set to mount: logging the last set leaves nothing to focus.
+  const logFromKeys = () => { refocusLog = true; setTimeout(() => { refocusLog = false; }, 1000); onLog(); };
   const bump = (field, step) => {
     const cur = parseFloat(row[field]) || 0;
     const next = Math.max(0, Math.round((cur + step) * 10) / 10);
@@ -849,7 +859,8 @@ function ActiveSet({ i, ex, showRir, row, last, canRemove, onEdit, onLog, onRemo
         <Stepper id={`w-${i}`} label="Weight" unit={row.w === "0" ? "bodyweight" : "lb"} value={row.w} mode="decimal"
           onChange={(v) => onEdit({ w: v })} onDec={() => bump("w", -step)} onInc={() => bump("w", step)} step={`${step} pounds`} stepText={step} />
         <Stepper id={`r-${i}`} label="Reps" unit="reps" value={row.r} mode="numeric" placeholder={`${ex.reps[0]}–${ex.reps[1]}`}
-          onChange={(v) => onEdit({ r: v })} onDec={() => bump("r", -1)} onInc={() => bump("r", 1)} step="1 rep" />
+          onChange={(v) => onEdit({ r: v })} onDec={() => bump("r", -1)} onInc={() => bump("r", 1)} step="1 rep"
+          onEnter={() => { if (ready) logFromKeys(); }} />
       </div>
       {showRir && (
         <div className="rir" role="group" aria-label="Reps in reserve (optional)">
@@ -859,12 +870,13 @@ function ActiveSet({ i, ex, showRir, row, last, canRemove, onEdit, onLog, onRemo
           ))}
         </div>
       )}
-      <button className="btn btn-day" onClick={onLog} disabled={!ready}>{ready ? "Log set" : "Enter weight and reps"}</button>
+      <button ref={logBtn} className="btn btn-day" onClick={(e) => (e.detail === 0 ? logFromKeys() : onLog())} disabled={!ready}>{ready ? "Log set" : "Enter weight and reps"}</button>
     </div>
   );
 }
 
-function Stepper({ id, label, unit, value, mode, placeholder, onChange, onDec, onInc, step, stepText }) {
+const UNIT_WORD = { lb: "pounds", min: "minutes" };
+function Stepper({ id, label, unit, value, mode, placeholder, onChange, onDec, onInc, step, stepText, onEnter }) {
   // Stepped with − / + (or filled in for the next set), the number rolls to its new value. Typed, it doesn't.
   const field = useRef(null);
   const shown = useRef(value);
@@ -878,9 +890,14 @@ function Stepper({ id, label, unit, value, mode, placeholder, onChange, onDec, o
     <div className="stepper">
       <label htmlFor={id}>
         <span className="sr-only">{label}</span>
+        {/* Named once ("Weight, pounds", "Reps"), not "Reps reps" from the label plus the unit. */}
         <input ref={field} id={id} type="number" inputMode={mode} value={value} placeholder={placeholder}
+          aria-label={[unit, UNIT_WORD[unit]].some((u) => u?.toLowerCase() === label.toLowerCase()) ? label
+            : unit === "bodyweight" ? `${label}, bodyweight only` : `${label}, ${UNIT_WORD[unit] || unit}`}
+          enterKeyHint={onEnter ? "done" : undefined}
+          onKeyDown={onEnter ? (e) => { if (e.key === "Enter") { e.preventDefault(); onEnter(); } } : undefined}
           onChange={(e) => onChange(e.target.value)} onFocus={(e) => e.target.select()} />
-        <span className="u">{unit}</span>
+        <span className="u" aria-hidden="true">{unit}</span>
       </label>
       <div className="stepper-btns">
         {/* A weight step is spelled out (−10 / +10) since it differs from lift to lift. */}
@@ -1007,7 +1024,7 @@ function revealActiveSet(smooth) {
   if (Math.abs(dy) > 2) scrollTo({ top: scrollY + dy, behavior: smooth ? "smooth" : "auto" });
 }
 
-function RestDock({ timer, setTimer, alertSet, leaving, onOpen }) {
+function RestDock({ timer, setTimer, alertSet, leaving, onOpen, ask = null }) {
   const [now, setNow] = useState(Date.now());
   const alerted = useRef(false);
   const handedOff = useRef(false);
@@ -1036,7 +1053,15 @@ function RestDock({ timer, setTimer, alertSet, leaving, onOpen }) {
     <div className={"dock" + (leaving ? " leaving" : "")} inert={leaving ? "" : undefined}>
     {/* Line beam runs only while resting (a 60–120 s wait); the line type ignores reduced motion, so gate it here. */}
     <BorderBeam size="line" theme={theme} active={!over && !reduced} className="rest-beam">
-      <div className={"rest" + (over ? " over" : "")} role="timer" aria-label="Rest timer">
+      <div className={"rest" + (over ? " over" : "") + (ask && !over ? " asking" : "")} role="timer" aria-label="Rest timer">
+        {ask && !over && (
+          <div className="rest-ask" role="group" aria-labelledby="rest-ask-q">
+            <Bell size={16} strokeWidth={2.6} aria-hidden="true" />
+            <span id="rest-ask-q">Lock-screen alert when rest ends?</span>
+            <button type="button" className="rest-ask-no" onClick={ask.no}>Not now</button>
+            <button type="button" className="rest-ask-yes" onClick={ask.yes}>Turn on</button>
+          </div>
+        )}
         <Face className="rest-open" {...(over ? {} : { type: "button", onClick: onOpen })}>
         <Coach id={timer.coach || "tank"} mood={over ? "focused" : "resting"} size={46} decorative />
         <div className="rest-text">

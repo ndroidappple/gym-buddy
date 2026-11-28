@@ -220,7 +220,19 @@ export function Sheet({ title, sub, lead, actions, onClose, children, labelledBy
     (first || ref.current)?.focus();
     const me = {};
     openSheets.push(me);
-    const onKey = (e) => { if (e.key === "Escape" && openSheets[openSheets.length - 1] === me) close.current(); };
+    const onKey = (e) => {
+      if (openSheets[openSheets.length - 1] !== me) return;
+      if (e.key === "Escape") { close.current(); return; }
+      // aria-modal says the page behind is out of reach; Tab keeps to that too, wrapping at either end.
+      if (e.key === "Tab" && ref.current) {
+        const all = [...ref.current.querySelectorAll('button, [href], input, textarea, select, [tabindex]:not([tabindex="-1"])')]
+          .filter((el) => !el.disabled && el.offsetParent !== null);
+        if (!all.length) { e.preventDefault(); ref.current.focus(); return; }
+        const first = all[0], last = all[all.length - 1], at = document.activeElement;
+        if (e.shiftKey && (at === first || !ref.current.contains(at))) { e.preventDefault(); last.focus(); }
+        else if (!e.shiftKey && (at === last || !ref.current.contains(at))) { e.preventDefault(); first.focus(); }
+      }
+    };
     addEventListener("keydown", onKey);
     document.body.style.overflow = "hidden";
     dispatchEvent(new Event(SHEET_OPEN));
@@ -250,6 +262,26 @@ export function Sheet({ title, sub, lead, actions, onClose, children, labelledBy
       </div>
     </div>
   ), document.body);
+}
+
+/**
+ * A tab's title that is also its view switch: "Day  Trends" in display type, the current view in ink with
+ * a bar under it, the other in grey. The tab's name stays the page heading for screen readers (`title`),
+ * since the tab bar already shows it on screen. `options`: [{ key, text, count? }].
+ */
+export function TitleSwitch({ title, label, options, value, onPick }) {
+  return (
+    <>
+      <h1 className="sr-only">{title}</h1>
+      <div className="title-switch" data-help="views" role="group" aria-label={label}>
+        {options.map((o) => (
+          <button key={o.key} type="button" aria-pressed={value === o.key} onClick={() => onPick(o.key)}>
+            {o.text}{o.count != null && <span className="title-count"> · {o.count}</span>}
+          </button>
+        ))}
+      </div>
+    </>
+  );
 }
 
 /** Text with [Name] marked as an inline chip, so anything you can see or tap in the app stands out. */
@@ -397,7 +429,7 @@ export function Toast({ toast, onDismiss, raised }) {
 
 const ALL_TABS = [
   { key: "today", label: "Today", Icon: Home },
-  { key: "nutrition", label: "Nutrition", Icon: Utensils }, // only while food tracking is on
+  { key: "nutrition", label: "Nutrition", Icon: Utensils }, // unless hidden in Settings (prefs.nutritionTab)
   { key: "progress", label: "Progress", Icon: TrendingUp },
   { key: "settings", label: "Settings", Icon: Gear },
 ];
@@ -713,13 +745,17 @@ export function Read({ tone, children }) {
   return <span className={`trend read ${tone}`}><span aria-hidden="true">{READ_MARK[tone]}</span>{children}</span>;
 }
 
-export function EmptyState({ coach = "tank", title, children, action, href }) {
+/** `onAction` makes the action a button instead of a link; `foot` is a quiet line under it. */
+export function EmptyState({ coach = "tank", title, children, action, href, onAction, foot }) {
   return (
     <section className="card empty">
       <Coach id={coach} mood="idle" size={64} decorative />
       <h2 className="empty-title">{title}</h2>
       <p className="empty-text">{children}</p>
-      {action && <a className="btn btn-ink empty-btn" href={href}>{action}</a>}
+      {action && (onAction
+        ? <button type="button" className="btn btn-ink empty-btn" onClick={onAction}>{action}</button>
+        : <a className="btn btn-ink empty-btn" href={href}>{action}</a>)}
+      {foot && <p className="empty-foot">{foot}</p>}
     </section>
   );
 }

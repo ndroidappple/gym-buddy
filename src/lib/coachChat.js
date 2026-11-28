@@ -285,7 +285,7 @@ function headLines({ sessions, program, weighins, profile, phase, n, entries = [
   const nights = recovery ? recoveryLines(recovery, t, 14) : [];
   if (nights.length) lines.push("Sleep and recovery, last 14 mornings (from their watch; a night is the one that ended that morning):", ...nights);
   // Drinks and cannabis, when they track them (Settings → Nutrition & Wellness). Facts for the coach to weigh, not to lecture about.
-  if (wellness) lines.push(...wellnessLines({ entries: wellness.entries, wellness: wellness.log, days: HEAD_DAYS, to: t }));
+  if (wellness) lines.push(...wellnessLines({ entries: wellness.entries, wellness: wellness.log, days: HEAD_DAYS, to: t, track: wellness.track }));
 
   // Training, week by week and workout by workout.
   const recent = sessions.filter((s) => ago(s.date) >= 0 && ago(s.date) < HEAD_DAYS).sort(byDateAsc);

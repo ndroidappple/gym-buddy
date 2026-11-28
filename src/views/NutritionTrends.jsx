@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from "react";
+import { ChevronDown } from "lucide-react";
 import { href } from "../lib/router.js";
 import { shortDate, bodyweightSeries, iso } from "../lib/util.js";
 import { EmptyState, useScrub, ChartTip, Read } from "../components/ui.jsx";
@@ -41,10 +42,15 @@ export default function NutritionTrends({ food, prefs, sessions, weighins, well 
     };
   }, [entries, n, days, sessions, weighins, well]);
 
+  // The period: a chip on the date line (its own row cost ~42pt above every number).
   const picker = (
-    <div className="segctl small" role="group" aria-label="Period">
-      {RANGES.map((r) => <button key={r.days} aria-pressed={days === r.days} onClick={() => pick(r.days)}>{r.label}</button>)}
-    </div>
+    <label className="range-pick">
+      <span className="sr-only">Period</span>
+      <select value={days} onChange={(e) => pick(+e.target.value)}>
+        {RANGES.map((r) => <option key={r.days} value={r.days}>Last {r.label}</option>)}
+      </select>
+      <ChevronDown size={16} strokeWidth={2.8} aria-hidden="true" />
+    </label>
   );
   if (!data) {
     return (
@@ -64,11 +70,9 @@ export default function NutritionTrends({ food, prefs, sessions, weighins, well 
 
   return (
     <>
-      {picker}
-
       {/* The period in three numbers, against the targets. */}
       <section className="section">
-        <h2 className="lbl">{shortDate(data.from)} – {shortDate(data.to)}</h2>
+        <div className="section-head"><h2 className="lbl">{shortDate(data.from)} – {shortDate(data.to)}</h2>{picker}</div>
         <div className="stats">
           <div className="stat">
             <b>{fmt(s.kcal)}</b><span>kcal a day</span>
@@ -137,7 +141,7 @@ export default function NutritionTrends({ food, prefs, sessions, weighins, well 
             return (
               <div key={w.start} className="nt-row">
                 <span className="nt-row-main"><b>{shortDate(w.start)} – {shortDate(w.end)}</b><span>{w.logged} of {w.days} days logged{w.protein != null ? ` · ${fmt(w.protein)} g protein` : ""}</span></span>
-                <span className="nt-row-v">{w.kcal != null ? <>{fmt(w.kcal)}<small className={bad ? "watch" : ""}>{signed(w.kcalDiff)}</small></> : <small>partly logged</small>}</span>
+                <span className="nt-row-v">{w.kcal != null ? <>{fmt(w.kcal)}<small className={bad ? "watch" : ""}>{signed(w.kcalDiff)} vs goal</small></> : <small>partly logged</small>}</span>
               </div>
             );
           })}

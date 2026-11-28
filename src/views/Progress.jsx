@@ -3,7 +3,7 @@ import { Scale, CalendarDays, List } from "lucide-react";
 import { isCardio, activeDays } from "../data/program.js";
 import { href } from "../lib/router.js";
 import { liftSeries, trend, num, fmtW, bestSet, isIsolation, shortDate, bodyweightSeries, daysBetween, today } from "../lib/util.js";
-import { InfoButton, Sparkline, Trend, EmptyState, Sheet, useScrub, ChartTip } from "../components/ui.jsx";
+import { InfoButton, Sparkline, Trend, EmptyState, Sheet, useScrub, ChartTip, TitleSwitch } from "../components/ui.jsx";
 import PhaseCard from "../components/PhaseCard.jsx";
 import { adjustedSeries } from "../lib/fatigue.js";
 import PhaseSheet from "../components/PhaseSheet.jsx";
@@ -38,23 +38,19 @@ export default function Progress({ open, go, ...props }) {
   return (
     <main className="screen has-tabs">
       <header className="top">
-        <h1 className="page-title">Progress</h1>
-        <span className="spacer" />
-        {workouts && sessions.length > 0 && (
-          <button className="icon-btn" data-help="calendar" onClick={toggleCalendar} aria-pressed={calendar}
-            aria-label={calendar ? "Show as a list" : "Show as a calendar"}>
-            {calendar ? <List size={20} strokeWidth={2.4} /> : <CalendarDays size={20} strokeWidth={2.4} />}
-          </button>
-        )}
+        <TitleSwitch title="Progress" label="Progress view" value={workouts ? "workouts" : "trends"} onPick={pick}
+          options={[{ key: "trends", text: "Trends" }, { key: "workouts", text: "Workouts", count: sessions.length || null }]} />
         <InfoButton screen={workouts ? "workouts" : "progress"} />
       </header>
       <div className="body">
-        <div className="segctl" data-help="views" role="group" aria-label="Progress view">
-          <button aria-pressed={seg === "trends"} onClick={() => pick("trends")}>Trends</button>
-          <button aria-pressed={workouts} onClick={() => pick("workouts")}>Workouts{sessions.length > 0 && <span className="seg-count"> · {sessions.length}</span>}</button>
-        </div>
         {workouts
-          ? <Workouts sessions={sessions} program={props.program} calendar={calendar} heart={!!props.prefs?.googleHealth?.on} well={props.well} />
+          ? <Workouts sessions={sessions} program={props.program} calendar={calendar} heart={!!props.prefs?.googleHealth?.on} well={props.well}
+            calendarToggle={sessions.length > 0 && (
+              <button className="icon-btn" data-help="calendar" onClick={toggleCalendar} aria-pressed={calendar}
+                aria-label={calendar ? "Show as a list" : "Show as a calendar"}>
+                {calendar ? <List size={20} strokeWidth={2.4} /> : <CalendarDays size={20} strokeWidth={2.4} />}
+              </button>
+            )} />
           : <Trends {...props} openPhase={open === "phase"} onPhaseSheetClosed={() => open === "phase" && go(href("progress", "trends"), { replace: true })} />}
       </div>
     </main>
@@ -222,7 +218,7 @@ function Bodyweight({ series, phase, onLog }) {
         return <><b>{num(series[i].bw)} lb</b><span>{shortDate(series[i].date)}{d != null && ` · ${Math.abs(d) < 0.05 ? "±0" : `${d > 0 ? "▲" : "▼"} ${num(Math.abs(d))}`}`}</span></>;
       }}>
         <polyline points={pts.map((p) => p.join(",")).join(" ")} fill="none" stroke="#FFFFFF" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
-        {pts.slice(0, -1).map(([x, y], i) => <circle key={i} cx={x} cy={y} r="4" fill="var(--accent)" stroke="#FFFFFF" strokeWidth="2.5" />)}
+        {pts.slice(0, -1).map(([x, y], i) => <circle key={i} cx={x} cy={y} r="4" fill="var(--card-bg)" stroke="#FFFFFF" strokeWidth="2.5" />)}
         <circle cx={pts[pts.length - 1][0]} cy={pts[pts.length - 1][1]} r="7" fill="#FFFFFF" />
       </BwScrub>
       <div className="ends"><span style={{ flex: 1 }}>{shortDate(first.date)}</span><span>{shortDate(last.date)}</span></div>
@@ -398,7 +394,7 @@ function PhaseChart({ series, phase }) {
         <line x1={X(phase.start)} y1={Y(phase.startWeight)} x2={X(phase.end)} y2={Y(phase.target)} stroke="#FFFFFF" strokeOpacity=".55" strokeWidth="2.5" strokeDasharray="5 6" strokeLinecap="round" />
         <circle cx={X(phase.end)} cy={Y(phase.target)} r="5" fill="none" stroke="#FFFFFF" strokeWidth="2.5" />
         {pts.length > 1 && <polyline points={pts.map((x) => `${X(x.date)},${Y(x.bw)}`).join(" ")} fill="none" stroke="#FFFFFF" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />}
-        {pts.map((x, i) => <circle key={x.date} cx={X(x.date)} cy={Y(x.bw)} r={i === pts.length - 1 ? 7 : 4} fill={i === pts.length - 1 ? "#FFFFFF" : "var(--accent)"} stroke="#FFFFFF" strokeWidth="2.5" />)}
+        {pts.map((x, i) => <circle key={x.date} cx={X(x.date)} cy={Y(x.bw)} r={i === pts.length - 1 ? 7 : 4} fill={i === pts.length - 1 ? "#FFFFFF" : "var(--card-bg)"} stroke="#FFFFFF" strokeWidth="2.5" />)}
       </BwScrub>
       <div className="ends"><span style={{ flex: 1 }}>{shortDate(from)}</span><span>Target {shortDate(to)}</span></div>
     </section>

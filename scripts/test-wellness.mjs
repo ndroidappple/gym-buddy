@@ -38,7 +38,7 @@ eq("with food tracking off, the count is used", off["2026-11-23"].drinks, 3);
 eq("wine in a sauce isn't a drinking day", W.wellnessDays({ entries: [food("Coq au vin", "2026-11-24", { basis: { perServing: { alcohol: 2 } } })] }), {});
 eq("a date range", Object.keys(W.wellnessDays({ entries, wellness: log, from: "2026-11-21", to: "2026-11-30" })), ["2026-11-22"]);
 eq("day line", [W.dayLine(days["2026-11-20"]), W.dayLine(days["2026-11-22"]), W.dayLine(off["2026-11-23"])], ["2 drinks · cannabis", "cannabis", "3 drinks"]);
-eq("totals", W.sumDays(days), { drinks: 2, drinkDays: 1, cannabisDays: 2, alcoholKcal: 196 });
+eq("totals", W.sumDays(days), { drinks: 2, drinkDays: 1, cannabisDays: 2, alcoholKcal: 196, other: {} });
 
 // A preset becomes a food log row with its alcohol in the basis; last night's goes to dinner.
 const row = W.drinkEntry(W.DRINK_PRESETS[1], "2000-01-01");
@@ -82,7 +82,7 @@ eq("drink units: a pint of IPA (1.5 drinks) is one, a pair is two", [W.drinkUnit
 eq("scaled to two of three", W.scaledEntry(vs("x", "d", 3), 2 / 3, nutritionFor), { amount: 0.67, kcal: 193, protein: 0, carbs: 0, fat: 0 });
 
 // Coach lines: facts only, and a clear "none" when there's nothing.
-eq("coach: nothing logged", W.wellnessLines({ entries: [], wellness: {}, days: 30, to: "2026-11-27" }), ["Alcohol and cannabis (they track both): none logged in the last 30 days."]);
+eq("coach: nothing logged", W.wellnessLines({ entries: [], wellness: {}, days: 30, to: "2026-11-27" }), ["Substances they track (alcohol, cannabis): none logged in the last 30 days."]);
 eq("coach: days listed", W.wellnessLines({ entries, wellness: log, days: 30, to: "2026-11-27" }).slice(1), ["- 2026-11-20: 2 drinks · cannabis (196 kcal from alcohol)", "- 2026-11-22: cannabis"]);
 
 // Food against alcohol over a period: only full days count toward the calories.
@@ -95,6 +95,34 @@ const period = [
 const t = W.alcoholTrend(period, dailyRows(period, n, "2026-11-01", "2026-11-07"));
 eq("alcohol trend", t, { share: 3, perWeek: 2, drinkDays: 1, foodOnDrinkDays: 2304, foodOtherDays: 2000 });
 eq("no drinks, no trend", W.alcoholTrend(period.slice(0, 2), dailyRows(period.slice(0, 2), n, "2026-11-01", "2026-11-07")), null);
+
+/* ── What's tracked: alcohol, cannabis and the lifter's own substances ── */
+eq("old accounts: one switch tracked both", W.tracked({ wellness: { on: true } }), { alcohol: true, cannabis: true, custom: [] });
+eq("old accounts, off", W.tracked({ wellness: { on: false } }), { alcohol: false, cannabis: false, custom: [] });
+eq("nothing set: nothing tracked", W.tracksAny(W.tracked({})), false);
+const nic = { id: "nicotine", name: "Nicotine" };
+eq("per substance", W.tracked({ wellness: { on: true, alcohol: false, cannabis: true, custom: [nic] } }), { alcohol: false, cannabis: true, custom: [nic] });
+eq("withTracked keeps on = anything tracked", W.withTracked({ on: true }, { alcohol: false, cannabis: false }), { on: false, alcohol: false, cannabis: false, custom: [] });
+eq("withTracked: a custom one alone turns it on", W.withTracked({}, { custom: [nic] }).on, true);
+eq("ids: the same name finds its days", [W.substanceId(" Nicotine "), W.substanceId("Caffeine pills!"), W.substanceId("")], ["nicotine", "caffeine-pills", "other"]);
+eq("titles", [
+  W.sheetTitle({ alcohol: true, cannabis: true, custom: [] }),
+  W.sheetTitle({ alcohol: true, cannabis: false, custom: [] }),
+  W.sheetTitle({ alcohol: false, cannabis: false, custom: [nic] }),
+  W.sheetTitle({ alcohol: true, cannabis: true, custom: [nic] }),
+  W.trackedPhrase({ alcohol: true, cannabis: false, custom: [nic] }, " or "),
+  W.trackedPhrase({ alcohol: false, cannabis: true, custom: [{ id: "thc", name: "THC gummies" }] }),
+], ["Alcohol & cannabis", "Alcohol", "Nicotine", "Substances", "Alcohol or nicotine", "Cannabis & THC gummies"]);
+const own = { "2026-11-20": { cannabis: true, other: { nicotine: 3, gone: 1 } }, "2026-11-21": { other: { nicotine: 1 } } };
+const both = { alcohol: true, cannabis: true, custom: [nic] };
+const od = W.wellnessDays({ wellness: own, track: both });
+eq("own substances counted per day; an untracked one is left out", od["2026-11-20"].other, [{ id: "nicotine", name: "Nicotine", n: 3 }]);
+eq("a day with only your own substance is kept", W.dayLine(od["2026-11-21"]), "nicotine");
+eq("day line with everything", W.dayLine(od["2026-11-20"]), "cannabis · nicotine ×3");
+eq("untracked cannabis is left out", Object.keys(W.wellnessDays({ wellness: own, track: { ...both, cannabis: false } })), ["2026-11-20", "2026-11-21"]);
+eq("totals by name", W.sumDays(od).other, { Nicotine: { days: 2, total: 4 } });
+eq("coach line names what's tracked", W.wellnessLines({ wellness: own, track: both, days: 30, to: "2026-11-27" })[0],
+  "Substances they track (alcohol, cannabis, Nicotine), last 30 days (a day not listed had none): 0 drinks on 0 days (0 kcal from alcohol), cannabis on 1 days, Nicotine on 2 days (4 in all).");
 
 console.log(failed ? `wellness: ${failed} failed` : "wellness: all checks passed");
 process.exit(failed ? 1 : 0);

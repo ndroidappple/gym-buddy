@@ -56,13 +56,15 @@ PR, into what's here.
   the meal that fits the time of day.
 - **Bulk and cut phases** with a target pace, and trends of what you ate against your targets (Nutrition → Trends).
 
-**Alcohol and cannabis** (optional, in Settings → Nutrition & Wellness)
+**Substances** (optional, in Settings → Substances)
 
-- **Next to the training, off until you turn it on.** Log either from one quiet line on Today (before
-  noon it starts on last night). Alcohol is food log entries with their alcohol kept, so calories split
-  into food and alcohol on Nutrition, and Trends shows drinks a week and the food that comes with them.
-  The workout calendar marks alcohol days (with the drink count) and cannabis days, and the coaches and
-  the week in review take both into account. Cannabis days aren't sent to Google Health or AI assistants.
+- **Track what you choose, next to the training.** Alcohol, cannabis and up to five of your own (nicotine,
+  caffeine pills, anything), each on its own switch and off until you turn it on. Log from one quiet line
+  on Today (before noon it starts on last night); your own substances are one tap, then + to count more.
+  Alcohol is food log entries with their alcohol kept, so calories split into food and alcohol on
+  Nutrition, and Trends shows drinks a week and the food that comes with them. The workout calendar marks
+  each one, and the coaches and the week in review take them into account without judgment. Cannabis and
+  your own substances aren't sent to Google Health or AI assistants.
 
 **Progress and recovery**
 

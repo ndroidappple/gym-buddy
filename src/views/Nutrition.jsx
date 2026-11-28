@@ -1,10 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { ChevronLeft, ChevronRight, Plus, Copy, CopyPlus, MessageCircle, Pencil, Trash2, TrendingUp, Wine } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Copy, CopyPlus, MessageCircle, Pencil, Trash2, TrendingUp, Wine, Search, Check } from "lucide-react";
 import { alcoholOf, drinksLabel } from "../lib/wellness.js";
 import Coach from "../components/Coach.jsx";
 import CoachChat from "../components/CoachChat.jsx";
 import { COACHES } from "../data/coaches.js";
-import { InfoButton, Sheet, EmptyState } from "../components/ui.jsx";
+import { InfoButton, Sheet, EmptyState, TitleSwitch } from "../components/ui.jsx";
+
 import AddFood, { Portion, QuickAdd, amountLabel } from "../components/AddFood.jsx";
 import { MEALS, totals, byDate, weekSummary, addDays } from "../lib/nutrition.js";
 import { savedFoodFor } from "../lib/food.js";
@@ -12,6 +13,45 @@ import { href } from "../lib/router.js";
 import { today, longDate, plural, vibrate } from "../lib/util.js";
 import Roll from "../components/Roll.jsx";
 import NutritionTrends from "./NutritionTrends.jsx";
+
+/* The Nutrition tab with food tracking off: the pitch for turning it on. It sells how little it asks
+   (say what you ate, the coach does the math) with one example, three short reasons and one button.
+   The tab is there by default; anyone who doesn't want it hides it here or in Settings (prefs.nutritionTab). */
+export function NutritionOff({ prefs, setPref, go, head }) {
+  const who = COACHES[head]?.name || "Tank";
+  const turnOn = () => {
+    setPref("nutrition", { ...prefs.nutrition, on: true });
+    if (!prefs.nutrition?.targets) go(href("nutrition", "setup"), { replace: true });
+  };
+  const hide = () => { setPref("nutritionTab", false); go(href("today"), { replace: true }); };
+  return (
+    <main className="screen has-tabs">
+      <header className="top"><h1 className="page-title">Nutrition</h1><span className="spacer" /></header>
+      <div className="body pitch">
+        <section className="pitch-hero">
+          <h2 className="pitch-title">Log a meal in one sentence.</h2>
+          <p className="pitch-sub">Type what you ate. {who} does the math.</p>
+          {/* An example, not a control: what typing a meal gets you. */}
+          <div className="pitch-demo" role="img" aria-label={`Example: you type "two eggs and toast" and ${who} logs it as 220 calories and 16 grams of protein.`}>
+            <div className="pitch-type" aria-hidden="true"><Search size={18} strokeWidth={2.4} /><span className="pitch-typed">two eggs and toast</span><span className="pitch-caret" /></div>
+            <div className="pitch-result" aria-hidden="true">
+              <Coach id={head} mood="encourage" size={40} still decorative />
+              <span className="pitch-result-text"><b>Logged to breakfast</b><span>220 kcal · 16 g protein</span></span>
+              <Check size={20} strokeWidth={3} className="pitch-check" />
+            </div>
+          </div>
+        </section>
+        <ul className="pitch-list">
+          <li><b>Protein, sorted.</b> See calories left and protein to go, every day.</li>
+          <li><b>Bulk or cut on pace.</b> Set a weight goal. GymBuddy checks your real progress and suggests changes.</li>
+          <li><b>One plan.</b> {who} coaches your food and your lifting together.</li>
+        </ul>
+        <button type="button" className="btn btn-ink pitch-cta" onClick={turnOn}>Start tracking food</button>
+        <p className="pitch-foot">{prefs.nutrition?.targets ? "Your targets are still saved." : "About a minute to set up."}<br />Not for you? <button type="button" onClick={hide}>Hide this tab</button></p>
+      </div>
+    </main>
+  );
+}
 
 /* The Nutrition tab has two views. Day (#/nutrition): one day at a time, today by default. Calories left
    and the three macros against target, then the day's meals with what's in them, then the week so far.
@@ -94,14 +134,11 @@ export default function Nutrition({ food, prefs, notify, sessions, weighins, pro
   return (
     <main className="screen has-tabs nut-screen">
       <header className="top">
-        <h1 className="page-title">Nutrition</h1><span className="spacer" />
+        <TitleSwitch title="Nutrition" label="Nutrition view" value={trends ? "trends" : "day"} onPick={show}
+          options={[{ key: "day", text: "Day" }, { key: "trends", text: "Trends" }]} />
         <InfoButton screen={trends ? "nutritionTrends" : "nutrition"} />
       </header>
       <div className="body">
-        <div className="segctl" data-help="views" role="group" aria-label="Nutrition view">
-          <button aria-pressed={!trends} onClick={() => show("day")}>Day</button>
-          <button aria-pressed={trends} onClick={() => show("trends")}>Trends</button>
-        </div>
         {trends ? <NutritionTrends food={food} prefs={prefs} sessions={sessions} weighins={weighins} well={well} /> : <>
         <div className="day-switch" data-help="day">
           <button className="icon-btn" onClick={() => setDate(addDays(date, -1))} aria-label="Previous day"><ChevronLeft size={20} /></button>
