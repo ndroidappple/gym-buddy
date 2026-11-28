@@ -31,6 +31,8 @@ export async function openApp(browser, url, seed) {
   const errors = [];
   page.on("pageerror", (e) => errors.push(e.message));
   page.on("console", (m) => { if (m.type() === "error") errors.push(m.text()); });
+  // seed.clock ("09:00"): the phone's clock fixed at that time today, for what changes with the time of day.
+  if (seed.clock) await page.clock.setFixedTime(new Date(`${new Date().toLocaleDateString("en-CA")}T${seed.clock}:00`));
   await page.goto(url);
   return { page, backend, errors, context };
 }

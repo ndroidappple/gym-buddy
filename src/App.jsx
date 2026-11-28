@@ -410,6 +410,7 @@ export default function App() {
     addDrink: (preset, date) => food.addEntry(drinkEntry(preset, date)),
     addAgain: (entry, date) => food.addEntry(againEntry(entry, date)), // another of a drink you've logged before
     removeDrink: (id) => food.removeEntry(id),
+    updateDrink: (id, patch) => food.updateEntry(id, patch), // one fewer of an entry logged as several
     // For the sheet's "Something else": Add food, with Tank, over it.
     food: nutritionOn ? food : null, head, notify, targets: nutritionOn ? prefs.nutrition?.targets || null : null,
   } : null;

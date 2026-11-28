@@ -107,6 +107,10 @@ export const recentDays = (n = 7, to = today()) => Array.from({ length: n }, (_,
 export function isDrinkLike(e) {
   const g = alcoholOf(e);
   if (!(g > 0)) return false;
+  // Itemized by the coach: real food alongside the drinks ("Fries and two beers") makes it a meal.
+  // Mixers (cola, tonic, juice) have next to no protein or fat, so a rum and coke stays a drink.
+  const items = e.basis?.items;
+  if (Array.isArray(items) && items.some((it) => !(+it.alcohol > 0) && (+it.protein || 0) + (+it.fat || 0) >= 5)) return false;
   const share = (g * ALCOHOL_KCAL_PER_G) / Math.max(1, +e.kcal || 0);
   // Mostly alcohol; or next to no protein and a real share of alcohol (a cocktail with a sweet mixer).
   // Not the name: "Rum cake" and "Beer-battered fish" are food. A dessert with a splash of rum stays under 15%.

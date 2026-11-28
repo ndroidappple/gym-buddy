@@ -3,7 +3,7 @@ import { Plus, Minus } from "lucide-react";
 import { Sheet } from "./ui.jsx";
 import AddFood from "./AddFood.jsx";
 import { COACHES } from "../data/coaches.js";
-import { addDays, MEALS } from "../lib/nutrition.js";
+import { addDays, MEALS, nutritionFor } from "../lib/nutrition.js";
 import { today, vibrate, shortDate } from "../lib/util.js";
 import { DRINK_PRESETS, alcoholOf, drinksFor, drinksLabel, defaultLogDay, dayLine, recentDays, isDrinkLike, drinkKey, yourDrinks, drinkMeal } from "../lib/wellness.js";
 
@@ -20,8 +20,10 @@ import { DRINK_PRESETS, alcoholOf, drinksFor, drinksLabel, defaultLogDay, dayLin
  */
 export function WellnessLine({ well, inCard = false }) {
   const [open, setOpen] = useState(false);
-  const day = defaultLogDay();
-  const when = day === today() ? "today" : "last night";
+  // Last night before noon, unless that's empty and today already has something (a mimosa at brunch).
+  const guess = defaultLogDay(), t = today();
+  const day = !well.days[guess] && well.days[t] ? t : guess;
+  const when = day === t ? "today" : "last night";
   const x = well.days[day];
   return (
     <>
@@ -31,7 +33,7 @@ export function WellnessLine({ well, inCard = false }) {
           : <span>Alcohol or cannabis {when}?</span>}
         <button type="button" className="btn-quiet well-open" onClick={() => setOpen(true)} aria-haspopup="dialog">{x ? "Edit" : "Log it"}</button>
       </div>
-      {open && <WellnessSheet well={well} start={day} guessed={day !== today()} onClose={() => setOpen(false)} />}
+      {open && <WellnessSheet well={well} start={day} guessed={day !== t} onClose={() => setOpen(false)} />}
     </>
   );
 }
@@ -70,6 +72,17 @@ export default function WellnessSheet({ well, start = null, guessed = false, onC
           ))}
         </div>
 
+        {/* Cannabis first: one switch, so it stays in reach however long a busy day's drink list gets. */}
+        <section className="section" aria-labelledby="well-cannabis">
+          <h3 className="lbl" id="well-cannabis">Cannabis</h3>
+          <div className="list">
+            <button className="list-row" role="switch" aria-checked={cannabis} onClick={() => well.setCannabis(date, !cannabis)}>
+              <span className="name">Used cannabis<span className="sub detail">{dayName(date, t)}, any amount</span></span>
+              <span className="switch" aria-hidden="true" />
+            </button>
+          </div>
+        </section>
+
         <section className="section" aria-labelledby="well-drinks">
           <div className="section-head">
             <h3 className="lbl" id="well-drinks">Alcohol</h3>
@@ -84,16 +97,6 @@ export default function WellnessSheet({ well, start = null, guessed = false, onC
                 <button type="button" className="icon-btn" onClick={() => well.setDrinks(date, count + 1)} aria-label="One more drink"><Plus size={20} /></button>
               </div>
             )}
-        </section>
-
-        <section className="section" aria-labelledby="well-cannabis">
-          <h3 className="lbl" id="well-cannabis">Cannabis</h3>
-          <div className="list">
-            <button className="list-row" role="switch" aria-checked={cannabis} onClick={() => well.setCannabis(date, !cannabis)}>
-              <span className="name">Used cannabis<span className="sub detail">{dayName(date, t)}, any amount</span></span>
-              <span className="switch" aria-hidden="true" />
-            </button>
-          </div>
         </section>
 
         <button type="button" className="btn btn-ink" onClick={onClose}>Done</button>
@@ -112,7 +115,9 @@ export default function WellnessSheet({ well, start = null, guessed = false, onC
  */
 function DrinkSteps({ well, date, onOther }) {
   const entries = well.food.entries;
-  const mine = useMemo(() => yourDrinks(entries, 3), [entries]);
+  // Taken once, when the sheet opens: the rows don't reshuffle under the next tap, and the whole log
+  // isn't re-read on every one.
+  const [mine] = useState(() => yourDrinks(entries, 3));
   const onDay = entries.filter((e) => e.date === date && alcoholOf(e) > 0)
     .sort((a, b) => (a.created_at || "").localeCompare(b.created_at || ""));
   const byKey = new Map();
@@ -132,13 +137,25 @@ function DrinkSteps({ well, date, onOther }) {
     return `${Math.round(e.kcal)} kcal${n !== 1 ? ` · ${drinksLabel(n)}` : ""}`;
   };
   const add = (r) => { r.preset ? well.addDrink(r.preset, date) : well.addAgain(r.template, date); vibrate(10); };
-  const less = (r) => { const es = byKey.get(r.key); if (es?.length) well.removeDrink(es[es.length - 1].id); };
+  /* How many of a drink: each entry's servings ("3 beers" logged once is 3). An entry weighed in grams
+     (a database food) is one. − takes one serving off the latest entry, or removes it when it's the last. */
+  const servings = (e) => (e.basis?.per100 ? 1 : +e.amount || 1);
+  const countOf = (k) => Math.round((byKey.get(k) || []).reduce((a, e) => a + servings(e), 0) * 10) / 10;
+  const less = (r) => {
+    const es = byKey.get(r.key);
+    if (!es?.length) return;
+    const e = es[es.length - 1];
+    if (servings(e) > 1 && e.basis) {
+      const amount = servings(e) - 1, n = nutritionFor(e.basis, amount, e.unit);
+      well.updateDrink(e.id, { amount, kcal: n.kcal, protein: n.protein, carbs: n.carbs, fat: n.fat });
+    } else well.removeDrink(e.id);
+  };
 
   return (
     <>
       <div className="list well-steps">
         {rows.map((r) => {
-          const n = byKey.get(r.key)?.length || 0;
+          const n = countOf(r.key);
           return (
             <div key={r.key} className={"list-row well-step" + (n ? " has" : "")}>
               <span className="name">{r.name}<span className="sub detail">{sub(r)}</span></span>

@@ -3,10 +3,11 @@ import { EmptyState } from "../components/ui.jsx";
 import { Pencil, ChevronLeft, ChevronRight, Wine, Cannabis } from "lucide-react";
 import { sumDays, dayLine, drinksLabel, alcoholOf, drinksFor } from "../lib/wellness.js";
 import WellnessSheet from "../components/WellnessSheet.jsx";
+import { WINDOW_DAYS } from "../lib/food.js";
 import { allDays, CUSTOM } from "../data/program.js";
 import { href } from "../lib/router.js";
 import { outsideStats, effortWord } from "../lib/outside.js";
-import { fmtSet, bestSet, byDateDesc, longDate, compact, sessionVolume, sessionSetCount, plural, priorSessions, allTimeBest, bestE1rm, e1rm, num, today, iso } from "../lib/util.js";
+import { fmtSet, bestSet, byDateDesc, longDate, compact, sessionVolume, sessionSetCount, plural, priorSessions, allTimeBest, bestE1rm, e1rm, num, today, iso, daysBetween } from "../lib/util.js";
 
 /** Progress → Workouts: every logged workout as a list or a month calendar, filterable by day.
     The list/calendar switch lives in the Progress header (`calendar`). */
@@ -147,7 +148,9 @@ function MonthCalendar({ sessions, program, prs, heart, well }) {
 
       {well && wd[picked] && <WellDay day={wd[picked]} foodOn={well.foodOn} />}
       {/* Any day can be logged or fixed from here, however far back: Today's sheet offers only the last week. */}
-      {well && picked <= t && (
+      {/* With food tracking on, only within the days of food the app has loaded (lib/food.js): further back
+          it can't show what's there, and a drink added would drop out at the next sync. */}
+      {well && picked <= t && (!well.foodOn || daysBetween(picked, t) < WINDOW_DAYS) && (
         <button type="button" className="btn-quiet cal-log" onClick={() => setLogging(true)} aria-haspopup="dialog">
           <Wine size={16} strokeWidth={2.6} aria-hidden="true" />{wd[picked] ? "Edit" : "Log"} alcohol or cannabis for {longDate(picked)}
         </button>
@@ -160,6 +163,21 @@ function MonthCalendar({ sessions, program, prs, heart, well }) {
   );
 }
 
+/** What was drunk, the same drink grouped: "Modelo × 2, Hazy IPA 16 oz (1.5 drinks)". */
+function itemsLine(items) {
+  const m = new Map();
+  for (const e of items) {
+    const k = e.name.trim().toLowerCase();
+    const x = m.get(k) || { name: e.name.trim(), n: 0, g: 0 };
+    x.n++; x.g += alcoholOf(e);
+    m.set(k, x);
+  }
+  return [...m.values()].map((x) => {
+    const drinks = drinksFor(x.g);
+    return `${x.name}${x.n > 1 ? ` × ${x.n}` : ""}${drinks !== x.n ? ` (${drinksLabel(drinks)})` : ""}`;
+  }).join(", ");
+}
+
 /** The picked day's alcohol and cannabis, under the calendar. */
 function WellDay({ day, foodOn }) {
   return (
@@ -168,7 +186,7 @@ function WellDay({ day, foodOn }) {
         <div className="well-day-row drinks">
           <span className="well-badge" aria-hidden="true"><Wine size={18} strokeWidth={2.4} /></span>
           <span className="name">{drinksLabel(day.drinks)}{foodOn && <> · {day.alcoholKcal.toLocaleString()} kcal from alcohol</>}
-            {day.items.length > 0 && <span className="sub detail">{day.items.map((e) => `${e.name}${drinksFor(alcoholOf(e)) > 1 ? ` (${drinksLabel(drinksFor(alcoholOf(e)))})` : ""}`).join(", ")}</span>}</span>
+            {day.items.length > 0 && <span className="sub detail">{itemsLine(day.items)}</span>}</span>
         </div>
       )}
       {day.cannabis && (
