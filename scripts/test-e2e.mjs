@@ -475,6 +475,50 @@ test("wellness: a drink logged as several counts each, and − takes one off", a
 }, account({ prefs: wellOn, entries: [entry("Beer", "dinner", 0, { amount: 3, unit: "drink", kcal: 450, protein: 4.8, carbs: 39, fat: 0,
   source: "custom", basis: { perServing: { kcal: 150, protein: 1.6, carbs: 13, fat: 0, alcohol: 14 }, servingLabel: "drink" } })] }));
 
+const vodka = (name, days, n) => entry(name, "dinner", days, { kcal: 96 * n, protein: 0, carbs: 0, fat: 0,
+  basis: { perServing: { kcal: 96 * n, protein: 0, carbs: 0, fat: 0, alcohol: 14 * n }, servingLabel: "meal" } });
+
+test("wellness: Vodka Sodas and Vodka Soda are one row, counted in drinks, one at a time", async ({ page, backend }) => {
+  await page.locator(".well-line").getByRole("button", { name: /Log it|Edit/ }).click();
+  const dialog = page.getByRole("dialog", { name: "Alcohol & cannabis" });
+  await dialog.getByRole("group", { name: "Day" }).getByRole("button", { name: /^Today/ }).click();
+  const names = await dialog.locator(".well-step .name").evaluateAll((els) => els.map((el) => el.firstChild.textContent));
+  check("one Vodka Soda row", names.filter((n) => /vodka/i.test(n)).join(",") === "Vodka Soda", names.join(","));
+  const row = dialog.getByRole("group", { name: "Vodka Soda" });
+  await row.getByText("2", { exact: true }).waitFor(); // today's "2 Vodka Sodas" is two drinks
+  await row.getByRole("button", { name: "One more Vodka Soda" }).click();
+  await row.getByText("3", { exact: true }).waitFor();
+  for (let i = 0; i < 20 && backend.tables.food_entries.filter((e) => e.date === day(0)).length < 2; i++) await page.waitForTimeout(100);
+  const added = backend.tables.food_entries.find((e) => e.date === day(0) && e.name === "Vodka Soda");
+  check("one more is one drink, named as one", added && added.kcal === 96, JSON.stringify(backend.tables.food_entries.filter((e) => e.date === day(0))));
+  await row.getByRole("button", { name: "One fewer Vodka Soda" }).click(); // the single one comes off
+  await row.getByRole("button", { name: "One fewer Vodka Soda" }).click(); // then the pair becomes one
+  await row.getByText("1", { exact: true }).waitFor();
+  for (let i = 0; i < 20 && backend.tables.food_entries.filter((e) => e.date === day(0)).length !== 1; i++) await page.waitForTimeout(100);
+  const left = backend.tables.food_entries.filter((e) => e.date === day(0));
+  check("the pair is now one drink's worth", left.length === 1 && left[0].kcal === 96, JSON.stringify(left));
+  await dialog.getByRole("button", { name: "One more Vodka Soda" }).click();
+  await dialog.getByRole("button", { name: "Done" }).click();
+  await page.goto(new URL("#/progress/workouts", page.url()).href);
+  await page.getByRole("button", { name: "Show as a calendar" }).click();
+  await page.getByRole("button", { name: /2 drinks$/ }).first().click();
+  check("the calendar groups them too", await page.getByRole("region", { name: "Alcohol and cannabis" }).getByText("Vodka Soda × 2", { exact: true }).isVisible());
+}, account({ prefs: wellOn, sessions: [workout("w1", "push", day(-1), { "Flat DB Press": [[60, 10]] })], entries: [vodka("2 Vodka Sodas", 0, 2), vodka("Vodka Soda", -3, 1), vodka("Vodka Sodas", -6, 2)] }));
+
+test("wellness: the mascots react to the tap, the same way either direction", async ({ page }) => {
+  await page.locator(".well-line").getByRole("button", { name: "Log it" }).click();
+  const dialog = page.getByRole("dialog", { name: "Alcohol & cannabis" });
+  check("both mascots are there", await dialog.locator("svg.buddy").count() === 2);
+  await dialog.getByRole("switch", { name: /Used cannabis/ }).click();
+  await dialog.locator(".bd-cannabis-on").waitFor({ state: "attached" });
+  await dialog.getByText(/^Logged for /).waitFor();
+  await dialog.getByRole("switch", { name: /Used cannabis/ }).click();
+  await dialog.locator(".bd-cannabis-off").waitFor({ state: "attached" });
+  await dialog.getByRole("button", { name: "One more Beer" }).click();
+  await dialog.locator(".bd-alcohol-add").waitFor({ state: "attached" });
+  check("no mood words in the bubbles", !(await dialog.locator(".well-bubble").filter({ hasText: /great|nice|good job|careful|uh oh|oops/i }).count()));
+}, account({ prefs: wellOn }));
+
 test("wellness: a drink from Tank splits the day's calories into food and alcohol", async ({ page }) => {
   await page.goto(new URL("#/nutrition", page.url()).href);
   const split = page.locator(".nut-split");

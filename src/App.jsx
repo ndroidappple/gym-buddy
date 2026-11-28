@@ -31,7 +31,7 @@ import { withTargetHistory } from "./lib/nutritionTrends.js";
 import { headContext } from "./lib/coachChat.js";
 import { headCoach } from "./data/coaches.js";
 import { wellnessDays, drinkEntry, againEntry } from "./lib/wellness.js";
-import { coachFoodContext, totals } from "./lib/nutrition.js";
+import { coachFoodContext, totals, nutritionFor } from "./lib/nutrition.js";
 import NamePrompt from "./components/NamePrompt.jsx";
 import ErrorBoundary from "./components/ErrorBoundary.jsx";
 import Welcome from "./components/Welcome.jsx";
@@ -408,7 +408,7 @@ export default function App() {
     setCannabis: (date, on) => setWellDay(date, { cannabis: on }),
     setDrinks: (date, n) => setWellDay(date, { drinks: Math.max(0, n) }), // food tracking off only
     addDrink: (preset, date) => food.addEntry(drinkEntry(preset, date)),
-    addAgain: (entry, date) => food.addEntry(againEntry(entry, date)), // another of a drink you've logged before
+    addAgain: (entry, date) => food.addEntry(againEntry(entry, date, nutritionFor)), // one more of a drink you've logged before
     removeDrink: (id) => food.removeEntry(id),
     updateDrink: (id, patch) => food.updateEntry(id, patch), // one fewer of an entry logged as several
     // For the sheet's "Something else": Add food, with Tank, over it.

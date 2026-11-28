@@ -3,9 +3,10 @@ import { Plus, Minus } from "lucide-react";
 import { Sheet } from "./ui.jsx";
 import AddFood from "./AddFood.jsx";
 import { COACHES } from "../data/coaches.js";
+import WellBuddy from "./WellBuddy.jsx";
 import { addDays, MEALS, nutritionFor } from "../lib/nutrition.js";
 import { today, vibrate, shortDate } from "../lib/util.js";
-import { DRINK_PRESETS, alcoholOf, drinksFor, drinksLabel, defaultLogDay, dayLine, recentDays, isDrinkLike, drinkKey, yourDrinks, drinkMeal } from "../lib/wellness.js";
+import { DRINK_PRESETS, alcoholOf, drinksFor, drinksLabel, defaultLogDay, dayLine, recentDays, isDrinkLike, drinkKey, drinkName, yourDrinks, drinkMeal, againEntry, drinkUnits, scaledEntry } from "../lib/wellness.js";
 
 /* Alcohol and cannabis for a day. Every tap saves at once (there's no Save to forget); Done just
    closes. With food tracking on, a drink is a food log entry with its calories, so it shows on
@@ -59,6 +60,10 @@ export default function WellnessSheet({ well, start = null, guessed = false, onC
   const x = well.days[date];
   const count = well.log[date]?.drinks || 0; // food tracking off
   const cannabis = !!well.log[date]?.cannabis;
+  // The last change, for the mascots to react to: { kind, type: "add" | "remove" | "on" | "off", n }.
+  const [beat, setBeat] = useState({ kind: null, type: null, n: 0 });
+  const react = (kind, type) => setBeat((b) => ({ kind, type, n: b.n + 1 }));
+  const dayWord = date === t ? "today" : date === addDays(t, -1) ? "yesterday" : dayName(date, t);
 
   return (
     <>
@@ -74,9 +79,15 @@ export default function WellnessSheet({ well, start = null, guessed = false, onC
 
         {/* Cannabis first: one switch, so it stays in reach however long a busy day's drink list gets. */}
         <section className="section" aria-labelledby="well-cannabis">
-          <h3 className="lbl" id="well-cannabis">Cannabis</h3>
+          <div className="well-head">
+            <WellBuddy kind="cannabis" react={beat.kind === "cannabis" ? beat.type : null} nonce={beat.kind === "cannabis" ? beat.n : 0} />
+            <div className="well-bubble">
+              <h3 id="well-cannabis">Cannabis</h3>
+              <span>{cannabis ? "Logged" : "Not logged"} for {dayWord}</span>
+            </div>
+          </div>
           <div className="list">
-            <button className="list-row" role="switch" aria-checked={cannabis} onClick={() => well.setCannabis(date, !cannabis)}>
+            <button className="list-row" role="switch" aria-checked={cannabis} onClick={() => { well.setCannabis(date, !cannabis); react("cannabis", cannabis ? "off" : "on"); }}>
               <span className="name">Used cannabis<span className="sub detail">{dayName(date, t)}, any amount</span></span>
               <span className="switch" aria-hidden="true" />
             </button>
@@ -84,17 +95,20 @@ export default function WellnessSheet({ well, start = null, guessed = false, onC
         </section>
 
         <section className="section" aria-labelledby="well-drinks">
-          <div className="section-head">
-            <h3 className="lbl" id="well-drinks">Alcohol</h3>
-            <span className="lbl section-aside">{x?.drinks ? `${drinksLabel(x.drinks)}${well.foodOn ? ` · ${x.alcoholKcal.toLocaleString()} kcal from alcohol` : ""}` : "None logged"}</span>
+          <div className="well-head">
+            <WellBuddy kind="alcohol" react={beat.kind === "alcohol" ? beat.type : null} nonce={beat.kind === "alcohol" ? beat.n : 0} />
+            <div className="well-bubble">
+              <h3 id="well-drinks">Alcohol</h3>
+              <span>{x?.drinks ? `${drinksLabel(x.drinks)}${well.foodOn ? ` · ${x.alcoholKcal.toLocaleString()} kcal from alcohol` : ""}` : `None logged for ${dayWord}`}</span>
+            </div>
           </div>
           {well.foodOn
-            ? <DrinkSteps well={well} date={date} onOther={() => setAdding(true)} />
+            ? <DrinkSteps well={well} date={date} onOther={() => setAdding(true)} onStep={(type) => react("alcohol", type)} />
             : (
               <div className="well-count">
-                <button type="button" className="icon-btn" onClick={() => well.setDrinks(date, count - 1)} disabled={!count} aria-label="One fewer drink"><Minus size={20} /></button>
+                <button type="button" className="icon-btn" onClick={() => { well.setDrinks(date, count - 1); react("alcohol", "remove"); }} disabled={!count} aria-label="One fewer drink"><Minus size={20} /></button>
                 <b aria-live="polite">{drinksLabel(count)}</b>
-                <button type="button" className="icon-btn" onClick={() => well.setDrinks(date, count + 1)} aria-label="One more drink"><Plus size={20} /></button>
+                <button type="button" className="icon-btn" onClick={() => { well.setDrinks(date, count + 1); react("alcohol", "add"); }} aria-label="One more drink"><Plus size={20} /></button>
               </div>
             )}
         </section>
@@ -108,12 +122,12 @@ export default function WellnessSheet({ well, start = null, guessed = false, onC
 }
 
 /*
- * One stepper per drink: − count +, where the count is that drink's entries on the day. In a fixed
+ * One stepper per drink: − count +, where the count is that drink's standard drinks on the day. In a fixed
  * order so nothing moves under the next tap: your own drinks first (your three most logged, with the
  * numbers you logged them with), then the standard ones, then anything else that day had. A meal with
  * a drink in it ("Steak & two beers") is listed as it is, without a stepper: edit it on Nutrition.
  */
-function DrinkSteps({ well, date, onOther }) {
+function DrinkSteps({ well, date, onOther, onStep }) {
   const entries = well.food.entries;
   // Taken once, when the sheet opens: the rows don't reshuffle under the next tap, and the whole log
   // isn't re-read on every one.
@@ -129,26 +143,26 @@ function DrinkSteps({ well, date, onOther }) {
   const push = (r) => { if (!seen.has(r.key)) { seen.add(r.key); rows.push(r); } };
   mine.forEach((d) => push({ key: d.key, name: d.name, template: d.template }));
   DRINK_PRESETS.forEach((p) => push({ key: drinkKey(p.name), name: p.name, preset: p }));
-  [...byKey.entries()].forEach(([k, es]) => push({ key: k, name: es[es.length - 1].name.trim(), template: es[es.length - 1] }));
+  [...byKey.entries()].forEach(([k, es]) => push({ key: k, name: drinkName(es[es.length - 1].name), template: es[es.length - 1] }));
 
+  // What one more adds: a single drink, even when the one copied was logged as several ("2 vodka sodas").
+  const one = (r) => againEntry(r.template, date, nutritionFor);
   const sub = (r) => {
     if (r.preset) return `${r.preset.sub} · ${r.preset.per.kcal} kcal`;
-    const e = r.template, n = drinksFor(alcoholOf(e));
+    const e = one(r), n = drinksFor(alcoholOf(e));
     return `${Math.round(e.kcal)} kcal${n !== 1 ? ` · ${drinksLabel(n)}` : ""}`;
   };
-  const add = (r) => { r.preset ? well.addDrink(r.preset, date) : well.addAgain(r.template, date); vibrate(10); };
-  /* How many of a drink: each entry's servings ("3 beers" logged once is 3). An entry weighed in grams
-     (a database food) is one. − takes one serving off the latest entry, or removes it when it's the last. */
-  const servings = (e) => (e.basis?.per100 ? 1 : +e.amount || 1);
-  const countOf = (k) => Math.round((byKey.get(k) || []).reduce((a, e) => a + servings(e), 0) * 10) / 10;
+  const add = (r) => { r.preset ? well.addDrink(r.preset, date) : well.addAgain(r.template, date); vibrate(10); onStep?.("add"); };
+  /* The count is drinks, however they were logged: "2 vodka sodas" as one entry is 2. − takes one drink
+     off the latest entry (scaling its calories with it), or removes it when it was one. */
+  const countOf = (k) => drinksFor((byKey.get(k) || []).reduce((a, e) => a + alcoholOf(e), 0));
   const less = (r) => {
     const es = byKey.get(r.key);
     if (!es?.length) return;
-    const e = es[es.length - 1];
-    if (servings(e) > 1 && e.basis) {
-      const amount = servings(e) - 1, n = nutritionFor(e.basis, amount, e.unit);
-      well.updateDrink(e.id, { amount, kcal: n.kcal, protein: n.protein, carbs: n.carbs, fat: n.fat });
-    } else well.removeDrink(e.id);
+    const e = es[es.length - 1], units = drinkUnits(e);
+    if (units > 1) well.updateDrink(e.id, scaledEntry(e, (units - 1) / units, nutritionFor));
+    else well.removeDrink(e.id);
+    onStep?.("remove");
   };
 
   return (

@@ -68,6 +68,19 @@ eq("another one: same food, new row, on the day", [again.id, again.created_at, a
 eq("the same drink whatever the case or spacing", W.drinkKey("  Modelo  Especial "), "modelo especial");
 eq("the last week, today first", W.recentDays(3, "2026-11-27"), ["2026-11-27", "2026-11-26", "2026-11-25"]);
 
+// The same drink however it was written: one name, one row.
+eq("drink names", ["Vodka Sodas", "2 vodka sodas", "Two Glasses of Wine", "Bloody Marys", "Whiskies", "Stella Artois", "Pils", "Tito's Soda", "Martinis", "IPAs", "Beer x2", "A Beer"].map(W.drinkName),
+  ["Vodka Soda", "vodka soda", "Glass of Wine", "Bloody Mary", "Whisky", "Stella Artois", "Pils", "Tito's Soda", "Martini", "IPA", "Beer", "Beer"]);
+eq("one key for all of them", new Set(["Vodka Sodas", "vodka soda", "2 Vodka Sodas", "Vodka  Soda"].map(W.drinkKey)).size, 1);
+const vs = (name, date, n) => food(name, date, { kcal: 96 * n, protein: 0, carbs: 0, fat: 0, amount: 1, unit: "meal", basis: { perServing: { kcal: 96 * n, protein: 0, carbs: 0, fat: 0, alcohol: 14 * n } } });
+const vMine = W.yourDrinks([vs("Vodka Sodas", "2026-11-26", 2), vs("Vodka Soda", "2026-11-20", 1), vs("Vodka Sodas", "2026-11-10", 3)], 3);
+eq("merged, named as one, copied from the single one", vMine.map((d) => [d.name, d.template.date]), [["Vodka Soda", "2026-11-20"]]);
+const { nutritionFor } = await import("../src/lib/nutrition.js");
+const half = W.againEntry(vs("Vodka Sodas", "2026-11-26", 2), "2000-01-01", nutritionFor);
+eq("one more from a two-drink entry is one drink", [half.name, half.amount, half.kcal, W.drinksFor(W.alcoholOf(half))], ["Vodka Soda", 0.5, 96, 1]);
+eq("drink units: a pint of IPA (1.5 drinks) is one, a pair is two", [W.drinkUnits(vs("x", "d", 1)), W.drinkUnits(vs("x", "d", 3)), W.drinkUnits(food("IPA", "d", { basis: { perServing: { alcohol: 21 } } })), W.drinkUnits(food("x", "d", { basis: { perServing: { alcohol: 26 } } }))], [1, 3, 1, 2]);
+eq("scaled to two of three", W.scaledEntry(vs("x", "d", 3), 2 / 3, nutritionFor), { amount: 0.67, kcal: 193, protein: 0, carbs: 0, fat: 0 });
+
 // Coach lines: facts only, and a clear "none" when there's nothing.
 eq("coach: nothing logged", W.wellnessLines({ entries: [], wellness: {}, days: 30, to: "2026-11-27" }), ["Alcohol and cannabis (they track both): none logged in the last 30 days."]);
 eq("coach: days listed", W.wellnessLines({ entries, wellness: log, days: 30, to: "2026-11-27" }).slice(1), ["- 2026-11-20: 2 drinks · cannabis (196 kcal from alcohol)", "- 2026-11-22: cannabis"]);
