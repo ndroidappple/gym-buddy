@@ -1885,3 +1885,30 @@ button.rest-open:active { opacity: 0.75; }
 .pin-btn::after { content: ""; position: absolute; inset: -4px 0; }
 /* Session: Discard sits further from Finish, so a sweaty miss lands on neither (it has Undo too). */
 .btn-day + .btn-quiet.danger, .btn-day + p + .btn-quiet.danger { margin-top: 18px; }
+
+/* Nutrition with tracking off: the pitch for turning it on (Nutrition.jsx, NutritionOff). One example of
+   how little logging asks, three short reasons, one button. Flat except the button. */
+.pitch { display: flex; flex-direction: column; gap: 18px; padding-top: 14px; }
+.pitch-hero { display: flex; flex-direction: column; gap: 6px; }
+.pitch-title { font-weight: 800; font-size: 30px; line-height: 1.08; letter-spacing: -0.02em; text-wrap: balance; }
+.pitch-sub { font-size: 18px; font-weight: 500; color: var(--mute); }
+.pitch-demo { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+.pitch-type { display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 0 14px; border-radius: var(--r); background: var(--surface); border: 2px solid var(--rule); font-size: 16px; font-weight: 600; color: var(--ink); }
+.pitch-type svg { flex: none; color: var(--mute); }
+.pitch-typed { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pitch-caret { flex: none; width: 2px; height: 20px; margin-left: -8px; background: var(--accent); animation: caret 1s steps(1) infinite; }
+@keyframes caret { 50% { opacity: 0; } }
+.pitch-result { display: flex; align-items: center; gap: 12px; padding: 10px 14px 10px 10px; border-radius: var(--r); background: color-mix(in srgb, var(--accent) 14%, var(--surface)); border: 2px solid color-mix(in srgb, var(--accent) 40%, var(--rule)); }
+.pitch-result-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.pitch-result-text b { font-size: 16px; font-weight: 800; }
+.pitch-result-text span { font-size: 15px; font-weight: 600; color: var(--mute); }
+.pitch-check { flex: none; color: var(--accent); }
+.pitch-list { list-style: none; margin: 4px 0 0; padding: 0 2px; display: flex; flex-direction: column; gap: 12px; }
+.pitch-list li { font-size: 15px; font-weight: 500; line-height: 1.4; color: var(--mute); }
+.pitch-list b { color: var(--ink); font-weight: 800; }
+.pitch-cta { margin-top: 6px; }
+.pitch-foot { margin-top: -4px; text-align: center; font-size: 13.5px; font-weight: 600; line-height: 1.6; color: var(--mute); }
+.pitch-foot button { min-height: 32px; padding: 0 4px; font-weight: 800; color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
+.pitch-foot button { position: relative; }
+.pitch-foot button::after { content: ""; position: absolute; inset: -6px 0; } /* 44px tap target on an inline link */
+@media (prefers-reduced-motion: reduce) { .pitch-caret { animation: none; } }
