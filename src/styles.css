@@ -267,7 +267,7 @@ html[data-nav="back"]::view-transition-new(root) { animation: vt-fade-in var(--e
 /* Card, dots and hint are one big tap target (tap for next, swipe back or forward). */
 .help-tap { margin: -8px -4px 12px; padding: 8px 4px 4px; border-radius: 20px; cursor: pointer; user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent; touch-action: pan-y; }
 .help-tap:active .help-card { opacity: .75; }
-.help-card { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; min-height: 150px; animation: help-in var(--enter-ms) var(--enter); }
+.help-card { display: flex; flex-direction: column; align-items: center; gap: 12px; min-height: 150px; animation: help-in var(--enter-ms) var(--enter); }
 .help-hint { margin: 0; text-align: center; font-size: 12.5px; font-weight: 600; color: var(--faint); }
 @keyframes help-in { from { opacity: 0; transform: translateX(10px); } to { opacity: 1; transform: none; } }
 .help-chip { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 16px; border-radius: 999px; font-weight: 800; font-size: 18px; color: var(--ink);
@@ -277,7 +277,7 @@ button.help-chip:active { transform: scale(0.96); }
 .help-show { display: inline-flex; align-items: center; gap: 2px; margin-left: 4px; padding-left: 10px; border-left: 2px solid color-mix(in srgb, var(--accent) 35%, var(--rule)); font-size: 13.5px; color: var(--mute); }
 .help-show svg { color: inherit; }
 .help-chip.inline { display: inline; min-height: 0; padding: 1px 8px; font-size: .92em; border-width: 1.5px; white-space: nowrap; }
-.help-text { margin: 0; font-size: 18px; font-weight: 500; line-height: 1.5; }
+.help-text { margin: 0; font-size: 18px; font-weight: 500; line-height: 1.5; text-align: center; text-wrap: balance; } /* centred like the dots and hint under it: one card, one axis */
 .help-dots { display: flex; justify-content: center; gap: 6px; padding: 20px 0 8px; }
 .help-dots span { width: 8px; height: 8px; padding: 0; border-radius: 99px; background: var(--rule-2); transition: width var(--slide-ms) var(--slide), background 160ms ease; }
 .help-dots span.on { width: 22px; background: var(--accent); }
