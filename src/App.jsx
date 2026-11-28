@@ -23,7 +23,7 @@ import ProgramList from "./views/ProgramList.jsx";
 import Export from "./views/Export.jsx";
 import AiAssistants from "./views/AiAssistants.jsx";
 import Coaches from "./views/Coaches.jsx";
-import Nutrition from "./views/Nutrition.jsx";
+import Nutrition, { NutritionOff } from "./views/Nutrition.jsx";
 import NutritionSetup from "./components/NutritionSetup.jsx";
 import { useFood } from "./lib/food.js";
 import { useCoachThread } from "./lib/coachThread.js";
@@ -468,8 +468,8 @@ export default function App() {
     case "export": view = <Export {...common} />; break;
     case "ai": view = <AiAssistants {...common} />; break;
     case "nutrition": {
-      // Off: Settings is where it's turned on. Setup opens over the tab and returns to it.
-      if (!nutritionOn && route.open !== "setup") { view = <Settings {...common} onRename={programOps.rename} />; break; }
+      // Off: the tab explains itself and turns it on. Setup opens over the tab and returns to it.
+      if (!nutritionOn && route.open !== "setup") { view = <NutritionOff {...common} />; break; }
       const closeSetup = () => go(href("nutrition"), { replace: true });
       view = (
         <>
@@ -493,7 +493,7 @@ export default function App() {
   return (
     <div className="app">
       <ErrorBoundary resetKey={location.hash}>{view}</ErrorBoundary>
-      {showTabs && <TabBar active={activeTab} onSelect={selectTab} nutrition={nutritionOn} />}
+      {showTabs && <TabBar active={activeTab} onSelect={selectTab} nutrition={prefs.nutritionTab !== false} />}
       <SyncNote show={sync === "offline" || food.status === "offline"} raised={showTabs} />
       <NamePrompt onName={setName} onSettled={onNameSettled} />
       {/* Meeting the week in review: once, on Today, after the welcome and a first workout or setup. */}

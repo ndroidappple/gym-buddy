@@ -409,7 +409,7 @@ export function Toast({ toast, onDismiss, raised }) {
 
 const ALL_TABS = [
   { key: "today", label: "Today", Icon: Home },
-  { key: "nutrition", label: "Nutrition", Icon: Utensils }, // only while food tracking is on
+  { key: "nutrition", label: "Nutrition", Icon: Utensils }, // unless hidden in Settings (prefs.nutritionTab)
   { key: "progress", label: "Progress", Icon: TrendingUp },
   { key: "settings", label: "Settings", Icon: Gear },
 ];
@@ -725,13 +725,17 @@ export function Read({ tone, children }) {
   return <span className={`trend read ${tone}`}><span aria-hidden="true">{READ_MARK[tone]}</span>{children}</span>;
 }
 
-export function EmptyState({ coach = "tank", title, children, action, href }) {
+/** `onAction` makes the action a button instead of a link; `foot` is a quiet line under it. */
+export function EmptyState({ coach = "tank", title, children, action, href, onAction, foot }) {
   return (
     <section className="card empty">
       <Coach id={coach} mood="idle" size={64} decorative />
       <h2 className="empty-title">{title}</h2>
       <p className="empty-text">{children}</p>
-      {action && <a className="btn btn-ink empty-btn" href={href}>{action}</a>}
+      {action && (onAction
+        ? <button type="button" className="btn btn-ink empty-btn" onClick={onAction}>{action}</button>
+        : <a className="btn btn-ink empty-btn" href={href}>{action}</a>)}
+      {foot && <p className="empty-foot">{foot}</p>}
     </section>
   );
 }

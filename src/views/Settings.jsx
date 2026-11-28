@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { ChevronRight, Download, LogOut, Moon, Gauge, Smartphone, Share, SquarePlus, EllipsisVertical, Check, Sparkles, Scale, Vibrate, Bell, BellRing, Users, Utensils, Target, Bookmark, Trash2, Rows3, CalendarClock, History, BellOff, BellPlus, Info, Dumbbell, HeartPulse, Watch, RefreshCw, Unlink, Bot, Wine } from "lucide-react";
+import { ChevronRight, LayoutGrid, Download, LogOut, Moon, Gauge, Smartphone, Share, SquarePlus, EllipsisVertical, Check, Sparkles, Scale, Vibrate, Bell, BellRing, Users, Utensils, Target, Bookmark, Trash2, Rows3, CalendarClock, History, BellOff, BellPlus, Info, Dumbbell, HeartPulse, Watch, RefreshCw, Unlink, Bot, Wine } from "lucide-react";
 import { Sheet, InfoButton, ConfirmSheet } from "../components/ui.jsx";
 import { ICONS, iconSrc } from "../lib/icons.js";
 import { VIEWS, applyView } from "../lib/view.js";
@@ -126,9 +126,12 @@ export default function Settings({ program, sessions, prefs, setPref, go, notify
           <div className="list">
             {/* Turning it off only hides it: the food log and targets stay saved. */}
             <Toggle help="nutrition" Icon={Utensils} label="Track food & macros"
-              sub={prefs.nutrition?.on ? "Nutrition tab is on. Turning it off keeps your log." : `Adds a Nutrition tab. ${who} sets your daily targets.`}
+              sub={prefs.nutrition?.on ? "Turning it off keeps your log." : `Log meals against daily targets ${who} sets.`}
               on={!!prefs.nutrition?.on}
               onChange={(v) => { setPref("nutrition", { ...prefs.nutrition, on: v }); if (v && !prefs.nutrition?.targets) go(href("nutrition", "setup")); }} />
+            <Toggle Icon={LayoutGrid} label="Nutrition tab"
+              sub={prefs.nutritionTab === false ? "Hidden from the tab bar." : prefs.nutrition?.on ? "In the tab bar." : "In the tab bar, ready to turn tracking on."}
+              on={prefs.nutritionTab !== false} onChange={(v) => setPref("nutritionTab", v)} />
             {prefs.nutrition?.on && prefs.nutrition.targets && (
               <a className="list-row" href={href("nutrition", "setup")}>
                 <Target size={18} aria-hidden="true" />

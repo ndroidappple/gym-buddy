@@ -1156,6 +1156,8 @@ button.coach-card:active { transform: scale(0.98); }
 .empty-title { font-weight: 800; font-size: 20px; line-height: 1.2; margin-top: 4px; }
 .empty-text { font-size: 15px; font-weight: 500; color: var(--mute); line-height: 1.4; max-width: 32ch; }
 .empty-btn { margin-top: 8px; }
+.empty-foot { font-size: 13.5px; font-weight: 600; color: var(--mute); }
+.empty-foot button { min-height: var(--tap); padding: 0 4px; font-weight: 800; color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
 
 /* The exercise card's bubble doubles as the way to ask its coach. */
 .bubble-btn { display: block; text-align: left; cursor: pointer; transition: transform var(--pop-ms) var(--pop); }
