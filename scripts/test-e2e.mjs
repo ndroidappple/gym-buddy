@@ -211,7 +211,7 @@ test("today: a workout from the watch counts as the day up next in one tap", asy
   await card.getByRole("button", { name: "Count as Legs" }).click();
   await page.getByRole("region", { name: "Legs done today" }).waitFor();
   const headline = await page.getByRole("heading", { level: 1 }).innerText();
-  check("Today recaps it", /^Legs done.*Rest up\.$/.test(headline), `got "${headline}"`);
+  check("Today recaps it: the week, and rest", /(this week|Week goal hit).*Rest up\.$/.test(headline), `got "${headline}"`);
   check("the rotation moved on", !(await page.getByText("Up next: Legs").count()) && await page.getByText(/^Up next: /).isVisible());
   check("the card is gone", !(await card.count()));
   const slider = page.getByRole("slider", { name: "How hard was it, 1 to 10" });
@@ -229,14 +229,14 @@ test("today: skipping a watch workout leaves the rotation alone", async ({ page,
   await card.getByRole("button", { name: "Skip" }).click();
   await until(async () => !(await card.count()));
   check("the card is gone", !(await card.count()));
-  check("Legs is still up next", (await page.getByRole("heading", { level: 1 }).innerText()).startsWith("Legs day"));
+  check("Legs is still up next", await page.getByRole("region", { name: "Up next: Legs" }).isVisible());
   check("remembered on the account, so other phones don't ask", await until(async () => (JSON.parse(backend.tables.storage_kv[0].value).prefs.outside?.skip || []).includes("yt-1")));
 }, watchWorkout);
 
 test("today: after a workout, Today recaps it instead of the next one", async ({ page }) => {
   await page.getByRole("heading", { level: 1 }).waitFor();
   const headline = await page.getByRole("heading", { level: 1 }).innerText();
-  check("the headline says it's done", /^Push done.*Rest up\.$/.test(headline), `got "${headline}"`);
+  check("the headline says to rest", /Rest up\.$/.test(headline), `got "${headline}"`);
   const card = page.getByRole("region", { name: "Push done today" });
   check("the card is today's workout", await card.isVisible());
   for (const pill of ["2 lifts", "3 sets", "60 min", "1 PR"]) check(`the card shows ${pill}`, await card.getByText(pill, { exact: true }).isVisible());
