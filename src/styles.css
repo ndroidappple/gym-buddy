@@ -1488,8 +1488,7 @@ button.rest-open:active { opacity: 0.75; }
    Until it's opened, a light in all six coaches' colours circles the rim with a soft halo behind it.
    Text stays in ink; the colour is only on the rim. Reduced motion (global rule) holds it still. */
 @property --rv-spin { syntax: "<angle>"; inherits: false; initial-value: 0deg; }
-.review-chip { --rv-ring: conic-gradient(from var(--rv-spin), #5BD68A, #6FA8FF, #B9A6FF, #FF6F91, #FF9A4D, #FFC93D, #5BD68A);
-  position: relative; isolation: isolate; flex: none; display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px;
+.review-chip { position: relative; isolation: isolate; flex: none; display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px;
   border-radius: 14px 4px 14px 14px; border: 2px solid var(--rule); background: var(--surface); color: var(--ink);
   font-size: 13.5px; font-weight: 800; text-decoration: none; white-space: nowrap; transform-origin: 100% 0;
   animation: hello-in var(--pop-ms) var(--pop) 250ms both; -webkit-tap-highlight-color: transparent; }
@@ -1498,7 +1497,10 @@ button.rest-open:active { opacity: 0.75; }
 .review-chip-short { display: none; }
 @media (max-width: 359px) { .review-chip-long { display: none; } .review-chip-short { display: inline; } }
 .review-chip.glow { border-color: transparent; }
-.review-chip.glow::before, .review-chip.glow::after { content: ""; position: absolute; inset: -2px; border-radius: inherit; pointer-events: none; background: var(--rv-ring); animation: rv-spin 5s linear infinite; }
+/* The gradient is written here, on the layers that animate --rv-spin. Defined on the chip and inherited, it
+   would be worked out once with the chip's own angle (always 0) and never turn. */
+.review-chip.glow::before, .review-chip.glow::after { content: ""; position: absolute; inset: -2px; border-radius: inherit; pointer-events: none;
+  background: conic-gradient(from var(--rv-spin), #5BD68A, #6FA8FF, #B9A6FF, #FF6F91, #FF9A4D, #FFC93D, #5BD68A); animation: rv-spin 5s linear infinite; }
 .review-chip.glow::before { z-index: 1; padding: 2px;
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor;
   mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); mask-composite: exclude; }

@@ -536,6 +536,17 @@ test("wellness: with food tracking off, drinks are a count", async ({ page, back
   check("nothing went to a food log", backend.tables.food_entries.length === 0);
 }, account({ prefs: { ...wellOn, nutrition: { on: false } } }));
 
+test("week in review chip: the rainbow rim turns while it's new", async ({ page }) => {
+  await page.getByRole("region", { name: "Food today" }).waitFor();
+  // The chip only shows in a review week; the app's own CSS is what's under test, so put one on the page.
+  await page.evaluate(() => document.body.insertAdjacentHTML("beforeend", '<a class="review-chip glow" id="rv-test">Week in review</a>'));
+  const angle = () => page.evaluate(() => getComputedStyle(document.getElementById("rv-test"), "::before").backgroundImage.match(/from ([\d.]+)deg/)?.[1] ?? "0"); // 0deg is written without a "from"
+  const a = await angle();
+  await page.waitForTimeout(600);
+  const b = await angle();
+  check("the gradient turns", a !== b, `${a} -> ${b}`);
+}, account());
+
 const run = tests.filter((t) => !only || t.name.includes(only));
 const app = await startApp();
 const browser = await launch();
