@@ -1261,6 +1261,8 @@ button.coach-card:active { transform: translateY(3px); box-shadow: 0 2px 0 var(-
 .bd-idle-alcohol { transform-origin: 50px 102px; animation: bd-lean 4.6s ease-in-out infinite; }
 .bd-idle-cannabis { animation: bd-drift 4.2s ease-in-out infinite; }
 .bd-fan { transform-origin: 50px 90px; animation: bd-fan 5s ease-in-out infinite; }
+.bd-arm-l { transform-origin: 47px 88px; animation: bd-arm-l 5s ease-in-out infinite; }
+.bd-arm-r { transform-origin: 53px 88px; animation: bd-arm-r 5s ease-in-out infinite; }
 .bd-lid { transition: transform .45s ease; }
 .bd-blink { transform-box: fill-box; transform: translateY(-101%); animation: bd-blink 5.5s infinite; }
 .buddy-cannabis .bd-blink { animation-duration: 7.5s; animation-delay: -3s; }
@@ -1274,6 +1276,8 @@ button.coach-card:active { transform: translateY(3px); box-shadow: 0 2px 0 var(-
 .bd-puff circle:nth-child(3) { animation-delay: .3s; }
 @keyframes bd-lean { 0%, 100% { transform: rotate(-1.5deg); } 50% { transform: rotate(1.5deg); } }
 @keyframes bd-drift { 50% { transform: translateY(-2.5px); } }
+@keyframes bd-arm-l { 0%, 100% { transform: rotate(-4deg); } 50% { transform: rotate(5deg); } }
+@keyframes bd-arm-r { 0%, 100% { transform: rotate(4deg); } 50% { transform: rotate(-5deg); } }
 @keyframes bd-fan { 0%, 100% { transform: rotate(-3deg) scale(.98); } 50% { transform: rotate(3deg) scale(1.02); } }
 @keyframes bd-blink { 0%, 94%, 100% { transform: translateY(-101%); } 96.5% { transform: translateY(0); } }
 @keyframes bd-hop { 30% { transform: translateY(-7px) rotate(-3deg); } 60% { transform: translateY(0) rotate(2deg); } }
