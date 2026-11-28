@@ -1978,3 +1978,43 @@ button.rest-open:active { opacity: 0.75; }
 .sub-group .well-other { min-height: var(--tap); margin-left: 46px; }
 .sub-note { margin: 0 0 6px 52px; font-size: 12.5px; font-weight: 500; line-height: 1.4; color: var(--mute); }
 :root[data-view="focused"] .sub-note { display: none; }
+
+/* Substances sheet, rebuilt (WellnessSheet.jsx): the day in words, one-tap adds, then the day's tally. */
+.subs-day { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 56px; padding: 8px 14px; border-radius: var(--r); background: var(--surface-2); text-align: left; color: var(--ink); }
+.subs-day-text { flex: 1; min-width: 0; display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.subs-day-text b { font-size: 20px; font-weight: 800; letter-spacing: -0.01em; }
+.subs-day-text span { font-size: 13.5px; font-weight: 600; color: var(--mute); }
+.subs-day-change { flex: none; display: inline-flex; align-items: center; gap: 4px; font-size: 13.5px; font-weight: 800; }
+.subs-day[aria-expanded="true"] .subs-day-change svg { transform: rotate(180deg); }
+.subs-strip { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.subs-strip button { display: flex; flex-direction: column; align-items: center; gap: 2px; min-height: 64px; padding: 6px 0; border-radius: 14px; color: var(--ink); }
+.subs-strip button:disabled { opacity: 0.35; }
+.subs-strip .subs-wd { font-size: 12.5px; font-weight: 700; color: var(--mute); }
+.subs-strip b { font-size: 18px; font-weight: 800; }
+.subs-strip i { width: 6px; height: 6px; border-radius: 50%; background: transparent; }
+.subs-strip i.on { background: var(--drink); }
+.subs-strip button[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
+.subs-strip button[aria-pressed="true"] .subs-wd { color: inherit; }
+.subs-add { display: flex; flex-direction: column; gap: 14px; }
+.subs-group { display: flex; flex-direction: column; gap: 8px; }
+.subs-group .lbl { display: flex; align-items: center; gap: 6px; margin: 0 4px; }
+.subs-group .lbl .drinks { color: var(--drink); }
+.subs-btns { display: flex; flex-wrap: wrap; gap: 8px; }
+.subs-btn { display: inline-flex; align-items: center; gap: 6px; min-height: var(--tap); padding: 0 14px 0 12px; border-radius: 14px; background: var(--surface); border: 2px solid var(--rule); font-size: 15px; font-weight: 700; color: var(--ink); }
+.subs-btn:active { transform: scale(0.96); background: var(--surface-2); }
+.subs-btn svg { color: var(--mute); }
+.subs-btn.quiet { border-style: dashed; color: var(--mute); padding: 0 14px; }
+.subs-btn[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: var(--bg); }
+.subs-btn[aria-pressed="true"] svg { color: inherit; }
+.subs-tally { display: flex; flex-direction: column; gap: 8px; }
+.subs-row { gap: 12px; min-height: 60px; }
+.subs-row .sub-icon { width: 36px; height: 36px; border-radius: 11px; }
+.subs-row .name { flex: 1; min-width: 0; }
+.subs-remove { min-height: var(--tap); padding: 0 6px; font-size: 13.5px; font-weight: 800; color: var(--mute); }
+.subs-empty { margin: 0 4px; font-size: 15px; font-weight: 500; color: var(--mute); }
+.subs-tally .sub-note { margin: 0 4px; }
+/* Both answers to Today's question are buttons, the same shape: None isn't a lesser answer. */
+.well-none { position: relative; flex: none; min-height: 36px; padding: 0 14px; border-radius: 999px; border: 2px solid var(--rule-2); background: var(--surface); color: var(--ink); font-size: 13.5px; font-weight: 800; }
+.well-none::after { content: ""; position: absolute; inset: -4px 0; }
+.well-none:active { transform: scale(0.96); }
+.well-line > span:first-child { flex: 1; min-width: 0; }

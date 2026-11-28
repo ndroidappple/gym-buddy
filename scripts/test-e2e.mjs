@@ -320,6 +320,9 @@ const savedState = (backend) => JSON.parse(backend.tables.storage_kv[0].value);
 // The line asks about the day you'd most likely be logging: before noon last night, after, today.
 const target = () => (new Date().getHours() < 12 ? day(-1) : day(0));
 const when = () => (target() === day(0) ? "today" : "last night");
+// The sheet says the day in words; Change opens a week strip (oldest first, today last).
+const dayShown = async (dialog) => dialog.locator(".subs-day").innerText();
+const pickDay = async (dialog, back) => { await dialog.locator(".subs-day").click(); const b = dialog.getByRole("group", { name: "Day" }).getByRole("button"); await b.nth(6 - back).click(); };
 const modelo = (days, extra = {}) => entry("Modelo", "dinner", days, { amount: 1, unit: "bottle", kcal: 144, protein: 1, carbs: 13, fat: 0,
   basis: { perServing: { kcal: 144, protein: 1, carbs: 13, fat: 0, alcohol: 14 }, servingLabel: "bottle" }, ...extra });
 
@@ -329,14 +332,14 @@ test("wellness: alcohol and cannabis logged on Today show on the week strip and 
   await line.getByText(`Alcohol or cannabis ${when()}?`).waitFor();
   await line.getByRole("button", { name: "Log it" }).click();
   const dialog = page.getByRole("dialog", { name: "Alcohol & cannabis" });
-  check("it opens on the day the line asked about", (await dialog.getByRole("group", { name: "Day" }).getByRole("button", { pressed: true }).innerText()).startsWith(target() === day(0) ? "Today" : "Yesterday"));
-  await dialog.getByRole("button", { name: "One more Beer" }).click();
-  await dialog.getByRole("button", { name: "One more Beer" }).click();
+  check("it opens on the day the line asked about, in words", (await dayShown(dialog)).startsWith(target() === day(0) ? "Today" : "Last night"));
+  await dialog.getByRole("button", { name: "Add a Beer" }).click();
+  await dialog.getByRole("button", { name: "Add a Beer" }).click();
   await dialog.getByRole("button", { name: "One more Beer" }).click();
   await dialog.getByRole("button", { name: "One fewer Beer" }).click();
   await dialog.getByText("2 drinks · 196 kcal from alcohol").waitFor();
-  check("the cannabis switch and Done stay in view", await dialog.getByRole("button", { name: "Done" }).isVisible());
-  await dialog.getByRole("switch", { name: /Used cannabis/ }).click();
+  check("the add buttons stayed put above the tally", (await dialog.getByRole("button", { name: "Add a Beer" }).boundingBox()).y < (await dialog.getByRole("group", { name: "Beer" }).boundingBox()).y);
+  await dialog.getByRole("button", { name: "Cannabis", exact: true }).click();
   await dialog.getByRole("button", { name: "Done" }).click();
   await dialog.waitFor({ state: "detached" });
   await line.getByText(`2 drinks · cannabis ${when()}`).waitFor();
@@ -363,9 +366,9 @@ test("wellness: alcohol and cannabis logged on Today show on the week strip and 
 test("wellness: your own drinks come first, and another is one tap", async ({ page, backend }) => {
   await page.locator(".well-line").getByRole("button", { name: "Log it" }).click();
   const dialog = page.getByRole("dialog", { name: "Alcohol & cannabis" });
-  const names = await dialog.locator(".well-step .name").evaluateAll((els) => els.map((el) => el.firstChild.textContent));
+  const names = await dialog.locator(".subs-group").first().locator(".subs-btn").allInnerTexts();
   check("Modelo leads, then the standard drinks", names.slice(0, 5).join(",") === "Modelo,Beer,Wine,Shot,Cocktail", names.join(","));
-  await dialog.getByRole("button", { name: "One more Modelo" }).click();
+  await dialog.getByRole("button", { name: "Add a Modelo" }).click();
   for (let i = 0; i < 20 && !backend.tables.food_entries.some((e) => e.date === target()); i++) await page.waitForTimeout(100);
   const row = backend.tables.food_entries.find((e) => e.date === target());
   check("a copy of your Modelo, on the day", row && row.name === "Modelo" && row.kcal === 144 && row.unit === "bottle" && row.basis?.perServing?.alcohol === 14, JSON.stringify(row));
@@ -376,8 +379,8 @@ test("wellness: your own drinks come first, and another is one tap", async ({ pa
 test("wellness: a meal with alcohol in it is listed, not stepped", async ({ page }) => {
   await page.locator(".well-line").getByRole("button", { name: "Log it" }).click();
   const dialog = page.getByRole("dialog", { name: "Alcohol & cannabis" });
-  await dialog.getByRole("group", { name: "Day" }).getByRole("button", { name: /^Today/ }).click();
-  const meal = dialog.locator(".well-step").filter({ hasText: "Steak & Two Beers" });
+  if (target() !== day(0)) await pickDay(dialog, 0);
+  const meal = dialog.locator(".subs-row").filter({ hasText: "Steak & Two Beers" });
   await meal.waitFor();
   check("no stepper on the meal", !(await meal.locator(".well-stepper").count()));
   check("its drinks are counted", await dialog.getByText("2 drinks · 196 kcal from alcohol").isVisible());
@@ -387,10 +390,12 @@ test("wellness: a meal with alcohol in it is listed, not stepped", async ({ page
 test("wellness: any day of the last week from Today, and further back from the calendar", async ({ page, backend }) => {
   await page.locator(".well-line").getByRole("button", { name: "Log it" }).click();
   const dialog = page.getByRole("dialog", { name: "Alcohol & cannabis" });
+  await dialog.locator(".subs-day").click();
   const chips = dialog.getByRole("group", { name: "Day" }).getByRole("button");
   check("a week of days", (await chips.count()) === 7, String(await chips.count()));
   await chips.nth(3).click();
-  await dialog.getByRole("switch", { name: /Used cannabis/ }).click();
+  check("picking a day closes the strip and says it", !(await dialog.getByRole("group", { name: "Day" }).count()));
+  await dialog.getByRole("button", { name: "Cannabis", exact: true }).click();
   await dialog.getByRole("button", { name: "Done" }).click();
   for (let i = 0; i < 30 && !savedState(backend).wellness?.[day(-3)]; i++) await page.waitForTimeout(100);
   check("saved three days back", savedState(backend).wellness?.[day(-3)]?.cannabis === true, JSON.stringify(savedState(backend).wellness));
@@ -400,10 +405,12 @@ test("wellness: any day of the last week from Today, and further back from the c
   await page.getByRole("button", { name: "Show as a calendar" }).click();
   await page.getByRole("button", { name: /^Log alcohol or cannabis for / }).click();
   const sheet = page.getByRole("dialog", { name: "Alcohol & cannabis" });
+  await sheet.locator(".subs-day").click();
   const days = sheet.getByRole("group", { name: "Day" });
-  check("it opens on that day, added after the week", (await days.getByRole("button").count()) === 8
-    && (await days.getByRole("button", { pressed: true }).innerText()) === (await days.getByRole("button").last().innerText()));
-  await sheet.getByRole("button", { name: "One more Wine" }).click();
+  check("it opens on that day, in the week around it", (await days.getByRole("button").count()) === 7
+    && (await days.getByRole("button").nth(3).getAttribute("aria-pressed")) === "true");
+  await sheet.locator(".subs-day").click();
+  await sheet.getByRole("button", { name: "Add a Wine" }).click();
   await sheet.getByRole("button", { name: "Done" }).click();
   await page.getByRole("button", { name: /^Edit alcohol or cannabis for / }).waitFor();
   for (let i = 0; i < 20 && !backend.tables.food_entries.length; i++) await page.waitForTimeout(100);
@@ -428,8 +435,7 @@ test("wellness: before noon the line asks about last night, and the sheet says w
   await line.getByText("Alcohol or cannabis last night?").waitFor();
   await line.getByRole("button", { name: "Log it" }).click();
   const dialog = page.getByRole("dialog", { name: "Alcohol & cannabis" });
-  await dialog.getByText("It's morning, so this is for last night.").waitFor();
-  check("Yesterday is picked", (await dialog.getByRole("group", { name: "Day" }).getByRole("button", { pressed: true }).innerText()).startsWith("Yesterday"));
+  check("it says last night", (await dayShown(dialog)).startsWith("Last night"));
 }, { ...account({ prefs: wellOn }), clock: "09:00" });
 
 test("wellness: after noon the line asks about today", async ({ page }) => {
@@ -437,9 +443,19 @@ test("wellness: after noon the line asks about today", async ({ page }) => {
   await line.getByText("Alcohol or cannabis today?").waitFor();
   await line.getByRole("button", { name: "Log it" }).click();
   const dialog = page.getByRole("dialog", { name: "Alcohol & cannabis" });
-  check("Today is picked, with no morning note", (await dialog.getByRole("group", { name: "Day" }).getByRole("button", { pressed: true }).innerText()).startsWith("Today")
-    && !(await dialog.getByText("It's morning").count()));
+  check("it says today", (await dayShown(dialog)).startsWith("Today"));
 }, { ...account({ prefs: wellOn }), clock: "15:00" });
+
+test("wellness: None answers the question without opening anything", async ({ page, backend }) => {
+  const line = page.locator(".well-line");
+  await line.getByText(`Alcohol or cannabis ${when()}?`).waitFor();
+  await line.getByRole("button", { name: "None" }).click();
+  await line.getByText(`Nothing ${when()}`).waitFor();
+  check("no dialog opened", !(await page.getByRole("dialog").count()));
+  check("Edit to change it", await line.getByRole("button", { name: "Edit" }).isVisible());
+  for (let i = 0; i < 20 && !savedState(backend).wellness?.[target()]?.none; i++) await page.waitForTimeout(100);
+  check("the answer is kept on the account", savedState(backend).wellness?.[target()]?.none === true, JSON.stringify(savedState(backend).wellness));
+}, account({ prefs: wellOn }));
 
 test("wellness: before noon, something already logged today shows instead of an empty last night", async ({ page }) => {
   await page.locator(".well-line").getByText("cannabis today").waitFor();
@@ -464,7 +480,7 @@ test("wellness: Escape on Add food goes back to the sheet, which still holds the
 test("wellness: a drink logged as several counts each, and − takes one off", async ({ page, backend }) => {
   await page.locator(".well-line").getByRole("button", { name: /Log it|Edit/ }).click();
   const dialog = page.getByRole("dialog", { name: "Alcohol & cannabis" });
-  await dialog.getByRole("group", { name: "Day" }).getByRole("button", { name: /^Today/ }).click();
+  if (!(await dayShown(dialog)).startsWith("Today")) await pickDay(dialog, 0);
   const beer = dialog.getByRole("group", { name: "Beer" });
   await beer.getByText("3", { exact: true }).waitFor();
   await beer.getByRole("button", { name: "One fewer Beer" }).click();
@@ -481,8 +497,8 @@ const vodka = (name, days, n) => entry(name, "dinner", days, { kcal: 96 * n, pro
 test("wellness: Vodka Sodas and Vodka Soda are one row, counted in drinks, one at a time", async ({ page, backend }) => {
   await page.locator(".well-line").getByRole("button", { name: /Log it|Edit/ }).click();
   const dialog = page.getByRole("dialog", { name: "Alcohol & cannabis" });
-  await dialog.getByRole("group", { name: "Day" }).getByRole("button", { name: /^Today/ }).click();
-  const names = await dialog.locator(".well-step .name").evaluateAll((els) => els.map((el) => el.firstChild.textContent));
+  if (!(await dayShown(dialog)).startsWith("Today")) await pickDay(dialog, 0);
+  const names = await dialog.locator(".subs-row .name").evaluateAll((els) => els.map((el) => el.firstChild.textContent));
   check("one Vodka Soda row", names.filter((n) => /vodka/i.test(n)).join(",") === "Vodka Soda", names.join(","));
   const row = dialog.getByRole("group", { name: "Vodka Soda" });
   await row.getByText("2", { exact: true }).waitFor(); // today's "2 Vodka Sodas" is two drinks
@@ -571,8 +587,8 @@ test("substances: your own, added in Settings, logged from Today", async ({ page
   await line.getByText(`Nicotine ${when()}?`).waitFor();
   await line.getByRole("button", { name: "Log it" }).click();
   const sheet = page.getByRole("dialog", { name: "Nicotine" });
-  check("only what's tracked: no alcohol or cannabis", !(await sheet.getByText("Alcohol", { exact: true }).count()) && !(await sheet.getByRole("switch", { name: /cannabis/i }).count()));
-  await sheet.getByRole("button", { name: /^Log Nicotine for / }).click();
+  check("only what's tracked: no alcohol or cannabis", !(await sheet.getByText("Alcohol", { exact: true }).count()) && !(await sheet.getByRole("button", { name: "Cannabis", exact: true }).count()));
+  await sheet.getByRole("button", { name: "Add Nicotine" }).click();
   await sheet.getByRole("button", { name: "One more Nicotine" }).click();
   await sheet.getByRole("button", { name: "Done" }).click();
   await line.getByText(`nicotine ×2 ${when()}`).waitFor();
@@ -587,11 +603,11 @@ test("wellness: with food tracking off, drinks are a count", async ({ page, back
   await line.getByRole("button", { name: "Log it" }).click();
   const dialog = page.getByRole("dialog");
   check("no Something else without a food log", !(await dialog.getByRole("button", { name: "Something else" }).count()));
-  await dialog.getByRole("button", { name: "One more drink" }).click();
-  await dialog.getByRole("button", { name: "One more drink" }).click();
+  await dialog.getByRole("button", { name: "Add a drink" }).click();
+  await dialog.getByRole("button", { name: "Add a drink" }).click();
   await dialog.getByRole("button", { name: "One more drink" }).click();
   await dialog.getByRole("button", { name: "One fewer drink" }).click();
-  await dialog.getByRole("region", { name: "Alcohol" }).getByText("2 drinks", { exact: true }).waitFor();
+  await dialog.locator(".subs-tally").getByText(/^2 drinks/).waitFor();
   await dialog.getByRole("button", { name: "Done" }).click();
   await line.getByText(`2 drinks ${when()}`).waitFor();
   for (let i = 0; i < 30 && !savedState(backend).wellness?.[target()]; i++) await page.waitForTimeout(100);

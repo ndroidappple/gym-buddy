@@ -419,6 +419,7 @@ export default function App() {
     days: wellDays, foodOn: nutritionOn, log: wellness, track,
     setCannabis: (date, on) => setWellDay(date, { cannabis: on }),
     setOther,
+    setNone: (date, on) => setWellDay(date, { none: on }), // Today's "None": the day answered, with nothing
     setDrinks: (date, n) => setWellDay(date, { drinks: Math.max(0, n) }), // food tracking off only
     addDrink: (preset, date) => food.addEntry(drinkEntry(preset, date)),
     addAgain: (entry, date) => food.addEntry(againEntry(entry, date, nutritionFor)), // one more of a drink you've logged before
