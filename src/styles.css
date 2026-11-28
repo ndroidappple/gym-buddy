@@ -1251,6 +1251,37 @@ button.coach-card:active { transform: translateY(3px); box-shadow: 0 2px 0 var(-
 .well-stepper .icon-btn:disabled { opacity: .3; }
 .well-other { display: inline-flex; align-items: center; gap: 6px; align-self: flex-start; padding: 0 4px; color: var(--ink); }
 .cal-log { display: inline-flex; align-items: center; gap: 6px; align-self: center; padding: 0 8px; font-size: 13.5px; }
+/* The sheet's two characters (WellBuddy.jsx): each heads its section with what's logged in a bubble. */
+.well-head { display: flex; align-items: center; gap: 12px; padding: 0 2px; }
+.well-bubble { position: relative; flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; padding: 8px 12px; border-radius: 16px; background: var(--surface); border: 2px solid var(--rule); }
+.well-bubble::before { content: ""; position: absolute; left: -7px; top: 50%; width: 10px; height: 10px; background: var(--surface); border-left: 2px solid var(--rule); border-bottom: 2px solid var(--rule); transform: translateY(-50%) rotate(45deg); }
+.well-bubble h3 { margin: 0; font-size: 15px; font-weight: 800; color: var(--ink); }
+.well-bubble span { font-size: 13.5px; font-weight: 600; color: var(--mute); }
+.buddy { flex: none; overflow: visible; }
+.bd-idle-alcohol { transform-origin: 50px 102px; animation: bd-lean 4.6s ease-in-out infinite; }
+.bd-idle-cannabis { animation: bd-drift 4.2s ease-in-out infinite; }
+.bd-crown { transform-origin: 50px 44px; animation: bd-sway 5s ease-in-out infinite; }
+.bd-lid { transition: transform .45s ease; }
+.bd-blink { transform-box: fill-box; transform: translateY(-101%); animation: bd-blink 5.5s infinite; }
+.buddy-cannabis .bd-blink { animation-duration: 7.5s; animation-delay: -3s; }
+.bd-alcohol-add { transform-origin: 50px 102px; animation: bd-hop .65s cubic-bezier(.3, 1.4, .5, 1); }
+.bd-alcohol-add .bd-liquid { transform-origin: 50px 70px; animation: bd-slosh .65s ease-in-out; }
+.bd-alcohol-remove { transform-origin: 50px 102px; animation: bd-tip .6s ease-in-out; }
+.bd-cannabis-on { transform-origin: 50px 99px; animation: bd-exhale 1.7s ease-in-out; }
+.bd-cannabis-off { transform-origin: 50px 99px; animation: bd-tilt .7s ease-in-out; }
+.bd-puff circle { transform-box: fill-box; transform-origin: center; animation: bd-puff 1.5s ease-out both; }
+.bd-puff circle:nth-child(2) { animation-delay: .15s; }
+.bd-puff circle:nth-child(3) { animation-delay: .3s; }
+@keyframes bd-lean { 0%, 100% { transform: rotate(-1.5deg); } 50% { transform: rotate(1.5deg); } }
+@keyframes bd-drift { 50% { transform: translateY(-2.5px); } }
+@keyframes bd-sway { 0%, 100% { transform: rotate(-4deg); } 50% { transform: rotate(4deg); } }
+@keyframes bd-blink { 0%, 94%, 100% { transform: translateY(-101%); } 96.5% { transform: translateY(0); } }
+@keyframes bd-hop { 30% { transform: translateY(-7px) rotate(-3deg); } 60% { transform: translateY(0) rotate(2deg); } }
+@keyframes bd-slosh { 25% { transform: rotate(-7deg); } 60% { transform: rotate(5deg); } }
+@keyframes bd-tip { 40% { transform: rotate(-8deg); } }
+@keyframes bd-exhale { 35% { transform: scale(1.04, .96); } 70% { transform: scale(.98, 1.02); } }
+@keyframes bd-tilt { 35% { transform: rotate(7deg); } 70% { transform: rotate(-3deg); } }
+@keyframes bd-puff { from { opacity: 0; transform: translate(-6px, 8px) scale(.4); } 30% { opacity: .9; } to { opacity: 0; transform: translate(4px, -10px) scale(1.2); } }
 .wd-marks { display: flex; gap: 2px; height: 13px; align-items: center; justify-content: center; }
 .well-count { display: flex; align-items: center; justify-content: center; gap: 20px; font-size: 18px; }
 .well-count b { min-width: 96px; text-align: center; }

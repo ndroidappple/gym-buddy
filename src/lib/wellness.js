@@ -117,33 +117,77 @@ export function isDrinkLike(e) {
   return share >= 0.5 || ((+e.protein || 0) < 10 && share >= 0.15);
 }
 
-/** The key that groups the same drink across days: its name, ignoring case and spacing. */
-export const drinkKey = (name) => String(name || "").trim().toLowerCase().replace(/\s+/g, " ");
+/* Drink names, the same drink however it was written: "Vodka Sodas", "2 vodka sodas" and "Vodka Soda" are
+   one drink. A count in front ("2", "two", "a") or tagged on ("x2") goes, and each word is made singular. */
+const COUNT = /^(\d+(\.\d+)?|x\d+|\d+x|a|an|one|two|three|four|five|six|seven|eight|nine|ten|couple|few|some)$/i;
+const KEEP = new Set(["pils", "artois", "jus", "ros", "rosés", "les", "des", "bass", "swiss"]); // words that end in s but aren't plurals
+function singular(w) {
+  const l = w.toLowerCase();
+  if (KEEP.has(l) || l.length <= 3 || /('s|ss|us)$/.test(l)) return w;
+  if (/[^aeiou]ies$/.test(l)) return w.slice(0, -3) + (w.slice(-3) === "IES" ? "Y" : "y"); // whiskies → whisky
+  if (/(ss|sh|ch|x)es$/.test(l)) return w.slice(0, -2); // glasses → glass
+  if (/s$/.test(l)) return w.slice(0, -1); // sodas → soda
+  return w;
+}
+
+/** A drink's name as one of it: "2 Vodka Sodas" → "Vodka Soda", "Two Glasses of Wine" → "Glass of Wine". */
+export function drinkName(name) {
+  const words = String(name || "").trim().split(/\s+/).filter(Boolean);
+  while (words.length > 1 && COUNT.test(words[0])) words.shift();
+  while (words.length > 1 && /^(x\d+|\(\d+\))$/i.test(words[words.length - 1])) words.pop();
+  return words.map(singular).join(" ");
+}
+
+/** The key that groups the same drink across days and spellings. */
+export const drinkKey = (name) => drinkName(name).toLowerCase();
+
+const stamp = (e) => `${e.date}${e.created_at || ""}`;
 
 /**
  * The lifter's own drinks, most logged first (the most recent breaks a tie): what they actually drink,
- * with the numbers they logged it with. Each is { key, name, template } where template is the latest
- * entry, to copy for another one.
+ * with the numbers they logged it with. Each is { key, name, template }; the template is the latest
+ * entry that was a single drink, or else the latest of any size (oneMore() halves a "2 vodka sodas").
  */
 export function yourDrinks(entries, limit = 3) {
   const m = new Map();
   for (const e of entries) {
     if (!isDrinkLike(e)) continue;
     const k = drinkKey(e.name);
-    const x = m.get(k) || { key: k, name: e.name.trim(), n: 0, template: e };
+    const x = m.get(k) || { key: k, n: 0, last: e, single: null };
     x.n++;
-    if (`${e.date}${e.created_at || ""}` > `${x.template.date}${x.template.created_at || ""}`) { x.template = e; x.name = e.name.trim(); }
+    if (stamp(e) > stamp(x.last)) x.last = e;
+    if (drinksFor(alcoholOf(e)) <= 1.5 && (!x.single || stamp(e) > stamp(x.single))) x.single = e;
     m.set(k, x);
   }
   return [...m.values()]
-    .sort((a, b) => b.n - a.n || `${b.template.date}${b.template.created_at || ""}`.localeCompare(`${a.template.date}${a.template.created_at || ""}`))
-    .slice(0, limit).map(({ key, name, template }) => ({ key, name, template }));
+    .sort((a, b) => b.n - a.n || stamp(b.last).localeCompare(stamp(a.last)))
+    .slice(0, limit).map(({ key, last, single }) => { const template = single || last; return { key, name: drinkName(template.name), template }; });
 }
 
-/** Another one of a logged drink, on `date`: the same food and amount, a new row. */
-export function againEntry(e, date) {
+/** How many drinks an entry was, as a whole count to step by: "2 vodka sodas" is 2, a pint of IPA (1.5
+    standard drinks) is still one pint. Rounds down unless it's within a quarter of the next. */
+export const drinkUnits = (e) => Math.max(1, Math.floor(drinksFor(alcoholOf(e)) + 0.25));
+
+/**
+ * The entry's numbers at `factor` of its size: by its basis when it has one (so the alcohol scales with
+ * it), else in proportion. `nutritionFor` is passed in to keep this file free of the portion math.
+ */
+export function scaledEntry(e, factor, nutritionFor) {
+  const amount = Math.round((+e.amount || 1) * factor * 100) / 100;
+  if (e.basis && nutritionFor) {
+    const n = nutritionFor(e.basis, amount, e.unit);
+    return { amount, kcal: n.kcal, protein: n.protein, carbs: n.carbs, fat: n.fat };
+  }
+  const r = (v) => Math.round((+v || 0) * factor * 10) / 10;
+  return { amount, kcal: Math.round((+e.kcal || 0) * factor), protein: r(e.protein), carbs: r(e.carbs), fat: r(e.fat) };
+}
+
+/** One more of a logged drink, on `date`: one drink's worth, named as one ("Vodka Soda", not "2 Vodka Sodas"). */
+export function againEntry(e, date, nutritionFor = null) {
   const { id, created_at, updated_at, user_id, ...rest } = e; // eslint-disable-line no-unused-vars
-  return { ...rest, date, meal: drinkMeal(date) };
+  const units = drinkUnits(e);
+  const one = units > 1 ? scaledEntry(e, 1 / units, nutritionFor) : {};
+  return { ...rest, ...one, name: drinkName(e.name), date, meal: drinkMeal(date) };
 }
 
 /** What happened that day, in a few words: "3 drinks · cannabis". */

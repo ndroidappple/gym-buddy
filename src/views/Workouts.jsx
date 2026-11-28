@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { EmptyState } from "../components/ui.jsx";
 import { Pencil, ChevronLeft, ChevronRight, Wine, Cannabis } from "lucide-react";
-import { sumDays, dayLine, drinksLabel, alcoholOf, drinksFor } from "../lib/wellness.js";
+import { sumDays, dayLine, drinksLabel, alcoholOf, drinksFor, drinkKey, drinkName, drinkUnits } from "../lib/wellness.js";
 import WellnessSheet from "../components/WellnessSheet.jsx";
 import { WINDOW_DAYS } from "../lib/food.js";
 import { allDays, CUSTOM } from "../data/program.js";
@@ -163,13 +163,13 @@ function MonthCalendar({ sessions, program, prs, heart, well }) {
   );
 }
 
-/** What was drunk, the same drink grouped: "Modelo × 2, Hazy IPA 16 oz (1.5 drinks)". */
+/** What was drunk, the same drink grouped however it was written: "Vodka Soda × 3, Hazy IPA 16 oz (1.5 drinks)". */
 function itemsLine(items) {
   const m = new Map();
   for (const e of items) {
-    const k = e.name.trim().toLowerCase();
-    const x = m.get(k) || { name: e.name.trim(), n: 0, g: 0 };
-    x.n++; x.g += alcoholOf(e);
+    const k = drinkKey(e.name);
+    const x = m.get(k) || { name: drinkName(e.name), n: 0, g: 0 };
+    x.n += drinkUnits(e); x.g += alcoholOf(e);
     m.set(k, x);
   }
   return [...m.values()].map((x) => {
