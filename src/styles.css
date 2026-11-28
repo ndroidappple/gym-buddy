@@ -1146,7 +1146,12 @@ button.coach-card:active { transform: scale(0.98); }
 .cal-dots { display: flex; gap: 3px; height: 6px; }
 .cal-dots i { width: 6px; height: 6px; border-radius: 50%; background: var(--day); }
 .cal-day.is-picked .cal-dots i { box-shadow: 0 0 0 1.5px var(--bg); }
-.cal-none { text-align: center; padding: 8px 0; }
+.cal-day-panel { gap: 8px; }
+.cal-none { margin: 0 4px; font-size: 15px; font-weight: 600; color: var(--mute); }
+.hist-date .dot { display: inline-block; margin-right: 8px; vertical-align: 2px; }
+/* An outside workout: the whole card opens its recap. */
+a.hist-open { color: inherit; text-decoration: none; -webkit-tap-highlight-color: transparent; }
+a.hist-open:active { opacity: 0.6; }
 .cal-title .cal-well { margin-top: 1px; text-align: center; text-wrap: balance; }
 .cal-layers { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; padding: 0 2px 10px; }
 .cal-layers .chip { gap: 5px; min-height: 32px; padding: 4px 11px; font-size: 13.5px; }
@@ -2060,7 +2065,7 @@ button.rest-open:active { opacity: 0.75; }
 
 /* Calendar: the picked day's substances, one tap each (Workouts.jsx DayLog). Lit (tinted, ✓) when the day has it. */
 .day-log { display: flex; flex-direction: column; gap: 10px; padding: 14px 14px 6px; }
-.day-log .lbl { margin: 0 2px; }
+.day-log-ask { margin: 0 2px; font-size: 15px; font-weight: 600; color: var(--mute); }
 .day-log-btns { display: flex; flex-wrap: wrap; gap: 8px; }
 .day-log-btn { display: inline-flex; align-items: center; gap: 6px; min-height: 48px; padding: 0 16px 0 14px; border-radius: 16px; background: var(--surface); border: 2px solid var(--rule); font-size: 16px; font-weight: 700; color: var(--ink); }
 .day-log-btn.drinks svg { color: var(--drink); }

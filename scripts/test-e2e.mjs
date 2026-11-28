@@ -424,7 +424,7 @@ test("wellness: any day of the last week from Today, and further back from the c
   // The calendar opens on the latest workout, ten days back: log that day from there.
   await page.goto(new URL("#/progress/workouts", page.url()).href);
   await page.getByRole("button", { name: "Show as a calendar" }).click();
-  await page.getByRole("region", { name: /^Substances on / }).getByRole("button", { name: "Amounts and more" }).click();
+  await page.getByRole("region", { name: /^Substances on / }).getByRole("button", { name: /^(Log with|Change) amounts$/ }).click();
   const sheet = page.getByRole("dialog", { name: "Alcohol & cannabis" });
   await sheet.locator(".subs-day").click();
   const days = sheet.getByRole("group", { name: "Day" });
