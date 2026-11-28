@@ -26,6 +26,12 @@ another device saved in between, `src/lib/merge.js` does a three-way merge: list
 (sessions, foods) merge item by item, so a workout logged on the phone and a setting changed on a laptop
 both survive.
 
+**Opens with no signal.** `public/sw.js` keeps a copy of the app itself: the page network-first (online,
+every launch loads fresh and refreshes the copy; offline, the last copy opens), the hashed build files under
+`/assets/` cache-first (files no current page references are dropped after each fresh load), and Lexend
+from Google Fonts. Supabase and `/api` requests are never touched, so data still goes through the
+phone-first store above.
+
 Weekly reviews are saved in the same table (`week-review:<last day>`). Everything that grows fast
 (food, coach chat, heart rate links) has its own tables, below. **Settings → Export** gives a CSV or
 JSON copy any time.
