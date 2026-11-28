@@ -25,7 +25,8 @@ export function parse(hash) {
       if (a === "ai") return { name: "ai" }; // AI assistants: connecting Claude, ChatGPT or Muse
       return { name: "settings" };
     case "progress": return a === "nutrition" ? { name: "nutrition", open: "trends" } : { name, open: a };
-    case "nutrition": return { name, open: a }; // open: "trends" for the Trends view, "setup" for Tank's targets chat
+    // open: "trends" for the Trends view, "setup" for Tank's targets chat; #/nutrition/trends/<tile> drills into a scorecard tile.
+    case "nutrition": return a === "trends" && b ? { name, open: a, detail: b } : { name, open: a };
     // The History tab is now Progress → Workouts; old links still land there.
     case "history": return { name: "progress", open: "workouts" };
     default: return TABS.includes(name) ? { name } : { name: "today" };
@@ -45,10 +46,10 @@ let counter = 0;
    drops the half-drawn screen for the latest, while the tab bar's pill (drawn first) never waits on it.
    None when the screen underneath stays put (a sheet or the week in review opening over it: those
    animate themselves), with reduced motion, or when the browser already animated a swipe back. */
-const isTab = (r) => TABS.includes(r.name);
+const isTab = (r) => TABS.includes(r.name) && !r.detail; // a Trends tile drills in like any detail screen
 const screenOf = (r) => {
   if (r.name === "review") return "today"; // the week in review opens over Today
-  if (r.name === "nutrition") return r.open === "trends" ? "nutrition/trends" : "nutrition"; // #/nutrition/setup is a sheet over Day
+  if (r.name === "nutrition") return r.open === "trends" ? ["nutrition/trends", r.detail].filter(Boolean).join("/") : "nutrition"; // #/nutrition/setup is a sheet over Day
   if (r.name === "progress") return r.open === "workouts" ? "progress/workouts" : "progress"; // #/progress/phase is a sheet over Trends
   return [r.name, r.day, r.id, r.lift, r.coach].filter(Boolean).join("/");
 };

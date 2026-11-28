@@ -1791,6 +1791,45 @@ button.rest-open:active { opacity: 0.75; }
 .nt-key i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
 .nt-key i.watch { background: var(--watch); }
 .nt-key i.faint { background: color-mix(in srgb, var(--ink) 18%, var(--surface)); }
+/* Trends scorecard: four equal tiles, each the same five rows (label, number, goal, small chart, status),
+   so they line up whatever the numbers say; then slim full-width rows for carbs/fat and alcohol. Every
+   tile is a link into its detail screen. */
+.sc-period { margin-bottom: 2px; }
+.sc-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.sc-tile, .sc-row { color: inherit; text-decoration: none; -webkit-tap-highlight-color: transparent; transition: background 120ms, transform var(--pop-ms) var(--pop); }
+.sc-tile:active, .sc-row:active { background: var(--surface-2); transform: scale(0.98); }
+.sc-tile { display: flex; flex-direction: column; min-width: 0; padding: 12px 12px 10px 14px; }
+.sc-top { display: flex; align-items: center; justify-content: space-between; font-size: 13.5px; font-weight: 700; color: var(--mute); }
+.sc-chev { color: var(--faint); flex: none; }
+.sc-val { display: flex; align-items: baseline; gap: 3px; margin-top: 6px; min-width: 0; }
+.sc-val b { font-weight: 800; font-size: 30px; line-height: 1; letter-spacing: -0.02em; white-space: nowrap; }
+.sc-val small { font-size: 13.5px; font-weight: 700; color: var(--mute); white-space: nowrap; }
+.sc-sub { margin-top: 3px; font-size: 12.5px; font-weight: 600; color: var(--faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sc-viz { display: flex; align-items: flex-end; height: 40px; margin: 10px 0 8px; }
+.sc-svg { display: block; width: 100%; height: 40px; overflow: visible; }
+.sc-goal { stroke-width: 1.5; stroke-dasharray: 3 3; }
+.sc-empty { width: 100%; height: 40px; display: grid; place-items: center; border-radius: 10px; background: var(--surface-2); font-size: 12.5px; font-weight: 700; color: var(--faint); }
+.sc-line { fill: none; stroke: var(--ink); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.sc-dot { fill: var(--surface); stroke: var(--ink); stroke-width: 1.5; }
+.sc-dot.on { fill: var(--ink); }
+.nt-none { fill: var(--rule-2); }
+.sc-status { display: flex; align-items: center; min-height: 24px; min-width: 0; }
+.sc-status .trend { height: 24px; font-size: 12.5px; gap: 4px; }
+.sc-plain { font-size: 12.5px; font-weight: 700; color: var(--mute); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sc-row { display: flex; align-items: center; gap: 16px; min-height: 60px; padding: 10px 12px 10px 14px; }
+.sc-macro { flex: 1; }
+.sc-row-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.sc-row-main b { font-weight: 800; }
+.sc-row-main span { font-size: 13.5px; font-weight: 500; color: var(--mute); }
+/* A detail screen's lead: the tile's number, large. */
+.sc-lead { display: flex; flex-direction: column; gap: 2px; margin: 0 4px; }
+.sc-lead .sc-val { margin: 0; }
+.sc-lead .sc-val b { font-size: 44px; }
+.sc-lead .sc-val small { font-size: 15px; }
+.sc-lead .sc-sub { font-size: 13.5px; white-space: normal; }
+.sc-lead .sc-status { margin-top: 6px; }
+.nt-key i.line { width: 16px; height: 3px; border-radius: 2px; background: var(--ink); }
+.nt-key i.dash { width: 16px; height: 2px; border-radius: 0; background: repeating-linear-gradient(90deg, var(--ink) 0 3px, transparent 3px 6px); }
 .nt-row { display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 8px 10px; }
 .nt-row-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .nt-row-main b { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

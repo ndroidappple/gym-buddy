@@ -299,6 +299,27 @@ test("nutrition: trends live on Nutrition, and the old Progress link lands there
     (await views.getByRole("button").allTextContents()).join(","));
 });
 
+test("nutrition: the trends scorecard fits one screen and each tile drills in and back", async ({ page }) => {
+  await page.goto(new URL("#/nutrition/trends", page.url()).href);
+  const tiles = page.locator(".sc-tile");
+  await tiles.first().waitFor();
+  check("four tiles", await tiles.count() === 4, `got ${await tiles.count()}`);
+  const heights = await tiles.evaluateAll((els) => els.map((e) => Math.round(e.getBoundingClientRect().height)));
+  check("every tile the same height", new Set(heights).size === 1, heights.join(","));
+  // Above the tab bar without scrolling: the carbs and fat row's bottom edge, against the dock's top,
+  // once the screen's entrance has settled.
+  await page.evaluate(() => Promise.all(document.getAnimations().map((a) => a.finished)));
+  const fits = await page.evaluate(() => document.querySelector(".sc-row").getBoundingClientRect().bottom <= document.querySelector(".tabbar").getBoundingClientRect().top + 1);
+  check("the whole scorecard is on screen, above the tab bar", fits);
+  await page.getByRole("link", { name: /^Calories:/ }).click();
+  await page.waitForURL(/#\/nutrition\/trends\/calories$/);
+  await page.getByRole("heading", { name: "Calories", level: 1 }).waitFor();
+  check("the day-by-day chart is there", await page.getByRole("img", { name: /Calories each day/ }).isVisible());
+  await page.getByRole("button", { name: "Back to trends" }).click();
+  await page.waitForURL(/#\/nutrition\/trends$/);
+  await tiles.first().waitFor();
+}, account({ entries: Array.from({ length: 12 }, (_, i) => entry("Chicken rice bowl", "lunch", -1 - i, { kcal: 2300, protein: 170, carbs: 240, fat: 70 })) }));
+
 test("help: a tap on the left goes back a card, anywhere else goes on", async ({ page }) => {
   await page.getByRole("button", { name: "About Today" }).click();
   const dialog = page.getByRole("dialog");
