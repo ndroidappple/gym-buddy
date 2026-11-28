@@ -1804,7 +1804,8 @@ button.rest-open:active { opacity: 0.75; }
 /* Trends scorecard: four equal tiles, each the same five rows (label, number, goal, small chart, status),
    so they line up whatever the numbers say; then slim full-width rows for carbs/fat and alcohol. Every
    tile is a link into its detail screen. */
-.sc-period { margin-bottom: 2px; }
+.sc-period { margin-bottom: -4px; } /* the picker's 44pt tap area is taller than the pill it draws */
+.sc-why { margin: 0 4px; }
 .sc-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .sc-tile, .sc-row { color: inherit; text-decoration: none; -webkit-tap-highlight-color: transparent; transition: background 120ms, transform var(--pop-ms) var(--pop); }
 .sc-tile:active, .sc-row:active { background: var(--surface-2); transform: scale(0.98); }
@@ -1990,8 +1991,11 @@ button.rest-open:active { opacity: 0.75; }
 .filters-row .filters { flex: 1; min-width: 0; }
 /* Nutrition → Trends: the period as a chip on the date line instead of a row of its own. */
 .range-pick { position: relative; display: inline-flex; align-items: center; gap: 4px; min-height: var(--tap); }
-.range-pick select { appearance: none; -webkit-appearance: none; height: 34px; padding: 0 30px 0 12px; border-radius: 999px; border: 2px solid var(--rule); background: var(--surface); color: var(--ink); font-weight: 800; font-size: 13.5px; }
-.range-pick svg { position: absolute; right: 10px; pointer-events: none; color: var(--mute); }
+/* The select fills the 44pt tap area; the 34pt pill is drawn behind it (T-03). */
+.range-pick::before { content: ""; position: absolute; inset: 5px 0; border-radius: 999px; border: 2px solid var(--rule); background: var(--surface); pointer-events: none; }
+.range-pick select { position: relative; appearance: none; -webkit-appearance: none; height: 44px; padding: 0 30px 0 14px; border-radius: 999px; border: 0; background: transparent; color: var(--ink); font-weight: 800; font-size: 13.5px; }
+.range-pick select:focus-visible { outline: 2px solid var(--ink); outline-offset: -3px; }
+.range-pick svg { position: absolute; right: 10px; pointer-events: none; z-index: 1; color: var(--mute); }
 .range-pick select:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
 @media (max-width: 359px) {
   .title-switch { column-gap: 14px; }

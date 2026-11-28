@@ -1,7 +1,7 @@
-import React, { useMemo, useState } from "react";
+import React, { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { href } from "../lib/router.js";
-import { shortDate, bodyweightSeries, iso, daysBetween } from "../lib/util.js";
+import { shortDate, bodyweightSeries, iso, daysBetween, plural } from "../lib/util.js";
 import { EmptyState, useScrub, ChartTip, Read } from "../components/ui.jsx";
 import { alcoholTrend } from "../lib/wellness.js";
 import { dailyRows, summarize, weekRows, patterns, outcome, topFoods, periodRange, targetsBackfilled, wrongSide, targetsOn, KCAL_BAND, PROTEIN_HIT } from "../lib/nutritionTrends.js";
@@ -133,23 +133,26 @@ export default function NutritionTrends(props) {
         <Period data={data} days={days} pick={pick} />
         <div className="sc-grid">
           <Tile to="calories" label="Calories" value={fmt(s.kcal)} unit="kcal" sub={`a day · goal ${fmt(s.targetKcal ?? t?.kcal)}`} verdict={kv}>
-            <MiniBars rows={rows} value={(r) => r.kcal} goal={(r) => r.t?.kcal}
-              wrong={(r) => r.full && (side === "both" ? r.kcalStatus !== "on" : r.kcalStatus === side)} />
+            {(W) => <MiniBars W={W} rows={rows} value={(r) => r.kcal} goal={(r) => r.t?.kcal}
+              wrong={(r) => r.full && (side === "both" ? r.kcalStatus !== "on" : r.kcalStatus === side)} />}
           </Tile>
           <Tile to="protein" label="Protein" value={fmt(s.protein)} unit="g" sub={`a day · goal ${fmt(s.targetProtein ?? t?.protein)}`} verdict={pv}>
-            <MiniBars rows={rows} value={(r) => r.protein} goal={(r) => r.t?.protein} wrong={(r) => r.full && !r.proteinHit} />
+            {(W) => <MiniBars W={W} rows={rows} value={(r) => r.protein} goal={(r) => r.t?.protein} wrong={(r) => r.full && !r.proteinHit} />}
           </Tile>
           {/* No trend yet (under 3 weigh-ins over 10+ days): the latest weight, so the tile still says something. */}
           <Tile to="weight" label="Weight" {...(out.rate != null || !last
             ? { value: signed1(out.rate), unit: "lb", sub: `a week${out.goalRate != null ? ` · goal ${signed1(out.goalRate)}` : ""}` }
             : { value: last.bw.toFixed(1), unit: "lb", sub: `latest · ${shortDate(last.date)}` })} verdict={wv}>
-            <WeightChart pts={data.weights} from={data.outFrom} to={data.to} goalRate={out.goalRate} />
+            {(W) => <WeightChart W={W} pts={data.weights} from={data.outFrom} to={data.to} goalRate={out.goalRate} />}
           </Tile>
           <Tile to="logged" label="Logged" value={s.logged} unit={`/${s.days}`} sub={`days${s.partial ? ` · ${s.partial} partly` : ""}`} verdict={lv}>
-            <LogStrip rows={rows} />
+            {(W) => <LogStrip W={W} rows={rows} />}
           </Tile>
         </div>
 
+        {s.full === 0 && (
+          <p className="nt-note sc-why">Every day logged here is under 45% of your calorie goal, so it counts as partly logged and stays out of the averages. Averages start with your first full day.</p>
+        )}
         {s.carbs != null && (
           <a className="card sc-row" href={href("nutrition", "trends", "macros")}
             aria-label={`Carbs and fat: carbs ${fmt(s.carbs)} of ${fmt(s.targetCarbs)} grams a day, fat ${fmt(s.fat)} of ${fmt(s.targetFat)}`}>
@@ -173,14 +176,33 @@ export default function NutritionTrends(props) {
   );
 }
 
-/** One scorecard tile: label, number, its goal, a small chart, one status. Always the same five rows. */
+/** The width of a box, kept up to date: the tile charts draw at their real width instead of a fixed
+    150 that got centred, small, in wider tiles (T-04). */
+function useBoxWidth(fallback) {
+  const ref = useRef(null);
+  const [w, setW] = useState(fallback);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const read = () => setW(Math.max(60, Math.round(el.getBoundingClientRect().width)) || fallback);
+    read();
+    const ro = new ResizeObserver(read);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [fallback]);
+  return [ref, w];
+}
+
+/** One scorecard tile: label, number, its goal, a small chart, one status. Always the same five rows.
+    `children` is a function of the chart's width. */
 function Tile({ to, label, value, unit, sub, verdict, children }) {
+  const [viz, W] = useBoxWidth(150);
   return (
     <a className="card sc-tile" href={href("nutrition", "trends", to)} aria-label={`${label}: ${value} ${unit} ${sub}. ${verdict.text}. Details`}>
       <span className="sc-top">{label}<ChevronRight size={16} strokeWidth={2.6} className="sc-chev" aria-hidden="true" /></span>
       <span className="sc-val"><b>{value}</b>{value !== "–" && <small>{unit}</small>}</span>
       <span className="sc-sub">{sub}</span>
-      <span className="sc-viz" aria-hidden="true">{children}</span>
+      <span className="sc-viz" aria-hidden="true" ref={viz}>{children(W)}</span>
       <Status {...verdict} />
     </a>
   );
@@ -211,8 +233,8 @@ function goalSegs(rows, goal) {
 }
 
 /** A tile's day bars: no axis, no scrubbing; the goal as a dashed line. */
-function MiniBars({ rows, value, goal, wrong }) {
-  const W = 150, H = 40;
+function MiniBars({ rows, value, goal, wrong, W = 150 }) {
+  const H = 40;
   const max = Math.max(1, ...rows.map((r) => (r.logged ? value(r) : 0)), ...rows.map((r) => (goal(r) || 0) * 1.15));
   const y = (v) => 2 + (1 - v / max) * (H - 3);
   const step = W / rows.length, bw = Math.max(1.5, Math.min(8, step - 1.5));
@@ -229,8 +251,8 @@ function MiniBars({ rows, value, goal, wrong }) {
 }
 
 /** One tick a day: tall and solid when fully logged, tall and faint when partly, a dot when nothing. */
-function LogStrip({ rows, H = 40 }) {
-  const W = 150, step = W / rows.length, bw = Math.max(1.5, Math.min(8, step - 1.5));
+function LogStrip({ rows, H = 40, W = 150 }) {
+  const step = W / rows.length, bw = Math.max(1.5, Math.min(8, step - 1.5));
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className="sc-svg">
       {rows.map((r, k) => {
@@ -245,8 +267,8 @@ function LogStrip({ rows, H = 40 }) {
 
 /** Weigh-ins over the window as a line, and the goal's pace from the first one as a dashed line.
     `big` adds the axis ends and hold-to-read. */
-function WeightChart({ pts, from, to, goalRate, big = false }) {
-  const W = big ? 326 : 150, H = big ? 140 : 40, T = big ? 10 : 3, B = big ? 10 : 3;
+function WeightChart({ pts, from, to, goalRate, big = false, W: w = 150 }) {
+  const W = big ? 326 : w, H = big ? 140 : 40, T = big ? 10 : 3, B = big ? 10 : 3;
   const span = Math.max(1, daysBetween(from, to));
   const x = (d) => (daysBetween(from, d) / span) * W;
   const first = pts[0];
@@ -357,7 +379,7 @@ function DetailBody({ which, d }) {
   const { rows, s, t, side, out, weeks, top } = d;
   if (which === "calories") return (
     <>
-      <Lead value={fmt(s.kcal)} unit="kcal a day" sub={`goal ${fmt(s.targetKcal ?? t?.kcal)} · ${s.kcalOn} on goal · ${s.kcalOver} over · ${s.kcalUnder} under`} verdict={kcalVerdict(d)} />
+      <Lead value={fmt(s.kcal)} unit="kcal a day" sub={`goal ${fmt(s.targetKcal ?? t?.kcal)}${s.full ? ` · ${s.kcalOn} on goal · ${s.kcalOver} over · ${s.kcalUnder} under` : " · no full days yet, so no average"}`} verdict={kcalVerdict(d)} />
       <section className="section">
         <DayBars rows={rows} value={(r) => r.kcal} goal={(r) => r.t?.kcal} band={KCAL_BAND}
           wrong={(r) => r.full && (side === "both" ? r.kcalStatus !== "on" : r.kcalStatus === side)}
@@ -382,7 +404,7 @@ function DetailBody({ which, d }) {
 
   if (which === "protein") return (
     <>
-      <Lead value={fmt(s.protein)} unit="g a day" sub={`goal ${fmt(s.targetProtein ?? t?.protein)} · a hit is ${Math.round(PROTEIN_HIT * 100)}% or more`} verdict={proteinVerdict(d)} />
+      <Lead value={fmt(s.protein)} unit="g a day" sub={`goal ${fmt(s.targetProtein ?? t?.protein)} · ${s.full ? `a hit is ${Math.round(PROTEIN_HIT * 100)}% or more` : "no full days yet, so no average"}`} verdict={proteinVerdict(d)} />
       <section className="section">
         <DayBars rows={rows} value={(r) => r.protein} goal={(r) => r.t?.protein}
           wrong={(r) => r.full && !r.proteinHit}
@@ -391,7 +413,7 @@ function DetailBody({ which, d }) {
         <p className="nt-key"><span><i className="watch" aria-hidden="true" />Under {Math.round(PROTEIN_HIT * 100)}% of goal</span><span>Hold to read a day</span></p>
       </section>
       <Rows title="Week by week">
-        {weeks.map((w) => <Row key={w.start} main={`${shortDate(w.start)} – ${shortDate(w.end)}`} sub={w.full ? `hit ${w.proteinHit} of ${w.full} days` : "partly logged"}
+        {weeks.map((w) => <Row key={w.start} main={`${shortDate(w.start)} – ${shortDate(w.end)}`} sub={w.full ? `hit ${w.proteinHit} of ${plural(w.full, "day")}` : "partly logged"}
           v={w.protein != null ? `${fmt(w.protein)} g` : null} vSub="a day" />)}
       </Rows>
     </>
@@ -448,7 +470,9 @@ function WeightDetail({ d }) {
     : "Weigh in a few times a week to see whether your eating is moving your weight.";
   return (
     <>
-      <Lead value={signed1(rate)} unit="lb a week" sub={`${goalRate != null ? `goal ${lbWeek(goalRate)} · ` : ""}${d.outcomeWider ? "over the last 4 weeks" : `${weights.length} weigh-ins`}`} verdict={weightVerdict(d)} />
+      {rate == null && weights.length
+        ? <Lead value={weights[weights.length - 1].bw.toFixed(1)} unit="lb" sub={`latest weigh-in, ${shortDate(weights[weights.length - 1].date)} · a trend needs 3+ over 10+ days`} verdict={weightVerdict(d)} />
+        : <Lead value={signed1(rate)} unit="lb a week" sub={`${goalRate != null ? `goal ${lbWeek(goalRate)} · ` : ""}${d.outcomeWider ? "over the last 4 weeks" : plural(weights.length, "weigh-in")}`} verdict={weightVerdict(d)} />}
       <section className="section">
         <WeightChart pts={weights} from={d.outFrom} to={d.to} goalRate={goalRate} big />
         {weights.length >= 2 && <p className="nt-key"><span><i className="line" aria-hidden="true" />Your weigh-ins</span>{goalRate != null && <span><i className="dash" aria-hidden="true" />Goal pace</span>}</p>}
