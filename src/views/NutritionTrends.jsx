@@ -137,7 +137,7 @@ export default function NutritionTrends({ food, prefs, sessions, weighins, well 
             return (
               <div key={w.start} className="nt-row">
                 <span className="nt-row-main"><b>{shortDate(w.start)} – {shortDate(w.end)}</b><span>{w.logged} of {w.days} days logged{w.protein != null ? ` · ${fmt(w.protein)} g protein` : ""}</span></span>
-                <span className="nt-row-v">{w.kcal != null ? <>{fmt(w.kcal)}<small className={bad ? "watch" : ""}>{signed(w.kcalDiff)}</small></> : <small>partly logged</small>}</span>
+                <span className="nt-row-v">{w.kcal != null ? <>{fmt(w.kcal)}<small className={bad ? "watch" : ""}>{signed(w.kcalDiff)} vs goal</small></> : <small>partly logged</small>}</span>
               </div>
             );
           })}

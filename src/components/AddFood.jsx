@@ -283,7 +283,7 @@ function Find({ food, entries, head, meal, date, action, onMeal, onRepeat, onPic
   };
 
   // "4× · usually breakfast · yesterday": why it's here, so the list's order makes sense.
-  const why = (x) => [x.brand, x.count > 1 && `${x.count}×`, x.usual && `usually ${MEAL_WORD[x.usual]}`, x.lastDate ? whenLabel(x.lastDate) : "saved"].filter(Boolean).join(" · ");
+  const why = (x) => [x.brand, x.count > 1 && `${x.count}×`, MEAL_WORD[x.usual] && `usually ${MEAL_WORD[x.usual]}`, x.lastDate ? whenLabel(x.lastDate) : "saved"].filter(Boolean).join(" · ");
   // An amount none of their own foods can take: the usual portion would be wrong.
   const usual = (x) => { const p = pickYourFood(x); return `${fmtAmount(p.amount || 1)} ${p.unit || "serving"}`; };
   const shown = all ? mine : mine.slice(0, term ? 5 : TOP);
