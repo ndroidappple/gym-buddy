@@ -457,7 +457,7 @@ a.hero-text { color: inherit; text-decoration: none; }
 .weigh { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 12px 12px 12px 14px; }
 .weigh-icon { width: 44px; height: 44px; border-radius: 16px; display: grid; place-items: center; background: color-mix(in srgb, var(--accent) 16%, var(--surface)); color: var(--accent); flex-shrink: 0; }
 .weigh-text { flex: 1 1 150px; min-width: 0; display: flex; flex-direction: column; } /* under ~150px the field and Save wrap below */
-.weigh-field { margin-left: auto; }
+.weigh-act { display: flex; align-items: center; gap: 10px; margin-left: auto; }
 .weigh-text b { font-weight: 800; }
 .weigh-field { display: flex; align-items: baseline; gap: 3px; height: var(--tap); padding: 0 10px; border-radius: 16px; background: var(--bg); border: 2px solid var(--rule); }
 .weigh-field input { width: 58px; height: 100%; border: 0; background: none; text-align: right; font-weight: 700; font-size: 18px; }
@@ -565,7 +565,7 @@ html[data-typing] :is(.dock, .alert-ask) { opacity: 0; visibility: hidden; trans
   .rest { gap: 6px; padding-left: 8px; }
   .rest-open { gap: 6px; }
   .rest-open > :first-child { width: 36px; height: 36px; }
-  .rest .rb { padding: 0 9px; }
+  .rest .rb { padding: 0 8px; min-width: var(--tap); }
   .rest .clock { font-size: 28px; }
 }
 .rest.over { background: var(--day); color: var(--on-day); box-shadow: none; }
@@ -705,7 +705,7 @@ html[data-typing] :is(.dock, .alert-ask) { opacity: 0; visibility: hidden; trans
 .bw-log { flex: none; width: auto; min-height: 40px; padding: 0 16px; font-size: 15px; } /* .btn is full-width by default */
 .bw-log-pill { background: rgba(255,255,255,.18); color: inherit; font-weight: 800; text-decoration: none; }
 /* Bodyweight's white pills sit on a darker tint: white on a lighter violet was 3.6:1. Lift cards keep the light tint under ink. */
-.bw-card:not(.lift-card) :is(.pill, .bw-log-pill) { background: rgba(0, 0, 0, 0.2); }
+.bw-card:not([data-day]) :is(.pill, .bw-log-pill) { background: rgba(0, 0, 0, 0.2); }
 .chart { padding: 12px 8px 6px; position: relative; }
 .chart svg { display: block; width: 100%; height: auto; overflow: visible; }
 /* Hold-to-read charts (useScrub): no text selection, callout or magnifier while holding. */
@@ -715,6 +715,7 @@ html[data-typing] :is(.dock, .alert-ask) { opacity: 0; visibility: hidden; trans
 .chart-tip b { font-size: 15px; font-weight: 800; }
 .chart-tip span { opacity: 0.75; }
 .bw-card .chart-tip { background: #FFFFFF; color: var(--day-deep, var(--lip)); }
+.bw-card .chart-tip span { opacity: 1; } /* the date line at 75% measured 3.3-3.9:1 on the white tip */
 /* The top card's pages: a sideways snap scroller, edge to edge so a page slides in from the screen's edge. */
 .pager { display: flex; flex-direction: column; gap: 6px; }
 .pager-track { display: flex; gap: 12px; margin: 0 -16px; padding: 0 16px 8px; scroll-padding: 0 16px; overflow-x: auto; overscroll-behavior-x: contain;
@@ -1865,7 +1866,7 @@ button.rest-open:active { opacity: 0.75; }
 .nowrap { white-space: nowrap; }
 
 /* Lift page: pin to the Progress chart, a labelled pill (audit 2026-11-28). The ::after grows the tap area to 44px. */
-.pin-btn { position: relative; height: 36px; background: var(--surface-2); color: var(--ink); }
+.pin-btn { position: relative; height: 36px; background: var(--surface); border: 2px solid var(--rule-2); color: var(--ink); } /* outlined: an action, unlike the filled status pill beside it */
 .pin-btn::after { content: ""; position: absolute; inset: -4px 0; }
 /* Session: Discard sits further from Finish, so a sweaty miss lands on neither (it has Undo too). */
 .btn-day + .btn-quiet.danger, .btn-day + p + .btn-quiet.danger { margin-top: 18px; }

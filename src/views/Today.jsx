@@ -426,12 +426,15 @@ function WeighIn({ last, skip, onSave }) {
         <b>Weigh-in due</b>
         <span className="small muted">{last ? `Last: ${num(last.bw)} lb · ${plural(ago, "day")} ago` : "Log your bodyweight to start the chart"}</span>
       </div>
-      <label className="weigh-field">
-        <span className="sr-only">Bodyweight in pounds</span>
-        <input id="weigh-bw" type="number" inputMode="decimal" step="0.1" placeholder={last ? num(last.bw) : "—"} value={bw} onChange={(e) => setBw(e.target.value)} />
-        <span className="u">lb</span>
-      </label>
-      <button type="submit" className="btn weigh-save" disabled={!valid}>Save</button>
+      {/* Field and Save wrap together, so Save never ends up on a line of its own. */}
+      <span className="weigh-act">
+        <label className="weigh-field">
+          <span className="sr-only">Bodyweight in pounds</span>
+          <input id="weigh-bw" type="number" inputMode="decimal" step="0.1" placeholder={last ? num(last.bw) : "—"} value={bw} onChange={(e) => setBw(e.target.value)} />
+          <span className="u">lb</span>
+        </label>
+        <button type="submit" className="btn weigh-save" disabled={!valid}>Save</button>
+      </span>
       <button type="button" className="weigh-skip" onClick={() => !closing && fold(skip)} aria-label="Skip this week's weigh-in"><X size={14} strokeWidth={3} aria-hidden="true" /></button>
     </form>
   );

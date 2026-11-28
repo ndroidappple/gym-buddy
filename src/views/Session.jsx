@@ -846,7 +846,8 @@ function ActiveSet({ i, ex, showRir, row, last, canRemove, onEdit, onLog, onRemo
   const step = weightStep(ex.n);
   const logBtn = useRef(null);
   useEffect(() => { if (refocusLog) { refocusLog = false; logBtn.current?.focus(); } }, []);
-  const logFromKeys = () => { refocusLog = true; onLog(); };
+  // The flag only lasts the moment it takes the next set to mount: logging the last set leaves nothing to focus.
+  const logFromKeys = () => { refocusLog = true; setTimeout(() => { refocusLog = false; }, 1000); onLog(); };
   const bump = (field, step) => {
     const cur = parseFloat(row[field]) || 0;
     const next = Math.max(0, Math.round((cur + step) * 10) / 10);
@@ -897,7 +898,8 @@ function Stepper({ id, label, unit, value, mode, placeholder, onChange, onDec, o
         <span className="sr-only">{label}</span>
         {/* Named once ("Weight, pounds", "Reps"), not "Reps reps" from the label plus the unit. */}
         <input ref={field} id={id} type="number" inputMode={mode} value={value} placeholder={placeholder}
-          aria-label={unit.toLowerCase() === label.toLowerCase() ? label : `${label}, ${UNIT_WORD[unit] || unit}`}
+          aria-label={[unit, UNIT_WORD[unit]].some((u) => u?.toLowerCase() === label.toLowerCase()) ? label
+            : unit === "bodyweight" ? `${label}, bodyweight only` : `${label}, ${UNIT_WORD[unit] || unit}`}
           enterKeyHint={onEnter ? "done" : undefined}
           onKeyDown={onEnter ? (e) => { if (e.key === "Enter") { e.preventDefault(); onEnter(); } } : undefined}
           onChange={(e) => onChange(e.target.value)} onFocus={(e) => e.target.select()} />
