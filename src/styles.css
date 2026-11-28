@@ -1923,3 +1923,25 @@ button.rest-open:active { opacity: 0.75; }
 /* Settings → Substances. */
 .section-foot { margin: 8px 4px 0; }
 .add-substance { display: flex; flex-direction: column; gap: 10px; }
+
+/* A tab's title is its view switch (ui.jsx TitleSwitch): "Day  Trends" in display type. The current view
+   is ink with a bar under it; the other is grey. Sized down on narrow phones so it shares the row with (i). */
+.title-switch { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 18px; }
+.title-switch button { position: relative; min-height: 44px; padding: 0; font-weight: 800; font-size: clamp(24px, 7vw, 30px); line-height: 1.1; letter-spacing: -0.02em; color: var(--faint); white-space: nowrap; }
+.title-switch button[aria-pressed="true"] { color: var(--ink); }
+.title-switch button[aria-pressed="true"]::after { content: ""; position: absolute; left: 0; right: 0; bottom: 2px; height: 4px; border-radius: 4px; background: var(--ink); }
+.title-switch button:not([aria-pressed="true"]):active { color: var(--mute); }
+.title-switch .title-count { font-size: 18px; font-weight: 700; }
+/* Progress → Workouts: the day chips scroll; the list/calendar switch stays at the row's end. */
+.filters-row { display: flex; align-items: center; gap: 6px; }
+.filters-row .filters { flex: 1; min-width: 0; }
+/* Nutrition → Trends: the period as a chip on the date line instead of a row of its own. */
+.range-pick { position: relative; display: inline-flex; align-items: center; gap: 4px; min-height: var(--tap); }
+.range-pick select { appearance: none; -webkit-appearance: none; height: 34px; padding: 0 30px 0 12px; border-radius: 999px; border: 2px solid var(--rule); background: var(--surface); color: var(--ink); font-weight: 800; font-size: 13.5px; }
+.range-pick svg { position: absolute; right: 10px; pointer-events: none; color: var(--mute); }
+.range-pick select:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
+@media (max-width: 359px) {
+  .title-switch { column-gap: 14px; }
+  .title-switch button { font-size: 24px; }
+  .title-switch .title-count { display: none; } /* "Trends  Workouts" on one line at 320; the count is on 360+ */
+}

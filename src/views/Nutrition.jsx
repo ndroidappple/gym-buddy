@@ -4,7 +4,7 @@ import { alcoholOf, drinksLabel } from "../lib/wellness.js";
 import Coach from "../components/Coach.jsx";
 import CoachChat from "../components/CoachChat.jsx";
 import { COACHES } from "../data/coaches.js";
-import { InfoButton, Sheet, EmptyState } from "../components/ui.jsx";
+import { InfoButton, Sheet, EmptyState, TitleSwitch } from "../components/ui.jsx";
 
 import AddFood, { Portion, QuickAdd, amountLabel } from "../components/AddFood.jsx";
 import { MEALS, totals, byDate, weekSummary, addDays } from "../lib/nutrition.js";
@@ -134,14 +134,11 @@ export default function Nutrition({ food, prefs, notify, sessions, weighins, pro
   return (
     <main className="screen has-tabs nut-screen">
       <header className="top">
-        <h1 className="page-title">Nutrition</h1><span className="spacer" />
+        <TitleSwitch title="Nutrition" label="Nutrition view" value={trends ? "trends" : "day"} onPick={show}
+          options={[{ key: "day", text: "Day" }, { key: "trends", text: "Trends" }]} />
         <InfoButton screen={trends ? "nutritionTrends" : "nutrition"} />
       </header>
       <div className="body">
-        <div className="segctl" data-help="views" role="group" aria-label="Nutrition view">
-          <button aria-pressed={!trends} onClick={() => show("day")}>Day</button>
-          <button aria-pressed={trends} onClick={() => show("trends")}>Trends</button>
-        </div>
         {trends ? <NutritionTrends food={food} prefs={prefs} sessions={sessions} weighins={weighins} well={well} /> : <>
         <div className="day-switch" data-help="day">
           <button className="icon-btn" onClick={() => setDate(addDays(date, -1))} aria-label="Previous day"><ChevronLeft size={20} /></button>

@@ -3,7 +3,7 @@ import { Scale, CalendarDays, List } from "lucide-react";
 import { isCardio, activeDays } from "../data/program.js";
 import { href } from "../lib/router.js";
 import { liftSeries, trend, num, fmtW, bestSet, isIsolation, shortDate, bodyweightSeries, daysBetween, today } from "../lib/util.js";
-import { InfoButton, Sparkline, Trend, EmptyState, Sheet, useScrub, ChartTip } from "../components/ui.jsx";
+import { InfoButton, Sparkline, Trend, EmptyState, Sheet, useScrub, ChartTip, TitleSwitch } from "../components/ui.jsx";
 import PhaseCard from "../components/PhaseCard.jsx";
 import { adjustedSeries } from "../lib/fatigue.js";
 import PhaseSheet from "../components/PhaseSheet.jsx";
@@ -38,23 +38,19 @@ export default function Progress({ open, go, ...props }) {
   return (
     <main className="screen has-tabs">
       <header className="top">
-        <h1 className="page-title">Progress</h1>
-        <span className="spacer" />
-        {workouts && sessions.length > 0 && (
-          <button className="icon-btn" data-help="calendar" onClick={toggleCalendar} aria-pressed={calendar}
-            aria-label={calendar ? "Show as a list" : "Show as a calendar"}>
-            {calendar ? <List size={20} strokeWidth={2.4} /> : <CalendarDays size={20} strokeWidth={2.4} />}
-          </button>
-        )}
+        <TitleSwitch title="Progress" label="Progress view" value={workouts ? "workouts" : "trends"} onPick={pick}
+          options={[{ key: "trends", text: "Trends" }, { key: "workouts", text: "Workouts", count: sessions.length || null }]} />
         <InfoButton screen={workouts ? "workouts" : "progress"} />
       </header>
       <div className="body">
-        <div className="segctl" data-help="views" role="group" aria-label="Progress view">
-          <button aria-pressed={seg === "trends"} onClick={() => pick("trends")}>Trends</button>
-          <button aria-pressed={workouts} onClick={() => pick("workouts")}>Workouts{sessions.length > 0 && <span className="seg-count"> · {sessions.length}</span>}</button>
-        </div>
         {workouts
-          ? <Workouts sessions={sessions} program={props.program} calendar={calendar} heart={!!props.prefs?.googleHealth?.on} well={props.well} />
+          ? <Workouts sessions={sessions} program={props.program} calendar={calendar} heart={!!props.prefs?.googleHealth?.on} well={props.well}
+            calendarToggle={sessions.length > 0 && (
+              <button className="icon-btn" data-help="calendar" onClick={toggleCalendar} aria-pressed={calendar}
+                aria-label={calendar ? "Show as a list" : "Show as a calendar"}>
+                {calendar ? <List size={20} strokeWidth={2.4} /> : <CalendarDays size={20} strokeWidth={2.4} />}
+              </button>
+            )} />
           : <Trends {...props} openPhase={open === "phase"} onPhaseSheetClosed={() => open === "phase" && go(href("progress", "trends"), { replace: true })} />}
       </div>
     </main>

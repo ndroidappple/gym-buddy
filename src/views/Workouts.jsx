@@ -11,7 +11,7 @@ import { fmtSet, bestSet, byDateDesc, longDate, shortDate, weekDates, compact, s
 
 /** Progress → Workouts: every logged workout as a list or a month calendar, filterable by day.
     The list/calendar switch lives in the Progress header (`calendar`). */
-export default function Workouts({ sessions, program, calendar, heart = false, well = null }) {
+export default function Workouts({ sessions, program, calendar, heart = false, well = null, calendarToggle = null }) {
   const [filter, setFilter] = useState(null);
   const sorted = useMemo(() => [...sessions].sort(byDateDesc), [sessions]);
   const shown = filter ? sorted.filter((s) => s.day === filter) : sorted;
@@ -41,6 +41,8 @@ export default function Workouts({ sessions, program, calendar, heart = false, w
           Every workout you log shows up here: sets, total weight lifted and any PRs. Tap the pencil on one to fix a mistake.
         </EmptyState>
       ) : (<>
+      {/* The day filter scrolls; the list/calendar switch stays at its end. */}
+      <div className="filters-row">
       <div className="filters" role="group" aria-label="Filter by day">
         <button className="chip" aria-pressed={!filter} onClick={() => setFilter(null)}>All</button>
         {[...allDays(program), CUSTOM].filter((d) => !program[d].off || sessions.some((x) => x.day === d)).filter((d) => d !== CUSTOM || sessions.some((x) => x.day === d)).map((d) => (
@@ -48,6 +50,8 @@ export default function Workouts({ sessions, program, calendar, heart = false, w
             <span className="dot" aria-hidden="true" />{program[d].name}
           </button>
         ))}
+      </div>
+      {calendarToggle}
       </div>
 
       {calendar

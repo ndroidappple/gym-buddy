@@ -264,6 +264,26 @@ export function Sheet({ title, sub, lead, actions, onClose, children, labelledBy
   ), document.body);
 }
 
+/**
+ * A tab's title that is also its view switch: "Day  Trends" in display type, the current view in ink with
+ * a bar under it, the other in grey. The tab's name stays the page heading for screen readers (`title`),
+ * since the tab bar already shows it on screen. `options`: [{ key, text, count? }].
+ */
+export function TitleSwitch({ title, label, options, value, onPick }) {
+  return (
+    <>
+      <h1 className="sr-only">{title}</h1>
+      <div className="title-switch" data-help="views" role="group" aria-label={label}>
+        {options.map((o) => (
+          <button key={o.key} type="button" aria-pressed={value === o.key} onClick={() => onPick(o.key)}>
+            {o.text}{o.count != null && <span className="title-count"> · {o.count}</span>}
+          </button>
+        ))}
+      </div>
+    </>
+  );
+}
+
 /** Text with [Name] marked as an inline chip, so anything you can see or tap in the app stands out. */
 function HelpText({ text }) {
   return text.split(/(\[[^\]]+\])/).map((part, i) =>
