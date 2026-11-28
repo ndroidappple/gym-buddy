@@ -320,6 +320,100 @@ test("nutrition: the trends scorecard fits one screen and each tile drills in an
   await tiles.first().waitFor();
 }, account({ entries: Array.from({ length: 12 }, (_, i) => entry("Chicken rice bowl", "lunch", -1 - i, { kcal: 2300, protein: 170, carbs: 240, fat: 70 })) }));
 
+/* The keyboard, faked: iOS reports it through visualViewport only once its slide has finished, which a
+   desktop browser never does. window.__kb(h) says the keyboard is now h tall (0: gone). */
+async function fakeKeyboard(page, context) {
+  await context.addInitScript(() => {
+    // Read live: at document start the page hasn't applied its viewport tag yet.
+    let kb = 0;
+    const vv = new EventTarget();
+    Object.assign(vv, { offsetTop: 0, offsetLeft: 0, pageTop: 0, scale: 1 });
+    Object.defineProperty(vv, "width", { get: () => innerWidth });
+    Object.defineProperty(vv, "height", { get: () => innerHeight - kb });
+    Object.defineProperty(window, "visualViewport", { value: vv, configurable: true });
+    window.__kb = (h) => { kb = h; vv.dispatchEvent(new Event("resize")); };
+  });
+  await page.reload();
+}
+const sheetHeight = (page) => page.evaluate(() => parseFloat(document.querySelector(".sheet-wrap").style.getPropertyValue("--vv-h")));
+
+test("keyboard: a sheet moves once, with the keyboard, and goes straight back when it closes", async ({ page, context }) => {
+  await fakeKeyboard(page, context);
+  await openAddFood(page);
+  const full = await page.evaluate(() => innerHeight);
+  check("full height with no keyboard", await sheetHeight(page) === full, `${await sheetHeight(page)} vs ${full}`);
+  const box = page.getByRole("searchbox", { name: /search foods/i });
+
+  // First keyboard ever: nothing to predict from, so the sheet follows iOS's report, and learns the height.
+  await box.tap();
+  await page.evaluate(() => window.__kb(300));
+  check("sits on the keyboard", await sheetHeight(page) === full - 300, String(await sheetHeight(page)));
+
+  // Keyboard going: straight to full, and the short reports while it slides (or a stuck viewport) don't pull it back.
+  await page.evaluate(() => document.activeElement.blur());
+  check("back to full the moment the field lets go", await sheetHeight(page) === full, String(await sheetHeight(page)));
+  await page.evaluate(() => window.__kb(140));
+  check("a report mid-slide doesn't pull it back down", await sheetHeight(page) === full, String(await sheetHeight(page)));
+  await page.evaluate(() => window.__kb(0));
+
+  // Next time: it heads to the keyboard's height on the tap, before iOS says anything.
+  await box.tap();
+  check("goes to the remembered keyboard height on the tap", await sheetHeight(page) === full - 300, String(await sheetHeight(page)));
+  await page.evaluate(() => window.__kb(300));
+  check("iOS's report just confirms it", await sheetHeight(page) === full - 300, String(await sheetHeight(page)));
+  check("the field isn't left moved", await box.evaluate((el) => !el.style.translate));
+});
+
+/* Edge swipe back: only in the home screen app, so the page says it is one. */
+async function asHomeScreenApp(page, context) {
+  await context.addInitScript(() => Object.defineProperty(navigator, "standalone", { value: true, configurable: true }));
+  await page.reload();
+}
+async function swipe(page, context, { from = 4, to, y = 360, steps = 8, ms = 16 }) {
+  const cdp = await context.newCDPSession(page);
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: from, y }] });
+  for (let i = 1; i <= steps; i++) {
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: from + ((to - from) * i) / steps, y }] });
+    await page.waitForTimeout(ms);
+  }
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+}
+const screenMoved = (page) => page.evaluate(() => document.querySelector("main.screen").style.translate || "");
+
+test("swipe back: from the left edge does what the back arrow does, and a short one springs back", async ({ page, context }) => {
+  await asHomeScreenApp(page, context);
+  await page.goto(new URL("#/nutrition/trends", page.url()).href);
+  await page.locator(".sc-tile").first().click();
+  await page.waitForURL(/#\/nutrition\/trends\/calories$/);
+
+  await swipe(page, context, { to: 60, ms: 60 }); // not far, and slow: stays
+  await page.waitForTimeout(400);
+  check("a short swipe stays put", /\/calories$/.test(page.url()), page.url());
+  check("and the screen springs back into place", await screenMoved(page) === "", await screenMoved(page));
+
+  await swipe(page, context, { to: 300 });
+  await page.waitForURL(/#\/nutrition\/trends$/);
+  await page.locator(".sc-tile").first().waitFor();
+  await page.waitForTimeout(700);
+  // Trends and its detail are the same <main> to React: it mustn't be left slid off the edge.
+  check("the screen behind is in place", await screenMoved(page) === "", await screenMoved(page));
+
+  await swipe(page, context, { to: 300 });
+  await page.waitForTimeout(500);
+  check("a tab screen has nothing to go back to", /#\/nutrition\/trends$/.test(page.url()), page.url());
+}, account({ entries: Array.from({ length: 5 }, (_, i) => entry("Chicken rice bowl", "lunch", -1 - i)) }));
+
+test("swipe back: off a lift, like its arrow; a swipe that starts mid-screen does nothing", async ({ page, context }) => {
+  await asHomeScreenApp(page, context);
+  await page.goto(new URL(`#/lift/${encodeURIComponent("Flat DB Press")}`, page.url()).href);
+  await page.getByRole("button", { name: "Back" }).waitFor();
+  await swipe(page, context, { from: 120, to: 380 });
+  await page.waitForTimeout(500);
+  check("mid-screen isn't the edge", /#\/lift\//.test(page.url()), page.url());
+  await swipe(page, context, { to: 320 });
+  await page.waitForURL((u) => !/#\/lift\//.test(u)); // the arrow goes back in history: here, where the test started
+}, account({ sessions: [workout("w1", "push", day(-2), { "Flat DB Press": [[60, 10]] })] }));
+
 test("help: a tap on the left goes back a card, anywhere else goes on", async ({ page }) => {
   await page.getByRole("button", { name: "About Today" }).click();
   const dialog = page.getByRole("dialog");
@@ -677,7 +771,7 @@ for (const t of run) {
   const { page, backend, errors, context } = await openApp(browser, app.url, { ...t.seed, api: { ...apis(seen), ...t.seed.api } });
   page.setDefaultTimeout(5000);
   try {
-    await t.fn({ page, backend }, seen);
+    await t.fn({ page, backend, context }, seen);
     check("no errors on the page", !errors.length, [...errors, ...backend.requests.filter((r) => r.path.startsWith("/api/") && !(r.path in apis()) && !(r.path in (t.seed.api || {}))).map((r) => `unfaked: ${r.method} ${r.path}${r.search}`)].join("\n    "));
     console.log(`✓ ${t.name}`);
   } catch (e) {

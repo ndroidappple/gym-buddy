@@ -553,6 +553,11 @@ a.hero-text { color: inherit; text-decoration: none; }
 /* Typing (lib/keyboard.js): the rest timer and Finish step aside instead of riding up on the keyboard over the field. */
 .dock { transition: opacity 180ms ease; }
 html[data-typing] .dock { opacity: 0; visibility: hidden; transition: opacity 120ms ease, visibility 0s 120ms; }
+/* Edge swipe back (lib/edgeBack.js): the screen in your hand, a shade darker behind it, and the bars
+   pinned inside it out of the way while it moves (a moving screen would carry them off their edge). */
+.screen.edge-moving { position: relative; z-index: 2; background: var(--bg); box-shadow: -10px 0 30px rgb(0 0 0 / 0.18); will-change: translate; }
+.edge-under { position: fixed; inset: 0; z-index: 1; background: color-mix(in srgb, var(--bg) 82%, #000); pointer-events: none; transition: opacity 220ms ease; }
+html[data-edge-drag] :is(.dock, .walk-card), .screen.edge-moving::after { opacity: 0; transition: opacity 100ms ease; }
 /* Keyboard gone but iOS still holding the viewport short (lib/keyboard.js): the bottom bars go back down to the real bottom edge. */
 :is(.tabbar, .dock, .toast, .sync-note) { translate: 0 var(--kb-stuck, 0px); }
 .rest-beam { border-radius: 30px; box-shadow: 0 6px 0 var(--lip); }

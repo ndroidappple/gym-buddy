@@ -12,6 +12,7 @@ import { applySavedView } from "./lib/view.js";
 import { registerServiceWorker } from "./lib/restAlerts.js";
 import { installMotion } from "./lib/motion.js";
 import { installKeyboardWatch } from "./lib/keyboard.js";
+import { installEdgeBack } from "./lib/edgeBack.js";
 
 // Before first paint: this device's theme (dark by default), detail level and home screen icon.
 applySavedTheme();
@@ -20,6 +21,7 @@ applySavedIcon();
 installMotion(); // the spring easings styles.css animates with
 registerServiceWorker(); // shows rest alerts
 installKeyboardWatch(); // keeps the rest timer and other bottom bars clear of the keyboard and on the bottom edge
+installEdgeBack(); // swipe from the left edge to go back, in the home screen app
 
 // iOS Safari ignores user-scalable=no; block pinch-zoom so it behaves like a native app.
 ["gesturestart", "gesturechange"].forEach((t) => document.addEventListener(t, (e) => e.preventDefault(), { passive: false }));

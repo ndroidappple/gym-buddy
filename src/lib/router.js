@@ -59,11 +59,17 @@ function navKind(from, to, dir) {
   return dir || (isTab(to) ? "back" : "forward"); // a replace has no history to go by: out to a tab is back
 }
 
+/* The next screen change was already animated by hand (an edge swipe back, lib/edgeBack.js): show it
+   without a view transition, the way a swipe the browser animated is shown. */
+let skipOnce = false;
+export const skipNextTransition = () => { skipOnce = true; };
+
 /** Hash routing so the phone's back gesture and browser back stay inside the app. */
 export function useRoute() {
   const [route, setRoute] = useState(() => { upgrade(); return parse(location.hash); });
   const shown = useRef(route);
   const show = useCallback((next, dir, uaAnimated = false) => {
+    if (skipOnce) { skipOnce = false; uaAnimated = true; }
     const nav = navKind(shown.current, next, dir);
     shown.current = next;
     if (nav) document.documentElement.dataset.nav = nav; // also stops the first screen's cascade replaying
