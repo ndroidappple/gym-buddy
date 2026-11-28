@@ -21,11 +21,11 @@ installMotion(); // the spring easings styles.css animates with
 registerServiceWorker(); // shows rest alerts
 installKeyboardWatch(); // keeps the rest timer and other bottom bars clear of the keyboard and on the bottom edge
 
-// iOS Safari ignores user-scalable=no; block pinch-zoom so it behaves like a native app.
-["gesturestart", "gesturechange"].forEach((t) => document.addEventListener(t, (e) => e.preventDefault(), { passive: false }));
+// Pinch-zoom stays on: the text is sized in px and doesn't follow the phone's text size, so zooming is
+// the only way to make it bigger (WCAG 1.4.4, audit 2026-11-28). Double-tap zoom is still off
+// (touch-action: manipulation in styles.css), so a quick double tap on a stepper never zooms.
 // iOS only shows :active press styles when the page listens for touches.
 document.addEventListener("touchstart", () => {}, { passive: true });
-document.addEventListener("touchmove", (e) => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
 
 // /oauth/consent: approving a connection from an AI app (api/mcp.js). Sign-in first, then only the consent screen.
 const consent = location.pathname === "/oauth/consent";
