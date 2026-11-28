@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useRef, startTransition } from "react";
 import { flushSync } from "react-dom";
-import { reducedMotion } from "./motion.js";
+import { reducedMotion, MS, EXIT_MS } from "./motion.js";
 
 const TABS = ["today", "nutrition", "progress", "settings"];
 
@@ -75,11 +75,23 @@ export function useRoute() {
     if (nav) document.documentElement.dataset.nav = nav; // also stops the first screen's cascade replaying
     if (nav === "tab") { startTransition(() => setRoute(next)); return; }
     if (!nav || uaAnimated || !document.startViewTransition || reducedMotion()) { setRoute(next); return; }
+    // The new screen starts at the top, and gets there before its snapshot is taken: a scroll that
+    // moved during the capture (iOS restoring the old one on Back, or App's own reset a beat later)
+    // could leave iOS's transition stuck on a blank screen under the tab bar (Nick, 2026-11-28: Back
+    // from the AI assistants' Muse steps, a long page).
+    const vt = document.startViewTransition(() => { window.scrollTo(0, 0); flushSync(() => setRoute(next)); });
     // A second navigation mid-animation skips this one; the screen still changes, so that's not an error.
-    document.startViewTransition(() => flushSync(() => setRoute(next))).ready.catch(() => {});
+    vt.ready.catch(() => {});
+    // And if a transition still hasn't finished well after its longest animation, it's stuck: end it.
+    // The page under it is already the new screen, so ending it just shows it.
+    const stuck = setTimeout(() => vt.skipTransition?.(), Math.max(EXIT_MS, ...Object.values(MS)) + 600);
+    vt.finished.catch(() => {}).finally(() => clearTimeout(stuck));
   }, []);
 
   useEffect(() => {
+    // Every screen opens at the top (App resets it), so the browser restoring an old scroll on Back
+    // only moves the page mid-transition. Off.
+    if ("scrollRestoration" in history) history.scrollRestoration = "manual";
     if (history.state?.ironlogIdx == null) history.replaceState({ ironlogIdx: 0 }, "");
     counter = pos();
     // A back swipe the browser animates itself says so on popstate, which comes just before hashchange.

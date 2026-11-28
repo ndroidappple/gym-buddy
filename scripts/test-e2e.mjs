@@ -414,6 +414,37 @@ test("swipe back: off a lift, like its arrow; a swipe that starts mid-screen doe
   await page.waitForURL((u) => !/#\/lift\//.test(u)); // the arrow goes back in history: here, where the test started
 }, account({ sessions: [workout("w1", "push", day(-2), { "Flat DB Press": [[60, 10]] })] }));
 
+test("settings: Back from the AI assistants' Muse steps lands on Settings, shown and at the top", async ({ page }) => {
+  await page.goto(new URL("#/settings", page.url()).href);
+  await page.getByRole("heading", { name: "Settings" }).first().waitFor();
+  await page.goto(new URL("#/settings/ai", page.url()).href);
+  await page.getByRole("button", { name: "Muse", exact: true }).click();
+  await page.mouse.wheel(0, 1500); // the Muse steps are the long ones
+  await page.getByRole("button", { name: "Back" }).click();
+  await page.waitForURL(/#\/settings$/);
+  await page.waitForTimeout(1500); // longer than any screen change takes
+  // Only the screen change: the coach's blink loops forever by design.
+  const st = await page.evaluate(() => ({ y: scrollY, stuck: document.getAnimations().filter((a) => a.effect?.pseudoElement?.startsWith("::view-transition")).length, restore: history.scrollRestoration }));
+  check("Settings is on screen", await page.getByRole("heading", { name: "Settings" }).first().isVisible());
+  check("at the top, no screen change left running, scroll not restored by the browser", st.y === 0 && st.stuck === 0 && st.restore === "manual", JSON.stringify(st));
+});
+
+test("screen change: one that stalls (as iOS's did, leaving a blank screen) is ended, and the screen shows", async ({ page }) => {
+  await page.goto(new URL("#/settings", page.url()).href);
+  await page.goto(new URL("#/settings/ai", page.url()).href);
+  await page.getByRole("button", { name: "Back" }).waitFor();
+  await page.waitForTimeout(800);
+  // The new screen's snapshot held invisible for a minute.
+  await page.addStyleTag({ content: "::view-transition-new(root) { animation: vt-fade-in 60s linear both !important; }" });
+  await page.getByRole("button", { name: "Back" }).click();
+  const running = () => page.evaluate(() => document.getAnimations().filter((a) => a.effect?.pseudoElement?.startsWith("::view-transition")).length);
+  await page.waitForTimeout(300);
+  check("the stall really happened", await running() > 0);
+  await page.waitForTimeout(1700);
+  check("it was ended", await running() === 0);
+  check("Settings shows", await page.getByRole("heading", { name: "Settings" }).first().isVisible());
+});
+
 test("help: a tap on the left goes back a card, anywhere else goes on", async ({ page }) => {
   await page.getByRole("button", { name: "About Today" }).click();
   const dialog = page.getByRole("dialog");
