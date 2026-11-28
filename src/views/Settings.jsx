@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
-import { ChevronRight, LayoutGrid, Download, LogOut, Moon, Gauge, Smartphone, Share, SquarePlus, EllipsisVertical, Check, Sparkles, Scale, Vibrate, Bell, BellRing, Users, Utensils, Target, Bookmark, Trash2, Rows3, CalendarClock, History, BellOff, BellPlus, Info, Dumbbell, HeartPulse, Watch, RefreshCw, Unlink, Bot, Wine } from "lucide-react";
+import { ChevronRight, LayoutGrid, Download, LogOut, Moon, Gauge, Smartphone, Share, SquarePlus, EllipsisVertical, Check, Sparkles, Scale, Vibrate, Bell, BellRing, Users, Utensils, Target, Bookmark, Trash2, Rows3, CalendarClock, History, BellOff, BellPlus, Info, Dumbbell, HeartPulse, Watch, RefreshCw, Unlink, Bot, Wine, Cannabis, CircleDot, Plus, X } from "lucide-react";
 import { Sheet, InfoButton, ConfirmSheet } from "../components/ui.jsx";
+import { tracked, tracksAny, withTracked, substanceId, MAX_CUSTOM } from "../lib/wellness.js";
 import { ICONS, iconSrc } from "../lib/icons.js";
 import { VIEWS, applyView } from "../lib/view.js";
 import { activeDays, specLine, isCardio } from "../data/program.js";
@@ -122,7 +123,7 @@ export default function Settings({ program, sessions, prefs, setPref, go, notify
         </section>
 
         <section className="section">
-          <h2 className="lbl">Nutrition & Wellness</h2>
+          <h2 className="lbl">Nutrition</h2>
           <div className="list">
             {/* Turning it off only hides it: the food log and targets stay saved. */}
             <Toggle help="nutrition" Icon={Utensils} label="Track food & macros"
@@ -139,16 +140,10 @@ export default function Settings({ program, sessions, prefs, setPref, go, notify
                 <ChevronRight size={18} aria-hidden="true" className="muted" />
               </a>
             )}
-            {/* Wellness: off by default, and works with food tracking on or off. Turning it off only hides
-                it: alcohol stays in the food log, cannabis days stay saved. */}
-            <Toggle help="wellness" Icon={Wine} label="Track alcohol & cannabis"
-              sub={prefs.wellness?.on
-                ? `Shows on Today and the calendar, and ${who} takes it into account. Alcohol is in your food log; cannabis days aren't sent to Google Health or AI assistants.`
-                : "Log alcohol and cannabis days and see them next to your training."}
-              on={!!prefs.wellness?.on}
-              onChange={(v) => setPref("wellness", { ...prefs.wellness, on: v })} />
           </div>
         </section>
+
+        <Substances prefs={prefs} setPref={setPref} notify={notify} who={who} />
 
         <section className="section">
           <h2 className="lbl">Week in review</h2>
@@ -573,6 +568,70 @@ function Toggle({ Icon, label, sub, on, onChange, help }) {
       <span className="name">{label}<span className="sub detail">{sub}</span></span>
       <span className="switch" aria-hidden="true" />
     </button>
+  );
+}
+
+/* Settings → Substances: what to track, each on its own switch. Alcohol and cannabis are built in; the
+   lifter can add up to MAX_CUSTOM of their own by name. Nothing is tracked until something is switched on,
+   and turning one off (or removing your own) keeps what was logged: it comes back if you turn it on again. */
+function Substances({ prefs, setPref, notify, who }) {
+  const t = tracked(prefs);
+  const [adding, setAdding] = useState(false);
+  const set = (patch) => setPref("wellness", withTracked(prefs.wellness, patch));
+  const remove = (c) => {
+    const before = prefs.wellness;
+    set({ custom: t.custom.filter((x) => x.id !== c.id) });
+    notify(`Stopped tracking ${c.name}. What you logged is kept.`, () => setPref("wellness", before));
+  };
+  const any = tracksAny(t);
+  return (
+    <section className="section" data-help="wellness">
+      <h2 className="lbl">Substances</h2>
+      <div className="list">
+        <Toggle Icon={Wine} label="Alcohol" on={t.alcohol} onChange={(v) => set({ alcohol: v })}
+          sub={prefs.nutrition?.on ? "Drinks a day, with their calories in your food log." : "Drinks a day."} />
+        <Toggle Icon={Cannabis} label="Cannabis" on={t.cannabis} onChange={(v) => set({ cannabis: v })}
+          sub="Days used. Private: never sent to Google Health or AI assistants." />
+        {t.custom.map((c) => (
+          <div key={c.id} className="list-row">
+            <CircleDot size={18} aria-hidden="true" />
+            <span className="name">{c.name}<span className="sub detail">Days used, and how many if you like. Private.</span></span>
+            <button type="button" className="icon-btn" onClick={() => remove(c)} aria-label={`Stop tracking ${c.name}`}><X size={18} /></button>
+          </div>
+        ))}
+        {t.custom.length < MAX_CUSTOM && (
+          <button type="button" className="list-row" onClick={() => setAdding(true)}>
+            <Plus size={18} aria-hidden="true" />
+            <span className="name">Add your own<span className="sub detail">Nicotine, caffeine pills, anything you want next to your training.</span></span>
+          </button>
+        )}
+      </div>
+      <p className="small muted section-foot">{any
+        ? `Log them from Today and see them on the calendar. ${who} and the week in review take them into account, without judgment.`
+        : "Nothing tracked. Switch any on to log it from Today and see it next to your training."}</p>
+      {adding && <AddSubstance existing={t.custom} onClose={() => setAdding(false)}
+        onAdd={(c) => { set({ custom: [...t.custom, c] }); setAdding(false); notify(`Tracking ${c.name}`); }} />}
+    </section>
+  );
+}
+
+function AddSubstance({ existing, onAdd, onClose }) {
+  const [name, setName] = useState("");
+  const clean = name.trim().replace(/\s+/g, " ").slice(0, 30);
+  const id = substanceId(clean);
+  const taken = ["alcohol", "cannabis", "weed", "marijuana"].includes(id) || existing.some((c) => c.id === id);
+  const ok = clean.length > 0 && !taken;
+  const submit = (e) => { e.preventDefault(); if (ok) onAdd({ id, name: clean.charAt(0).toUpperCase() + clean.slice(1) }); };
+  return (
+    <Sheet title="Add your own" sub="Anything you'd like to see next to your training. Only you and your coaches see it." onClose={onClose} labelledBy="add-substance-title" className="keep-sub">
+      <form className="add-substance" onSubmit={submit}>
+        <label htmlFor="substance-name" className="lbl">Name</label>
+        <input id="substance-name" className="input" value={name} onChange={(e) => setName(e.target.value)} maxLength={30}
+          placeholder="e.g. Nicotine" autoComplete="off" autoCapitalize="sentences" enterKeyHint="done" aria-describedby="substance-note" />
+        <p id="substance-note" className="small muted" aria-live="polite">{taken && clean ? (["alcohol", "cannabis", "weed", "marijuana"].includes(id) ? "That one's built in: switch it on in the list." : "You already track that.") : "One tap logs it for the day; + counts more."}</p>
+        <button type="submit" className="btn btn-ink" disabled={!ok}>Track {clean || "it"}</button>
+      </form>
+    </Sheet>
   );
 }
 

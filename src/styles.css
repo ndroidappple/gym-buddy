@@ -1157,6 +1157,7 @@ button.coach-card:active { transform: scale(0.98); }
 .cal-mark { display: inline-flex; align-items: center; gap: 1px; font-size: 11px; font-weight: 800; line-height: 1; }
 .cal-mark.drinks, .cal-legend .drinks, .well-day-row.drinks .well-badge { color: var(--drink); }
 .cal-mark.weed, .cal-legend .weed, .well-day-row.weed .well-badge { color: var(--weed); }
+.cal-mark.own, .cal-legend .own, .well-day-row.own .well-badge { color: var(--mute); } /* the lifter's own substances: neutral, no colour of their own to learn */
 .cal-day.is-picked .cal-mark { color: var(--bg); }
 .cal-legend { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 14px; margin: 10px 0 0; font-size: 12.5px; font-weight: 600; color: var(--mute); }
 .cal-legend span { display: inline-flex; align-items: center; gap: 5px; }
@@ -1916,3 +1917,9 @@ button.rest-open:active { opacity: 0.75; }
 .pitch-foot button { position: relative; }
 .pitch-foot button::after { content: ""; position: absolute; inset: -6px 0; } /* 44px tap target on an inline link */
 @media (prefers-reduced-motion: reduce) { .pitch-caret { animation: none; } }
+/* Substances sheet: one of the lifter's own, not logged yet: a single tap logs it. */
+.pill.well-log { position: relative; flex: none; height: 36px; padding: 0 16px; background: var(--ink); color: var(--bg); }
+.pill.well-log::after { content: ""; position: absolute; inset: -4px 0; }
+/* Settings → Substances. */
+.section-foot { margin: 8px 4px 0; }
+.add-substance { display: flex; flex-direction: column; gap: 10px; }

@@ -1,8 +1,8 @@
 import React, { useMemo, useState } from "react";
 import { EmptyState } from "../components/ui.jsx";
-import { Pencil, ChevronLeft, ChevronRight, ChevronDown, Wine, Cannabis } from "lucide-react";
-import { sumDays, dayLine, drinksLabel, alcoholOf, drinksFor, drinkKey, drinkName, drinkUnits } from "../lib/wellness.js";
-import WellnessSheet from "../components/WellnessSheet.jsx";
+import { Pencil, ChevronLeft, ChevronRight, ChevronDown, Wine, Cannabis, CircleDot } from "lucide-react";
+import { sumDays, dayLine, drinksLabel, alcoholOf, drinksFor, drinkKey, drinkName, drinkUnits, trackedPhrase } from "../lib/wellness.js";
+import WellnessSheet, { logWhat } from "../components/WellnessSheet.jsx";
 import { WINDOW_DAYS } from "../lib/food.js";
 import { allDays, CUSTOM } from "../data/program.js";
 import { href } from "../lib/router.js";
@@ -72,13 +72,14 @@ export default function Workouts({ sessions, program, calendar, heart = false, w
    Tapping a day shows its workouts below, as the same cards the list uses. With wellness on, a row
    under the dots marks alcohol (with the drink count) and cannabis; chips above the grid hide any layer. */
 const LAYERS_KEY = "ironlog-cal-layers";
-const readLayers = () => { try { return { workouts: true, drinks: true, cannabis: true, ...JSON.parse(localStorage.getItem(LAYERS_KEY)) }; } catch { return { workouts: true, drinks: true, cannabis: true }; } };
+const readLayers = () => { try { return { workouts: true, drinks: true, cannabis: true, other: true, ...JSON.parse(localStorage.getItem(LAYERS_KEY)) }; } catch { return { workouts: true, drinks: true, cannabis: true, other: true }; } };
 function MonthCalendar({ sessions, program, prs, heart, well }) {
   const [layers, setLayers] = useState(readLayers);
   const [logging, setLogging] = useState(false); // the log sheet, for the picked day
   const flip = (k) => { const next = { ...layers, [k]: !layers[k] }; setLayers(next); try { localStorage.setItem(LAYERS_KEY, JSON.stringify(next)); } catch {} };
   const wd = well?.days || {};
-  const show = { workouts: !well || layers.workouts, drinks: !!well && layers.drinks, cannabis: !!well && layers.cannabis };
+  const tr = well?.track;
+  const show = { workouts: !well || layers.workouts, drinks: !!tr?.alcohol && layers.drinks, cannabis: !!tr?.cannabis && layers.cannabis, other: !!tr?.custom.length && layers.other };
   const byDate = useMemo(() => {
     const m = {};
     sessions.forEach((s) => { (m[s.date] ||= []).push(s); });
@@ -107,15 +108,20 @@ function MonthCalendar({ sessions, program, prs, heart, well }) {
           <div className="cal-title">
             <b>{first.toLocaleDateString(undefined, { month: "long", year: "numeric" })}</b>
             <span>{plural(count, "workout day")}</span>
-            {monthWell && <span className="cal-well">{plural(monthWell.drinkDays, "drinking day")}{monthWell.drinks ? <> <span className="nowrap">({drinksLabel(monthWell.drinks)})</span></> : ""} ·{" "}<span className="nowrap">{plural(monthWell.cannabisDays, "cannabis day")}</span></span>}
+            {monthWell && <span className="cal-well">{[
+              tr.alcohol && <React.Fragment key="a">{plural(monthWell.drinkDays, "drinking day")}{monthWell.drinks ? <> <span className="nowrap">({drinksLabel(monthWell.drinks)})</span></> : ""}</React.Fragment>,
+              tr.cannabis && <span key="c" className="nowrap">{plural(monthWell.cannabisDays, "cannabis day")}</span>,
+              ...tr.custom.map((c) => <span key={c.id} className="nowrap">{c.name.toLowerCase()} {plural(monthWell.other[c.name]?.days || 0, "day")}</span>),
+            ].filter(Boolean).map((x, i) => <React.Fragment key={i}>{i > 0 && " · "}{x}</React.Fragment>)}</span>}
           </div>
           <button className="icon-btn" onClick={() => shift(1)} aria-label="Next month" disabled={month >= t.slice(0, 7)}><ChevronRight size={20} /></button>
         </div>
         {well && (
           <div className="cal-layers" role="group" aria-label="Show on the calendar">
             <button type="button" className="chip" aria-pressed={layers.workouts} onClick={() => flip("workouts")}><span className="dot" aria-hidden="true" />Workouts</button>
-            <button type="button" className="chip cal-chip-drinks" aria-pressed={layers.drinks} onClick={() => flip("drinks")}><Wine size={14} strokeWidth={2.6} aria-hidden="true" />Alcohol</button>
-            <button type="button" className="chip cal-chip-weed" aria-pressed={layers.cannabis} onClick={() => flip("cannabis")}><Cannabis size={14} strokeWidth={2.6} aria-hidden="true" />Cannabis</button>
+            {tr.alcohol && <button type="button" className="chip cal-chip-drinks" aria-pressed={layers.drinks} onClick={() => flip("drinks")}><Wine size={14} strokeWidth={2.6} aria-hidden="true" />Alcohol</button>}
+            {tr.cannabis && <button type="button" className="chip cal-chip-weed" aria-pressed={layers.cannabis} onClick={() => flip("cannabis")}><Cannabis size={14} strokeWidth={2.6} aria-hidden="true" />Cannabis</button>}
+            {tr.custom.length > 0 && <button type="button" className="chip cal-chip-own" aria-pressed={layers.other} onClick={() => flip("other")}><CircleDot size={14} strokeWidth={2.6} aria-hidden="true" />{tr.custom.length === 1 ? tr.custom[0].name : "Your own"}</button>}
           </div>
         )}
         <div className={"cal-grid" + (well ? " with-well" : "")} role="grid">
@@ -136,6 +142,7 @@ function MonthCalendar({ sessions, program, prs, heart, well }) {
                   <span className="cal-marks" aria-hidden="true">
                     {show.drinks && w?.drinks > 0 && <span className="cal-mark drinks"><Wine size={11} strokeWidth={2.8} />{w.drinks}</span>}
                     {show.cannabis && w?.cannabis && <span className="cal-mark weed"><Cannabis size={11} strokeWidth={2.8} /></span>}
+                    {show.other && w?.other.length > 0 && <span className="cal-mark own"><CircleDot size={11} strokeWidth={2.8} />{w.other.length > 1 ? w.other.length : ""}</span>}
                   </span>
                 )}
               </button>
@@ -145,19 +152,20 @@ function MonthCalendar({ sessions, program, prs, heart, well }) {
         {well && (
           <p className="cal-legend" aria-hidden="true">
             <span><i className="dot" />Workout</span>
-            <span className="drinks"><Wine size={13} strokeWidth={2.6} />Alcohol, with drink count</span>
-            <span className="weed"><Cannabis size={13} strokeWidth={2.6} />Cannabis</span>
+            {tr.alcohol && <span className="drinks"><Wine size={13} strokeWidth={2.6} />Alcohol, with drink count</span>}
+            {tr.cannabis && <span className="weed"><Cannabis size={13} strokeWidth={2.6} />Cannabis</span>}
+            {tr.custom.length > 0 && <span className="own"><CircleDot size={13} strokeWidth={2.6} />{tr.custom.length === 1 ? tr.custom[0].name : "Your own (how many that day)"}</span>}
           </p>
         )}
       </section>
 
-      {well && wd[picked] && <WellDay day={wd[picked]} foodOn={well.foodOn} />}
+      {well && wd[picked] && <WellDay day={wd[picked]} foodOn={well.foodOn} track={tr} />}
       {/* Any day can be logged or fixed from here, however far back: Today's sheet offers only the last week. */}
       {/* With food tracking on, only within the days of food the app has loaded (lib/food.js): further back
           it can't show what's there, and a drink added would drop out at the next sync. */}
       {well && picked <= t && (!well.foodOn || daysBetween(picked, t) < WINDOW_DAYS) && (
         <button type="button" className="btn-quiet cal-log" onClick={() => setLogging(true)} aria-haspopup="dialog">
-          <Wine size={16} strokeWidth={2.6} aria-hidden="true" />{wd[picked] ? "Edit" : "Log"} alcohol or cannabis for {longDate(picked)}
+          {tr.alcohol ? <Wine size={16} strokeWidth={2.6} aria-hidden="true" /> : <CircleDot size={16} strokeWidth={2.6} aria-hidden="true" />}{wd[picked] ? "Edit" : "Log"} {logWhat(tr)} for {longDate(picked)}
         </button>
       )}
       {logging && <WellnessSheet well={well} start={picked} onClose={() => setLogging(false)} />}
@@ -183,10 +191,10 @@ function itemsLine(items) {
   }).join(", ");
 }
 
-/** The picked day's alcohol and cannabis, under the calendar. */
-function WellDay({ day, foodOn }) {
+/** The picked day's substances, under the calendar. */
+function WellDay({ day, foodOn, track }) {
   return (
-    <section className="card well-day" aria-label="Alcohol and cannabis">
+    <section className="card well-day" aria-label={trackedPhrase(track, " and ") || "Substances"}>
       {day.drinks > 0 && (
         <div className="well-day-row drinks">
           <span className="well-badge" aria-hidden="true"><Wine size={18} strokeWidth={2.4} /></span>
@@ -200,6 +208,12 @@ function WellDay({ day, foodOn }) {
           <span className="name">Cannabis</span>
         </div>
       )}
+      {day.other.map((o) => (
+        <div key={o.id} className="well-day-row own">
+          <span className="well-badge" aria-hidden="true"><CircleDot size={18} strokeWidth={2.4} /></span>
+          <span className="name">{o.name}{o.n > 1 ? ` × ${o.n}` : ""}</span>
+        </div>
+      ))}
     </section>
   );
 }

@@ -548,19 +548,52 @@ test("wellness: off by default; only the Settings switch turns it on", async ({ 
   check("no layers, marks or legend on the calendar", !(await page.locator(".cal-layers, .cal-mark, .cal-legend, .cal-well").count()));
 
   await page.goto(new URL("#/settings", page.url()).href);
-  const sw = page.getByRole("switch", { name: /Track alcohol & cannabis/ });
-  check("the switch starts off", (await sw.getAttribute("aria-checked")) === "false");
-  await sw.click();
+  const alcohol = page.getByRole("switch", { name: /^Alcohol/ }), cannabis = page.getByRole("switch", { name: /^Cannabis/ });
+  check("both switches start off", (await alcohol.getAttribute("aria-checked")) === "false" && (await cannabis.getAttribute("aria-checked")) === "false");
+  await alcohol.click();
+  await cannabis.click();
   await page.goto(new URL("#/today", page.url()).href);
   await page.locator(".well-line").getByText("2 drinks · cannabis today").waitFor();
 
   await page.goto(new URL("#/settings", page.url()).href);
-  await page.getByRole("switch", { name: /Track alcohol & cannabis/ }).click();
+  await page.getByRole("switch", { name: /^Alcohol/ }).click();
+  await page.goto(new URL("#/today", page.url()).href);
+  await page.locator(".well-line").getByText("cannabis today").waitFor();
+  check("alcohol off: only cannabis counts", !(await page.locator(".well-line").getByText(/drink/).count()));
+
+  await page.goto(new URL("#/settings", page.url()).href);
+  await page.getByRole("switch", { name: /^Cannabis/ }).click();
   await page.goto(new URL("#/today", page.url()).href);
   await page.getByRole("region", { name: "Food today" }).waitFor();
   check("off again: the line is gone", !(await page.locator(".well-line").count()));
 }, account({ sessions: [workout("w1", "push", day(-1), { "Flat DB Press": [[60, 10]] })], wellness: { [day(0)]: { cannabis: true } },
   entries: [entry("Two Modelos", "dinner", 0, { kcal: 296, protein: 2, carbs: 25, fat: 0, basis: { perServing: { kcal: 296, protein: 2, carbs: 25, fat: 0, alcohol: 28 }, servingLabel: "meal" } })] }));
+
+test("substances: your own, added in Settings, logged from Today", async ({ page, backend }) => {
+  await page.goto(new URL("#/settings", page.url()).href);
+  await page.getByRole("button", { name: /^Add your own/ }).click();
+  const add = page.getByRole("dialog", { name: "Add your own" });
+  await add.getByRole("textbox", { name: "Name" }).fill("nicotine");
+  await add.getByRole("button", { name: "Track nicotine" }).click();
+  await add.waitFor({ state: "detached" });
+  check("listed in Settings", await page.getByRole("button", { name: "Stop tracking Nicotine" }).isVisible());
+  check("saved as tracked", JSON.stringify(savedState(backend).prefs?.wellness?.custom) === JSON.stringify([{ id: "nicotine", name: "Nicotine" }]) && savedState(backend).prefs.wellness.on === true,
+    JSON.stringify(savedState(backend).prefs?.wellness));
+
+  await page.goto(new URL("#/today", page.url()).href);
+  const line = page.locator(".well-line");
+  await line.getByText(`Nicotine ${when()}?`).waitFor();
+  await line.getByRole("button", { name: "Log it" }).click();
+  const sheet = page.getByRole("dialog", { name: "Nicotine" });
+  check("only what's tracked: no alcohol or cannabis", !(await sheet.getByText("Alcohol", { exact: true }).count()) && !(await sheet.getByRole("switch", { name: /cannabis/i }).count()));
+  await sheet.getByRole("button", { name: /^Log Nicotine for / }).click();
+  await sheet.getByRole("button", { name: "One more Nicotine" }).click();
+  await sheet.getByRole("button", { name: "Done" }).click();
+  await line.getByText(`nicotine ×2 ${when()}`).waitFor();
+  for (let i = 0; i < 20 && savedState(backend).wellness?.[target()]?.other?.nicotine !== 2; i++) await page.waitForTimeout(100);
+  check("counted on the account", savedState(backend).wellness?.[target()]?.other?.nicotine === 2, JSON.stringify(savedState(backend).wellness));
+  check("marked on the week strip", await page.locator(".wd .cal-mark.own").count() === 1);
+}, account({ sessions: [workout("w1", "push", day(-2), { "Flat DB Press": [[60, 10]] })] }));
 
 test("wellness: with food tracking off, drinks are a count", async ({ page, backend }) => {
   const line = page.locator(".well-line");

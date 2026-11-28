@@ -6,13 +6,20 @@ import { COACHES } from "../data/coaches.js";
 import WellBuddy from "./WellBuddy.jsx";
 import { addDays, MEALS, nutritionFor } from "../lib/nutrition.js";
 import { today, vibrate, shortDate } from "../lib/util.js";
-import { DRINK_PRESETS, alcoholOf, drinksFor, drinksLabel, defaultLogDay, dayLine, recentDays, isDrinkLike, drinkKey, drinkName, yourDrinks, drinkMeal, againEntry, drinkUnits, scaledEntry } from "../lib/wellness.js";
+import { DRINK_PRESETS, alcoholOf, drinksFor, drinksLabel, defaultLogDay, dayLine, recentDays, isDrinkLike, drinkKey, drinkName, yourDrinks, drinkMeal, againEntry, drinkUnits, scaledEntry, sheetTitle, trackedPhrase } from "../lib/wellness.js";
 
-/* Alcohol and cannabis for a day. Every tap saves at once (there's no Save to forget); Done just
-   closes. With food tracking on, a drink is a food log entry with its calories, so it shows on
-   Nutrition and counts toward the day; with it off, the sheet keeps a plain count.
-   `well` is App's wellness bundle: { days, foodOn, log, food, head, notify, targets, setCannabis,
-   setDrinks, addDrink, addAgain, removeDrink }. */
+/* Substances for a day: whichever of alcohol, cannabis and the lifter's own the lifter tracks (well.track).
+   Every tap saves at once (there's no Save to forget); Done just closes. With food tracking on, a drink is
+   a food log entry with its calories, so it shows on Nutrition and counts toward the day; with it off,
+   the sheet keeps a plain count. The lifter's own substances are one tap to log, then − / + for more.
+   `well` is App's wellness bundle: { days, foodOn, log, track, food, head, notify, targets, setCannabis,
+   setDrinks, setOther, addDrink, addAgain, removeDrink }. */
+
+/** "alcohol or cannabis", "nicotine", "substances": what Today's line and the calendar offer to log. */
+export const logWhat = (track) => {
+  const p = trackedPhrase(track, " or ");
+  return p ? (/^[A-Z][a-z]/.test(p) ? p.charAt(0).toLowerCase() + p.slice(1) : p) : "substances";
+};
 
 /**
  * The line on Today. It asks about the day you'd most likely be logging (before noon, last night;
@@ -31,7 +38,7 @@ export function WellnessLine({ well, inCard = false }) {
       <div className={"well-line" + (inCard ? " in-card" : " card")} data-help="wellness">
         {x
           ? <span className="well-status">{dayLine(x)} {when}</span>
-          : <span>Alcohol or cannabis {when}?</span>}
+          : <span>{trackedPhrase(well.track, " or ") || "Anything to log"} {when}?</span>}
         <button type="button" className="btn-quiet well-open" onClick={() => setOpen(true)} aria-haspopup="dialog">{x ? "Edit" : "Log it"}</button>
       </div>
       {open && <WellnessSheet well={well} start={day} guessed={day !== t} onClose={() => setOpen(false)} />}
@@ -67,7 +74,7 @@ export default function WellnessSheet({ well, start = null, guessed = false, onC
 
   return (
     <>
-      <Sheet title="Alcohol & cannabis" sub={guessed && date === start ? "It's morning, so this is for last night." : null}
+      <Sheet title={sheetTitle(well.track)} sub={guessed && date === start ? "It's morning, so this is for last night." : null}
         onClose={onClose} labelledBy="wellness-title" focusField={false}>
         <div className="well-days" role="group" aria-label="Day">
           {days.map((d) => (
@@ -78,7 +85,7 @@ export default function WellnessSheet({ well, start = null, guessed = false, onC
         </div>
 
         {/* Cannabis first: one switch, so it stays in reach however long a busy day's drink list gets. */}
-        <section className="section" aria-labelledby="well-cannabis">
+        {well.track.cannabis && <section className="section" aria-labelledby="well-cannabis">
           <div className="well-head">
             <WellBuddy kind="cannabis" react={beat.kind === "cannabis" ? beat.type : null} nonce={beat.kind === "cannabis" ? beat.n : 0} />
             <div className="well-bubble">
@@ -92,9 +99,36 @@ export default function WellnessSheet({ well, start = null, guessed = false, onC
               <span className="switch" aria-hidden="true" />
             </button>
           </div>
-        </section>
+        </section>}
 
-        <section className="section" aria-labelledby="well-drinks">
+        {/* The lifter's own: one tap logs it, then − / + for more (most days "yes" is all that matters). */}
+        {well.track.custom.length > 0 && (
+          <section className="section" aria-labelledby="well-own">
+            {(well.track.alcohol || well.track.cannabis) && <h3 id="well-own" className="lbl">Your own</h3>}
+            {!(well.track.alcohol || well.track.cannabis) && <h3 id="well-own" className="sr-only">Your substances</h3>}
+            <div className="list">
+              {well.track.custom.map((c) => {
+                const n = well.log[date]?.other?.[c.id] || 0;
+                return (
+                  <div key={c.id} className={"list-row well-step" + (n ? " has" : "")}>
+                    <span className="name">{c.name}<span className="sub detail">{n ? `Logged for ${dayWord}` : `Not logged for ${dayWord}`}</span></span>
+                    {n ? (
+                      <span className="well-stepper" role="group" aria-label={c.name}>
+                        <button type="button" className="icon-btn" onClick={() => well.setOther(date, c.id, n - 1)} aria-label={`One fewer ${c.name}`}><Minus size={18} /></button>
+                        <b aria-live="polite">{n}</b>
+                        <button type="button" className="icon-btn" onClick={() => { well.setOther(date, c.id, n + 1); vibrate(10); }} aria-label={`One more ${c.name}`}><Plus size={18} /></button>
+                      </span>
+                    ) : (
+                      <button type="button" className="pill well-log" onClick={() => { well.setOther(date, c.id, 1); vibrate(10); }} aria-label={`Log ${c.name} for ${dayWord}`}>Log</button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        )}
+
+        {well.track.alcohol && <section className="section" aria-labelledby="well-drinks">
           <div className="well-head">
             <WellBuddy kind="alcohol" react={beat.kind === "alcohol" ? beat.type : null} nonce={beat.kind === "alcohol" ? beat.n : 0} />
             <div className="well-bubble">
@@ -111,7 +145,7 @@ export default function WellnessSheet({ well, start = null, guessed = false, onC
                 <button type="button" className="icon-btn" onClick={() => { well.setDrinks(date, count + 1); react("alcohol", "add"); }} aria-label="One more drink"><Plus size={20} /></button>
               </div>
             )}
-        </section>
+        </section>}
 
         <button type="button" className="btn btn-ink" onClick={onClose}>Done</button>
       </Sheet>

@@ -1,8 +1,9 @@
 import { isAlcoholic, addDays, mealForNow } from "./nutrition.js";
 import { today } from "./util.js";
 
-/* Wellness: alcohol and cannabis, alongside the training and food. Off until it's turned on in
-   Settings → Nutrition & Wellness (prefs.wellness.on).
+/* Substances: alcohol, cannabis and anything the lifter names themselves (nicotine, caffeine pills…),
+   alongside the training and food. Each is turned on separately in Settings → Substances; nothing is
+   tracked until one is (see tracked()). The code still calls the whole thing "wellness".
 
    Drinks live in the food log, because they have calories. A drink's alcohol is already kept in
    its entry's basis (Tank's meals carry alcohol grams per serving; the presets below do too), so
@@ -10,7 +11,62 @@ import { today } from "./util.js";
    log, so the day's drink count is kept in the account state instead.
 
    Cannabis is a yes per day, kept in the account state: state.wellness = { "2026-11-21": { cannabis:
-   true } }, plus { drinks: n } on days logged with food tracking off. A day with nothing has no key. */
+   true } }, plus { drinks: n } on days logged with food tracking off. A substance the lifter added is a
+   count per day under `other`, by its id: { other: { nicotine: 2 } } (one tap logs 1, + adds more).
+   A day with nothing has no key.
+
+   Privacy: cannabis and the lifter's own substances never leave for Google Health or AI assistants (the
+   MCP/REST tools don't read state.wellness). The coaches see them, like everything else in the account. */
+
+/** Most substances a lifter can add of their own. */
+export const MAX_CUSTOM = 5;
+
+/** The id a typed name is kept under: the same name typed again finds its old days. */
+export const substanceId = (name) => String(name || "").trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40) || "other";
+
+/**
+ * What the lifter tracks: { alcohol, cannabis, custom: [{ id, name }] }. Accounts from before the
+ * per-substance switches had one, prefs.wellness.on, for both alcohol and cannabis.
+ */
+export function tracked(prefs) {
+  const w = prefs?.wellness || {};
+  const legacy = w.alcohol === undefined && w.cannabis === undefined && !w.custom;
+  return {
+    alcohol: legacy ? !!w.on : !!w.alcohol,
+    cannabis: legacy ? !!w.on : !!w.cannabis,
+    custom: Array.isArray(w.custom) ? w.custom.filter((c) => c && c.id && c.name) : [],
+  };
+}
+
+/** Anything tracked at all. */
+export const tracksAny = (t) => !!(t && (t.alcohol || t.cannabis || t.custom.length));
+
+/** prefs.wellness with `patch` ({ alcohol, cannabis, custom }) applied; `on` stays "anything tracked" for the server. */
+export function withTracked(w, patch) {
+  const t = { ...tracked({ wellness: w }), ...patch };
+  return { ...w, alcohol: t.alcohol, cannabis: t.cannabis, custom: t.custom, on: tracksAny(t) };
+}
+
+/** What a substance is called in a sentence: "alcohol", "cannabis", or the lifter's own name as typed. */
+const builtIn = (t) => [t.alcohol && "Alcohol", t.cannabis && "cannabis"].filter(Boolean);
+
+/**
+ * The tracked substances as a short phrase, for a title or a question: "Alcohol", "Alcohol & cannabis",
+ * "Nicotine"; with three or more, null (callers say "Substances" or "anything").
+ */
+export function trackedPhrase(t, joiner = " & ") {
+  const names = [...builtIn(t), ...t.custom.map((c) => c.name)];
+  if (!names.length || names.length > 2) return null;
+  // Mid-sentence in lower case, unless it's an acronym the lifter typed ("THC gummies" stays).
+  const lc = (x) => (/[A-Z].*[A-Z]/.test(x) ? x : x.toLowerCase());
+  const [a, b] = names;
+  const first = a.charAt(0).toUpperCase() + a.slice(1);
+  return b ? `${first}${joiner}${lc(b)}` : first;
+}
+
+/** The log sheet's title: "Alcohol & cannabis", "Nicotine", or "Substances". */
+export const sheetTitle = (t) => trackedPhrase(t) || "Substances";
+
 
 /** Grams of pure alcohol in one US standard drink. */
 export const STANDARD_DRINK_G = 14;
@@ -67,10 +123,12 @@ export const drinksLabel = (n) => `${n} drink${n === 1 ? "" : "s"}`;
  * `entries` is the food log (null with food tracking off, when the day's own drink count is used).
  * Days with nothing are left out.
  */
-export function wellnessDays({ entries = null, wellness = {}, from = "0000-00-00", to = "9999-99-99" }) {
+export function wellnessDays({ entries = null, wellness = {}, from = "0000-00-00", to = "9999-99-99", track = null }) {
+  // `track` from tracked(): only what's tracked counts. Without one (older callers, tests), alcohol and cannabis.
+  const t = track || { alcohol: true, cannabis: true, custom: [] };
   const out = {};
-  const day = (d) => (out[d] ||= { drinks: 0, alcohol: 0, alcoholKcal: 0, cannabis: false, items: [] });
-  if (entries) {
+  const day = (d) => (out[d] ||= { drinks: 0, alcohol: 0, alcoholKcal: 0, cannabis: false, other: [], items: [] });
+  if (entries && t.alcohol) {
     for (const e of entries) {
       if (e.date < from || e.date > to) continue;
       const g = alcoholOf(e);
@@ -82,14 +140,16 @@ export function wellnessDays({ entries = null, wellness = {}, from = "0000-00-00
   }
   for (const [d, w] of Object.entries(wellness || {})) {
     if (d < from || d > to || !w) continue;
-    if (!entries && w.drinks > 0) { const x = day(d); x.alcohol = r1(x.alcohol + w.drinks * STANDARD_DRINK_G); }
-    if (w.cannabis) day(d).cannabis = true;
+    if (t.alcohol && !entries && w.drinks > 0) { const x = day(d); x.alcohol = r1(x.alcohol + w.drinks * STANDARD_DRINK_G); }
+    if (t.cannabis && w.cannabis) day(d).cannabis = true;
+    // The lifter's own, in the order they added them: [{ id, name, n }].
+    for (const c of t.custom) if (w.other?.[c.id] > 0) day(d).other.push({ id: c.id, name: c.name, n: w.other[c.id] });
   }
   for (const [d, x] of Object.entries(out)) {
     x.drinks = drinksFor(x.alcohol);
     x.alcoholKcal = Math.round(x.alcohol * ALCOHOL_KCAL_PER_G);
     // A splash of wine in a sauce rounds to no drinks: that's not a drinking day.
-    if (!x.drinks && !x.cannabis) delete out[d];
+    if (!x.drinks && !x.cannabis && !x.other.length) delete out[d];
   }
   return out;
 }
@@ -190,20 +250,25 @@ export function againEntry(e, date, nutritionFor = null) {
   return { ...rest, ...one, name: drinkName(e.name), date, meal: drinkMeal(date) };
 }
 
-/** What happened that day, in a few words: "3 drinks · cannabis". */
+/** What happened that day, in a few words: "3 drinks · cannabis · nicotine ×2". */
 export function dayLine(x) {
   if (!x) return "";
-  return [x.drinks > 0 && drinksLabel(x.drinks), x.cannabis && "cannabis"].filter(Boolean).join(" · ");
+  return [x.drinks > 0 && drinksLabel(x.drinks), x.cannabis && "cannabis",
+    ...(x.other || []).map((o) => `${o.name.toLowerCase()}${o.n > 1 ? ` ×${o.n}` : ""}`)].filter(Boolean).join(" · ");
 }
 
 /** Totals over a set of days from wellnessDays(): drinks, drinking days, cannabis days, alcohol calories. */
 export function sumDays(days) {
   const xs = Object.values(days);
+  // The lifter's own: days used and the total count, by name.
+  const other = {};
+  for (const x of xs) for (const o of x.other || []) { const v = (other[o.name] ||= { days: 0, total: 0 }); v.days++; v.total += o.n; }
   return {
     drinks: drinksFor(xs.reduce((a, x) => a + x.alcohol, 0)),
     drinkDays: xs.filter((x) => x.drinks > 0).length,
     cannabisDays: xs.filter((x) => x.cannabis).length,
     alcoholKcal: xs.reduce((a, x) => a + x.alcoholKcal, 0),
+    other,
   };
 }
 
@@ -211,14 +276,21 @@ export function sumDays(days) {
  * For the head coach: each day in the last `days` with drinks or cannabis, and the totals. Plain
  * facts, oldest first; the coach decides what matters.
  */
-export function wellnessLines({ entries = null, wellness = {}, days = 30, to = today() }) {
+export function wellnessLines({ entries = null, wellness = {}, days = 30, to = today(), track = null }) {
+  const t = track || { alcohol: true, cannabis: true, custom: [] };
+  const what = [t.alcohol && "alcohol", t.cannabis && "cannabis", ...t.custom.map((c) => c.name)].filter(Boolean).join(", ");
   const from = addDays(to, -(days - 1));
-  const w = wellnessDays({ entries, wellness, from, to });
+  const w = wellnessDays({ entries, wellness, from, to, track: t });
   const dates = Object.keys(w).sort();
-  if (!dates.length) return [`Alcohol and cannabis (they track both): none logged in the last ${days} days.`];
+  if (!dates.length) return [`Substances they track (${what}): none logged in the last ${days} days.`];
   const s = sumDays(w);
+  const parts = [
+    t.alcohol && `${drinksLabel(s.drinks)} on ${s.drinkDays} days (${s.alcoholKcal.toLocaleString()} kcal from alcohol)`,
+    t.cannabis && `cannabis on ${s.cannabisDays} days`,
+    ...Object.entries(s.other).map(([name, v]) => `${name} on ${v.days} days (${v.total} in all)`),
+  ].filter(Boolean);
   return [
-    `Alcohol and cannabis, last ${days} days (they track both; a day not listed had neither): ${drinksLabel(s.drinks)} on ${s.drinkDays} days (${s.alcoholKcal.toLocaleString()} kcal from alcohol), cannabis on ${s.cannabisDays} days.`,
+    `Substances they track (${what}), last ${days} days (a day not listed had none): ${parts.join(", ")}.`,
     ...dates.map((d) => `- ${d}: ${dayLine(w[d])}${w[d].alcoholKcal ? ` (${w[d].alcoholKcal} kcal from alcohol)` : ""}`),
   ];
 }

@@ -1,6 +1,6 @@
 import React, { useMemo, useRef, useState } from "react";
 import { InfoButton, Sheet } from "../components/ui.jsx";
-import { Scale, ArrowLeftRight, Check, X, Moon, Watch, Plus, Wine, Cannabis } from "lucide-react";
+import { Scale, ArrowLeftRight, Check, X, Moon, Watch, Plus, Wine, Cannabis, CircleDot } from "lucide-react";
 import { outsideStats, whenRecorded, isOutside } from "../lib/outside.js";
 import Effort from "../components/Effort.jsx";
 import { readiness, lowLine } from "../lib/recovery.js";
@@ -231,6 +231,7 @@ export default function Today({ name, sessions, program, drafts, weighins, prefs
                     <span className="wd-marks" aria-hidden="true">
                       {w?.drinks > 0 && <span className="cal-mark drinks"><Wine size={11} strokeWidth={2.8} />{w.drinks}</span>}
                       {w?.cannabis && <span className="cal-mark weed"><Cannabis size={11} strokeWidth={2.8} /></span>}
+                      {w?.other.length > 0 && <span className="cal-mark own"><CircleDot size={11} strokeWidth={2.8} />{w.other.length > 1 ? w.other.length : ""}</span>}
                     </span>
                   )}
                 </div>

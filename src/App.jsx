@@ -30,7 +30,7 @@ import { useCoachThread } from "./lib/coachThread.js";
 import { withTargetHistory } from "./lib/nutritionTrends.js";
 import { headContext } from "./lib/coachChat.js";
 import { headCoach } from "./data/coaches.js";
-import { wellnessDays, drinkEntry, againEntry } from "./lib/wellness.js";
+import { wellnessDays, drinkEntry, againEntry, tracked, tracksAny } from "./lib/wellness.js";
 import { coachFoodContext, totals, nutritionFor } from "./lib/nutrition.js";
 import NamePrompt from "./components/NamePrompt.jsx";
 import ErrorBoundary from "./components/ErrorBoundary.jsx";
@@ -391,11 +391,13 @@ export default function App() {
   // The head coach reads 30 days of training and food in full, older history summarized, and their own notes, fresh for every message.
   const head = headCoach(prefs);
   // `day`: the date open on the Nutrition tab when the chat was opened there (today otherwise).
-  /* Wellness (Settings → Nutrition & Wellness): drinks from the food log (or the day's count with food tracking off)
-     and cannabis days. Food entries are loaded for the last 120 days, so drinks older than that don't show. */
-  const wellnessOn = !!prefs.wellness?.on;
+  /* Substances (Settings → Substances): drinks from the food log (or the day's count with food tracking off),
+     cannabis days and the lifter's own substances, each only while tracked. Food entries are loaded for the
+     last 120 days, so drinks older than that don't show. */
+  const track = tracked(prefs);
+  const wellnessOn = tracksAny(track);
   // Plain (not memoized): this is past the early returns above, where hooks can't go. It's one pass over the entries.
-  const wellDays = wellnessOn ? wellnessDays({ entries: nutritionOn ? food.entries : null, wellness }) : null;
+  const wellDays = wellnessOn ? wellnessDays({ entries: nutritionOn && track.alcohol ? food.entries : null, wellness, track }) : null;
   const setWellDay = (date, patch) => setWellness((w) => {
     const next = { ...(w[date] || {}), ...patch };
     Object.keys(next).forEach((k) => { if (!next[k]) delete next[k]; });
@@ -403,9 +405,20 @@ export default function App() {
     if (Object.keys(next).length) out[date] = next; else delete out[date];
     return out;
   });
+  // One of the lifter's own substances on a day: a count, 0 to clear it.
+  const setOther = (date, id, n) => setWellness((w) => {
+    const other = { ...(w[date]?.other || {}), [id]: Math.max(0, n) };
+    if (!other[id]) delete other[id];
+    const next = { ...(w[date] || {}), other };
+    if (!Object.keys(other).length) delete next.other;
+    const out = { ...w };
+    if (Object.keys(next).length) out[date] = next; else delete out[date];
+    return out;
+  });
   const well = wellnessOn ? {
-    days: wellDays, foodOn: nutritionOn, log: wellness,
+    days: wellDays, foodOn: nutritionOn, log: wellness, track,
     setCannabis: (date, on) => setWellDay(date, { cannabis: on }),
+    setOther,
     setDrinks: (date, n) => setWellDay(date, { drinks: Math.max(0, n) }), // food tracking off only
     addDrink: (preset, date) => food.addEntry(drinkEntry(preset, date)),
     addAgain: (entry, date) => food.addEntry(againEntry(entry, date, nutritionFor)), // one more of a drink you've logged before
@@ -416,7 +429,7 @@ export default function App() {
   } : null;
   const buildHead = (day) => headContext({ sessions, program, weighins, profile: prefs.profile, phase: prefs.phase,
     n: nutritionOn ? prefs.nutrition : null, entries: nutritionOn ? food.entries : [], foodDays: nutritionOn ? food.history : {}, notes: thread.notes, day, recovery,
-    wellness: wellnessOn ? { entries: nutritionOn ? food.entries : null, log: wellness } : null });
+    wellness: wellnessOn ? { entries: nutritionOn && track.alcohol ? food.entries : null, log: wellness, track } : null });
   const coachChat = { thread, buildHead, foodLog: nutritionOn ? food : null, recovery };
   // `food`: the food log store while tracking is on (Today's quick add, Nutrition, Export), null while it's off.
   const common = { sessions, program, drafts, weighins, prefs, setPref, name, go, back, notify, onWeighin: logWeighin, onProgramChange: applyCoachProgram, nutrition, foodToday, food: nutritionOn ? food : null, well,

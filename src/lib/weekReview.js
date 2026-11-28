@@ -2,7 +2,7 @@ import { activeDays, baseOf, isWarmup } from "../data/program.js";
 import { COACHES, COACH_ORDER, coachFor, headCoach } from "../data/coaches.js";
 import { GOALS as TRAIN_GOALS } from "./setup.js";
 import { GOALS as FOOD_GOALS, MEALS, addDays, totals } from "./nutrition.js";
-import { alcoholOf, wellnessDays, sumDays } from "./wellness.js";
+import { alcoholOf, wellnessDays, sumDays, tracked, tracksAny } from "./wellness.js";
 import { PHASE_TYPES, phaseStatus } from "./phase.js";
 import { weekSleep, sleepPattern, hm } from "./recovery.js";
 import { lifting, volume, bestE1rm, bestSet, cardioTotals, liftSeries, trend, bodyweightSeries, readyToIncrease, byDateAsc, fmtW, num, plural, iso, longTrend } from "./util.js";
@@ -285,7 +285,7 @@ export function buildWeekFacts({ sessions = [], program, weighins = [], prefs = 
       topByKcal: [...foodList].sort((a, b) => b.kcal - a.kcal).slice(0, 5),
       topByProtein: [...foodList].sort((a, b) => b.protein - a.protein).slice(0, 5),
       // Drinks are substance tracking: only while the lifter has opted in (Settings → Nutrition & Wellness).
-      drinks: prefs.wellness?.on && drinks.length ? { entries: drinks.length, kcal: Math.round(totals(drinks).kcal) } : null,
+      drinks: tracked(prefs).alcohol && drinks.length ? { entries: drinks.length, kcal: Math.round(totals(drinks).kcal) } : null,
       prevAvgKcal: weeks[6].avgKcal, prevAvgProtein: weeks[6].avgProtein, prevLogged: weeks[6].logged,
       // What the logged food alone predicts for the scale (1 lb ≈ 3,500 kcal), to hold against the weigh-ins.
       impliedRate: avgKcal != null && full.length >= 4 && t.burn ? r1(((avgKcal - t.burn) * 7) / 3500) : null,
@@ -320,13 +320,16 @@ export function buildWeekFacts({ sessions = [], program, weighins = [], prefs = 
   /* ── Drinks and cannabis (Settings → Nutrition & Wellness, while on): the week's days and totals, and last
      week's to compare. Drinks come from the food log, or the day's count with food tracking off. ── */
   let well = null;
-  if (prefs.wellness?.on && wellness) {
-    const entries = prefs.nutrition?.on ? (food || []) : null;
-    const cur = wellnessDays({ entries, wellness, from: w.start, to: w.end });
-    const prev = wellnessDays({ entries, wellness, from: back(1).start, to: back(1).end });
+  const track = tracked(prefs);
+  if (tracksAny(track) && wellness) {
+    const entries = prefs.nutrition?.on && track.alcohol ? (food || []) : null;
+    const cur = wellnessDays({ entries, wellness, from: w.start, to: w.end, track });
+    const prev = wellnessDays({ entries, wellness, from: back(1).start, to: back(1).end, track });
     well = {
+      tracks: [track.alcohol && "alcohol", track.cannabis && "cannabis", ...track.custom.map((c) => c.name)].filter(Boolean),
       ...sumDays(cur),
-      days: Object.keys(cur).sort().map((d) => ({ date: d, drinks: cur[d].drinks, alcoholKcal: cur[d].alcoholKcal, cannabis: cur[d].cannabis })),
+      days: Object.keys(cur).sort().map((d) => ({ date: d, drinks: cur[d].drinks, alcoholKcal: cur[d].alcoholKcal, cannabis: cur[d].cannabis,
+        ...(cur[d].other.length ? { other: Object.fromEntries(cur[d].other.map((o) => [o.name, o.n])) } : {}) })),
       lastWeek: sumDays(prev),
     };
   }
