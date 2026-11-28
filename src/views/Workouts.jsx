@@ -1,13 +1,13 @@
 import React, { useMemo, useState } from "react";
 import { EmptyState } from "../components/ui.jsx";
-import { Pencil, ChevronLeft, ChevronRight, Wine, Cannabis } from "lucide-react";
+import { Pencil, ChevronLeft, ChevronRight, ChevronDown, Wine, Cannabis } from "lucide-react";
 import { sumDays, dayLine, drinksLabel, alcoholOf, drinksFor, drinkKey, drinkName, drinkUnits } from "../lib/wellness.js";
 import WellnessSheet from "../components/WellnessSheet.jsx";
 import { WINDOW_DAYS } from "../lib/food.js";
 import { allDays, CUSTOM } from "../data/program.js";
 import { href } from "../lib/router.js";
 import { outsideStats, effortWord } from "../lib/outside.js";
-import { fmtSet, bestSet, byDateDesc, longDate, compact, sessionVolume, sessionSetCount, plural, priorSessions, allTimeBest, bestE1rm, e1rm, num, today, iso, daysBetween } from "../lib/util.js";
+import { fmtSet, bestSet, byDateDesc, longDate, shortDate, weekDates, compact, sessionVolume, sessionSetCount, plural, priorSessions, allTimeBest, bestE1rm, e1rm, num, today, iso, daysBetween } from "../lib/util.js";
 
 /** Progress → Workouts: every logged workout as a list or a month calendar, filterable by day.
     The list/calendar switch lives in the Progress header (`calendar`). */
@@ -55,7 +55,12 @@ export default function Workouts({ sessions, program, calendar, heart = false, w
         : (
           <>
             {shown.length === 0 && <p className="muted">No {filter ? program[filter].name : ""} sessions logged yet.</p>}
-            {shown.map((s) => <HistCard key={s.id} s={s} program={program} prs={prs} heart={heart} />)}
+            {byWeek(shown).map((w, wi) => (
+              <section key={w.start} className="hist-week" aria-label={w.label}>
+                <h2 className="lbl hist-week-head"><span>{w.label}</span><span className="hist-week-n">{plural(w.sessions.length, "workout")}</span></h2>
+                {w.sessions.map((s, i) => <HistCard key={s.id} s={s} program={program} prs={prs} heart={heart} defaultOpen={wi === 0 && i === 0} />)}
+              </section>
+            ))}
           </>
         )}
       </>)}
@@ -157,7 +162,7 @@ function MonthCalendar({ sessions, program, prs, heart, well }) {
       )}
       {logging && <WellnessSheet well={well} start={picked} onClose={() => setLogging(false)} />}
       {(byDate[picked] || []).length
-        ? byDate[picked].map((s) => <HistCard key={s.id} s={s} program={program} prs={prs} heart={heart} />)
+        ? byDate[picked].map((s) => <HistCard key={s.id} s={s} program={program} prs={prs} heart={heart} defaultOpen />)
         : <p className="muted cal-none">No workout logged on {longDate(picked)}.</p>}
     </>
   );
@@ -200,25 +205,52 @@ function WellDay({ day, foodOn }) {
 }
 
 /** One logged workout: sets, volume, PRs (with the record set and what it beat) and an edit link. */
-function HistCard({ s, program, prs, heart }) {
+/* Workouts grouped by week (Sunday first, like Today's week), newest first: "This week", "Last week",
+   then the dates. */
+function byWeek(list) {
+  const thisWeek = weekDates()[0];
+  const out = [];
+  for (const s of list) {
+    const start = weekDates(new Date(s.date + "T12:00:00"))[0];
+    let w = out[out.length - 1];
+    if (!w || w.start !== start) {
+      const ago = Math.round(daysBetween(start, thisWeek) / 7);
+      const end = weekDates(new Date(s.date + "T12:00:00"))[6];
+      w = { start, sessions: [], label: ago === 0 ? "This week" : ago === 1 ? "Last week" : `${shortDate(start)} – ${shortDate(end)}` };
+      out.push(w);
+    }
+    w.sessions.push(s);
+  }
+  return out;
+}
+
+/* One workout: a row (date, day, sets, PRs) that opens in place to every lift's top set. Collapsed by
+   default so a long history scrolls as a list, not page after page of sets (audit 2026-11-28, P-03). */
+function HistCard({ s, program, prs, heart, defaultOpen = false }) {
   const hits = prs[s.id] || {};
   const n = Object.keys(hits).length;
+  const [open, setOpen] = useState(defaultOpen);
   // Each lift shows its top set (the record set on a PR); every set is one tap away.
   const [all, setAll] = useState(false);
   if (s.ext) return <OutsideHistCard s={s} program={program} heart={heart} />;
+  const name = program[s.day].name;
   return (
-    <article className="hist" data-help="workout" data-day={s.day}>
+    <article className={"hist" + (open ? " open" : "")} data-help="workout" data-day={s.day}>
       <div className="hist-head">
-        <a className="hist-open" href={href("summary", s.id, "view")} aria-label={`Open ${program[s.day].name} workout on ${longDate(s.date)}${heart && s.hr && !s.hr.none ? ", with heart rate" : ""}`}>
-          <h2 className="hist-date">{longDate(s.date)}<ChevronRight size={18} strokeWidth={2.6} aria-hidden="true" className="hist-chev" /></h2>
-          <div className="hist-meta">
-            {program[s.day].name} · {plural(sessionSetCount(s), "set")}{sessionVolume(s) > 0 && ` · ${compact(sessionVolume(s))} lb lifted`}{s.bw != null && ` · ${s.bw} lb bodyweight`}
-          </div>
-          {heart && s.hr && !s.hr.none && <div className="hist-meta">Heart rate avg {s.hr.avg} · peak {s.hr.max} bpm{s.hr.hard != null && ` · ${num(s.hr.hard)} min vigorous+`}</div>}
-        </a>
+        <h3 className="hist-h">
+          <button type="button" className="hist-toggle" aria-expanded={open} onClick={() => setOpen(!open)}
+            aria-label={`${name} workout on ${longDate(s.date)}${n ? `, ${plural(n, "PR")}` : ""}`}>
+            <span className="hist-date">{longDate(s.date)}</span>
+            <span className="hist-meta hist-sum">
+              <span className="dot" aria-hidden="true" />{name} · {plural(sessionSetCount(s), "set")}{sessionVolume(s) > 0 && ` · ${compact(sessionVolume(s))} lb`}{s.bw != null && open && ` · ${s.bw} lb bodyweight`}
+            </span>
+            {open && heart && s.hr && !s.hr.none && <span className="hist-meta">Heart rate avg {s.hr.avg} · peak {s.hr.max} bpm{s.hr.hard != null && ` · ${num(s.hr.hard)} min vigorous+`}</span>}
+          </button>
+        </h3>
         {n > 0 && <span className="stamp">PR{n > 1 ? ` ×${n}` : ""}</span>}
-        <a className="icon-btn" data-help="edit" href={href("session", s.day, s.id)} aria-label={`Edit ${program[s.day].name} session on ${longDate(s.date)}`}><Pencil size={17} /></a>
+        <ChevronDown size={20} strokeWidth={2.6} aria-hidden="true" className="hist-chev" />
       </div>
+      {open && <>
       {s.note && <p className="hist-note">{s.note}</p>}
       <div>
         {Object.entries(s.sets).map(([name, sets]) => {
@@ -238,7 +270,13 @@ function HistCard({ s, program, prs, heart }) {
           );
         })}
       </div>
-      <button className="btn-quiet hist-more" onClick={() => setAll(!all)} aria-expanded={all}>{all ? "Show top sets" : "Show all sets"}</button>
+      <div className="hist-foot">
+        <button className="btn-quiet hist-more" onClick={() => setAll(!all)} aria-expanded={all}>{all ? "Show top sets" : "Show all sets"}</button>
+        <span className="spacer" />
+        <a className="btn-quiet hist-more" data-help="edit" href={href("session", s.day, s.id)} aria-label={`Edit ${name} session on ${longDate(s.date)}`}><Pencil size={15} aria-hidden="true" />Edit</a>
+        <a className="btn-quiet hist-more" href={href("summary", s.id, "view")} aria-label={`Open the ${name} recap for ${longDate(s.date)}`}>Recap<ChevronRight size={16} strokeWidth={2.6} aria-hidden="true" /></a>
+      </div>
+      </>}
     </article>
   );
 }
