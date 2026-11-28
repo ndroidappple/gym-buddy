@@ -89,16 +89,27 @@ export default function Today({ name, sessions, program, drafts, weighins, prefs
   }, [sessions]);
   const doneThisWeek = week.filter((d) => byDate[d]).length;
 
-  const names = crew.map((id) => COACHES[id].name);
+  // The coach up top (lead, below) is shown once: the card's "on deck" row names the rest of the day's crew.
+  const deck = crew.filter((id) => id !== (head || crew[0]));
+  const names = deck.map((id) => COACHES[id].name);
   const onDeck = names.length <= 2 ? names.join(" & ") : `${names.slice(0, 2).join(", ")} +${names.length - 2}`;
   // The name appears once: in the headline on odd days, in the coach's hello on even days (and
   // always in the hello when a workout's in progress, since that headline has no name).
   const nameInTitle = !draft && Math.floor(new Date(t + "T12:00:00").getTime() / 864e5) % 2 === 1;
   const to = name && nameInTitle ? `, ${name}` : "";
   const doneName = done && (done.day === CUSTOM ? (done.ext?.name || "Workout") : program[done.day]?.name || "Workout");
-  const headline = draft ? "Pick up where you left off."
-    : done ? (doneToday.length > 1 ? `${doneToday.length} workouts done${to}. Rest up.` : `${doneName} done${to}. Rest up.`)
-    : daysOff != null && daysOff >= 5 ? `${daysOff} days off${to}. Back to it.` : `${p.name} day${to}. Let's lift.`;
+  /* The headline says what the card under it doesn't: where the week stands. The card already names the
+     day, what's in progress and what was done (audit 2026-11-28: "Push" twice in the first 450pt). */
+  const aim = prefs?.profile?.days || activeDays(program).length;
+  const goalHit = doneThisWeek >= aim;
+  const next = doneThisWeek + (byDate[t] ? 0 : 1); // the week's count once today's workout is in (a second one today adds no day)
+  const headline = draft ? (goalHit ? `Finish this one${to}. It's a bonus.` : `Finish this one${to} and that's ${next} of ${aim} this week.`)
+    : done ? (goalHit ? `Week goal hit${to}. Rest up.` : `${doneThisWeek} of ${aim} this week${to}. Rest up.`)
+    : daysOff != null && daysOff >= 5 ? `${daysOff} days off${to}. Back to it.`
+    : sessions.length === 0 ? `First workout${to}. Let's lift.`
+    : goalHit ? `Week goal hit${to}. Anything now is a bonus.`
+    : doneThisWeek === 0 ? `New week${to}. Let's get the first one in.`
+    : `${doneThisWeek} of ${aim} this week${to}. Let's make it ${next}.`;
 
   return (
     <main className="screen has-tabs">
@@ -148,10 +159,12 @@ export default function Today({ name, sessions, program, drafts, weighins, prefs
                 <span className="pill">{plannedSets} sets</span>
                 {usualMins && <span className="pill">~{usualMins} min</span>}
               </div>
-              <div className="hero-coaches">
-                <span className="coach-stack">{crew.slice(0, 3).map((id) => <span key={id} className="coach-chip"><Coach id={id} size={32} still badge decorative /></span>)}</span>
-                <span>{onDeck} {crew.length === 1 ? "is" : "are"} on deck</span>
-              </div>
+              {deck.length > 0 && (
+                <div className="hero-coaches">
+                  <span className="coach-stack">{deck.slice(0, 3).map((id) => <span key={id} className="coach-chip"><Coach id={id} size={32} still badge decorative /></span>)}</span>
+                  <span>{onDeck} {deck.length === 1 ? "is" : "are"} on deck</span>
+                </div>
+              )}
             </>
           )}
           <a className="btn hero-cta" data-help="start" href={href("session", day)}>{draft ? `Resume ${p.name}` : "Start lifting"}</a>
@@ -217,7 +230,8 @@ export default function Today({ name, sessions, program, drafts, weighins, prefs
         )}
 
         <section className="section">
-          <div className="section-head"><h2 className="lbl">This week</h2><span className="lbl">{doneThisWeek} done · aim ~{prefs?.profile?.days || activeDays(program).length}</span></div>
+          {/* The count is in the headline; the strip shows which days. */}
+          <div className="section-head"><h2 className="lbl">This week</h2></div>
           <div className="week" data-help="week">
             {week.map((d) => {
               const dd = byDate[d];
